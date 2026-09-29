@@ -48,6 +48,10 @@ pub struct Palette {
     pub hit: Color,
     /// Optional panel behind the whole overlay.
     pub panel: Option<Color>,
+    /// Hover popup background, its 1 px border, and the failed-source message.
+    pub popup: Color,
+    pub popup_border: Color,
+    pub warning: Color,
     items: Vec<(ItemKind, CellPart, Color)>,
 }
 
@@ -111,6 +115,17 @@ impl Palette {
             text,
             label,
             panel,
+            popup: theme_panel.with_alpha(0.98),
+            popup_border: if light_taskbar {
+                Color::rgb(0, 0, 0).with_alpha(0.12)
+            } else {
+                Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(0.12)
+            },
+            warning: if light_taskbar {
+                Color::rgb(0x9D, 0x5D, 0x00)
+            } else {
+                Color::rgb(0xFF, 0xB9, 0x00)
+            },
             tile,
             hit: Color::rgb(0, 0, 0).with_alpha(1.0 / 255.0),
             items,
@@ -263,6 +278,16 @@ mod tests {
             Some(Color::rgb(0xF3, 0xF3, 0xF3).with_alpha(0.6)),
             "theme panel colour on a light taskbar"
         );
+    }
+
+    #[test]
+    fn popup_follows_the_theme() {
+        let config = Config::default();
+        let dark = Palette::new(false, &config, None);
+        assert_eq!(dark.popup, Color::rgb(0x20, 0x20, 0x20).with_alpha(0.98));
+        let light = Palette::new(true, &config, None);
+        assert_eq!(light.popup, Color::rgb(0xF3, 0xF3, 0xF3).with_alpha(0.98));
+        assert_ne!(dark.warning, light.warning);
     }
 
     #[test]
