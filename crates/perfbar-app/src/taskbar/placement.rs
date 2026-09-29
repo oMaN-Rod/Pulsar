@@ -66,7 +66,8 @@ pub fn tray_is_laid_out(taskbar: &Rect32, tray: Option<&Rect32>) -> bool {
 
 pub fn place(input: &PlacementInput) -> Placement {
     let tb = input.taskbar;
-    if input.overlay_w <= 0 {
+    let off_monitor = tb.right <= input.monitor.left || tb.left >= input.monitor.right;
+    if input.overlay_w <= 0 || tb.width() <= 0 || tb.height() <= 0 || off_monitor {
         return Placement::Hidden(HideReason::Empty);
     }
     if tb.height() > tb.width() {
@@ -281,6 +282,31 @@ mod tests {
                 ..input()
             }),
             Placement::Hidden(HideReason::Vertical)
+        );
+    }
+
+    #[test]
+    fn hidden_for_a_degenerate_or_off_monitor_taskbar() {
+        let zero = Rect32::default();
+        assert_eq!(
+            place(&PlacementInput {
+                taskbar: zero,
+                ..input()
+            }),
+            Placement::Hidden(HideReason::Empty)
+        );
+        let elsewhere = Rect32 {
+            left: 5000,
+            top: 1032,
+            right: 6920,
+            bottom: 1080,
+        };
+        assert_eq!(
+            place(&PlacementInput {
+                taskbar: elsewhere,
+                ..input()
+            }),
+            Placement::Hidden(HideReason::Empty)
         );
     }
 
