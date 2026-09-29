@@ -1,9 +1,15 @@
 use std::collections::HashMap;
 
 use crate::metric::{GpuEngineKind, MetricKey, Snapshot, Source, SourceError, SourceId};
-use crate::pdh::{Counter, Query};
+use crate::pdh::{Counter, PdhError, Query};
 
 pub const ENGINE_COUNTER: &str = r"\GPU Engine(*)\Utilization Percentage";
+
+/// PDH reports "no data" when the GPU objects exist but have no instances
+/// (VMs, RDP sessions, basic display drivers).
+fn unavailable(_: PdhError) -> SourceError {
+    SourceError::Unavailable("GPU counters unavailable".into())
+}
 
 pub struct GpuSource {
     query: Query,
@@ -14,16 +20,19 @@ pub struct GpuSource {
 
 impl GpuSource {
     pub fn new() -> Result<Self, SourceError> {
-        let unavailable = |_| SourceError::Unavailable("GPU counters unavailable".into());
+        Self::with_paths(
+            ENGINE_COUNTER,
+            r"\GPU Adapter Memory(*)\Dedicated Usage",
+            r"\GPU Adapter Memory(*)\Shared Usage",
+        )
+    }
+
+    fn with_paths(engines: &str, dedicated: &str, shared: &str) -> Result<Self, SourceError> {
         let query = Query::new()?;
-        let engines = query.add(ENGINE_COUNTER).map_err(unavailable)?;
-        let dedicated = query
-            .add(r"\GPU Adapter Memory(*)\Dedicated Usage")
-            .map_err(unavailable)?;
-        let shared = query
-            .add(r"\GPU Adapter Memory(*)\Shared Usage")
-            .map_err(unavailable)?;
-        query.collect()?;
+        let engines = query.add(engines).map_err(unavailable)?;
+        let dedicated = query.add(dedicated).map_err(unavailable)?;
+        let shared = query.add(shared).map_err(unavailable)?;
+        query.collect().map_err(unavailable)?;
         Ok(Self {
             query,
             engines,
@@ -39,6 +48,12 @@ impl Source for GpuSource {
     }
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
+        self.sample_counters(out).map_err(unavailable)
+    }
+}
+
+impl GpuSource {
+    fn sample_counters(&self, out: &mut Snapshot) -> Result<(), PdhError> {
         self.query.collect()?;
         let usage = aggregate_engines(&self.engines.array()?);
         out.set(MetricKey::GpuUtil, usage.util);
@@ -112,7 +127,7 @@ pub fn aggregate_engines(samples: &[(String, f64)]) -> GpuUsage {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     fn s(name: &str, v: f64) -> (String, f64) {
@@ -177,6 +192,19 @@ mod tests {
         ]);
         assert_eq!(usage.util, 100.0);
         assert_eq!(usage.per_kind[&GpuEngineKind::Copy], 0.0);
+    }
+
+    /// Registered but instance-less, like GPU counters on a VM or RDP session.
+    pub(crate) const EMPTY_OBJECT: &str = r"\Hyper-V Dynamic Memory VM(*)\Guest Available Memory";
+
+    #[test]
+    fn object_without_instances_is_reported_as_unavailable() {
+        let result = GpuSource::with_paths(EMPTY_OBJECT, EMPTY_OBJECT, EMPTY_OBJECT)
+            .and_then(|mut gpu| gpu.sample(&mut Snapshot::default()));
+        match result {
+            Err(SourceError::Unavailable(msg)) => assert_eq!(msg, "GPU counters unavailable"),
+            other => panic!("expected Unavailable, got {other:?}"),
+        }
     }
 
     #[test]

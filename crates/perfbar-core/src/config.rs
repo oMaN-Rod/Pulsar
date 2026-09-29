@@ -211,6 +211,9 @@ pub fn load(path: &Path) -> Loaded {
                 warning: None,
             };
         }
+        Err(e) if e.kind() == io::ErrorKind::InvalidData => {
+            return back_up_invalid(path, "the file is not UTF-8 text");
+        }
         Err(e) => {
             return Loaded {
                 config: Config::default(),
@@ -223,21 +226,23 @@ pub fn load(path: &Path) -> Loaded {
             config: config.sanitize(),
             warning: None,
         },
-        Err(e) => {
-            let backup = path.with_extension("toml.bak");
-            let moved = fs::rename(path, &backup).is_ok();
-            let where_ = if moved {
-                format!(" It was saved as {}.", backup.display())
-            } else {
-                String::new()
-            };
-            Loaded {
-                config: Config::default(),
-                warning: Some(format!(
-                    "Settings file was invalid and defaults were used.{where_}\n{e}"
-                )),
-            }
-        }
+        Err(e) => back_up_invalid(path, &e.to_string()),
+    }
+}
+
+fn back_up_invalid(path: &Path, reason: &str) -> Loaded {
+    let backup = path.with_extension("toml.bak");
+    let moved = fs::rename(path, &backup).is_ok();
+    let where_ = if moved {
+        format!(" It was saved as {}.", backup.display())
+    } else {
+        String::new()
+    };
+    Loaded {
+        config: Config::default(),
+        warning: Some(format!(
+            "Settings file was invalid and defaults were used.{where_}\n{reason}"
+        )),
     }
 }
 
@@ -272,6 +277,29 @@ mod tests {
         let loaded = load(&dir.path().join("nope.toml"));
         assert_eq!(loaded.config, Config::default());
         assert!(loaded.warning.is_none());
+    }
+
+    #[test]
+    fn non_utf8_file_is_backed_up_and_defaults_used() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        let utf16: Vec<u8> = [0xFF, 0xFE]
+            .into_iter()
+            .chain(
+                "[display]\nmode = \"text\"\n"
+                    .encode_utf16()
+                    .flat_map(u16::to_le_bytes),
+            )
+            .collect();
+        fs::write(&path, utf16).unwrap();
+        let loaded = load(&path);
+        assert_eq!(loaded.config, Config::default());
+        assert!(loaded.warning.is_some());
+        assert!(
+            !path.exists(),
+            "a later save must not overwrite the user's file"
+        );
+        assert!(dir.path().join("config.toml.bak").exists());
     }
 
     #[test]

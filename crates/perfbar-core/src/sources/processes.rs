@@ -9,18 +9,22 @@ pub struct ProcessesSource {
     cpu: Counter,
     private: Counter,
     ids: Counter,
-    /// `None` when GPU counters are unavailable; GPU columns are then zero.
+    /// GPU columns are zero when this is `None` or has no instances.
     gpu: Option<Counter>,
     cpu_count: usize,
 }
 
 impl ProcessesSource {
     pub fn new() -> Result<Self, SourceError> {
+        Self::with_gpu_counter(ENGINE_COUNTER)
+    }
+
+    fn with_gpu_counter(gpu_path: &str) -> Result<Self, SourceError> {
         let query = Query::new()?;
         let cpu = query.add(r"\Process(*)\% Processor Time")?;
         let private = query.add(r"\Process(*)\Working Set - Private")?;
         let ids = query.add(r"\Process(*)\ID Process")?;
-        let gpu = query.add(ENGINE_COUNTER).ok();
+        let gpu = query.add(gpu_path).ok();
         query.collect()?;
         let cpu_count = std::thread::available_parallelism().map_or(1, |n| n.get());
         Ok(Self {
@@ -41,10 +45,12 @@ impl Source for ProcessesSource {
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
         self.query.collect()?;
-        let gpu_per_pid = match &self.gpu {
-            Some(counter) => aggregate_engines(&counter.array()?).per_pid,
-            None => HashMap::new(),
-        };
+        let gpu_per_pid = self
+            .gpu
+            .as_ref()
+            .and_then(|counter| counter.array().ok())
+            .map(|samples| aggregate_engines(&samples).per_pid)
+            .unwrap_or_default();
         out.processes = group_processes(
             &self.cpu.array()?,
             &self.private.array()?,
@@ -163,6 +169,20 @@ mod tests {
         assert_eq!(chrome.cpu_percent, 10.0, "80% of one core over 8 cores");
         assert_eq!(chrome.private_bytes, 150.0);
         assert_eq!(chrome.gpu_percent, 12.0);
+    }
+
+    #[test]
+    fn missing_gpu_instances_do_not_break_process_lists() {
+        let mut source =
+            ProcessesSource::with_gpu_counter(crate::sources::gpu::tests::EMPTY_OBJECT).unwrap();
+        source.sample(&mut Snapshot::default()).ok();
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let mut snap = Snapshot::default();
+        source
+            .sample(&mut snap)
+            .expect("process sampling survives missing GPU data");
+        assert!(!snap.processes.is_empty());
+        assert!(snap.processes.iter().all(|p| p.gpu_percent == 0.0));
     }
 
     #[test]
