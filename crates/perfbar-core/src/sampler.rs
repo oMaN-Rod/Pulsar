@@ -9,7 +9,7 @@ use crate::sources::{
     ProcessesSource,
 };
 
-pub type ProcessesFactory = Box<dyn FnOnce() -> Box<dyn Source> + Send>;
+pub type ProcessesFactory = Box<dyn Fn() -> Box<dyn Source> + Send>;
 
 /// Runs every source once per tick. A failing source is reported in
 /// `Snapshot::errors` and never prevents the others from sampling.
@@ -32,8 +32,9 @@ impl Sampler {
         }
     }
 
-    /// The processes source is built on first use: its PDH query costs
-    /// several MB and is only needed while a popup lists processes.
+    /// The processes source is built when first wanted and released when no
+    /// longer wanted: its PDH query costs several MB and is only needed while
+    /// a popup lists processes.
     pub fn with_lazy_processes(sources: Vec<Box<dyn Source>>, factory: ProcessesFactory) -> Self {
         Self {
             processes_factory: Some(factory),
@@ -81,9 +82,12 @@ impl Sampler {
         let wanted = self.want_processes.load(Ordering::Relaxed);
         if wanted
             && self.processes.is_none()
-            && let Some(factory) = self.processes_factory.take()
+            && let Some(factory) = &self.processes_factory
         {
             self.processes = Some(factory());
+        }
+        if !wanted && self.processes_factory.is_some() {
+            self.processes = None;
         }
         if let (true, Some(processes)) = (wanted, self.processes.as_mut()) {
             if self.processes_primed {
@@ -234,6 +238,52 @@ mod tests {
         sampler.sample();
         assert_eq!(created.load(Ordering::SeqCst), 1, "built once on first use");
         assert!(!sampler.sample().processes.is_empty());
+    }
+
+    #[test]
+    fn processes_source_is_released_when_no_longer_wanted() {
+        use std::sync::atomic::AtomicUsize;
+
+        struct Counted(Arc<AtomicUsize>);
+        impl Source for Counted {
+            fn id(&self) -> SourceId {
+                SourceId::Processes
+            }
+            fn sample(&mut self, _: &mut Snapshot) -> Result<(), SourceError> {
+                Ok(())
+            }
+        }
+        impl Drop for Counted {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
+        let created = Arc::new(AtomicUsize::new(0));
+        let dropped = Arc::new(AtomicUsize::new(0));
+        let (c, d) = (created.clone(), dropped.clone());
+        let mut sampler = Sampler::with_lazy_processes(
+            vec![],
+            Box::new(move || {
+                c.fetch_add(1, Ordering::SeqCst);
+                Box::new(Counted(d.clone())) as Box<dyn Source>
+            }),
+        );
+        let flag = sampler.processes_flag();
+
+        flag.store(true, Ordering::Relaxed);
+        sampler.sample();
+        flag.store(false, Ordering::Relaxed);
+        sampler.sample();
+        assert_eq!(
+            dropped.load(Ordering::SeqCst),
+            1,
+            "released after the popup closes"
+        );
+
+        flag.store(true, Ordering::Relaxed);
+        sampler.sample();
+        assert_eq!(created.load(Ordering::SeqCst), 2, "rebuilt on the next use");
     }
 
     #[test]
