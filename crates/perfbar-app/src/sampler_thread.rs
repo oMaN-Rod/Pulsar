@@ -1,3 +1,5 @@
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -14,6 +16,8 @@ use crate::messages::WM_APP_SNAPSHOT;
 /// channel and posting `WM_APP_SNAPSHOT` so the UI thread wakes to read it.
 pub struct SamplerThread {
     pub snapshots: Receiver<Snapshot>,
+    /// Set while a popup lists processes; the sampler collects them only then.
+    pub processes: Arc<AtomicBool>,
     stop: Option<Sender<()>>,
     handle: Option<JoinHandle<()>>,
 }
@@ -21,6 +25,7 @@ pub struct SamplerThread {
 impl SamplerThread {
     pub fn spawn(config: &Config, notify: Option<HWND>) -> Self {
         let mut sampler = Sampler::from_config(config);
+        let processes = sampler.processes_flag();
         let interval = Duration::from_millis(config.general.sample_interval_ms.into());
         let notify = notify.map(|h| h.0 as isize);
         let (tx, snapshots) = mpsc::channel();
@@ -57,6 +62,7 @@ impl SamplerThread {
             .expect("spawn sampler thread");
         Self {
             snapshots,
+            processes,
             stop: Some(stop),
             handle: Some(handle),
         }
@@ -98,6 +104,28 @@ mod tests {
             .unwrap();
         let gap = start.elapsed();
         assert!(gap < Duration::from_millis(900), "{gap:?}");
+    }
+
+    #[test]
+    fn processes_are_collected_only_while_flagged() {
+        use std::sync::atomic::Ordering;
+        let thread = SamplerThread::spawn(&fast_config(), None);
+        let first = thread
+            .snapshots
+            .recv_timeout(Duration::from_secs(3))
+            .unwrap();
+        assert!(first.processes.is_empty());
+        thread.processes.store(true, Ordering::Relaxed);
+        let listed = (0..6).any(|_| {
+            thread
+                .snapshots
+                .recv_timeout(Duration::from_secs(3))
+                .is_ok_and(|s| !s.processes.is_empty())
+        });
+        assert!(
+            listed,
+            "processes appear once flagged (after one priming sample)"
+        );
     }
 
     #[test]

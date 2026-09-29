@@ -1,23 +1,30 @@
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
+use std::sync::atomic::Ordering;
 
 use perfbar_core::config::{self, Config};
 use perfbar_core::history::HistoryStore;
-use perfbar_core::metric::Snapshot;
+use perfbar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos, GetMessageW,
     KillTimer, MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW, RegisterWindowMessageW,
     SetTimer, TranslateMessage, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_LBUTTONUP,
-    WM_MOUSEACTIVATE, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW,
-    WS_POPUP,
+    WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW,
+    WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{Result, w};
 
 use crate::menu::{self, Command};
 use crate::messages::{WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY};
 use crate::overlay::{self, Overlay};
+use crate::popup::content::needs_processes;
+use crate::popup::layout::item_screen_rect;
+use crate::popup::{self, Anchor, Popup, Style as PopupStyle};
 use crate::render::{Frame, Renderer};
 use crate::sampler_thread::SamplerThread;
 use crate::taskbar::hooks::{self, Hooks};
@@ -36,6 +43,9 @@ const VALIDATE_MS: u32 = 2000;
 const RETRY_MS: [u32; 4] = [100, 250, 500, 1000];
 
 const HOST_CLASS: windows::core::PCWSTR = w!("PerfBarHost");
+const HOVER_MS: u32 = 300;
+const WM_MOUSEHOVER: u32 = 0x02A1;
+const WM_MOUSELEAVE: u32 = 0x02A3;
 
 /// Broadcasts that arrived while the app was busy; replayed on the next tick.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -92,6 +102,9 @@ pub struct App {
     hooks: Option<(u32, Hooks)>,
     fullscreen: Option<Rect32>,
     retry_step: usize,
+    popup: Popup,
+    /// Overlays with an active `TrackMouseEvent` request.
+    tracking: Vec<HWND>,
 }
 
 impl App {
@@ -122,6 +135,8 @@ impl App {
             hooks: None,
             fullscreen: None,
             retry_step: 0,
+            popup: Popup::create(instance)?,
+            tracking: Vec::new(),
         })
     }
 
@@ -162,6 +177,9 @@ impl App {
             self.schedule_retry();
         } else {
             self.retry_step = 0;
+        }
+        if self.popup.open.is_some() && self.overlays.iter().all(|o| o.shown_at.is_none()) {
+            self.close_popup();
         }
     }
 
@@ -255,7 +273,92 @@ impl App {
         }
         if received {
             self.redraw();
+            if let Some((kind, anchor)) = self.popup.open {
+                self.show_popup(kind, anchor);
+            }
         }
+    }
+
+    fn hit(&self, overlay: HWND, x: i32, y: i32) -> Option<ItemKind> {
+        let o = self.overlays.iter().find(|o| o.hwnd == overlay)?;
+        o.layout.hit_test(x as f32, y as f32)
+    }
+
+    fn on_mouse_move(&mut self, overlay: HWND, x: i32, y: i32) {
+        if !self.tracking.contains(&overlay) {
+            let mut request = TRACKMOUSEEVENT {
+                cbSize: size_of::<TRACKMOUSEEVENT>() as u32,
+                dwFlags: TME_HOVER | TME_LEAVE,
+                hwndTrack: overlay,
+                dwHoverTime: HOVER_MS,
+            };
+            if unsafe { TrackMouseEvent(&mut request) }.is_ok() {
+                self.tracking.push(overlay);
+            }
+        }
+        if let Some((open, _)) = self.popup.open
+            && let Some(kind) = self.hit(overlay, x, y)
+            && kind != open
+        {
+            self.open_popup(overlay, kind);
+        }
+    }
+
+    fn on_mouse_hover(&mut self, overlay: HWND, x: i32, y: i32) {
+        if self.config.display.hover_popup
+            && let Some(kind) = self.hit(overlay, x, y)
+        {
+            self.open_popup(overlay, kind);
+        }
+    }
+
+    fn on_mouse_leave(&mut self, overlay: HWND) {
+        self.tracking.retain(|&h| h != overlay);
+        self.close_popup();
+    }
+
+    fn open_popup(&mut self, overlay: HWND, kind: ItemKind) {
+        let Some(o) = self.overlays.iter().find(|o| o.hwnd == overlay) else {
+            return;
+        };
+        let Some(item) = o
+            .shown_at
+            .and_then(|origin| item_screen_rect(&o.layout, kind, origin))
+        else {
+            return;
+        };
+        let anchor = Anchor {
+            item,
+            taskbar: o.taskbar.rect,
+            monitor: o.taskbar.monitor,
+            dpi: o.taskbar.dpi,
+        };
+        self.sampler
+            .processes
+            .store(needs_processes(kind), Ordering::Relaxed);
+        self.show_popup(kind, anchor);
+    }
+
+    fn show_popup(&mut self, kind: ItemKind, anchor: Anchor) {
+        let content =
+            popup::content::build(kind, &self.latest, &self.history, &self.config.ping.host);
+        let style = PopupStyle {
+            palette: &self.palette,
+            history: &self.history,
+            font_px: self.config.display.font_size_pt * anchor.dpi as f32 / 72.0,
+        };
+        if self
+            .popup
+            .show(anchor, &content, &style, &self.text)
+            .is_err()
+        {
+            self.close_popup();
+        }
+    }
+
+    fn close_popup(&mut self) {
+        self.popup.hide();
+        self.sampler.processes.store(false, Ordering::Relaxed);
     }
 
     /// Runs every 250 ms and on foreground changes: hides for fullscreen apps
@@ -328,7 +431,10 @@ impl App {
 }
 
 fn context_menu(x: i32, y: i32) {
-    let Some((host, mode)) = with_app(|a| (a.host, a.config.display.mode)) else {
+    let Some((host, mode)) = with_app(|a| {
+        a.close_popup();
+        (a.host, a.config.display.mode)
+    }) else {
         return;
     };
     if let Some(command) = menu::show(host, x, y, mode) {
@@ -396,7 +502,22 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
 unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+        WM_MOUSEMOVE => {
+            let (x, y) = signed_words(lp.0 as usize);
+            with_app(|a| a.on_mouse_move(hwnd, x, y));
+            LRESULT(0)
+        }
+        WM_MOUSEHOVER => {
+            let (x, y) = signed_words(lp.0 as usize);
+            with_app(|a| a.on_mouse_hover(hwnd, x, y));
+            LRESULT(0)
+        }
+        WM_MOUSELEAVE => {
+            with_app(|a| a.on_mouse_leave(hwnd));
+            LRESULT(0)
+        }
         WM_LBUTTONUP => {
+            with_app(App::close_popup);
             menu::open_task_manager();
             LRESULT(0)
         }

@@ -5,7 +5,6 @@ mod display;
 mod menu;
 mod messages;
 mod overlay;
-#[allow(dead_code)]
 mod popup;
 mod render;
 mod sampler_thread;
