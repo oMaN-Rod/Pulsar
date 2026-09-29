@@ -1,0 +1,6 @@
+/target/
+/.claude/
+/.references/
+/.remember/
+/dist/
+*.pdb
