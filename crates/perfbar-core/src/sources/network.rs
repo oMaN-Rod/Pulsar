@@ -88,10 +88,11 @@ pub fn merge_adapters(received: Vec<(String, f64)>, sent: Vec<(String, f64)>) ->
 }
 
 /// Keeps physical adapters only, so VPN tunnels and virtual switches that
-/// relay the same traffic are not counted twice. With no hardware list
-/// (the query failed), every adapter is kept.
+/// relay the same traffic are not counted twice. When no adapter matches
+/// the hardware list (the query failed, or PDH names an adapter
+/// differently), every adapter is kept rather than reporting zero traffic.
 pub fn select_hardware(adapters: Vec<AdapterRate>, hardware: &HashSet<String>) -> Vec<AdapterRate> {
-    if hardware.is_empty() {
+    if !adapters.iter().any(|a| hardware.contains(&a.name)) {
         return adapters;
     }
     adapters
@@ -195,6 +196,18 @@ mod tests {
         );
         assert_eq!(kept.len(), 1);
         assert_eq!(kept[0].name, "Realtek 2.5GbE");
+    }
+
+    #[test]
+    fn no_matching_hardware_keeps_everything() {
+        let rate = AdapterRate {
+            name: "Adapter PDH names differently".into(),
+            down_bps: 5.0,
+            up_bps: 1.0,
+        };
+        let hardware = HashSet::from(["Some Other Adapter".to_string()]);
+        let kept = select_hardware(vec![rate], &hardware);
+        assert_eq!(kept.len(), 1, "never silently report zero traffic");
     }
 
     #[test]
