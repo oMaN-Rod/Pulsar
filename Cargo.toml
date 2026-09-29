@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/perfbar-core"]
+members = ["crates/perfbar-app", "crates/perfbar-core"]
 resolver = "3"
 
 [workspace.package]
@@ -13,3 +13,4 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 toml = "1"
 windows = "0.62"
+windows-numerics = "0.3"
