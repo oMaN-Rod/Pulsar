@@ -1,10 +1,19 @@
+use std::collections::HashSet;
+use std::time::{Duration, Instant};
+
+use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
+
 use crate::metric::{AdapterRate, MetricKey, Snapshot, Source, SourceError, SourceId};
 use crate::pdh::{Counter, Query};
+
+const HARDWARE_REFRESH: Duration = Duration::from_secs(30);
 
 pub struct NetworkSource {
     query: Query,
     received: Counter,
     sent: Counter,
+    hardware: HashSet<String>,
+    hardware_refreshed: Option<Instant>,
 }
 
 impl NetworkSource {
@@ -17,6 +26,8 @@ impl NetworkSource {
             query,
             received,
             sent,
+            hardware: HashSet::new(),
+            hardware_refreshed: None,
         })
     }
 }
@@ -27,8 +38,18 @@ impl Source for NetworkSource {
     }
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
+        if self
+            .hardware_refreshed
+            .is_none_or(|t| t.elapsed() >= HARDWARE_REFRESH)
+        {
+            self.hardware = hardware_instance_names();
+            self.hardware_refreshed = Some(Instant::now());
+        }
         self.query.collect()?;
-        let adapters = merge_adapters(self.received.array()?, self.sent.array()?);
+        let adapters = select_hardware(
+            merge_adapters(self.received.array()?, self.sent.array()?),
+            &self.hardware,
+        );
         out.set(
             MetricKey::NetDownBps,
             adapters.iter().map(|a| a.down_bps).sum(),
@@ -66,6 +87,64 @@ pub fn merge_adapters(received: Vec<(String, f64)>, sent: Vec<(String, f64)>) ->
     adapters
 }
 
+/// Keeps physical adapters only, so VPN tunnels and virtual switches that
+/// relay the same traffic are not counted twice. With no hardware list
+/// (the query failed), every adapter is kept.
+pub fn select_hardware(adapters: Vec<AdapterRate>, hardware: &HashSet<String>) -> Vec<AdapterRate> {
+    if hardware.is_empty() {
+        return adapters;
+    }
+    adapters
+        .into_iter()
+        .filter(|a| hardware.contains(&a.name))
+        .collect()
+}
+
+/// PDH derives `Network Interface` instance names from the adapter
+/// description, replacing characters that are reserved in counter paths.
+pub fn pdh_instance_name(description: &str) -> String {
+    description
+        .chars()
+        .map(|c| match c {
+            '(' => '[',
+            ')' => ']',
+            '#' | '/' | '\\' => '_',
+            c => c,
+        })
+        .collect()
+}
+
+fn hardware_instance_names() -> HashSet<String> {
+    const HARDWARE_INTERFACE: u8 = 0x01;
+    const FILTER_INTERFACE: u8 = 0x02;
+
+    let mut names = HashSet::new();
+    let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+    if unsafe { GetIfTable2(&mut table) }.is_err() || table.is_null() {
+        return names;
+    }
+    unsafe {
+        let count = (*table).NumEntries as usize;
+        let rows = std::slice::from_raw_parts((*table).Table.as_ptr(), count);
+        for row in rows {
+            let flags = row.InterfaceAndOperStatusFlags._bitfield;
+            if flags & HARDWARE_INTERFACE == 0 || flags & FILTER_INTERFACE != 0 {
+                continue;
+            }
+            let len = row
+                .Description
+                .iter()
+                .position(|&c| c == 0)
+                .unwrap_or(row.Description.len());
+            names.insert(pdh_instance_name(&String::from_utf16_lossy(
+                &row.Description[..len],
+            )));
+        }
+        FreeMibTable(table.cast());
+    }
+    names
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -87,5 +166,66 @@ mod tests {
     fn negative_rates_are_clamped() {
         let merged = merge_adapters(vec![("a".into(), -3.0)], vec![("a".into(), -1.0)]);
         assert_eq!((merged[0].down_bps, merged[0].up_bps), (0.0, 0.0));
+    }
+
+    #[test]
+    fn instance_names_replace_reserved_characters() {
+        assert_eq!(
+            pdh_instance_name("Intel(R) Wi-Fi 6 AX201 160MHz"),
+            "Intel[R] Wi-Fi 6 AX201 160MHz"
+        );
+        assert_eq!(
+            pdh_instance_name("Hyper-V Virtual Ethernet Adapter #3"),
+            "Hyper-V Virtual Ethernet Adapter _3"
+        );
+        assert_eq!(pdh_instance_name("a/b\\c"), "a_b_c");
+    }
+
+    #[test]
+    fn only_hardware_adapters_are_counted() {
+        let rate = |name: &str| AdapterRate {
+            name: name.into(),
+            down_bps: 100.0,
+            up_bps: 10.0,
+        };
+        let hardware = HashSet::from(["Realtek 2.5GbE".to_string()]);
+        let kept = select_hardware(
+            vec![rate("Realtek 2.5GbE"), rate("WireGuard Tunnel")],
+            &hardware,
+        );
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].name, "Realtek 2.5GbE");
+    }
+
+    #[test]
+    fn empty_hardware_list_keeps_everything() {
+        let rate = AdapterRate {
+            name: "x".into(),
+            down_bps: 1.0,
+            up_bps: 1.0,
+        };
+        assert_eq!(select_hardware(vec![rate], &HashSet::new()).len(), 1);
+    }
+
+    #[test]
+    fn hardware_names_match_live_pdh_instances() {
+        let query = Query::new().unwrap();
+        let counter = query
+            .add(r"\Network Interface(*)\Bytes Received/sec")
+            .unwrap();
+        query.collect().unwrap();
+        std::thread::sleep(Duration::from_millis(500));
+        query.collect().unwrap();
+        let instances: HashSet<String> = counter
+            .array()
+            .unwrap()
+            .into_iter()
+            .map(|(name, _)| name)
+            .collect();
+        let hardware = hardware_instance_names();
+        assert!(
+            hardware.iter().any(|h| instances.contains(h)),
+            "hardware {hardware:?} vs PDH {instances:?}"
+        );
     }
 }
