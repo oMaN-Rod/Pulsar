@@ -3,6 +3,7 @@
 mod display;
 mod messages;
 mod taskbar;
+mod text;
 mod theme;
 
 fn main() {}
