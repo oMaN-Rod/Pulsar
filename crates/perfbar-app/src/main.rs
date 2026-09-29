@@ -4,6 +4,7 @@ mod display;
 mod menu;
 mod messages;
 mod render;
+mod sampler_thread;
 mod single_instance;
 mod taskbar;
 mod text;
