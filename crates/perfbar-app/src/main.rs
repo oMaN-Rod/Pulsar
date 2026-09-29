@@ -2,6 +2,7 @@
 
 mod app;
 mod display;
+mod hover;
 mod menu;
 mod messages;
 mod overlay;

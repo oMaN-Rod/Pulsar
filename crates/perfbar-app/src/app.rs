@@ -19,6 +19,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{Result, w};
 
+use crate::hover::{HoverArming, popup_orphaned};
 use crate::menu::{self, Command};
 use crate::messages::{WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY};
 use crate::overlay::{self, Overlay};
@@ -103,8 +104,9 @@ pub struct App {
     fullscreen: Option<Rect32>,
     retry_step: usize,
     popup: Popup,
-    /// Overlays with an active `TrackMouseEvent` request.
-    tracking: Vec<HWND>,
+    /// The overlay the open popup belongs to.
+    popup_owner: Option<HWND>,
+    hover: HoverArming,
 }
 
 impl App {
@@ -136,7 +138,8 @@ impl App {
             fullscreen: None,
             retry_step: 0,
             popup: Popup::create(instance)?,
-            tracking: Vec::new(),
+            popup_owner: None,
+            hover: HoverArming::default(),
         })
     }
 
@@ -178,7 +181,15 @@ impl App {
         } else {
             self.retry_step = 0;
         }
-        if self.popup.open.is_some() && self.overlays.iter().all(|o| o.shown_at.is_none()) {
+        let live: Vec<isize> = self.overlays.iter().map(|o| key(o.hwnd)).collect();
+        self.hover.retain_live(&live);
+        let shown: Vec<isize> = self
+            .overlays
+            .iter()
+            .filter(|o| o.shown_at.is_some())
+            .map(|o| key(o.hwnd))
+            .collect();
+        if popup_orphaned(self.popup_owner.map(key), &shown) {
             self.close_popup();
         }
     }
@@ -273,8 +284,8 @@ impl App {
         }
         if received {
             self.redraw();
-            if let Some((kind, anchor)) = self.popup.open {
-                self.show_popup(kind, anchor);
+            if let (Some((kind, _)), Some(owner)) = (self.popup.open, self.popup_owner) {
+                self.open_popup(owner, kind);
             }
         }
     }
@@ -285,15 +296,15 @@ impl App {
     }
 
     fn on_mouse_move(&mut self, overlay: HWND, x: i32, y: i32) {
-        if !self.tracking.contains(&overlay) {
+        if self.hover.arm(key(overlay)) {
             let mut request = TRACKMOUSEEVENT {
                 cbSize: size_of::<TRACKMOUSEEVENT>() as u32,
                 dwFlags: TME_HOVER | TME_LEAVE,
                 hwndTrack: overlay,
                 dwHoverTime: HOVER_MS,
             };
-            if unsafe { TrackMouseEvent(&mut request) }.is_ok() {
-                self.tracking.push(overlay);
+            if unsafe { TrackMouseEvent(&mut request) }.is_err() {
+                self.hover.disarm(key(overlay));
             }
         }
         if let Some((open, _)) = self.popup.open
@@ -310,11 +321,19 @@ impl App {
         {
             self.open_popup(overlay, kind);
         }
+        if self.popup.open.is_none() {
+            self.hover.disarm(key(overlay));
+        }
     }
 
     fn on_mouse_leave(&mut self, overlay: HWND) {
-        self.tracking.retain(|&h| h != overlay);
+        self.hover.disarm(key(overlay));
         self.close_popup();
+    }
+
+    fn on_click(&mut self, overlay: HWND) {
+        self.close_popup();
+        self.hover.disarm(key(overlay));
     }
 
     fn open_popup(&mut self, overlay: HWND, kind: ItemKind) {
@@ -336,6 +355,7 @@ impl App {
         self.sampler
             .processes
             .store(needs_processes(kind), Ordering::Relaxed);
+        self.popup_owner = Some(overlay);
         self.show_popup(kind, anchor);
     }
 
@@ -358,6 +378,7 @@ impl App {
 
     fn close_popup(&mut self) {
         self.popup.hide();
+        self.popup_owner = None;
         self.sampler.processes.store(false, Ordering::Relaxed);
     }
 
@@ -446,6 +467,10 @@ fn tray_opens_menu(event: u32) -> bool {
     event == WM_CONTEXTMENU
 }
 
+fn key(hwnd: HWND) -> isize {
+    hwnd.0 as isize
+}
+
 fn low_word(v: usize) -> u32 {
     (v & 0xFFFF) as u32
 }
@@ -517,7 +542,7 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
             LRESULT(0)
         }
         WM_LBUTTONUP => {
-            with_app(App::close_popup);
+            with_app(|a| a.on_click(hwnd));
             menu::open_task_manager();
             LRESULT(0)
         }
