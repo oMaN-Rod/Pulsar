@@ -3,7 +3,7 @@
 use perfbar_core::format::format_value;
 use perfbar_core::history::HistoryStore;
 use perfbar_core::layout::CellPart;
-use perfbar_core::metric::{GpuEngineKind, ItemKind, MetricKey, Snapshot, Unit};
+use perfbar_core::metric::{GpuEngineKind, ItemKind, MetricKey, Snapshot, SourceId, Unit};
 use perfbar_core::sources::{ProcessSort, top_by};
 
 use crate::display::cell_value;
@@ -49,8 +49,13 @@ fn of(snapshot: &Snapshot, used: MetricKey, total: MetricKey) -> String {
 
 fn processes(snapshot: &Snapshot, sort: ProcessSort) -> Block {
     let top = top_by(&snapshot.processes, sort, TOP_PROCESSES);
-    let rows = if top.is_empty() {
-        vec![("Collecting…".to_string(), String::new())]
+    let note = |text: &str| vec![(text.to_string(), String::new())];
+    let rows = if let Some(reason) = snapshot.errors.get(&SourceId::Processes) {
+        note(reason)
+    } else if snapshot.processes.is_empty() {
+        note("Collecting…")
+    } else if top.is_empty() {
+        note("No activity")
     } else {
         top.into_iter()
             .map(|p| {
@@ -188,7 +193,10 @@ pub fn build(
                 },
                 Block::Rows {
                     heading: Some("Free space"),
-                    rows: volumes(snapshot),
+                    rows: match snapshot.errors.get(&SourceId::DiskSpace) {
+                        Some(reason) => vec![(reason.clone(), String::new())],
+                        None => volumes(snapshot),
+                    },
                 },
             ],
         ),
@@ -277,7 +285,7 @@ pub fn build(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use perfbar_core::metric::{AdapterRate, ProcessUsage, SourceId};
+    use perfbar_core::metric::{AdapterRate, ProcessUsage};
 
     const GB: f64 = 1024.0 * 1024.0 * 1024.0;
 
@@ -336,6 +344,39 @@ mod tests {
         assert_eq!(
             rows(&c.blocks[1]),
             [("Collecting…".to_string(), String::new())]
+        );
+    }
+
+    #[test]
+    fn idle_process_list_says_no_activity_not_collecting() {
+        let s = Snapshot {
+            processes: vec![proc("idle", 0.0, 1.0, 0.0)],
+            ..Snapshot::default()
+        };
+        let c = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "");
+        assert_eq!(
+            rows(&c.blocks[2]),
+            [("No activity".to_string(), String::new())]
+        );
+    }
+
+    #[test]
+    fn failed_process_source_shows_its_reason() {
+        let mut s = Snapshot::default();
+        s.errors
+            .insert(SourceId::Processes, "Process counters unavailable".into());
+        let c = build(ItemKind::Cpu, &s, &HistoryStore::new(60), "");
+        assert_eq!(rows(&c.blocks[2])[0].0, "Process counters unavailable");
+    }
+
+    #[test]
+    fn failed_disk_space_shows_its_reason() {
+        let mut s = Snapshot::default();
+        s.errors.insert(SourceId::DiskSpace, "Access denied".into());
+        let c = build(ItemKind::Disk, &s, &HistoryStore::new(60), "");
+        assert_eq!(
+            rows(&c.blocks[1]),
+            [("Access denied".to_string(), String::new())]
         );
     }
 
