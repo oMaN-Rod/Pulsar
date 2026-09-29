@@ -1,0 +1,437 @@
+use std::cell::{Cell, RefCell};
+use std::path::PathBuf;
+
+use perfbar_core::config::{self, Config};
+use perfbar_core::history::HistoryStore;
+use perfbar_core::metric::Snapshot;
+use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::UI::WindowsAndMessaging::{
+    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos, GetMessageW,
+    KillTimer, MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW, RegisterWindowMessageW,
+    SetTimer, TranslateMessage, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_LBUTTONUP,
+    WM_MOUSEACTIVATE, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW,
+    WS_POPUP,
+};
+use windows::core::{Result, w};
+
+use crate::menu::{self, Command};
+use crate::messages::{WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY};
+use crate::overlay::{self, Overlay};
+use crate::render::{Frame, Renderer};
+use crate::sampler_thread::SamplerThread;
+use crate::taskbar::hooks::{self, Hooks};
+use crate::taskbar::placement::{Placement, PlacementInput, Rect32, place, tray_is_laid_out};
+use crate::taskbar::{self, Taskbar};
+use crate::text::Text;
+use crate::theme::{Palette, accent_color, taskbar_is_light};
+use crate::tray::Tray;
+
+const TIMER_WATCH: usize = 1;
+const TIMER_VALIDATE: usize = 2;
+const TIMER_RETRY: usize = 3;
+const WATCH_MS: u32 = 250;
+const VALIDATE_MS: u32 = 2000;
+/// Explorer lays out the tray some time after announcing the taskbar.
+const RETRY_MS: [u32; 4] = [100, 250, 500, 1000];
+
+const HOST_CLASS: windows::core::PCWSTR = w!("PerfBarHost");
+
+thread_local! {
+    static APP: RefCell<Option<App>> = const { RefCell::new(None) };
+    static TASKBAR_CREATED: Cell<u32> = const { Cell::new(0) };
+}
+
+/// Runs `f` against the app. Returns `None` when the app is already borrowed
+/// further up the stack (a modal menu loop or a synchronous window message);
+/// the skipped work is picked up by the next snapshot or timer.
+fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
+    APP.with(|cell| {
+        let mut guard = cell.try_borrow_mut().ok()?;
+        guard.as_mut().map(f)
+    })
+}
+
+pub struct App {
+    instance: HINSTANCE,
+    host: HWND,
+    config: Config,
+    config_path: Option<PathBuf>,
+    text: Text,
+    renderer: Renderer,
+    palette: Palette,
+    history: HistoryStore,
+    latest: Snapshot,
+    sampler: SamplerThread,
+    overlays: Vec<Overlay>,
+    tray: Tray,
+    hooks: Option<(u32, Hooks)>,
+    fullscreen: Option<Rect32>,
+    retry_step: usize,
+}
+
+impl App {
+    fn new(instance: HINSTANCE, host: HWND) -> Result<Self> {
+        let config_path = config::default_path();
+        let loaded = config_path.as_deref().map(config::load);
+        let (config, warning) = match loaded {
+            Some(l) => (l.config, l.warning),
+            None => (Config::default(), None),
+        };
+        let tray = Tray::new(host);
+        if let Some(warning) = warning {
+            tray.warn("PerfBar settings reset", &warning);
+        }
+        Ok(Self {
+            instance,
+            host,
+            palette: Palette::new(taskbar_is_light(), &config, accent_color()),
+            history: HistoryStore::new(config.general.history_len),
+            sampler: SamplerThread::spawn(&config, Some(host)),
+            config,
+            config_path,
+            text: Text::new()?,
+            renderer: Renderer::new()?,
+            latest: Snapshot::default(),
+            overlays: Vec::new(),
+            tray,
+            hooks: None,
+            fullscreen: None,
+            retry_step: 0,
+        })
+    }
+
+    fn start(&mut self) {
+        unsafe {
+            SetTimer(Some(self.host), TIMER_WATCH, WATCH_MS, None);
+            SetTimer(Some(self.host), TIMER_VALIDATE, VALIDATE_MS, None);
+        }
+        self.fullscreen = taskbar::fullscreen_monitor();
+        self.refresh();
+    }
+
+    /// Rediscovers taskbars, reconciles overlays with them and repositions.
+    fn refresh(&mut self) {
+        let found = taskbar::discover(self.config.display.show_on_all_taskbars);
+        self.overlays
+            .retain(|o| found.iter().any(|t| t.hwnd == o.taskbar.hwnd));
+        for tb in found {
+            match self.overlays.iter_mut().find(|o| o.taskbar.hwnd == tb.hwnd) {
+                Some(o) => o.taskbar = tb,
+                None => {
+                    if let Ok(o) = Overlay::create(self.instance, tb) {
+                        self.overlays.push(o);
+                    }
+                }
+            }
+        }
+        self.install_hooks();
+        let mut tray_pending = false;
+        for i in 0..self.overlays.len() {
+            let tb = &self.overlays[i].taskbar;
+            if tb.tray.is_some() && !tray_is_laid_out(&tb.rect, tb.tray_rect.as_ref()) {
+                tray_pending = true;
+            }
+            self.show(i);
+        }
+        if tray_pending {
+            self.schedule_retry();
+        } else {
+            self.retry_step = 0;
+        }
+    }
+
+    fn install_hooks(&mut self) {
+        let Some(primary) = self.overlays.first().map(|o| o.taskbar.hwnd) else {
+            return;
+        };
+        let pid = taskbar::process_id(primary);
+        if self.hooks.as_ref().is_none_or(|(p, _)| *p != pid) {
+            self.hooks = Some((pid, Hooks::install(self.host, pid)));
+        }
+        let watched = self
+            .overlays
+            .iter()
+            .flat_map(|o| [Some(o.taskbar.hwnd), o.taskbar.tray])
+            .flatten()
+            .collect();
+        hooks::watch(watched);
+    }
+
+    fn schedule_retry(&mut self) {
+        if let Some(&ms) = RETRY_MS.get(self.retry_step) {
+            self.retry_step += 1;
+            unsafe { SetTimer(Some(self.host), TIMER_RETRY, ms, None) };
+        }
+    }
+
+    fn show(&mut self, i: usize) {
+        let o = &mut self.overlays[i];
+        o.update_layout(&self.config, &self.text);
+        let (w, h) = o.size();
+        let tb: &Taskbar = &o.taskbar;
+        let placement = place(&PlacementInput {
+            taskbar: tb.rect,
+            tray: tb.tray_rect,
+            monitor: tb.monitor,
+            overlay_w: w,
+            overlay_h: h,
+            position: self.config.display.position,
+            offset_px: self.config.display.offset_px,
+            fallback_margin_px: self.config.display.fallback_margin_px,
+            dpi: tb.dpi,
+        });
+        let covered = self.fullscreen == Some(tb.monitor);
+        match placement {
+            Placement::At { x, y } if !covered => {
+                if self.draw(i, x, y).is_err() {
+                    self.overlays[i].hide();
+                }
+            }
+            _ => self.overlays[i].hide(),
+        }
+    }
+
+    fn draw(&mut self, i: usize, x: i32, y: i32) -> Result<()> {
+        let o = &mut self.overlays[i];
+        let dpi = o.taskbar.dpi;
+        let hwnd = o.hwnd;
+        let layout = o.layout.clone();
+        let surface = o.surface()?;
+        let frame = Frame {
+            layout: &layout,
+            mode: self.config.display.mode,
+            palette: &self.palette,
+            snapshot: &self.latest,
+            history: &self.history,
+            dpi,
+        };
+        self.renderer.draw(surface, &frame, &self.text)?;
+        self.renderer.present(hwnd, surface, x, y)?;
+        o.mark_shown(x, y);
+        Ok(())
+    }
+
+    fn redraw(&mut self) {
+        for i in 0..self.overlays.len() {
+            if let Some((x, y)) = self.overlays[i].shown_at
+                && self.draw(i, x, y).is_err()
+            {
+                self.overlays[i].hide();
+            }
+        }
+    }
+
+    fn on_snapshot(&mut self) {
+        let mut received = false;
+        while let Ok(snapshot) = self.sampler.snapshots.try_recv() {
+            self.history.record(&snapshot);
+            self.latest = snapshot;
+            received = true;
+        }
+        if received {
+            self.redraw();
+        }
+    }
+
+    /// Runs every 250 ms and on foreground changes: hides for fullscreen apps
+    /// and lifts overlays that the taskbar has been raised above.
+    fn watch(&mut self) {
+        let fullscreen = taskbar::fullscreen_monitor();
+        if fullscreen != self.fullscreen {
+            self.fullscreen = fullscreen;
+            self.refresh();
+            return;
+        }
+        for o in &self.overlays {
+            if o.shown_at.is_some() && taskbar::is_behind(o.hwnd, o.taskbar.hwnd) {
+                o.raise();
+            }
+        }
+    }
+
+    fn on_timer(&mut self, id: usize) {
+        match id {
+            TIMER_WATCH => self.watch(),
+            TIMER_VALIDATE => self.refresh(),
+            TIMER_RETRY => {
+                unsafe {
+                    let _ = KillTimer(Some(self.host), TIMER_RETRY);
+                }
+                self.refresh();
+            }
+            _ => {}
+        }
+    }
+
+    fn on_taskbar_created(&mut self) {
+        self.tray.add();
+        self.retry_step = 0;
+        self.refresh();
+        self.schedule_retry();
+    }
+
+    fn on_settings_changed(&mut self) {
+        self.palette = Palette::new(taskbar_is_light(), &self.config, accent_color());
+        self.redraw();
+    }
+
+    fn apply(&mut self, command: Command) {
+        match command {
+            Command::Mode(mode) => {
+                self.config.display.mode = mode;
+                if let Some(path) = &self.config_path
+                    && let Err(e) = config::save(path, &self.config)
+                {
+                    self.tray
+                        .warn("PerfBar could not save settings", &e.to_string());
+                }
+                self.refresh();
+            }
+            Command::TaskManager => menu::open_task_manager(),
+            Command::Exit => unsafe {
+                let _ = DestroyWindow(self.host);
+            },
+        }
+    }
+}
+
+fn context_menu(x: i32, y: i32) {
+    let Some((host, mode)) = with_app(|a| (a.host, a.config.display.mode)) else {
+        return;
+    };
+    if let Some(command) = menu::show(host, x, y, mode) {
+        with_app(|a| a.apply(command));
+    }
+}
+
+fn low_word(v: usize) -> u32 {
+    (v & 0xFFFF) as u32
+}
+
+fn signed_words(v: usize) -> (i32, i32) {
+    (
+        (v & 0xFFFF) as i16 as i32,
+        ((v >> 16) & 0xFFFF) as i16 as i32,
+    )
+}
+
+unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+    if msg == TASKBAR_CREATED.get() && msg != 0 {
+        with_app(App::on_taskbar_created);
+        return LRESULT(0);
+    }
+    match msg {
+        WM_APP_SNAPSHOT => {
+            with_app(App::on_snapshot);
+        }
+        WM_APP_TASKBAR => {
+            hooks::handled(msg);
+            with_app(App::refresh);
+        }
+        WM_APP_FOREGROUND => {
+            hooks::handled(msg);
+            with_app(App::watch);
+        }
+        WM_APP_TRAY => {
+            if matches!(low_word(lp.0 as usize), WM_CONTEXTMENU | WM_RBUTTONUP) {
+                let (x, y) = signed_words(wp.0);
+                context_menu(x, y);
+            }
+        }
+        WM_TIMER => {
+            with_app(|a| a.on_timer(wp.0));
+        }
+        WM_SETTINGCHANGE => {
+            with_app(App::on_settings_changed);
+        }
+        WM_DISPLAYCHANGE => {
+            with_app(App::refresh);
+        }
+        WM_DESTROY => unsafe { PostQuitMessage(0) },
+        _ => return unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
+    }
+    LRESULT(0)
+}
+
+unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+    match msg {
+        WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+        WM_LBUTTONUP => {
+            menu::open_task_manager();
+            LRESULT(0)
+        }
+        WM_RBUTTONUP => {
+            let mut pt = POINT::default();
+            unsafe {
+                let _ = GetCursorPos(&mut pt);
+            }
+            context_menu(pt.x, pt.y);
+            LRESULT(0)
+        }
+        _ => unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
+    }
+}
+
+pub fn run() -> Result<()> {
+    let instance: HINSTANCE = unsafe { GetModuleHandleW(None)? }.into();
+    unsafe {
+        RegisterClassW(&WNDCLASSW {
+            lpfnWndProc: Some(host_proc),
+            hInstance: instance,
+            lpszClassName: HOST_CLASS,
+            ..Default::default()
+        });
+        TASKBAR_CREATED.set(RegisterWindowMessageW(w!("TaskbarCreated")));
+    }
+    overlay::register_class(instance, Some(overlay_proc));
+
+    // A hidden top-level window: message-only windows miss the
+    // TaskbarCreated and WM_SETTINGCHANGE broadcasts.
+    let host = unsafe {
+        CreateWindowExW(
+            WS_EX_TOOLWINDOW,
+            HOST_CLASS,
+            w!("PerfBar"),
+            WS_POPUP,
+            0,
+            0,
+            0,
+            0,
+            None,
+            None,
+            Some(instance),
+            None,
+        )?
+    };
+    let app = App::new(instance, host)?;
+    APP.with(|cell| *cell.borrow_mut() = Some(app));
+    with_app(App::start);
+
+    let mut msg = MSG::default();
+    while unsafe { GetMessageW(&mut msg, None, 0, 0) }.as_bool() {
+        unsafe {
+            let _ = TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
+    let app = APP.with(|cell| cell.borrow_mut().take());
+    drop(app);
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tray_callback_words_are_sign_extended() {
+        assert_eq!(signed_words(0x0010_0020), (0x20, 0x10));
+        assert_eq!(
+            signed_words(0xFFFF_FFF6),
+            (-10, -1),
+            "coordinates on a monitor left of primary"
+        );
+        assert_eq!(low_word(0x0001_007B), WM_CONTEXTMENU);
+    }
+}
