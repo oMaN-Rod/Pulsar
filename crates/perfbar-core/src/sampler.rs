@@ -9,11 +9,14 @@ use crate::sources::{
     ProcessesSource,
 };
 
+pub type ProcessesFactory = Box<dyn FnOnce() -> Box<dyn Source> + Send>;
+
 /// Runs every source once per tick. A failing source is reported in
 /// `Snapshot::errors` and never prevents the others from sampling.
 pub struct Sampler {
     sources: Vec<Box<dyn Source>>,
     processes: Option<Box<dyn Source>>,
+    processes_factory: Option<ProcessesFactory>,
     want_processes: Arc<AtomicBool>,
     processes_primed: bool,
 }
@@ -23,8 +26,18 @@ impl Sampler {
         Self {
             sources,
             processes,
+            processes_factory: None,
             want_processes: Arc::new(AtomicBool::new(false)),
             processes_primed: false,
+        }
+    }
+
+    /// The processes source is built on first use: its PDH query costs
+    /// several MB and is only needed while a popup lists processes.
+    pub fn with_lazy_processes(sources: Vec<Box<dyn Source>>, factory: ProcessesFactory) -> Self {
+        Self {
+            processes_factory: Some(factory),
+            ..Self::new(sources, None)
         }
     }
 
@@ -48,8 +61,10 @@ impl Sampler {
                 ))),
             }
         }
-        let processes = Some(or_failed(SourceId::Processes, ProcessesSource::new()));
-        Self::new(sources, processes)
+        Self::with_lazy_processes(
+            sources,
+            Box::new(|| or_failed(SourceId::Processes, ProcessesSource::new())),
+        )
     }
 
     /// Shared flag the UI sets while a popup that lists processes is open.
@@ -64,6 +79,12 @@ impl Sampler {
         }
 
         let wanted = self.want_processes.load(Ordering::Relaxed);
+        if wanted
+            && self.processes.is_none()
+            && let Some(factory) = self.processes_factory.take()
+        {
+            self.processes = Some(factory());
+        }
         if let (true, Some(processes)) = (wanted, self.processes.as_mut()) {
             if self.processes_primed {
                 run(processes.as_mut(), &mut snapshot);
@@ -190,6 +211,29 @@ mod tests {
             "re-primed after being turned off"
         );
         assert_eq!(sampler.sample().processes[0].name, "call4");
+    }
+
+    #[test]
+    fn processes_source_is_created_only_when_first_wanted() {
+        use std::sync::atomic::AtomicUsize;
+        let created = Arc::new(AtomicUsize::new(0));
+        let counter = created.clone();
+        let mut sampler = Sampler::with_lazy_processes(
+            vec![],
+            Box::new(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+                Box::new(FakeProcesses(0)) as Box<dyn Source>
+            }),
+        );
+        sampler.sample();
+        sampler.sample();
+        assert_eq!(created.load(Ordering::SeqCst), 0, "not built while unused");
+
+        sampler.processes_flag().store(true, Ordering::Relaxed);
+        sampler.sample();
+        sampler.sample();
+        assert_eq!(created.load(Ordering::SeqCst), 1, "built once on first use");
+        assert!(!sampler.sample().processes.is_empty());
     }
 
     #[test]
