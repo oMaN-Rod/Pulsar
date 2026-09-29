@@ -28,12 +28,13 @@ pub enum ItemKind {
 }
 
 impl ItemKind {
+    /// Default display order; adjacent pairs share a text-mode column.
     pub const ALL: [ItemKind; 6] = [
         ItemKind::Cpu,
         ItemKind::Ram,
+        ItemKind::Gpu,
         ItemKind::Disk,
         ItemKind::Network,
-        ItemKind::Gpu,
         ItemKind::Ping,
     ];
 

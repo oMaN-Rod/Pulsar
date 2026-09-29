@@ -373,6 +373,22 @@ mod tests {
     }
 
     #[test]
+    fn default_order_pairs_items_in_text_columns() {
+        let kinds: Vec<ItemKind> = Config::default().items.iter().map(|i| i.kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                ItemKind::Cpu,
+                ItemKind::Ram,
+                ItemKind::Gpu,
+                ItemKind::Disk,
+                ItemKind::Network,
+                ItemKind::Ping
+            ]
+        );
+    }
+
+    #[test]
     fn ping_is_disabled_by_default() {
         assert!(!Config::default().is_enabled(ItemKind::Ping));
         assert!(Config::default().is_enabled(ItemKind::Cpu));

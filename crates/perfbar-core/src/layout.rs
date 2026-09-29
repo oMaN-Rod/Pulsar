@@ -121,6 +121,26 @@ pub fn compute_layout(items: &[ItemKind], input: LayoutInput, m: &dyn TextMeasur
     }
 }
 
+/// Packs items into columns of `rows` cells, column-major. An item's parts
+/// (network ↓ and ↑) are kept together when they fit in a column.
+fn columns(items: &[ItemKind], rows: usize) -> Vec<Vec<(ItemKind, CellPart)>> {
+    let mut columns: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
+    for &kind in items {
+        let item_parts = parts(kind);
+        let free = columns.last().map_or(0, |c| rows - c.len());
+        if free == 0 || (item_parts.len() > free && item_parts.len() <= rows) {
+            columns.push(Vec::with_capacity(rows));
+        }
+        for &part in item_parts {
+            if columns.last().is_some_and(|c| c.len() == rows) {
+                columns.push(Vec::with_capacity(rows));
+            }
+            columns.last_mut().unwrap().push((kind, part));
+        }
+    }
+    columns
+}
+
 fn text_layout(
     items: &[ItemKind],
     height: f32,
@@ -133,14 +153,9 @@ fn text_layout(
     let rows = (((height - 2.0 * padding) / line_h).floor() as usize).clamp(1, MAX_TEXT_ROWS);
     let top = ((height - rows as f32 * line_h) / 2.0).max(0.0);
 
-    let slots: Vec<(ItemKind, CellPart)> = items
-        .iter()
-        .flat_map(|&k| parts(k).iter().map(move |&p| (k, p)))
-        .collect();
-
-    let mut cells = Vec::with_capacity(slots.len());
+    let mut cells = Vec::new();
     let mut x = padding;
-    for column in slots.chunks(rows) {
+    for column in columns(items, rows) {
         let label_w = column
             .iter()
             .map(|&(k, p)| m.width(cell_label(k, p), font_px))
@@ -174,6 +189,19 @@ fn text_layout(
     }
 }
 
+/// Widest text a graph tile draws: network shows `↓ value` / `↑ value`,
+/// other items a label line and a value line.
+fn graph_text_width(kind: ItemKind, font_px: f32, m: &dyn TextMeasure) -> f32 {
+    let widest = widest_value(primary_metric(kind).unit());
+    match kind {
+        ItemKind::Network => m.width(
+            &format!("{} {widest}", cell_label(kind, CellPart::Down)),
+            font_px,
+        ),
+        _ => m.width(kind.label(), font_px).max(m.width(widest, font_px)),
+    }
+}
+
 fn graph_layout(
     items: &[ItemKind],
     height: f32,
@@ -186,8 +214,7 @@ fn graph_layout(
     let mut cells = Vec::with_capacity(items.len());
     let mut x = padding;
     for &kind in items {
-        let value_w = m.width(widest_value(primary_metric(kind).unit()), font_px);
-        let w = (value_w + 2.0 * padding).max(MIN_TILE_DIP * scale);
+        let w = (graph_text_width(kind, font_px, m) + 2.0 * padding).max(MIN_TILE_DIP * scale);
         cells.push(Cell {
             kind,
             part: CellPart::Main,
@@ -298,6 +325,28 @@ mod tests {
     }
 
     #[test]
+    fn text_mode_keeps_an_items_parts_in_one_column() {
+        let items = [ItemKind::Cpu, ItemKind::Network, ItemKind::Gpu];
+        let l = compute_layout(&items, input(DisplayMode::Text, 48.0, 96), &Fixed);
+        let x_of = |part| l.cells.iter().find(|c| c.part == part).unwrap().rect.x;
+        assert_eq!(x_of(CellPart::Down), x_of(CellPart::Up));
+        let cpu = l.cells.iter().find(|c| c.kind == ItemKind::Cpu).unwrap();
+        assert_ne!(
+            cpu.rect.x,
+            x_of(CellPart::Down),
+            "network starts a new column"
+        );
+        assert_no_overlap(&l);
+    }
+
+    #[test]
+    fn text_mode_single_row_still_places_every_part() {
+        let l = compute_layout(&ALL, input(DisplayMode::Text, 32.0, 96), &Fixed);
+        assert_eq!(l.cells.len(), ALL.len() + 1);
+        assert_no_overlap(&l);
+    }
+
+    #[test]
     fn text_mode_column_width_reserves_widest_value() {
         // One column: labels "CPU","RAM" = 3 chars → 18px; widest "100%" = 4 chars → 24px; gap 4px.
         let l = compute_layout(
@@ -344,6 +393,20 @@ mod tests {
         }
         assert_no_overlap(&l);
         assert_inside(&l);
+    }
+
+    #[test]
+    fn graph_tiles_fit_their_widest_text() {
+        let l = compute_layout(&ALL, input(DisplayMode::Graph, 48.0, 96), &Fixed);
+        let net = l
+            .cells
+            .iter()
+            .find(|c| c.kind == ItemKind::Network)
+            .unwrap();
+        // "↓ 99.9 MB/s" = 11 chars × 6px + 2 × 4px padding.
+        assert_eq!(net.rect.w, 11.0 * 6.0 + 8.0);
+        let cpu = l.cells.iter().find(|c| c.kind == ItemKind::Cpu).unwrap();
+        assert_eq!(cpu.rect.w, 44.0, "short text keeps the minimum tile width");
     }
 
     #[test]
