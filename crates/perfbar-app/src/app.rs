@@ -37,14 +37,38 @@ const RETRY_MS: [u32; 4] = [100, 250, 500, 1000];
 
 const HOST_CLASS: windows::core::PCWSTR = w!("PerfBarHost");
 
+/// Broadcasts that arrived while the app was busy; replayed on the next tick.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct Deferred {
+    taskbar_created: bool,
+    settings_changed: bool,
+}
+
 thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
     static TASKBAR_CREATED: Cell<u32> = const { Cell::new(0) };
+    static DEFERRED: Cell<Deferred> = const {
+        Cell::new(Deferred {
+            taskbar_created: false,
+            settings_changed: false,
+        })
+    };
+}
+
+fn defer(mark: impl FnOnce(&mut Deferred)) {
+    let mut deferred = DEFERRED.get();
+    mark(&mut deferred);
+    DEFERRED.set(deferred);
+}
+
+fn take_deferred() -> Deferred {
+    DEFERRED.take()
 }
 
 /// Runs `f` against the app. Returns `None` when the app is already borrowed
 /// further up the stack (a modal menu loop or a synchronous window message);
-/// the skipped work is picked up by the next snapshot or timer.
+/// snapshots are drained by the next one, repositioning is redone by the
+/// timers, and missed broadcasts are replayed through `Deferred`.
 fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
     APP.with(|cell| {
         let mut guard = cell.try_borrow_mut().ok()?;
@@ -251,6 +275,13 @@ impl App {
     }
 
     fn on_timer(&mut self, id: usize) {
+        let deferred = take_deferred();
+        if deferred.taskbar_created {
+            self.on_taskbar_created();
+        }
+        if deferred.settings_changed {
+            self.on_settings_changed();
+        }
         match id {
             TIMER_WATCH => self.watch(),
             TIMER_VALIDATE => self.refresh(),
@@ -305,6 +336,10 @@ fn context_menu(x: i32, y: i32) {
     }
 }
 
+fn tray_opens_menu(event: u32) -> bool {
+    event == WM_CONTEXTMENU
+}
+
 fn low_word(v: usize) -> u32 {
     (v & 0xFFFF) as u32
 }
@@ -318,7 +353,9 @@ fn signed_words(v: usize) -> (i32, i32) {
 
 unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     if msg == TASKBAR_CREATED.get() && msg != 0 {
-        with_app(App::on_taskbar_created);
+        if with_app(App::on_taskbar_created).is_none() {
+            defer(|d| d.taskbar_created = true);
+        }
         return LRESULT(0);
     }
     match msg {
@@ -334,7 +371,7 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
             with_app(App::watch);
         }
         WM_APP_TRAY => {
-            if matches!(low_word(lp.0 as usize), WM_CONTEXTMENU | WM_RBUTTONUP) {
+            if tray_opens_menu(low_word(lp.0 as usize)) {
                 let (x, y) = signed_words(wp.0);
                 context_menu(x, y);
             }
@@ -343,7 +380,9 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
             with_app(|a| a.on_timer(wp.0));
         }
         WM_SETTINGCHANGE => {
-            with_app(App::on_settings_changed);
+            if with_app(App::on_settings_changed).is_none() {
+                defer(|d| d.settings_changed = true);
+            }
         }
         WM_DISPLAYCHANGE => {
             with_app(App::refresh);
@@ -423,6 +462,31 @@ pub fn run() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn broadcasts_missed_while_busy_are_deferred() {
+        // No App is installed on the test thread, as when it is borrowed.
+        TASKBAR_CREATED.set(0xC0DE);
+        unsafe {
+            host_proc(HWND::default(), 0xC0DE, WPARAM(0), LPARAM(0));
+            host_proc(HWND::default(), WM_SETTINGCHANGE, WPARAM(0), LPARAM(0));
+        }
+        assert_eq!(
+            take_deferred(),
+            Deferred {
+                taskbar_created: true,
+                settings_changed: true
+            }
+        );
+        assert_eq!(take_deferred(), Deferred::default());
+    }
+
+    #[test]
+    fn tray_right_click_opens_the_menu_once() {
+        // Version-4 icons send WM_RBUTTONUP followed by WM_CONTEXTMENU.
+        assert!(tray_opens_menu(WM_CONTEXTMENU));
+        assert!(!tray_opens_menu(WM_RBUTTONUP));
+    }
 
     #[test]
     fn tray_callback_words_are_sign_extended() {
