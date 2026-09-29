@@ -114,10 +114,12 @@ impl Renderer {
             rt.SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
             rt.Clear(Some(&d2d(frame.palette.hit)));
         }
-        let drawn = match frame.mode {
-            DisplayMode::Graph => self.draw_graph_cells(frame, text),
-            DisplayMode::Text => self.draw_text_cells(frame, text),
-        };
+        let drawn = self
+            .draw_panel(frame, surface)
+            .and_then(|()| match frame.mode {
+                DisplayMode::Graph => self.draw_graph_cells(frame, text),
+                DisplayMode::Text => self.draw_text_cells(frame, text),
+            });
         let ended = unsafe { self.target.EndDraw(None, None) };
         if let Err(e) = &ended
             && e.code() == D2DERR_RECREATE_TARGET
@@ -150,6 +152,19 @@ impl Renderer {
                 ULW_ALPHA,
             )
         }
+    }
+
+    fn draw_panel(&self, frame: &Frame, surface: &Surface) -> Result<()> {
+        let Some(panel) = frame.palette.panel else {
+            return Ok(());
+        };
+        let bounds = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: surface.width as f32,
+            h: surface.height as f32,
+        };
+        self.fill_rounded(bounds, 6.0 * frame.dpi as f32 / 96.0, panel)
     }
 
     fn draw_text_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
@@ -386,8 +401,11 @@ mod tests {
     }
 
     fn render_with_samples(mode: DisplayMode, samples: &[f64]) -> (Surface, Layout) {
+        render_with(mode, samples, &Config::default())
+    }
+
+    fn render_with(mode: DisplayMode, samples: &[f64], config: &Config) -> (Surface, Layout) {
         let text = Text::new().unwrap();
-        let config = Config::default();
         let items = config.enabled_items();
         let layout = compute_layout(
             &items,
@@ -407,7 +425,7 @@ mod tests {
             s.set(MetricKey::CpuTotal, v);
             history.record(&s);
         }
-        let palette = Palette::new(false, &config, None);
+        let palette = Palette::new(false, config, None);
         let surface = Surface::new(layout.width.ceil() as i32, layout.height as i32).unwrap();
         let mut renderer = Renderer::new().unwrap();
         let frame = Frame {
@@ -420,6 +438,42 @@ mod tests {
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)
+    }
+
+    fn alpha_at(surface: &Surface, x: f32, y: f32) -> u32 {
+        pixels(surface)[(y as i32 * surface.width + x as i32) as usize] >> 24
+    }
+
+    #[test]
+    fn zero_tile_opacity_draws_no_tile_background() {
+        // RAM has no history in these tests, so its top-right corner shows only
+        // the tile background.
+        let corner = |config: &Config| {
+            let (surface, layout) = render_with(DisplayMode::Graph, &[], config);
+            let ram = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Ram)
+                .unwrap();
+            alpha_at(&surface, ram.rect.right() - 3.0, ram.rect.y + 3.0)
+        };
+        assert!(corner(&Config::default()) > 10, "default tile is visible");
+        let mut config = Config::default();
+        config.display.tile_opacity = Some(0);
+        assert_eq!(corner(&config), 1, "only the hit-test fill remains");
+    }
+
+    #[test]
+    fn panel_fills_gaps_between_cells() {
+        let gap = |config: &Config| {
+            let (surface, layout) = render_with(DisplayMode::Text, &[], config);
+            let first = &layout.cells[0];
+            alpha_at(&surface, first.rect.right() + 2.0, first.rect.y + 2.0)
+        };
+        assert_eq!(gap(&Config::default()), 1, "no panel by default");
+        let mut config = Config::default();
+        config.display.panel_opacity = 60;
+        assert!(gap(&config) >= 150, "panel at 60 % opacity");
     }
 
     #[test]

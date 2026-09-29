@@ -46,24 +46,43 @@ pub struct Palette {
     pub tile: Color,
     /// Near-transparent fill so the whole overlay receives mouse input.
     pub hit: Color,
+    /// Optional panel behind the whole overlay.
+    pub panel: Option<Color>,
     items: Vec<(ItemKind, CellPart, Color)>,
 }
 
 impl Palette {
     pub fn new(light_taskbar: bool, config: &Config, accent: Option<Color>) -> Self {
-        let (text, label, tile) = if light_taskbar {
+        let (text, label, theme_tile, theme_panel) = if light_taskbar {
             (
                 Color::rgb(0x1A, 0x1A, 0x1A),
                 Color::rgb(0x5C, 0x5C, 0x5C),
                 Color::rgb(0, 0, 0).with_alpha(0.06),
+                Color::rgb(0xF3, 0xF3, 0xF3),
             )
         } else {
             (
                 Color::rgb(0xFF, 0xFF, 0xFF),
                 Color::rgb(0xB8, 0xB8, 0xB8),
                 Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(0.08),
+                Color::rgb(0x20, 0x20, 0x20),
             )
         };
+        let d = &config.display;
+        let opacity = |percent: u8| f32::from(percent.min(100)) / 100.0;
+        let tile = d
+            .tile_color
+            .as_deref()
+            .and_then(Color::parse_hex)
+            .unwrap_or(theme_tile)
+            .with_alpha(d.tile_opacity.map_or(theme_tile.a, opacity));
+        let panel = (d.panel_opacity > 0).then(|| {
+            d.panel_color
+                .as_deref()
+                .and_then(Color::parse_hex)
+                .unwrap_or(theme_panel)
+                .with_alpha(opacity(d.panel_opacity))
+        });
         let mut items = Vec::new();
         for kind in ItemKind::ALL {
             let custom = config
@@ -91,6 +110,7 @@ impl Palette {
         Self {
             text,
             label,
+            panel,
             tile,
             hit: Color::rgb(0, 0, 0).with_alpha(1.0 / 255.0),
             items,
@@ -204,6 +224,44 @@ mod tests {
         assert_eq!(
             p.graph(ItemKind::Gpu, CellPart::Main),
             default_color(ItemKind::Gpu, CellPart::Main)
+        );
+    }
+
+    #[test]
+    fn tile_defaults_to_theme_tint_and_no_panel() {
+        let p = Palette::new(false, &Config::default(), None);
+        assert_eq!(p.tile, Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(0.08));
+        assert_eq!(p.panel, None);
+    }
+
+    #[test]
+    fn tile_colour_and_opacity_come_from_config() {
+        let mut config = Config::default();
+        config.display.tile_color = Some("#102030".into());
+        config.display.tile_opacity = Some(50);
+        let p = Palette::new(false, &config, None);
+        assert_eq!(p.tile, Color::rgb(0x10, 0x20, 0x30).with_alpha(0.5));
+
+        config.display.tile_color = None;
+        config.display.tile_opacity = Some(0);
+        assert_eq!(Palette::new(true, &config, None).tile.a, 0.0);
+    }
+
+    #[test]
+    fn panel_appears_only_with_opacity() {
+        let mut config = Config::default();
+        config.display.panel_color = Some("#202020".into());
+        assert_eq!(Palette::new(false, &config, None).panel, None);
+        config.display.panel_opacity = 60;
+        assert_eq!(
+            Palette::new(false, &config, None).panel,
+            Some(Color::rgb(0x20, 0x20, 0x20).with_alpha(0.6))
+        );
+        config.display.panel_color = None;
+        assert_eq!(
+            Palette::new(true, &config, None).panel,
+            Some(Color::rgb(0xF3, 0xF3, 0xF3).with_alpha(0.6)),
+            "theme panel colour on a light taskbar"
         );
     }
 

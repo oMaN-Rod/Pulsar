@@ -52,6 +52,14 @@ pub struct Display {
     pub font_size_pt: f32,
     pub show_on_all_taskbars: bool,
     pub accent_graphs: bool,
+    /// `#RRGGBB` behind each graph tile; `None` uses the theme tint.
+    pub tile_color: Option<String>,
+    /// 0–100; `None` uses the theme default, 0 removes the tiles.
+    pub tile_opacity: Option<u8>,
+    /// `#RRGGBB` for a panel behind the whole overlay; `None` uses the theme.
+    pub panel_color: Option<String>,
+    /// 0–100; 0 (the default) draws no panel.
+    pub panel_opacity: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -116,6 +124,10 @@ impl Default for Display {
             font_size_pt: 9.0,
             show_on_all_taskbars: false,
             accent_graphs: false,
+            tile_color: None,
+            tile_opacity: None,
+            panel_color: None,
+            panel_opacity: 0,
         }
     }
 }
@@ -145,6 +157,13 @@ impl Config {
         };
         d.fallback_margin_px = d.fallback_margin_px.clamp(0, 2000);
         d.offset_px = d.offset_px.clamp(-2000, 2000);
+        d.tile_opacity = d.tile_opacity.map(|o| o.min(100));
+        d.panel_opacity = d.panel_opacity.min(100);
+        for color in [&mut d.tile_color, &mut d.panel_color] {
+            if color.as_deref().is_some_and(|c| !is_hex_color(c)) {
+                *color = None;
+            }
+        }
         self.ping.interval_ms = self.ping.interval_ms.clamp(1000, 60_000);
         if self.ping.host.trim().is_empty() {
             self.ping.host = PingConfig::default().host;
@@ -386,6 +405,50 @@ mod tests {
                 ItemKind::Ping
             ]
         );
+    }
+
+    #[test]
+    fn background_defaults_keep_theme_tiles_and_no_panel() {
+        let d = Config::default().display;
+        assert_eq!(d.tile_color, None);
+        assert_eq!(d.tile_opacity, None);
+        assert_eq!(d.panel_color, None);
+        assert_eq!(d.panel_opacity, 0);
+    }
+
+    #[test]
+    fn background_settings_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "[display]
+tile_color = \"#101010\"
+tile_opacity = 0
+panel_color = \"#202020\"
+panel_opacity = 60
+",
+        )
+        .unwrap();
+        let d = load(&path).config.display;
+        assert_eq!(d.tile_color.as_deref(), Some("#101010"));
+        assert_eq!(d.tile_opacity, Some(0));
+        assert_eq!(d.panel_color.as_deref(), Some("#202020"));
+        assert_eq!(d.panel_opacity, 60);
+    }
+
+    #[test]
+    fn sanitize_clamps_opacity_and_drops_bad_background_colours() {
+        let mut c = Config::default();
+        c.display.tile_color = Some("grey".into());
+        c.display.tile_opacity = Some(250);
+        c.display.panel_color = Some("#12345".into());
+        c.display.panel_opacity = 101;
+        let d = c.sanitize().display;
+        assert_eq!(d.tile_color, None);
+        assert_eq!(d.tile_opacity, Some(100));
+        assert_eq!(d.panel_color, None);
+        assert_eq!(d.panel_opacity, 100);
     }
 
     #[test]
