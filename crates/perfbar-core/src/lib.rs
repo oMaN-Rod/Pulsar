@@ -4,4 +4,5 @@ pub mod history;
 pub mod layout;
 pub mod metric;
 pub mod pdh;
+pub mod sampler;
 pub mod sources;
