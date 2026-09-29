@@ -101,6 +101,23 @@ impl Renderer {
     }
 
     pub fn draw(&mut self, surface: &Surface, frame: &Frame, text: &Text) -> Result<()> {
+        self.paint(surface, frame.palette.hit, |r| {
+            r.draw_panel(frame, surface)?;
+            match frame.mode {
+                DisplayMode::Graph => r.draw_graph_cells(frame, text),
+                DisplayMode::Text => r.draw_text_cells(frame, text),
+            }
+        })
+    }
+
+    /// Binds `surface`, clears it to `clear`, runs `draw`, and ends the frame,
+    /// recreating the target if Direct2D asks for it.
+    pub fn paint(
+        &mut self,
+        surface: &Surface,
+        clear: Color,
+        draw: impl FnOnce(&Self) -> Result<()>,
+    ) -> Result<()> {
         let bounds = RECT {
             left: 0,
             top: 0,
@@ -112,14 +129,9 @@ impl Renderer {
             rt.BindDC(surface.dc, &bounds)?;
             rt.BeginDraw();
             rt.SetTextAntialiasMode(D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE);
-            rt.Clear(Some(&d2d(frame.palette.hit)));
+            rt.Clear(Some(&d2d(clear)));
         }
-        let drawn = self
-            .draw_panel(frame, surface)
-            .and_then(|()| match frame.mode {
-                DisplayMode::Graph => self.draw_graph_cells(frame, text),
-                DisplayMode::Text => self.draw_text_cells(frame, text),
-            });
+        let drawn = draw(self);
         let ended = unsafe { self.target.EndDraw(None, None) };
         if let Err(e) = &ended
             && e.code() == D2DERR_RECREATE_TARGET
@@ -244,22 +256,38 @@ impl Renderer {
         };
         for (i, (part, history)) in histories.iter().enumerate() {
             let color = frame.palette.graph(cell.kind, *part);
-            let points = area_points(history, area, max);
-            if points.len() < 3 {
-                continue;
-            }
-            if i == 0 {
-                let fill = self.path(&points, true)?;
-                let brush = unsafe {
-                    self.target
-                        .CreateSolidColorBrush(&d2d(color.with_alpha(0.35)), None)?
-                };
-                unsafe { self.target.FillGeometry(&fill, &brush, None) };
-            }
-            let line = self.path(&points[1..points.len() - 1], false)?;
-            let brush = unsafe { self.target.CreateSolidColorBrush(&d2d(color), None)? };
-            unsafe { self.target.DrawGeometry(&line, &brush, 1.25 * scale, None) };
+            self.series(
+                &area_points(history, area, max),
+                color,
+                i == 0,
+                1.25 * scale,
+            )?;
         }
+        Ok(())
+    }
+
+    /// Draws an `area_points` outline: optionally filled, always stroked on top.
+    pub(crate) fn series(
+        &self,
+        points: &[(f32, f32)],
+        color: Color,
+        fill: bool,
+        width: f32,
+    ) -> Result<()> {
+        if points.len() < 3 {
+            return Ok(());
+        }
+        if fill {
+            let area = self.path(points, true)?;
+            let brush = unsafe {
+                self.target
+                    .CreateSolidColorBrush(&d2d(color.with_alpha(0.35)), None)?
+            };
+            unsafe { self.target.FillGeometry(&area, &brush, None) };
+        }
+        let line = self.path(&points[1..points.len() - 1], false)?;
+        let brush = unsafe { self.target.CreateSolidColorBrush(&d2d(color), None)? };
+        unsafe { self.target.DrawGeometry(&line, &brush, width, None) };
         Ok(())
     }
 
@@ -287,7 +315,7 @@ impl Renderer {
         }
     }
 
-    fn fill_rounded(&self, r: Rect, radius: f32, color: Color) -> Result<()> {
+    pub(crate) fn fill_rounded(&self, r: Rect, radius: f32, color: Color) -> Result<()> {
         let rounded = D2D1_ROUNDED_RECT {
             rect: rect_f(r),
             radiusX: radius,
@@ -300,7 +328,7 @@ impl Renderer {
         Ok(())
     }
 
-    fn text_at(
+    pub(crate) fn text_at(
         &self,
         text: &Text,
         format: &IDWriteTextFormat,
