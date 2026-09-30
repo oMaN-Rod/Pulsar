@@ -1,12 +1,18 @@
 use std::cell::RefCell;
 
-use windows::Win32::Foundation::HWND;
+use windows::Win32::Foundation::{HINSTANCE, HWND};
+use windows::Win32::System::LibraryLoader::GetModuleHandleW;
+use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetSystemMetricsForDpi};
 use windows::Win32::UI::Shell::{
     NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIIF_WARNING, NIM_ADD, NIM_DELETE,
     NIM_MODIFY, NIM_SETVERSION, NOTIFY_ICON_INFOTIP_FLAGS, NOTIFYICON_VERSION_4, NOTIFYICONDATAW,
     Shell_NotifyIconW,
 };
-use windows::Win32::UI::WindowsAndMessaging::{IDI_APPLICATION, LoadIconW};
+use windows::Win32::UI::WindowsAndMessaging::{
+    HICON, IDI_APPLICATION, IMAGE_ICON, LR_DEFAULTCOLOR, LR_SHARED, LoadIconW, LoadImageW,
+    SM_CXSMICON,
+};
+use windows::core::PCWSTR;
 
 use crate::messages::WM_APP_TRAY;
 
@@ -16,6 +22,25 @@ pub struct Tray {
     host: HWND,
     /// What clicking the current balloon opens.
     target: RefCell<Option<String>>,
+}
+
+/// Icon resource 1 at the small-icon size, shared so it needs no cleanup.
+fn app_icon() -> HICON {
+    unsafe {
+        let size = GetSystemMetricsForDpi(SM_CXSMICON, GetDpiForSystem());
+        let module = GetModuleHandleW(None).ok().map(HINSTANCE::from);
+        LoadImageW(
+            module,
+            PCWSTR(1 as _),
+            IMAGE_ICON,
+            size,
+            size,
+            LR_DEFAULTCOLOR | LR_SHARED,
+        )
+        .map(|h| HICON(h.0))
+        .or_else(|_| LoadIconW(None, IDI_APPLICATION))
+        .unwrap_or_default()
+    }
 }
 
 fn copy_into<const N: usize>(dst: &mut [u16; N], s: &str) {
@@ -48,7 +73,7 @@ impl Tray {
         let mut data = self.data();
         data.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         data.uCallbackMessage = WM_APP_TRAY;
-        data.hIcon = unsafe { LoadIconW(None, IDI_APPLICATION) }.unwrap_or_default();
+        data.hIcon = app_icon();
         copy_into(&mut data.szTip, "Pulsar");
         data.Anonymous.uVersion = NOTIFYICON_VERSION_4;
         unsafe {

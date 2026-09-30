@@ -166,6 +166,7 @@ component Page inherits VerticalLayout {
 export component SettingsWindow inherits Window {
     in property <string> window-title;
     title: root.window-title;
+    icon: @image-url("../assets/pulsar-64.png");
     preferred-width: 820px;
     preferred-height: 620px;
     min-width: 720px;
@@ -242,10 +243,10 @@ export component SettingsWindow inherits Window {
                 padding-left: 10px;
                 padding-bottom: 14px;
                 spacing: 10px;
-                Icon {
-                    text: Icons.chart;
-                    font-size: 20px;
-                    color: Palette.accent-background;
+                Image {
+                    source: @image-url("../assets/pulsar-64.png");
+                    width: 24px;
+                    height: 24px;
                 }
                 Text {
                     text: "Pulsar";
@@ -752,11 +753,10 @@ export component SettingsWindow inherits Window {
                     HorizontalLayout {
                         padding: 20px;
                         spacing: 16px;
-                        Icon {
-                            text: Icons.chart;
-                            font-size: 40px;
-                            color: Palette.accent-background;
+                        Image {
+                            source: @image-url("../assets/pulsar-64.png");
                             width: 48px;
+                            height: 48px;
                         }
                         VerticalLayout {
                             alignment: center;
