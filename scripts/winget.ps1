@@ -37,6 +37,7 @@ InstallModes:
   - silent
   - silentWithProgress
 UpgradeBehavior: install
+ProductCode: '{8F3B6C1E-3D8A-4B8E-9C61-5A2E7D4F0B19}_is1'
 ReleaseDate: $(Get-Date -Format 'yyyy-MM-dd')
 Installers:
   - Architecture: x64

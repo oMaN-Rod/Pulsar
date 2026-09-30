@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="crates/pulsar-monitor/assets/pulsar-256.png" width="96" alt="Pulsar icon">
+  <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/crates/pulsar-monitor/assets/pulsar-256.png" width="96" alt="Pulsar icon">
 </p>
 
 <h1 align="center">Pulsar</h1>
@@ -46,7 +46,7 @@ Pulsar needs Windows 11.
 - **Cargo:**
 
   ```
-  cargo install pulsar-monitor
+  cargo install --locked pulsar-monitor
   ```
 
   This puts `pulsar.exe` and `pulsar-settings.exe` in `%USERPROFILE%\.cargo\bin`; run `pulsar` to start it. Building needs Rust 1.92+, the MSVC build tools and the Windows SDK. To remove it, turn off *Start with Windows* in Settings, exit Pulsar, then run `cargo uninstall pulsar-monitor`.
@@ -93,8 +93,8 @@ cargo build --release
 cargo test --workspace
 ```
 
-`scripts\package.ps1` builds the installer, the portable zip and the winget manifests into `dist\`. It needs [Inno Setup](https://jrsoftware.org/isinfo.php). Also see the [manual testing checklist](docs/testing.md) and the [release guide](docs/releasing.md).
+`scripts\package.ps1` builds the installer, the portable zip and the winget manifests into `dist\`. It needs [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or later. Also see the [manual testing checklist](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/testing.md) and the [release guide](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/releasing.md).
 
 ## License
 
-[GPL-3.0-or-later](LICENSE). The settings window is built with [Slint](https://slint.dev), used under its GPLv3 option.
+[GPL-3.0-or-later](https://github.com/oMaN-Rod/Pulsar/blob/main/LICENSE). The settings window is built with [Slint](https://slint.dev), used under its GPLv3 option.

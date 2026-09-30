@@ -14,7 +14,7 @@ Only the maintainer pushes, publishes and submits.
 2. Bump the matching `version = "X.Y.Z"` on the `pulsar-core` dependency in `crates/pulsar-monitor/Cargo.toml`.
 3. Run `cargo build`, which updates `Cargo.lock`.
 4. Commit as `Release vX.Y.Z`.
-5. Run `scripts\package.ps1` and go through [testing.md](testing.md), at least the installer section.
+5. Run `scripts\package.ps1` (needs Inno Setup 6.3 or later) and go through [testing.md](testing.md), at least the installer section.
 6. Run `cargo package --workspace` to check that both crates build from their packaged files alone.
 
 ## 2. Tag
