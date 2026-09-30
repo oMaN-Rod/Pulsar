@@ -5,8 +5,8 @@ use std::time::Duration;
 use crate::config::Config;
 use crate::metric::{ItemKind, Snapshot, Source, SourceError, SourceId};
 use crate::sources::{
-    CpuSource, DiskIoSource, DiskSpaceSource, GpuSource, MemorySource, NetworkSource, PingSource,
-    ProcessesSource,
+    CpuSource, DiskIoSource, DiskSpaceSource, GpuSensorsSource, GpuSource, MemorySource,
+    NetworkSource, PingSource, ProcessesSource,
 };
 
 pub type ProcessesFactory = Box<dyn Fn() -> Box<dyn Source> + Send>;
@@ -52,9 +52,10 @@ impl Sampler {
                     sources.push(or_failed(SourceId::DiskIo, DiskIoSource::new()));
                     sources.push(Box::new(DiskSpaceSource::default()));
                 }
-                ItemKind::Network => {
-                    sources.push(or_failed(SourceId::Network, NetworkSource::new()))
-                }
+                ItemKind::Network => sources.push(or_failed(
+                    SourceId::Network,
+                    NetworkSource::new(config.network.adapter.clone()),
+                )),
                 ItemKind::Gpu => sources.push(or_failed(SourceId::Gpu, GpuSource::new())),
                 ItemKind::GpuTemp => {}
                 ItemKind::Ping => sources.push(Box::new(PingSource::spawn(
@@ -62,6 +63,10 @@ impl Sampler {
                     Duration::from_millis(config.ping.interval_ms.into()),
                 ))),
             }
+        }
+        // The GPU popup shows the sensors too, so either item needs them.
+        if config.is_enabled(ItemKind::Gpu) || config.is_enabled(ItemKind::GpuTemp) {
+            sources.push(or_failed(SourceId::GpuSensors, GpuSensorsSource::new()));
         }
         Self::with_lazy_processes(
             sources,

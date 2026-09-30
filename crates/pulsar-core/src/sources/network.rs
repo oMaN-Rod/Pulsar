@@ -14,10 +14,12 @@ pub struct NetworkSource {
     sent: Counter,
     hardware: HashSet<String>,
     hardware_refreshed: Option<Instant>,
+    adapter: Option<String>,
 }
 
 impl NetworkSource {
-    pub fn new() -> Result<Self, SourceError> {
+    /// `adapter` limits the totals to one PDH instance; `None` sums hardware adapters.
+    pub fn new(adapter: Option<String>) -> Result<Self, SourceError> {
         let query = Query::new()?;
         let received = query.add(r"\Network Interface(*)\Bytes Received/sec")?;
         let sent = query.add(r"\Network Interface(*)\Bytes Sent/sec")?;
@@ -28,6 +30,7 @@ impl NetworkSource {
             sent,
             hardware: HashSet::new(),
             hardware_refreshed: None,
+            adapter,
         })
     }
 }
@@ -46,10 +49,12 @@ impl Source for NetworkSource {
             self.hardware_refreshed = Some(Instant::now());
         }
         self.query.collect()?;
-        let adapters = select_hardware(
-            merge_adapters(self.received.array()?, self.sent.array()?),
-            &self.hardware,
-        );
+        let all = merge_adapters(self.received.array()?, self.sent.array()?);
+        let adapters = match &self.adapter {
+            Some(name) => select_adapter(all, name)
+                .ok_or_else(|| SourceError::Unavailable(format!("Adapter \"{name}\" not found")))?,
+            None => select_hardware(all, &self.hardware),
+        };
         out.set(
             MetricKey::NetDownBps,
             adapters.iter().map(|a| a.down_bps).sum(),
@@ -99,6 +104,19 @@ pub fn select_hardware(adapters: Vec<AdapterRate>, hardware: &HashSet<String>) -
         .into_iter()
         .filter(|a| hardware.contains(&a.name))
         .collect()
+}
+
+/// Only `name`'s traffic; `None` when that adapter is not present.
+pub fn select_adapter(adapters: Vec<AdapterRate>, name: &str) -> Option<Vec<AdapterRate>> {
+    let kept: Vec<AdapterRate> = adapters.into_iter().filter(|a| a.name == name).collect();
+    (!kept.is_empty()).then_some(kept)
+}
+
+/// PDH instance names of the physical adapters, sorted, for choosing one.
+pub fn hardware_adapters() -> Vec<String> {
+    let mut names: Vec<String> = hardware_instance_names().into_iter().collect();
+    names.sort();
+    names
 }
 
 /// PDH derives `Network Interface` instance names from the adapter
@@ -240,5 +258,35 @@ mod tests {
             hardware.iter().any(|h| instances.contains(h)),
             "hardware {hardware:?} vs PDH {instances:?}"
         );
+    }
+
+    #[test]
+    fn a_chosen_adapter_is_the_only_one_counted() {
+        let rate = |name: &str, down: f64| AdapterRate {
+            name: name.into(),
+            down_bps: down,
+            up_bps: 1.0,
+        };
+        let kept = select_adapter(vec![rate("wifi", 10.0), rate("eth", 5.0)], "eth").unwrap();
+        assert_eq!(kept.len(), 1);
+        assert_eq!(kept[0].down_bps, 5.0);
+    }
+
+    #[test]
+    fn a_missing_adapter_is_an_error() {
+        let rate = AdapterRate {
+            name: "wifi".into(),
+            down_bps: 1.0,
+            up_bps: 1.0,
+        };
+        assert_eq!(select_adapter(vec![rate], "eth"), None);
+    }
+
+    #[test]
+    fn hardware_adapters_are_listed_sorted() {
+        let list = hardware_adapters();
+        let mut sorted = list.clone();
+        sorted.sort();
+        assert_eq!(list, sorted);
     }
 }

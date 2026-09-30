@@ -10,6 +10,7 @@ serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 windows = { workspace = true, features = [
+    "Wdk_Graphics_Direct3D",
     "Win32_Foundation",
     "Win32_NetworkManagement_IpHelper",
     "Win32_NetworkManagement_Ndis",
