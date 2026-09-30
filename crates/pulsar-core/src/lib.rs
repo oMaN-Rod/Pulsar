@@ -1,8 +1,11 @@
+pub mod colors;
 pub mod config;
 pub mod format;
 pub mod history;
+pub mod ipc;
 pub mod layout;
 pub mod metric;
 pub mod pdh;
 pub mod sampler;
+pub mod single_instance;
 pub mod sources;

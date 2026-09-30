@@ -9,7 +9,6 @@ mod overlay;
 mod popup;
 mod render;
 mod sampler_thread;
-mod single_instance;
 mod taskbar;
 mod text;
 mod theme;
@@ -20,14 +19,15 @@ use windows::Win32::UI::HiDpi::{
     DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2, SetProcessDpiAwarenessContext,
 };
 
-use single_instance::SingleInstance;
+use pulsar_core::ipc::APP_MUTEX;
+use pulsar_core::single_instance::SingleInstance;
 
 fn main() -> windows::core::Result<()> {
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;
     }
-    let Some(_instance) = SingleInstance::acquire(single_instance::NAME) else {
+    let Some(_instance) = SingleInstance::acquire(APP_MUTEX) else {
         return Ok(());
     };
     app::run()

@@ -209,6 +209,19 @@ fn is_hex_color(s: &str) -> bool {
     s.len() == 7 && s.starts_with('#') && s[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
+/// Whether moving from `old` to `new` needs a new sampler: the set of
+/// sources, the interval or the ping target changed.
+pub fn sampling_changed(old: &Config, new: &Config) -> bool {
+    let mut a = old.enabled_items();
+    let mut b = new.enabled_items();
+    a.sort_by_key(|k| *k as u8);
+    b.sort_by_key(|k| *k as u8);
+    a != b
+        || old.general.sample_interval_ms != new.general.sample_interval_ms
+        || old.ping.host != new.ping.host
+        || old.ping.interval_ms != new.ping.interval_ms
+}
+
 /// `%APPDATA%\Pulsar\config.toml`.
 pub fn default_path() -> Option<PathBuf> {
     std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("Pulsar").join("config.toml"))
@@ -449,6 +462,31 @@ panel_opacity = 60
         assert_eq!(d.tile_opacity, Some(100));
         assert_eq!(d.panel_color, None);
         assert_eq!(d.panel_opacity, 100);
+    }
+
+    #[test]
+    fn sampling_changes_only_for_sources_interval_or_ping() {
+        let base = Config::default();
+        let mut reordered = base.clone();
+        reordered.items.swap(0, 1);
+        reordered.display.mode = DisplayMode::Text;
+        reordered.display.font_size_pt = 12.0;
+        assert!(
+            !sampling_changed(&base, &reordered),
+            "order and display settings keep the sampler"
+        );
+
+        let mut ping_on = base.clone();
+        ping_on.items.iter_mut().for_each(|i| i.enabled = true);
+        assert!(sampling_changed(&base, &ping_on));
+
+        let mut slower = base.clone();
+        slower.general.sample_interval_ms = 2000;
+        assert!(sampling_changed(&base, &slower));
+
+        let mut host = base.clone();
+        host.ping.host = "8.8.8.8".into();
+        assert!(sampling_changed(&base, &host));
     }
 
     #[test]

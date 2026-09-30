@@ -2,8 +2,6 @@ use windows::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError
 use windows::Win32::System::Threading::{CreateMutexW, ReleaseMutex};
 use windows::core::HSTRING;
 
-pub const NAME: &str = r"Local\Pulsar.SingleInstance";
-
 /// Held for the lifetime of the process; a second instance fails to acquire it.
 pub struct SingleInstance(HANDLE);
 

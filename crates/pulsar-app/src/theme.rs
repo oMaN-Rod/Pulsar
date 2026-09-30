@@ -1,3 +1,4 @@
+use pulsar_core::colors;
 use pulsar_core::config::Config;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -142,15 +143,8 @@ impl Palette {
 }
 
 pub fn default_color(kind: ItemKind, part: CellPart) -> Color {
-    match (kind, part) {
-        (ItemKind::Cpu, _) => Color::rgb(0x4C, 0xC2, 0xFF),
-        (ItemKind::Ram, _) => Color::rgb(0xB1, 0x86, 0xF6),
-        (ItemKind::Disk, _) => Color::rgb(0x6C, 0xCB, 0x5F),
-        (ItemKind::Network, CellPart::Up) => Color::rgb(0xF7, 0x63, 0x0C),
-        (ItemKind::Network, _) => Color::rgb(0xFF, 0xB9, 0x00),
-        (ItemKind::Gpu, _) => Color::rgb(0xFF, 0x6F, 0xB5),
-        (ItemKind::Ping, _) => Color::rgb(0x2E, 0xD5, 0xC4),
-    }
+    let (r, g, b) = colors::default_rgb(kind, part);
+    Color::rgb(r, g, b)
 }
 
 fn read_dword(subkey: windows::core::PCWSTR, value: windows::core::PCWSTR) -> Option<u32> {
