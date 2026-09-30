@@ -3,6 +3,7 @@
 mod app;
 mod display;
 mod hover;
+mod launcher;
 mod menu;
 mod messages;
 mod overlay;
@@ -28,6 +29,8 @@ fn main() -> windows::core::Result<()> {
         CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;
     }
     let Some(_instance) = SingleInstance::acquire(APP_MUTEX) else {
+        // Already running: a second launch opens Settings instead.
+        let _ = launcher::open(launcher::Page::General);
         return Ok(());
     };
     app::run()

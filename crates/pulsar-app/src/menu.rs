@@ -11,6 +11,8 @@ use windows::core::{HSTRING, PCWSTR, w};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Command {
     Mode(DisplayMode),
+    Settings,
+    About,
     TaskManager,
     Exit,
 }
@@ -19,11 +21,15 @@ const ID_GRAPHS: usize = 1;
 const ID_TEXT: usize = 2;
 const ID_TASK_MANAGER: usize = 3;
 const ID_EXIT: usize = 4;
+const ID_SETTINGS: usize = 5;
+const ID_ABOUT: usize = 6;
 
 pub fn command_for(id: usize) -> Option<Command> {
     match id {
         ID_GRAPHS => Some(Command::Mode(DisplayMode::Graph)),
         ID_TEXT => Some(Command::Mode(DisplayMode::Text)),
+        ID_SETTINGS => Some(Command::Settings),
+        ID_ABOUT => Some(Command::About),
         ID_TASK_MANAGER => Some(Command::TaskManager),
         ID_EXIT => Some(Command::Exit),
         _ => None,
@@ -45,7 +51,9 @@ pub fn show(owner: HWND, x: i32, y: i32, mode: DisplayMode) -> Option<Command> {
         let _ = AppendMenuW(menu, check(DisplayMode::Graph), ID_GRAPHS, w!("Graphs"));
         let _ = AppendMenuW(menu, check(DisplayMode::Text), ID_TEXT, w!("Text only"));
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
+        let _ = AppendMenuW(menu, MF_STRING, ID_SETTINGS, w!("Settings…"));
         let _ = AppendMenuW(menu, MF_STRING, ID_TASK_MANAGER, w!("Open Task Manager"));
+        let _ = AppendMenuW(menu, MF_STRING, ID_ABOUT, w!("About Pulsar"));
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
         let _ = AppendMenuW(menu, MF_STRING, ID_EXIT, w!("Exit Pulsar"));
 
@@ -80,6 +88,8 @@ mod tests {
     fn ids_map_to_commands() {
         assert_eq!(command_for(ID_TEXT), Some(Command::Mode(DisplayMode::Text)));
         assert_eq!(command_for(ID_EXIT), Some(Command::Exit));
+        assert_eq!(command_for(ID_SETTINGS), Some(Command::Settings));
+        assert_eq!(command_for(ID_ABOUT), Some(Command::About));
         assert_eq!(command_for(0), None, "menu dismissed");
     }
 }

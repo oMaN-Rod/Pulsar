@@ -4,12 +4,14 @@ use std::sync::atomic::Ordering;
 
 use pulsar_core::config::{self, Config};
 use pulsar_core::history::HistoryStore;
+use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
 };
+use windows::Win32::UI::Shell::NIN_SELECT;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos, GetMessageW,
     KillTimer, MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW, RegisterWindowMessageW,
@@ -17,9 +19,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW,
     WS_EX_TOOLWINDOW, WS_POPUP,
 };
-use windows::core::{Result, w};
+use windows::core::{HSTRING, PCWSTR, Result, w};
 
 use crate::hover::{HoverArming, popup_orphaned};
+use crate::launcher::{self, Page};
 use crate::menu::{self, Command};
 use crate::messages::{WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY};
 use crate::overlay::{self, Overlay};
@@ -43,8 +46,9 @@ const VALIDATE_MS: u32 = 2000;
 /// Explorer lays out the tray some time after announcing the taskbar.
 const RETRY_MS: [u32; 4] = [100, 250, 500, 1000];
 
-const HOST_CLASS: windows::core::PCWSTR = w!("PulsarHost");
 const HOVER_MS: u32 = 300;
+/// `NIN_SELECT | NINF_KEY`: the tray icon was activated from the keyboard.
+const NIN_KEYSELECT: u32 = NIN_SELECT | 1;
 const WM_MOUSEHOVER: u32 = 0x02A1;
 const WM_MOUSELEAVE: u32 = 0x02A3;
 
@@ -53,15 +57,18 @@ const WM_MOUSELEAVE: u32 = 0x02A3;
 struct Deferred {
     taskbar_created: bool,
     settings_changed: bool,
+    config_changed: bool,
 }
 
 thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
     static TASKBAR_CREATED: Cell<u32> = const { Cell::new(0) };
+    static CONFIG_CHANGED: Cell<u32> = const { Cell::new(0) };
     static DEFERRED: Cell<Deferred> = const {
         Cell::new(Deferred {
             taskbar_created: false,
             settings_changed: false,
+            config_changed: false,
         })
     };
 }
@@ -406,6 +413,9 @@ impl App {
         if deferred.settings_changed {
             self.on_settings_changed();
         }
+        if deferred.config_changed {
+            self.reload_config();
+        }
         match id {
             TIMER_WATCH => self.watch(),
             TIMER_VALIDATE => self.refresh(),
@@ -431,6 +441,41 @@ impl App {
         self.redraw();
     }
 
+    fn open_settings(&self, page: Page) {
+        if let Err(e) = launcher::open(page) {
+            self.tray
+                .warn("Pulsar could not open Settings", &e.to_string());
+        }
+    }
+
+    /// Applies a config saved by the settings process. Only a change to the
+    /// sampled sources, interval or ping target restarts the sampler; layout,
+    /// palette and placement are recomputed by `refresh`.
+    fn reload_config(&mut self) {
+        let Some(path) = &self.config_path else {
+            return;
+        };
+        let new = config::load(path).config;
+        if new == self.config {
+            return;
+        }
+        if config::sampling_changed(&self.config, &new) {
+            self.close_popup();
+            self.sampler = SamplerThread::spawn(&new, Some(self.host));
+            self.latest = Snapshot::default();
+            self.history = HistoryStore::new(new.general.history_len);
+        } else if new.general.history_len != self.config.general.history_len {
+            self.history = HistoryStore::new(new.general.history_len);
+        }
+        self.config = new;
+        self.palette = Palette::new(taskbar_is_light(), &self.config, accent_color());
+        if !self.config.display.hover_popup {
+            self.close_popup();
+        }
+        self.refresh();
+        self.redraw();
+    }
+
     fn apply(&mut self, command: Command) {
         match command {
             Command::Mode(mode) => {
@@ -443,6 +488,8 @@ impl App {
                 }
                 self.refresh();
             }
+            Command::Settings => self.open_settings(Page::General),
+            Command::About => self.open_settings(Page::About),
             Command::TaskManager => menu::open_task_manager(),
             Command::Exit => unsafe {
                 let _ = DestroyWindow(self.host);
@@ -467,6 +514,11 @@ fn tray_opens_menu(event: u32) -> bool {
     event == WM_CONTEXTMENU
 }
 
+/// Left click or keyboard selection on a version-4 tray icon.
+fn tray_opens_settings(event: u32) -> bool {
+    event == NIN_SELECT || event == NIN_KEYSELECT
+}
+
 fn key(hwnd: HWND) -> isize {
     hwnd.0 as isize
 }
@@ -489,6 +541,12 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
         }
         return LRESULT(0);
     }
+    if msg == CONFIG_CHANGED.get() && msg != 0 {
+        if with_app(App::reload_config).is_none() {
+            defer(|d| d.config_changed = true);
+        }
+        return LRESULT(0);
+    }
     match msg {
         WM_APP_SNAPSHOT => {
             with_app(App::on_snapshot);
@@ -502,9 +560,12 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
             with_app(App::watch);
         }
         WM_APP_TRAY => {
-            if tray_opens_menu(low_word(lp.0 as usize)) {
+            let event = low_word(lp.0 as usize);
+            if tray_opens_menu(event) {
                 let (x, y) = signed_words(wp.0);
                 context_menu(x, y);
+            } else if tray_opens_settings(event) {
+                with_app(|a| a.apply(Command::Settings));
             }
         }
         WM_TIMER => {
@@ -560,14 +621,16 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
 
 pub fn run() -> Result<()> {
     let instance: HINSTANCE = unsafe { GetModuleHandleW(None)? }.into();
+    let host_class = HSTRING::from(ipc::HOST_CLASS);
     unsafe {
         RegisterClassW(&WNDCLASSW {
             lpfnWndProc: Some(host_proc),
             hInstance: instance,
-            lpszClassName: HOST_CLASS,
+            lpszClassName: PCWSTR(host_class.as_ptr()),
             ..Default::default()
         });
         TASKBAR_CREATED.set(RegisterWindowMessageW(w!("TaskbarCreated")));
+        CONFIG_CHANGED.set(RegisterWindowMessageW(&HSTRING::from(ipc::CONFIG_CHANGED)));
     }
     overlay::register_class(instance, Some(overlay_proc));
 
@@ -576,7 +639,7 @@ pub fn run() -> Result<()> {
     let host = unsafe {
         CreateWindowExW(
             WS_EX_TOOLWINDOW,
-            HOST_CLASS,
+            &host_class,
             w!("Pulsar"),
             WS_POPUP,
             0,
@@ -613,18 +676,28 @@ mod tests {
     fn broadcasts_missed_while_busy_are_deferred() {
         // No App is installed on the test thread, as when it is borrowed.
         TASKBAR_CREATED.set(0xC0DE);
+        CONFIG_CHANGED.set(0xC0DF);
         unsafe {
             host_proc(HWND::default(), 0xC0DE, WPARAM(0), LPARAM(0));
             host_proc(HWND::default(), WM_SETTINGCHANGE, WPARAM(0), LPARAM(0));
+            host_proc(HWND::default(), 0xC0DF, WPARAM(0), LPARAM(0));
         }
         assert_eq!(
             take_deferred(),
             Deferred {
                 taskbar_created: true,
-                settings_changed: true
+                settings_changed: true,
+                config_changed: true
             }
         );
         assert_eq!(take_deferred(), Deferred::default());
+    }
+
+    #[test]
+    fn tray_left_click_opens_settings() {
+        assert!(tray_opens_settings(NIN_SELECT));
+        assert!(tray_opens_settings(NIN_KEYSELECT));
+        assert!(!tray_opens_settings(WM_CONTEXTMENU));
     }
 
     #[test]
