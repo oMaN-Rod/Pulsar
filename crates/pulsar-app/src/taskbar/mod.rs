@@ -1,9 +1,9 @@
 pub mod hooks;
 pub mod placement;
 
-use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
-    GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromWindow,
+    GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromPoint, MonitorFromWindow,
 };
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -34,6 +34,30 @@ pub fn rect_of(hwnd: HWND) -> Option<Rect32> {
         right: r.right,
         bottom: r.bottom,
     })
+}
+
+fn rect32(r: RECT) -> Rect32 {
+    Rect32 {
+        left: r.left,
+        top: r.top,
+        right: r.right,
+        bottom: r.bottom,
+    }
+}
+
+/// The monitor, and its work area, nearest a screen point.
+pub fn monitor_near(x: i32, y: i32) -> (Rect32, Rect32) {
+    let mut info = MONITORINFO {
+        cbSize: size_of::<MONITORINFO>() as u32,
+        ..Default::default()
+    };
+    unsafe {
+        let _ = GetMonitorInfoW(
+            MonitorFromPoint(POINT { x, y }, MONITOR_DEFAULTTONEAREST),
+            &mut info,
+        );
+    }
+    (rect32(info.rcMonitor), rect32(info.rcWork))
 }
 
 fn monitor_of(hwnd: HWND) -> Rect32 {

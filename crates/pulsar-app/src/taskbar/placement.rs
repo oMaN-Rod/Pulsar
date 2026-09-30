@@ -96,6 +96,28 @@ pub fn place(input: &PlacementInput) -> Placement {
     Placement::At { x, y }
 }
 
+/// Floating placement: the saved top-left, pulled fully inside the monitor's
+/// work area; without one, centred just above the taskbar.
+pub fn place_floating(
+    saved: Option<(i32, i32)>,
+    (w, h): (i32, i32),
+    work: Rect32,
+    taskbar: Option<Rect32>,
+    dpi: u32,
+) -> (i32, i32) {
+    let (x, y) = saved.unwrap_or_else(|| {
+        let bottom = taskbar.map_or(work.bottom, |t| t.top.min(work.bottom));
+        (
+            (work.left + work.right - w) / 2,
+            bottom - h - scaled(GAP_DIP, dpi),
+        )
+    });
+    (
+        x.clamp(work.left, (work.right - w).max(work.left)),
+        y.clamp(work.top, (work.bottom - h).max(work.top)),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -358,5 +380,35 @@ mod tests {
     fn covers() {
         assert!(MONITOR.covers(&MONITOR));
         assert!(!TASKBAR.covers(&MONITOR));
+    }
+
+    const WORK: Rect32 = Rect32 {
+        left: 0,
+        top: 0,
+        right: 1920,
+        bottom: 1032,
+    };
+
+    #[test]
+    fn floating_defaults_above_the_taskbar_centre() {
+        let (x, y) = place_floating(None, (200, 40), WORK, Some(TASKBAR), 96);
+        assert_eq!(x, (1920 - 200) / 2);
+        assert_eq!(y, 1032 - 40 - 8);
+    }
+
+    #[test]
+    fn floating_position_is_clamped_onto_the_monitor() {
+        assert_eq!(
+            place_floating(Some((1900, 1020)), (200, 40), WORK, None, 96),
+            (1720, 992)
+        );
+        assert_eq!(
+            place_floating(Some((-500, -20)), (200, 40), WORK, None, 96),
+            (0, 0)
+        );
+        assert_eq!(
+            place_floating(Some((300, 400)), (200, 40), WORK, None, 96),
+            (300, 400)
+        );
     }
 }

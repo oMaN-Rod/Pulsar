@@ -3,27 +3,28 @@ use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
-use pulsar_core::config::{self, Config};
+use pulsar_core::config::{self, Config, Position};
 use pulsar_core::history::HistoryStore;
 use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
+    ReleaseCapture, SetCapture, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
 };
 use windows::Win32::UI::Shell::{
     ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, NIN_SELECT, SHAppBarMessage,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos, GetMessageW,
-    KillTimer, MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW, RegisterWindowMessageW,
-    SetTimer, TranslateMessage, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_LBUTTONUP,
-    WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW,
-    WS_EX_TOOLWINDOW, WS_POPUP,
+    GetSystemMetrics, KillTimer, MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW,
+    RegisterWindowMessageW, SM_CXDRAG, SetTimer, TranslateMessage, WM_CAPTURECHANGED,
+    WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE,
+    WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
+use crate::drag::Drag;
 use crate::fade::{self, Debounce};
 use crate::hover::{HoverArming, popup_orphaned};
 use crate::launcher::{self, Page};
@@ -38,7 +39,9 @@ use crate::popup::{self, Anchor, Popup, Style as PopupStyle};
 use crate::render::{Frame, Renderer};
 use crate::sampler_thread::SamplerThread;
 use crate::taskbar::hooks::{self, Hooks};
-use crate::taskbar::placement::{Placement, PlacementInput, Rect32, place, tray_is_laid_out};
+use crate::taskbar::placement::{
+    HideReason, Placement, PlacementInput, Rect32, place, place_floating, tray_is_laid_out,
+};
 use crate::taskbar::{self, Taskbar};
 use crate::text::Text;
 use crate::theme::{Palette, accent_color, taskbar_is_light};
@@ -126,6 +129,8 @@ pub struct App {
     /// The overlay the open popup belongs to.
     popup_owner: Option<HWND>,
     hover: HoverArming,
+    /// A floating overlay being moved with the mouse.
+    drag: Option<(HWND, Drag)>,
 }
 
 impl App {
@@ -162,6 +167,7 @@ impl App {
             popup: Popup::create(instance)?,
             popup_owner: None,
             hover: HoverArming::default(),
+            drag: None,
         })
     }
 
@@ -176,8 +182,16 @@ impl App {
     }
 
     /// Rediscovers taskbars, reconciles overlays with them and repositions.
+    fn floating(&self) -> bool {
+        self.config.display.position == Position::Floating
+    }
+
     fn refresh(&mut self) {
-        let found = taskbar::discover(self.config.display.show_on_all_taskbars);
+        let floating = self.floating();
+        let mut found = taskbar::discover(self.config.display.show_on_all_taskbars && !floating);
+        if floating {
+            found.truncate(1);
+        }
         self.overlays
             .retain(|o| found.iter().any(|t| t.hwnd == o.taskbar.hwnd));
         for tb in found {
@@ -242,23 +256,46 @@ impl App {
     }
 
     fn show(&mut self, i: usize) {
+        // The mouse owns a dragged overlay's position until it is released.
+        let hwnd = self.overlays[i].hwnd;
+        if self
+            .drag
+            .as_ref()
+            .is_some_and(|(h, d)| *h == hwnd && d.moved())
+        {
+            return;
+        }
         let o = &mut self.overlays[i];
         o.update_layout(&self.config, &self.text);
         let (w, h) = o.size();
         let tb: &Taskbar = &o.taskbar;
-        let placement = place(&PlacementInput {
-            taskbar: tb.rect,
-            tray: tb.tray_rect,
-            monitor: tb.monitor,
-            overlay_w: w,
-            overlay_h: h,
-            position: self.config.display.position,
-            offset_px: self.config.display.offset_px,
-            fallback_margin_px: self.config.display.fallback_margin_px,
-            dpi: tb.dpi,
-        });
-        let covered = self.config.display.hide_in_fullscreen
-            && *self.fullscreen.current() == Some(tb.monitor);
+        let (placement, monitor) = if self.config.display.position == Position::Floating {
+            let saved = self.config.display.float_position.map(|[x, y]| (x, y));
+            let probe = saved.unwrap_or(((tb.rect.left + tb.rect.right) / 2, tb.rect.top));
+            let (monitor, work) = taskbar::monitor_near(probe.0, probe.1);
+            let placement = if w <= 0 {
+                Placement::Hidden(HideReason::Empty)
+            } else {
+                let (x, y) = place_floating(saved, (w, h), work, Some(tb.rect), tb.dpi);
+                Placement::At { x, y }
+            };
+            (placement, monitor)
+        } else {
+            let placement = place(&PlacementInput {
+                taskbar: tb.rect,
+                tray: tb.tray_rect,
+                monitor: tb.monitor,
+                overlay_w: w,
+                overlay_h: h,
+                position: self.config.display.position,
+                offset_px: self.config.display.offset_px,
+                fallback_margin_px: self.config.display.fallback_margin_px,
+                dpi: tb.dpi,
+            });
+            (placement, tb.monitor)
+        };
+        let covered =
+            self.config.display.hide_in_fullscreen && *self.fullscreen.current() == Some(monitor);
         match placement {
             Placement::At { x, y } if !covered => {
                 let o = &mut self.overlays[i];
@@ -423,6 +460,63 @@ impl App {
         self.close_popup();
     }
 
+    fn on_button_down(&mut self, overlay: HWND) {
+        if !self.floating() || self.config.display.lock_position {
+            return;
+        }
+        let Some(pos) = self
+            .overlays
+            .iter()
+            .find(|o| o.hwnd == overlay)
+            .and_then(|o| o.shown_at)
+        else {
+            return;
+        };
+        self.drag = Some((overlay, Drag::new(cursor(), pos)));
+        unsafe { SetCapture(overlay) };
+    }
+
+    /// Moves a dragged overlay; returns whether a drag is in progress.
+    fn on_drag_move(&mut self, overlay: HWND) -> bool {
+        let Some((hwnd, drag)) = self.drag.as_mut().filter(|(h, _)| *h == overlay) else {
+            return false;
+        };
+        let hwnd = *hwnd;
+        let threshold = unsafe { GetSystemMetrics(SM_CXDRAG) };
+        if let Some((x, y)) = drag.to(cursor(), threshold) {
+            self.close_popup();
+            if let Some(i) = self.overlays.iter().position(|o| o.hwnd == hwnd)
+                && self.draw(i, x, y).is_err()
+            {
+                self.overlays[i].hide();
+            }
+        }
+        true
+    }
+
+    /// Ends a drag and saves where it left the overlay; returns whether the
+    /// press was a drag rather than a click.
+    fn on_button_up(&mut self, overlay: HWND) -> bool {
+        let Some((hwnd, drag)) = self.drag.take() else {
+            return false;
+        };
+        unsafe {
+            let _ = ReleaseCapture();
+        }
+        if hwnd != overlay || !drag.moved() {
+            return false;
+        }
+        if let Some((x, y)) = self
+            .overlays
+            .iter()
+            .find(|o| o.hwnd == hwnd)
+            .and_then(|o| o.shown_at)
+        {
+            self.change_config(|c| c.display.float_position = Some([x, y]));
+        }
+        true
+    }
+
     fn on_click(&mut self, overlay: HWND) {
         self.close_popup();
         self.hover.disarm(key(overlay));
@@ -438,11 +532,28 @@ impl App {
         else {
             return;
         };
-        let anchor = Anchor {
-            item,
-            taskbar: o.taskbar.rect,
-            monitor: o.taskbar.monitor,
-            dpi: o.taskbar.dpi,
+        let anchor = match (self.floating(), o.shown_at) {
+            // Floating: the popup goes above or below the overlay itself.
+            (true, Some((x, y))) => {
+                let (w, h) = o.size();
+                Anchor {
+                    item,
+                    taskbar: Rect32 {
+                        left: x,
+                        top: y,
+                        right: x + w,
+                        bottom: y + h,
+                    },
+                    monitor: taskbar::monitor_near(x, y).0,
+                    dpi: o.taskbar.dpi,
+                }
+            }
+            _ => Anchor {
+                item,
+                taskbar: o.taskbar.rect,
+                monitor: o.taskbar.monitor,
+                dpi: o.taskbar.dpi,
+            },
         };
         self.sampler
             .processes
@@ -637,6 +748,14 @@ fn tray_opens_settings(event: u32) -> bool {
     event == NIN_SELECT || event == NIN_KEYSELECT
 }
 
+fn cursor() -> (i32, i32) {
+    let mut pt = POINT::default();
+    unsafe {
+        let _ = GetCursorPos(&mut pt);
+    }
+    (pt.x, pt.y)
+}
+
 fn key(hwnd: HWND) -> isize {
     hwnd.0 as isize
 }
@@ -711,7 +830,19 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
         WM_MOUSEMOVE => {
             let (x, y) = signed_words(lp.0 as usize);
-            with_app(|a| a.on_mouse_move(hwnd, x, y));
+            with_app(|a| {
+                if !a.on_drag_move(hwnd) {
+                    a.on_mouse_move(hwnd, x, y);
+                }
+            });
+            LRESULT(0)
+        }
+        WM_LBUTTONDOWN => {
+            with_app(|a| a.on_button_down(hwnd));
+            LRESULT(0)
+        }
+        WM_CAPTURECHANGED => {
+            with_app(|a| a.drag = None);
             LRESULT(0)
         }
         WM_MOUSEHOVER => {
@@ -724,8 +855,11 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
             LRESULT(0)
         }
         WM_LBUTTONUP => {
-            with_app(|a| a.on_click(hwnd));
-            menu::open_task_manager();
+            let dragged = with_app(|a| a.on_button_up(hwnd)).unwrap_or(false);
+            if !dragged {
+                with_app(|a| a.on_click(hwnd));
+                menu::open_task_manager();
+            }
             LRESULT(0)
         }
         WM_RBUTTONUP => {

@@ -2,6 +2,7 @@
 
 mod app;
 mod display;
+mod drag;
 mod fade;
 mod hover;
 mod launcher;
