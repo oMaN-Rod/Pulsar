@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace --locked
+      - name: Install Inno Setup if missing
+        shell: pwsh
+        run: |
+          $found = Get-ChildItem "${env:ProgramFiles(x86)}", $env:ProgramFiles -Filter ISCC.exe -Recurse -Depth 2 -ErrorAction SilentlyContinue
+          if (-not $found) { choco install innosetup -y --no-progress }
+      - name: Package
+        shell: pwsh
+        run: ./scripts/package.ps1 -ExpectVersion "${{ github.ref_name }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests-${{ github.ref_name }}
+          path: dist/winget
+      - name: Draft the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" (Get-ChildItem dist -File).FullName `
+            --draft --title "Pulsar ${{ github.ref_name }}" --generate-notes
