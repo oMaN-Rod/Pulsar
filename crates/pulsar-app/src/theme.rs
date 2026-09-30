@@ -54,6 +54,7 @@ pub struct Palette {
     pub popup_border: Color,
     pub warning: Color,
     items: Vec<(ItemKind, CellPart, Color)>,
+    color_labels: bool,
 }
 
 impl Palette {
@@ -74,6 +75,9 @@ impl Palette {
             )
         };
         let d = &config.display;
+        let custom = |hex: &Option<String>| hex.as_deref().and_then(Color::parse_hex);
+        let text = custom(&d.value_color).unwrap_or(text);
+        let label = custom(&d.label_color).unwrap_or(label);
         let opacity = |percent: u8| f32::from(percent.min(100)) / 100.0;
         let tile = d
             .tile_color
@@ -130,15 +134,30 @@ impl Palette {
             tile,
             hit: Color::rgb(0, 0, 0).with_alpha(1.0 / 255.0),
             items,
+            color_labels: d.color_labels,
         }
     }
 
     pub fn graph(&self, kind: ItemKind, part: CellPart) -> Color {
+        let part = match part {
+            CellPart::DriveActive(_) | CellPart::DriveUsed(_) => CellPart::Main,
+            p => p,
+        };
         self.items
             .iter()
             .find(|(k, p, _)| *k == kind && *p == part)
             .map(|(_, _, c)| *c)
             .unwrap_or(self.text)
+    }
+
+    /// Network arrows always take their series colour; other labels do when
+    /// `color_labels` is on.
+    pub fn label_for(&self, kind: ItemKind, part: CellPart) -> Color {
+        if self.color_labels || kind == ItemKind::Network {
+            self.graph(kind, part)
+        } else {
+            self.label
+        }
     }
 }
 
@@ -297,5 +316,37 @@ mod tests {
     fn reads_theme_from_registry_without_panicking() {
         let _ = taskbar_is_light();
         let _ = accent_color();
+    }
+
+    #[test]
+    fn label_and_value_colours_override_the_theme() {
+        let mut c = Config::default();
+        c.display.label_color = Some("#112233".into());
+        c.display.value_color = Some("#445566".into());
+        let p = Palette::new(false, &c, None);
+        assert_eq!(p.label, Color::rgb(0x11, 0x22, 0x33));
+        assert_eq!(p.text, Color::rgb(0x44, 0x55, 0x66));
+    }
+
+    #[test]
+    fn labels_can_take_the_item_colour() {
+        let mut c = Config::default();
+        let plain = Palette::new(false, &c, None);
+        assert_eq!(plain.label_for(ItemKind::Cpu, CellPart::Main), plain.label);
+        c.display.color_labels = true;
+        let coloured = Palette::new(false, &c, None);
+        assert_eq!(
+            coloured.label_for(ItemKind::Cpu, CellPart::Main),
+            default_color(ItemKind::Cpu, CellPart::Main)
+        );
+    }
+
+    #[test]
+    fn drive_cells_use_the_disk_colour() {
+        let p = Palette::new(false, &Config::default(), None);
+        assert_eq!(
+            p.graph(ItemKind::Disk, CellPart::DriveUsed(b'D')),
+            p.graph(ItemKind::Disk, CellPart::Main)
+        );
     }
 }

@@ -184,10 +184,7 @@ impl Renderer {
         let format = text.format(frame.layout.font_px)?;
         for cell in &frame.layout.cells {
             let label = cell_label(cell.kind, cell.part, frame.short_labels);
-            let label_color = match cell.kind {
-                ItemKind::Network => frame.palette.graph(cell.kind, cell.part),
-                _ => frame.palette.label,
-            };
+            let label_color = frame.palette.label_for(cell.kind, cell.part);
             self.text_at(text, &format, &label, cell.rect.x, cell.rect.y, label_color)?;
             let value = cell_value(cell.kind, cell.part, frame.snapshot);
             self.text_at(
@@ -226,7 +223,8 @@ impl Renderer {
                 }
             } else {
                 let label = cell_label(cell.kind, cell.part, frame.short_labels);
-                self.text_at(text, &small, &label, x, top, frame.palette.label)?;
+                let color = frame.palette.label_for(cell.kind, cell.part);
+                self.text_at(text, &small, &label, x, top, color)?;
                 let value = cell_value(cell.kind, cell.part, frame.snapshot);
                 self.text_at(text, &small, &value, x, bottom, frame.palette.text)?;
             }
