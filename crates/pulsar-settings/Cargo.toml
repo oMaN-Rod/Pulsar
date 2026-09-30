@@ -1,0 +1,9 @@
+[package]
+name = "pulsar-settings"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+pulsar-core = { path = "../pulsar-core" }

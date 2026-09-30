@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/pulsar-app", "crates/pulsar-core"]
+members = ["crates/pulsar-app", "crates/pulsar-core", "crates/pulsar-settings"]
 resolver = "3"
 
 [workspace.package]
@@ -14,3 +14,5 @@ thiserror = "2"
 toml = "1"
 windows = "0.62"
 windows-numerics = "0.3"
+slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software"] }
+slint-build = "1.18"
