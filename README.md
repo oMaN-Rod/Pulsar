@@ -8,11 +8,11 @@
 
 ---
 
-Pulsar puts live graphs or compact text for your system's vital signs right on the Windows 11 taskbar, next to the clock. Rest the mouse on an item for a detailed popup.
+Pulsar puts live graphs or compact text for your system's vital signs right on the Windows 11 taskbar. Place it beside the tray or at the left edge, nudge it with an offset, or let it float anywhere on screen. Rest the mouse on an item for a detailed popup.
 
 ## See it
 
-**Graph mode:** scrolling history for every item, next to the tray.
+**Graph mode:** scrolling history for every item, here beside the tray.
 
 ![Graph mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/graph.gif)
 
