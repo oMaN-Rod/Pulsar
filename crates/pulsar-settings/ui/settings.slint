@@ -282,7 +282,11 @@ export component SettingsWindow inherits Window {
         }
 
         // Content
-        ScrollView {
+        // A layout inside gives the scroll view its content height.
+        scroll := ScrollView {
+          VerticalLayout {
+            width: scroll.visible-width;
+            alignment: start;
             if root.tab == 0: Page {
                 title: "General";
                 Card {
@@ -785,6 +789,7 @@ export component SettingsWindow inherits Window {
                     }
                 }
             }
+          }
         }
     }
 }
