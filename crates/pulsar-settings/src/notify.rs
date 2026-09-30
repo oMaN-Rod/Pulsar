@@ -1,4 +1,7 @@
-use windows::Win32::Foundation::{LPARAM, WPARAM};
+use windows::Win32::Foundation::{CloseHandle, HANDLE, LPARAM, WAIT_OBJECT_0, WPARAM};
+use windows::Win32::System::Threading::{
+    CreateEventW, EVENT_MODIFY_STATE, OpenEventW, SetEvent, WaitForSingleObject,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, IsIconic, PostMessageW, RegisterWindowMessageW, SW_RESTORE, SetForegroundWindow,
     ShowWindow,
@@ -26,6 +29,43 @@ pub fn focus_window(title: &str) -> bool {
             let _ = ShowWindow(hwnd, SW_RESTORE);
         }
         SetForegroundWindow(hwnd).as_bool()
+    }
+}
+
+/// A named, auto-resetting event another process can set to ask the running
+/// settings window for something (e.g. to show the About page).
+pub struct Request(HANDLE);
+
+impl Request {
+    pub fn create(name: &str) -> Option<Self> {
+        unsafe { CreateEventW(None, false, false, &HSTRING::from(name)) }
+            .ok()
+            .map(Self)
+    }
+
+    /// True once per `signal`.
+    pub fn take(&self) -> bool {
+        (unsafe { WaitForSingleObject(self.0, 0) }) == WAIT_OBJECT_0
+    }
+}
+
+impl Drop for Request {
+    fn drop(&mut self) {
+        unsafe {
+            let _ = CloseHandle(self.0);
+        }
+    }
+}
+
+/// Sets the named request; false when no process is listening.
+pub fn signal(name: &str) -> bool {
+    unsafe {
+        let Ok(event) = OpenEventW(EVENT_MODIFY_STATE, false, &HSTRING::from(name)) else {
+            return false;
+        };
+        let set = SetEvent(event).is_ok();
+        let _ = CloseHandle(event);
+        set
     }
 }
 
@@ -83,6 +123,21 @@ mod tests {
             !post_to_class(&class, &message),
             "no window after it is destroyed"
         );
+    }
+
+    #[test]
+    fn a_signalled_request_is_taken_once() {
+        let name = format!(r"Local\PulsarTest.ShowAbout.{}", std::process::id());
+        let request = Request::create(&name).unwrap();
+        assert!(!request.take());
+        assert!(signal(&name));
+        assert!(request.take());
+        assert!(!request.take(), "resets after being taken");
+    }
+
+    #[test]
+    fn signalling_without_a_listener_is_false() {
+        assert!(!signal(r"Local\PulsarTest.NobodyListening"));
     }
 
     #[test]

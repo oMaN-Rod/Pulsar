@@ -175,17 +175,22 @@ fn update_row(ui: &SettingsWindow, index: i32, edit: impl FnOnce(&mut ItemRow)) 
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let about = std::env::args().any(|a| a == ipc::ABOUT_ARG);
     let Some(_instance) = SingleInstance::acquire(ipc::SETTINGS_MUTEX) else {
+        if about {
+            notify::signal(ipc::SHOW_ABOUT_EVENT);
+        }
         notify::focus_window(ipc::SETTINGS_TITLE);
         return Ok(());
     };
+    let about_requests = notify::Request::create(ipc::SHOW_ABOUT_EVENT);
     let path = config::default_path().ok_or("APPDATA is not set")?;
 
     let ui = SettingsWindow::new()?;
     ui.set_window_title(ipc::SETTINGS_TITLE.into());
     ui.set_version(env!("CARGO_PKG_VERSION").into());
     ui.set_config_path(SharedString::from(path.display().to_string()));
-    if std::env::args().any(|a| a == ipc::ABOUT_ARG) {
+    if about {
         ui.set_tab(ABOUT_TAB);
     }
 
@@ -265,6 +270,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         let (weak, state, pending) = (ui.as_weak(), state.clone(), save_timer.clone());
         move || {
             let Some(ui) = weak.upgrade() else { return };
+            if about_requests.as_ref().is_some_and(notify::Request::take) {
+                ui.set_tab(ABOUT_TAB);
+            }
             let changed_elsewhere = {
                 let s = state.borrow();
                 modified(&s.path) != s.written
