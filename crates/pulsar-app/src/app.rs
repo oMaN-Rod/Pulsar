@@ -134,9 +134,12 @@ impl App {
             palette: Palette::new(taskbar_is_light(), &config, accent_color()),
             history: HistoryStore::new(config.general.history_len),
             sampler: SamplerThread::spawn(&config, Some(host)),
+            text: Text::new(
+                config.display.font_family.as_deref(),
+                config.display.font_bold,
+            )?,
             config,
             config_path,
-            text: Text::new()?,
             renderer: Renderer::new()?,
             latest: Snapshot::default(),
             overlays: Vec::new(),
@@ -368,8 +371,13 @@ impl App {
     }
 
     fn show_popup(&mut self, kind: ItemKind, anchor: Anchor) {
-        let content =
-            popup::content::build(kind, &self.latest, &self.history, &self.config.ping.host);
+        let content = popup::content::build(
+            kind,
+            &self.latest,
+            &self.history,
+            &self.config.ping.host,
+            &self.config.drive_letters(),
+        );
         let style = PopupStyle {
             palette: &self.palette,
             history: &self.history,
@@ -466,6 +474,15 @@ impl App {
         }
         if new.general.history_len != self.config.general.history_len {
             self.history = HistoryStore::new(new.general.history_len);
+        }
+        let font = |c: &Config| (c.display.font_family.clone(), c.display.font_bold);
+        if font(&new) != font(&self.config)
+            && let Ok(text) = Text::new(new.display.font_family.as_deref(), new.display.font_bold)
+        {
+            self.text = text;
+            self.overlays
+                .iter_mut()
+                .for_each(Overlay::invalidate_layout);
         }
         self.config = new;
         self.palette = Palette::new(taskbar_is_light(), &self.config, accent_color());

@@ -292,7 +292,7 @@ mod tests {
         history.record(&snapshot);
         let config = Config::default();
         let palette = Palette::new(false, &config, None);
-        let content = content::build(ItemKind::Cpu, &snapshot, &history, "");
+        let content = content::build(ItemKind::Cpu, &snapshot, &history, "", &[]);
         let style = Style {
             palette: &palette,
             history: &history,
@@ -320,7 +320,7 @@ mod tests {
             },
             dpi: 96,
         };
-        let text = Text::new().unwrap();
+        let text = Text::new(None, false).unwrap();
         popup.show(anchor, &content, &style, &text).unwrap();
         assert_eq!(popup.open.map(|(k, _)| k), Some(ItemKind::Cpu));
         assert!(popup.surface.is_some() && popup.renderer.is_some());

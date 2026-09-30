@@ -126,14 +126,46 @@ fn ping_stats(history: &HistoryStore) -> String {
     )
 }
 
+fn sensors(snapshot: &Snapshot) -> Vec<(String, String)> {
+    vec![
+        ("Fan".into(), fmt(snapshot, MetricKey::GpuFanRpm)),
+        ("Power".into(), fmt(snapshot, MetricKey::GpuPowerPercent)),
+        (
+            "Memory clock".into(),
+            fmt(snapshot, MetricKey::GpuMemClockMhz),
+        ),
+    ]
+}
+
+fn drive_rows(snapshot: &Snapshot, drives: &[u8]) -> Vec<(String, String)> {
+    drives
+        .iter()
+        .map(|&d| {
+            let active = snapshot.get(MetricKey::DriveActivePercent(d));
+            let used = snapshot.get(MetricKey::DriveUsedPercent(d));
+            let value = match (active, used) {
+                (None, None) => "—".to_string(),
+                (a, u) => format!(
+                    "{} active · {} used",
+                    format_value(a.unwrap_or(f64::NAN), Unit::Percent),
+                    format_value(u.unwrap_or(f64::NAN), Unit::Percent)
+                ),
+            };
+            (format!("{}:", d as char), value)
+        })
+        .collect()
+}
+
+/// `drives` are the letters shown as separate disk cells.
 pub fn build(
     kind: ItemKind,
     snapshot: &Snapshot,
     history: &HistoryStore,
     ping_host: &str,
+    drives: &[u8],
 ) -> PopupContent {
     let error = snapshot.errors.get(&kind.source()).cloned();
-    let (title, value, series, blocks) = match kind {
+    let (title, value, series, mut blocks) = match kind {
         ItemKind::Cpu => (
             "CPU",
             cell_value(kind, CellPart::Main, snapshot),
@@ -192,6 +224,10 @@ pub fn build(
                     ],
                 },
                 Block::Rows {
+                    heading: Some("Drives"),
+                    rows: drive_rows(snapshot, drives),
+                },
+                Block::Rows {
                     heading: Some("Free space"),
                     rows: match snapshot.errors.get(&SourceId::DiskSpace) {
                         Some(reason) => vec![(reason.clone(), String::new())],
@@ -243,6 +279,18 @@ pub fn build(
                     rows: engines(snapshot),
                 },
                 Block::Rows {
+                    heading: Some("Sensors"),
+                    rows: match snapshot.get(MetricKey::GpuTempC) {
+                        Some(_) => std::iter::once((
+                            "Temperature".to_string(),
+                            fmt(snapshot, MetricKey::GpuTempC),
+                        ))
+                        .chain(sensors(snapshot))
+                        .collect(),
+                        None => Vec::new(),
+                    },
+                },
+                Block::Rows {
                     heading: Some("Memory"),
                     rows: vec![
                         (
@@ -259,7 +307,10 @@ pub fn build(
             "GPU temperature",
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
-            Vec::new(),
+            vec![Block::Rows {
+                heading: None,
+                rows: sensors(snapshot),
+            }],
         ),
         ItemKind::Ping => (
             "Ping",
@@ -278,6 +329,10 @@ pub fn build(
             }],
         ),
     };
+    // Optional sections vanish rather than showing a bare heading.
+    blocks.retain(|b| {
+        !matches!(b, Block::Rows { heading: Some("Drives" | "Sensors"), rows } if rows.is_empty())
+    });
     PopupContent {
         kind,
         title,
@@ -324,7 +379,7 @@ mod tests {
             proc("code", 12.0, 1.0, 0.0),
             proc("chrome", 30.0, 1.0, 0.0),
         ];
-        let c = build(ItemKind::Cpu, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Cpu, &s, &HistoryStore::new(60), "", &[]);
         assert_eq!((c.title, c.value.as_str()), ("CPU", "23%"));
         assert_eq!(rows(&c.blocks[0])[0], ("Speed".into(), "3.92 GHz".into()));
         assert_eq!(
@@ -346,6 +401,7 @@ mod tests {
             &Snapshot::default(),
             &HistoryStore::new(60),
             "",
+            &[],
         );
         assert_eq!(
             rows(&c.blocks[1]),
@@ -359,7 +415,7 @@ mod tests {
             processes: vec![proc("idle", 0.0, 1.0, 0.0)],
             ..Snapshot::default()
         };
-        let c = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "", &[]);
         assert_eq!(
             rows(&c.blocks[2]),
             [("No activity".to_string(), String::new())]
@@ -371,7 +427,7 @@ mod tests {
         let mut s = Snapshot::default();
         s.errors
             .insert(SourceId::Processes, "Process counters unavailable".into());
-        let c = build(ItemKind::Cpu, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Cpu, &s, &HistoryStore::new(60), "", &[]);
         assert_eq!(rows(&c.blocks[2])[0].0, "Process counters unavailable");
     }
 
@@ -379,7 +435,7 @@ mod tests {
     fn failed_disk_space_shows_its_reason() {
         let mut s = Snapshot::default();
         s.errors.insert(SourceId::DiskSpace, "Access denied".into());
-        let c = build(ItemKind::Disk, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Disk, &s, &HistoryStore::new(60), "", &[]);
         assert_eq!(
             rows(&c.blocks[1]),
             [("Access denied".to_string(), String::new())]
@@ -393,7 +449,7 @@ mod tests {
         s.set(MetricKey::MemTotalBytes, 31.8 * GB);
         s.set(MetricKey::CommitBytes, 50.0 * GB);
         s.set(MetricKey::CommitLimitBytes, 62.0 * GB);
-        let c = build(ItemKind::Ram, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Ram, &s, &HistoryStore::new(60), "", &[]);
         let r = rows(&c.blocks[0]);
         assert_eq!(r[0].1, "26.2 GB of 31.8 GB");
         assert_eq!(r[2].1, "50.0 GB of 62.0 GB");
@@ -407,7 +463,7 @@ mod tests {
             s.set(MetricKey::VolumeFreeBytes(letter), free * GB);
             s.set(MetricKey::VolumeTotalBytes(letter), 931.0 * GB);
         }
-        let c = build(ItemKind::Disk, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Disk, &s, &HistoryStore::new(60), "", &[]);
         let v = rows(&c.blocks[1]);
         assert_eq!(v[0], ("C:".into(), "269 GB free of 931 GB".into()));
         assert_eq!(v[1].0, "D:");
@@ -423,7 +479,7 @@ mod tests {
             down_bps: 2048.0,
             up_bps: 512.0,
         }];
-        let c = build(ItemKind::Network, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Network, &s, &HistoryStore::new(60), "", &[]);
         assert_eq!(c.value, "↓ 2.0 KB/s  ↑ 512 B/s");
         assert_eq!(c.series, vec![CellPart::Down, CellPart::Up]);
         assert_eq!(
@@ -436,6 +492,7 @@ mod tests {
             &Snapshot::default(),
             &HistoryStore::new(60),
             "",
+            &[],
         );
         assert_eq!(rows(&idle.blocks[0])[0].0, "No traffic");
     }
@@ -445,7 +502,7 @@ mod tests {
         let mut s = Snapshot::default();
         s.set(MetricKey::GpuEngine(GpuEngineKind::ThreeD), 7.0);
         s.set(MetricKey::GpuEngine(GpuEngineKind::VideoDecode), 2.0);
-        let c = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "", &[]);
         let labels: Vec<&str> = rows(&c.blocks[0]).iter().map(|(l, _)| l.as_str()).collect();
         assert_eq!(labels, ["3D", "Video decode"]);
     }
@@ -458,7 +515,13 @@ mod tests {
             s.set(MetricKey::PingMs, ms);
             history.record(&s);
         }
-        let c = build(ItemKind::Ping, &Snapshot::default(), &history, "1.1.1.1");
+        let c = build(
+            ItemKind::Ping,
+            &Snapshot::default(),
+            &history,
+            "1.1.1.1",
+            &[],
+        );
         let r = rows(&c.blocks[0]);
         assert_eq!(r[0].1, "1.1.1.1");
         assert_eq!(r[1].1, "12 / 16 / 20 ms");
@@ -469,7 +532,7 @@ mod tests {
         let mut s = Snapshot::default();
         s.errors
             .insert(SourceId::Gpu, "GPU counters unavailable".into());
-        let c = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "");
+        let c = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "", &[]);
         assert_eq!(c.error.as_deref(), Some("GPU counters unavailable"));
         assert_eq!(c.value, "—");
     }
@@ -481,5 +544,81 @@ mod tests {
             .filter(|&k| needs_processes(k))
             .collect();
         assert_eq!(with, [ItemKind::Cpu, ItemKind::Ram, ItemKind::Gpu]);
+    }
+
+    #[test]
+    fn gpu_temperature_popup_lists_the_sensors() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::GpuTempC, 49.1);
+        s.set(MetricKey::GpuFanRpm, 0.0);
+        s.set(MetricKey::GpuPowerPercent, 10.6);
+        s.set(MetricKey::GpuMemClockMhz, 7001.0);
+        let c = build(ItemKind::GpuTemp, &s, &HistoryStore::new(60), "", &[]);
+        assert_eq!(c.title, "GPU temperature");
+        assert_eq!(c.value, "49°C");
+        let r = rows(&c.blocks[0]);
+        assert_eq!(r[0], ("Fan".to_string(), "0 RPM".to_string()));
+        assert_eq!(r[1], ("Power".to_string(), "11%".to_string()));
+        assert_eq!(r[2], ("Memory clock".to_string(), "7.00 GHz".to_string()));
+    }
+
+    #[test]
+    fn gpu_popup_shows_temperature_when_available() {
+        let sensors = |c: &PopupContent| {
+            c.blocks.iter().any(|b| {
+                matches!(
+                    b,
+                    Block::Rows {
+                        heading: Some("Sensors"),
+                        ..
+                    }
+                )
+            })
+        };
+        let mut s = Snapshot::default();
+        s.set(MetricKey::GpuTempC, 55.0);
+        assert!(sensors(&build(
+            ItemKind::Gpu,
+            &s,
+            &HistoryStore::new(60),
+            "",
+            &[]
+        )));
+        let without = build(
+            ItemKind::Gpu,
+            &Snapshot::default(),
+            &HistoryStore::new(60),
+            "",
+            &[],
+        );
+        assert!(!sensors(&without));
+    }
+
+    #[test]
+    fn disk_popup_lists_chosen_drives() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::DriveActivePercent(b'C'), 12.0);
+        s.set(MetricKey::DriveUsedPercent(b'C'), 48.0);
+        let c = build(ItemKind::Disk, &s, &HistoryStore::new(60), "", b"CX");
+        let drives = c
+            .blocks
+            .iter()
+            .find_map(|b| match b {
+                Block::Rows {
+                    heading: Some("Drives"),
+                    rows,
+                } => Some(rows.clone()),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(
+            drives[0],
+            ("C:".to_string(), "12% active · 48% used".to_string())
+        );
+        assert_eq!(
+            drives[1],
+            ("X:".to_string(), "—".to_string()),
+            "a missing drive has no value"
+        );
     }
 }

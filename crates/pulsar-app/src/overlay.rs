@@ -102,6 +102,11 @@ impl Overlay {
         self.key = Some(key);
     }
 
+    /// Forces the next `update_layout` to measure again, e.g. after a font change.
+    pub fn invalidate_layout(&mut self) {
+        self.key = None;
+    }
+
     pub fn size(&self) -> (i32, i32) {
         (
             self.layout.width.ceil() as i32,

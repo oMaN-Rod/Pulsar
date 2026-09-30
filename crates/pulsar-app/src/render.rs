@@ -433,7 +433,7 @@ mod tests {
     }
 
     fn render_with(mode: DisplayMode, samples: &[f64], config: &Config) -> (Surface, Layout) {
-        let text = Text::new().unwrap();
+        let text = Text::new(None, false).unwrap();
         let items = pulsar_core::layout::item_specs(config);
         let layout = compute_layout(
             &items,

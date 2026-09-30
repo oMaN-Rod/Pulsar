@@ -138,4 +138,13 @@ mod tests {
         let h = History::new(5);
         assert!(area_points(&h, Rect::default(), 100.0).is_empty());
     }
+
+    #[test]
+    fn a_missing_drive_has_no_value() {
+        let s = Snapshot::default();
+        assert_eq!(
+            cell_value(ItemKind::Disk, CellPart::DriveActive(b'X'), &s),
+            "—"
+        );
+    }
 }
