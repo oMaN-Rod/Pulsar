@@ -13,11 +13,14 @@ use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 use pulsar_core::config::{self, Config};
-use pulsar_core::ipc;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::single_instance::SingleInstance;
 use pulsar_core::sources::{fixed_drives, hardware_adapters};
+use pulsar_core::{crash, ipc, logging, paths, project};
 use slint::{Color, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
+use windows::Win32::UI::Shell::ShellExecuteW;
+use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
+use windows::core::{HSTRING, PCWSTR, w};
 
 use form::Form;
 
@@ -255,7 +258,9 @@ fn sync_autostart(enabled: bool) {
         return;
     };
     let command = autostart::command_for(&ipc::sibling(&exe, ipc::APP_EXE));
-    let _ = autostart::set(autostart::VALUE_NAME, enabled.then_some(command.as_str()));
+    if let Err(e) = autostart::set(autostart::VALUE_NAME, enabled.then_some(command.as_str())) {
+        log::warn!("could not change autostart: {e}");
+    }
 }
 
 fn save(ui: &SettingsWindow, state: &mut State) {
@@ -270,10 +275,26 @@ fn write(state: &mut State, new: Config) {
     if new.general.autostart != state.config.general.autostart {
         sync_autostart(new.general.autostart);
     }
-    if config::save(&state.path, &new).is_ok() {
-        state.written = modified(&state.path);
-        state.config = new;
-        notify::post_to_class(ipc::HOST_CLASS, ipc::CONFIG_CHANGED);
+    match config::save(&state.path, &new) {
+        Ok(()) => {
+            state.written = modified(&state.path);
+            state.config = new;
+            notify::post_to_class(ipc::HOST_CLASS, ipc::CONFIG_CHANGED);
+        }
+        Err(e) => log::warn!("could not save settings: {e}"),
+    }
+}
+
+fn open_link(url: &str) {
+    unsafe {
+        ShellExecuteW(
+            None,
+            w!("open"),
+            &HSTRING::from(url),
+            PCWSTR::null(),
+            PCWSTR::null(),
+            SW_SHOWNORMAL,
+        );
     }
 }
 
@@ -295,6 +316,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         notify::focus_window(ipc::SETTINGS_TITLE);
         return Ok(());
     };
+    if let Some(dir) = paths::logs_dir() {
+        logging::init(&dir, "pulsar-settings");
+        crash::install_panic_hook(dir, "pulsar-settings", env!("CARGO_PKG_VERSION"));
+    }
+    log::info!("Settings {} opened", env!("CARGO_PKG_VERSION"));
     let about_requests = notify::Request::create(ipc::SHOW_ABOUT_EVENT);
     let path = config::default_path().ok_or("APPDATA is not set")?;
 
@@ -302,6 +328,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     ui.set_window_title(ipc::SETTINGS_TITLE.into());
     ui.set_version(env!("CARGO_PKG_VERSION").into());
     ui.set_config_path(SharedString::from(path.display().to_string()));
+    let logs = paths::logs_dir();
+    ui.set_logs_path(
+        logs.as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default()
+            .into(),
+    );
+    ui.set_repo_url(project::REPO_URL.into());
+    ui.set_issues_url(project::ISSUES_URL.into());
+    ui.on_open_logs_folder(move || {
+        if let Some(dir) = &logs {
+            let _ = std::fs::create_dir_all(dir);
+            let _ = std::process::Command::new("explorer").arg(dir).spawn();
+        }
+    });
+    ui.on_open_link(|url| open_link(&url));
     if about {
         ui.set_tab(ABOUT_TAB);
     }
@@ -322,7 +364,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     ));
     {
         let mut s = state.borrow_mut();
-        let loaded = config::load(&s.path).config;
+        let mut loaded = config::load(&s.path).config;
+        // The installer or an older build may have written the Run value
+        // without the config knowing.
+        loaded.general.autostart = autostart::get(autostart::VALUE_NAME).is_some();
         s.written = modified(&s.path);
         show(&ui, &mut s, loaded);
     }

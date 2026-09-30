@@ -199,6 +199,9 @@ export component SettingsWindow inherits Window {
     in-out property <int> ping-interval-ms;
     in property <string> version;
     in property <string> config-path;
+    in property <string> logs-path;
+    in property <string> repo-url;
+    in property <string> issues-url;
     in-out property <int> labels;
     in-out property <bool> icons;
     in-out property <bool> hide-in-fullscreen;
@@ -226,6 +229,8 @@ export component SettingsWindow inherits Window {
     callback item-color(int, string);
     callback move-item(int, bool);
     callback open-config-folder();
+    callback open-logs-folder();
+    callback open-link(string);
     callback apply-preset(int);
     callback reset-all();
     callback reset-position();
@@ -785,6 +790,34 @@ export component SettingsWindow inherits Window {
                         Button {
                             text: "Open folder";
                             clicked => { root.open-config-folder(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Logs";
+                        description: root.logs-path;
+                        Button {
+                            text: "Open folder";
+                            clicked => { root.open-logs-folder(); }
+                        }
+                    }
+                }
+                Card {
+                    SettingRow {
+                        title: "Source code";
+                        description: root.repo-url;
+                        Button {
+                            text: "Open on GitHub";
+                            clicked => { root.open-link(root.repo-url); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Report a problem";
+                        description: "Attach pulsar.log, and any crash report, from the logs folder.";
+                        Button {
+                            text: "Report an issue";
+                            clicked => { root.open-link(root.issues-url); }
                         }
                     }
                 }

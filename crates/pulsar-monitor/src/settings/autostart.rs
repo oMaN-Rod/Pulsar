@@ -4,12 +4,35 @@ use std::path::Path;
 
 use windows::Win32::Foundation::ERROR_FILE_NOT_FOUND;
 use windows::Win32::System::Registry::{
-    HKEY_CURRENT_USER, REG_SZ, RegDeleteKeyValueW, RegSetKeyValueW,
+    HKEY_CURRENT_USER, REG_SZ, RRF_RT_REG_SZ, RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW,
 };
 use windows::core::{HSTRING, Result};
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 pub const VALUE_NAME: &str = "Pulsar";
+
+/// The command stored under `value_name`, if any.
+pub fn get(value_name: &str) -> Option<String> {
+    let key = HSTRING::from(RUN_KEY);
+    let name = HSTRING::from(value_name);
+    let mut buf = [0u16; 1024];
+    let mut size = (buf.len() * 2) as u32;
+    unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            &key,
+            &name,
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr().cast()),
+            Some(&mut size),
+        )
+    }
+    .ok()
+    .ok()?;
+    let len = (size as usize / 2).saturating_sub(1);
+    Some(String::from_utf16_lossy(&buf[..len]))
+}
 
 /// The quoted command line stored in the `Run` value.
 pub fn command_for(exe: &Path) -> String {
@@ -48,29 +71,6 @@ pub fn set(value_name: &str, command: Option<&str>) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use windows::Win32::System::Registry::{RRF_RT_REG_SZ, RegGetValueW};
-
-    fn get(value_name: &str) -> Option<String> {
-        let key = HSTRING::from(RUN_KEY);
-        let name = HSTRING::from(value_name);
-        let mut buf = [0u16; 1024];
-        let mut size = (buf.len() * 2) as u32;
-        unsafe {
-            RegGetValueW(
-                HKEY_CURRENT_USER,
-                &key,
-                &name,
-                RRF_RT_REG_SZ,
-                None,
-                Some(buf.as_mut_ptr().cast()),
-                Some(&mut size),
-            )
-        }
-        .ok()
-        .ok()?;
-        let len = (size as usize / 2).saturating_sub(1);
-        Some(String::from_utf16_lossy(&buf[..len]))
-    }
 
     #[test]
     fn command_is_quoted() {
