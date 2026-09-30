@@ -10,6 +10,24 @@
 
 Pulsar puts live graphs or compact text for your system's vital signs right on the Windows 11 taskbar, next to the clock. Rest the mouse on an item for a detailed popup.
 
+## See it
+
+**Graph mode:** scrolling history for every item, next to the tray.
+
+![Graph mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/graph.gif)
+
+**Hover for details:** CPU cores and top processes, memory, GPU engines and sensors, drives, network adapters and ping statistics.
+
+![Hover popups](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/hover.gif)
+
+**Text mode and label styles:** full labels, one-letter labels, icons with labels, and icons alone.
+
+![Text mode label styles](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/labels.gif)
+
+**Floating:** drag it anywhere, here with a panel background, in graph and text mode.
+
+![Floating mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/floating.gif)
+
 ## Features
 
 - **Graphs or text.** Graph tiles with scrolling history, or a dense text layout that stays readable on a standard 48 px taskbar.
