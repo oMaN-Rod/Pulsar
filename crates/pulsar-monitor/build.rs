@@ -1,6 +1,10 @@
 fn main() {
     let config = slint_build::CompilerConfiguration::new().with_style("fluent".into());
     slint_build::compile_with_config("ui/settings.slint", config).expect("compile settings.slint");
+    // Only the update helper (`pulsar.exe --check-update`) uses WinHTTP;
+    // delay-loading keeps it out of the resident process.
+    println!("cargo:rustc-link-arg-bin=pulsar=/DELAYLOAD:winhttp.dll");
+    println!("cargo:rustc-link-arg-bin=pulsar=delayimp.lib");
     println!("cargo:rerun-if-changed=assets/pulsar.ico");
     println!("cargo:rerun-if-changed=resources");
     let version = std::env::var("CARGO_PKG_VERSION").expect("set by cargo");
