@@ -85,6 +85,7 @@ pub struct Frame<'a> {
     pub snapshot: &'a Snapshot,
     pub history: &'a HistoryStore,
     pub dpi: u32,
+    pub short_labels: bool,
 }
 
 pub struct Renderer {
@@ -182,12 +183,12 @@ impl Renderer {
     fn draw_text_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
         let format = text.format(frame.layout.font_px)?;
         for cell in &frame.layout.cells {
-            let label = cell_label(cell.kind, cell.part);
+            let label = cell_label(cell.kind, cell.part, frame.short_labels);
             let label_color = match cell.kind {
                 ItemKind::Network => frame.palette.graph(cell.kind, cell.part),
                 _ => frame.palette.label,
             };
-            self.text_at(text, &format, label, cell.rect.x, cell.rect.y, label_color)?;
+            self.text_at(text, &format, &label, cell.rect.x, cell.rect.y, label_color)?;
             let value = cell_value(cell.kind, cell.part, frame.snapshot);
             self.text_at(
                 text,
@@ -218,14 +219,15 @@ impl Renderer {
                 for (part, y) in [(CellPart::Down, top), (CellPart::Up, bottom)] {
                     let value = format!(
                         "{} {}",
-                        cell_label(cell.kind, part),
+                        cell_label(cell.kind, part, frame.short_labels),
                         cell_value(cell.kind, part, frame.snapshot)
                     );
                     self.text_at(text, &small, &value, x, y, frame.palette.text)?;
                 }
             } else {
-                self.text_at(text, &small, cell.kind.label(), x, top, frame.palette.label)?;
-                let value = cell_value(cell.kind, CellPart::Main, frame.snapshot);
+                let label = cell_label(cell.kind, cell.part, frame.short_labels);
+                self.text_at(text, &small, &label, x, top, frame.palette.label)?;
+                let value = cell_value(cell.kind, cell.part, frame.snapshot);
                 self.text_at(text, &small, &value, x, bottom, frame.palette.text)?;
             }
         }
@@ -236,7 +238,7 @@ impl Renderer {
         let parts: &[CellPart] = if cell.kind == ItemKind::Network {
             &[CellPart::Down, CellPart::Up]
         } else {
-            &[CellPart::Main]
+            std::slice::from_ref(&cell.part)
         };
         let histories: Vec<(CellPart, &History)> = parts
             .iter()
@@ -434,7 +436,7 @@ mod tests {
 
     fn render_with(mode: DisplayMode, samples: &[f64], config: &Config) -> (Surface, Layout) {
         let text = Text::new().unwrap();
-        let items = config.enabled_items();
+        let items = pulsar_core::layout::item_specs(config);
         let layout = compute_layout(
             &items,
             LayoutInput {
@@ -442,6 +444,7 @@ mod tests {
                 taskbar_height_px: 48.0,
                 dpi: 96,
                 font_size_pt: 9.0,
+                short_labels: false,
             },
             &text,
         );
@@ -463,6 +466,7 @@ mod tests {
             snapshot: &snapshot,
             history: &history,
             dpi: 96,
+            short_labels: false,
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)

@@ -265,6 +265,7 @@ impl App {
             snapshot: &self.latest,
             history: &self.history,
             dpi,
+            short_labels: self.config.display.short_labels,
         };
         self.renderer.draw(surface, &frame, &self.text)?;
         self.renderer.present(hwnd, surface, x, y)?;

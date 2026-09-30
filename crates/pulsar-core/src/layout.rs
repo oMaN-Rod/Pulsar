@@ -1,7 +1,7 @@
 //! Pure layout: turns the enabled items, display mode and taskbar metrics into
 //! rectangles. All values are physical pixels.
 
-use crate::config::DisplayMode;
+use crate::config::{Config, DisplayMode, DriveValue};
 use crate::format::widest_value;
 use crate::metric::{ItemKind, MetricKey};
 
@@ -28,11 +28,14 @@ impl Rect {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CellPart {
     Main,
     Down,
     Up,
+    /// Per-drive activity or used space, by drive letter.
+    DriveActive(u8),
+    DriveUsed(u8),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -68,6 +71,14 @@ pub struct LayoutInput {
     pub taskbar_height_px: f32,
     pub dpi: u32,
     pub font_size_pt: f32,
+    pub short_labels: bool,
+}
+
+/// An enabled item and the cells it draws.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ItemSpec {
+    pub kind: ItemKind,
+    pub parts: Vec<CellPart>,
 }
 
 const PADDING_DIP: f32 = 4.0;
@@ -89,22 +100,56 @@ pub fn primary_metric(kind: ItemKind) -> MetricKey {
     }
 }
 
-pub fn cell_label(kind: ItemKind, part: CellPart) -> &'static str {
+pub fn part_metric(kind: ItemKind, part: CellPart) -> MetricKey {
     match part {
-        CellPart::Main => kind.label(),
-        CellPart::Down => "↓",
-        CellPart::Up => "↑",
+        CellPart::Up => MetricKey::NetUpBps,
+        CellPart::DriveActive(d) => MetricKey::DriveActivePercent(d),
+        CellPart::DriveUsed(d) => MetricKey::DriveUsedPercent(d),
+        CellPart::Main | CellPart::Down => primary_metric(kind),
     }
 }
 
-fn parts(kind: ItemKind) -> &'static [CellPart] {
+pub fn cell_label(kind: ItemKind, part: CellPart, short: bool) -> String {
+    match part {
+        CellPart::Down => "↓".into(),
+        CellPart::Up => "↑".into(),
+        CellPart::DriveActive(d) | CellPart::DriveUsed(d) => format!("{}:", d as char),
+        CellPart::Main if short => kind.short_label().into(),
+        CellPart::Main => kind.label().into(),
+    }
+}
+
+pub fn default_parts(kind: ItemKind) -> Vec<CellPart> {
     match kind {
-        ItemKind::Network => &[CellPart::Down, CellPart::Up],
-        _ => &[CellPart::Main],
+        ItemKind::Network => vec![CellPart::Down, CellPart::Up],
+        _ => vec![CellPart::Main],
     }
 }
 
-pub fn compute_layout(items: &[ItemKind], input: LayoutInput, m: &dyn TextMeasure) -> Layout {
+/// The enabled items in order, each with the cells it draws.
+pub fn item_specs(config: &Config) -> Vec<ItemSpec> {
+    let drives = config.drive_letters();
+    config
+        .enabled_items()
+        .into_iter()
+        .map(|kind| {
+            let parts = if kind == ItemKind::Disk && !drives.is_empty() {
+                drives
+                    .iter()
+                    .map(|&d| match config.disk.value {
+                        DriveValue::Activity => CellPart::DriveActive(d),
+                        DriveValue::Used => CellPart::DriveUsed(d),
+                    })
+                    .collect()
+            } else {
+                default_parts(kind)
+            };
+            ItemSpec { kind, parts }
+        })
+        .collect()
+}
+
+pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasure) -> Layout {
     let scale = input.dpi as f32 / 96.0;
     let font_px = input.font_size_pt * input.dpi as f32 / 72.0;
     let height = input.taskbar_height_px;
@@ -116,37 +161,38 @@ pub fn compute_layout(items: &[ItemKind], input: LayoutInput, m: &dyn TextMeasur
             cells: Vec::new(),
         };
     }
+    let short = input.short_labels;
     match input.mode {
-        DisplayMode::Text => text_layout(items, height, scale, font_px, m),
-        DisplayMode::Graph => graph_layout(items, height, scale, font_px, m),
+        DisplayMode::Text => text_layout(items, height, scale, font_px, short, m),
+        DisplayMode::Graph => graph_layout(items, height, scale, font_px, short, m),
     }
 }
 
 /// Packs items into columns of `rows` cells, column-major. An item's parts
 /// (network ↓ and ↑) are kept together when they fit in a column.
-fn columns(items: &[ItemKind], rows: usize) -> Vec<Vec<(ItemKind, CellPart)>> {
+fn columns(items: &[ItemSpec], rows: usize) -> Vec<Vec<(ItemKind, CellPart)>> {
     let mut columns: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
-    for &kind in items {
-        let item_parts = parts(kind);
+    for spec in items {
         let free = columns.last().map_or(0, |c| rows - c.len());
-        if free == 0 || (item_parts.len() > free && item_parts.len() <= rows) {
+        if free == 0 || (spec.parts.len() > free && spec.parts.len() <= rows) {
             columns.push(Vec::with_capacity(rows));
         }
-        for &part in item_parts {
+        for &part in &spec.parts {
             if columns.last().is_some_and(|c| c.len() == rows) {
                 columns.push(Vec::with_capacity(rows));
             }
-            columns.last_mut().unwrap().push((kind, part));
+            columns.last_mut().unwrap().push((spec.kind, part));
         }
     }
     columns
 }
 
 fn text_layout(
-    items: &[ItemKind],
+    items: &[ItemSpec],
     height: f32,
     scale: f32,
     font_px: f32,
+    short: bool,
     m: &dyn TextMeasure,
 ) -> Layout {
     let padding = PADDING_DIP * scale;
@@ -159,11 +205,11 @@ fn text_layout(
     for column in columns(items, rows) {
         let label_w = column
             .iter()
-            .map(|&(k, p)| m.width(cell_label(k, p), font_px))
+            .map(|&(k, p)| m.width(&cell_label(k, p, short), font_px))
             .fold(0.0, f32::max);
         let value_w = column
             .iter()
-            .map(|&(k, _)| m.width(widest_value(primary_metric(k).unit()), font_px))
+            .map(|&(k, p)| m.width(widest_value(part_metric(k, p).unit()), font_px))
             .fold(0.0, f32::max);
         let col_w = label_w + LABEL_GAP_DIP * scale + value_w;
         for (row, &(kind, part)) in column.iter().enumerate() {
@@ -191,43 +237,61 @@ fn text_layout(
 }
 
 /// Widest text a graph tile draws: network shows `↓ value` / `↑ value`,
-/// other items a label line and a value line.
-fn graph_text_width(kind: ItemKind, font_px: f32, m: &dyn TextMeasure) -> f32 {
-    let widest = widest_value(primary_metric(kind).unit());
+/// other tiles a label line and a value line.
+fn graph_text_width(
+    kind: ItemKind,
+    part: CellPart,
+    short: bool,
+    font_px: f32,
+    m: &dyn TextMeasure,
+) -> f32 {
+    let widest = widest_value(part_metric(kind, part).unit());
     match kind {
         ItemKind::Network => m.width(
-            &format!("{} {widest}", cell_label(kind, CellPart::Down)),
+            &format!("{} {widest}", cell_label(kind, CellPart::Down, short)),
             font_px,
         ),
-        _ => m.width(kind.label(), font_px).max(m.width(widest, font_px)),
+        _ => m
+            .width(&cell_label(kind, part, short), font_px)
+            .max(m.width(widest, font_px)),
     }
 }
 
 fn graph_layout(
-    items: &[ItemKind],
+    items: &[ItemSpec],
     height: f32,
     scale: f32,
     font_px: f32,
+    short: bool,
     m: &dyn TextMeasure,
 ) -> Layout {
     let padding = PADDING_DIP * scale;
     let tile_h = (height - 2.0 * padding).max(1.0);
     let mut cells = Vec::with_capacity(items.len());
     let mut x = padding;
-    for &kind in items {
-        let w = (graph_text_width(kind, font_px, m) + 2.0 * padding).max(MIN_TILE_DIP * scale);
-        cells.push(Cell {
-            kind,
-            part: CellPart::Main,
-            rect: Rect {
-                x,
-                y: padding,
-                w,
-                h: tile_h,
-            },
-            value_x: x + padding,
-        });
-        x += w + TILE_GAP_DIP * scale;
+    for spec in items {
+        // Network draws both directions in one tile; other items get a tile per part.
+        let tiles = if spec.kind == ItemKind::Network {
+            vec![CellPart::Main]
+        } else {
+            spec.parts.clone()
+        };
+        for part in tiles {
+            let w = (graph_text_width(spec.kind, part, short, font_px, m) + 2.0 * padding)
+                .max(MIN_TILE_DIP * scale);
+            cells.push(Cell {
+                kind: spec.kind,
+                part,
+                rect: Rect {
+                    x,
+                    y: padding,
+                    w,
+                    h: tile_h,
+                },
+                value_x: x + padding,
+            });
+            x += w + TILE_GAP_DIP * scale;
+        }
     }
     let width = x - TILE_GAP_DIP * scale + padding;
     Layout {
@@ -241,6 +305,7 @@ fn graph_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::{Config, DriveValue};
 
     /// Every character is half the font size wide; lines are 1.25× the font size.
     struct Fixed;
@@ -259,7 +324,18 @@ mod tests {
             taskbar_height_px,
             dpi,
             font_size_pt: 9.0,
+            short_labels: false,
         }
+    }
+
+    fn specs(kinds: &[ItemKind]) -> Vec<ItemSpec> {
+        kinds
+            .iter()
+            .map(|&kind| ItemSpec {
+                kind,
+                parts: default_parts(kind),
+            })
+            .collect()
     }
 
     const ALL: [ItemKind; 7] = ItemKind::ALL;
@@ -290,7 +366,7 @@ mod tests {
     #[test]
     fn text_mode_standard_taskbar_uses_two_rows() {
         // 9pt @ 96 dpi = 12px font, 15px lines; (48 - 8) / 15 = 2 rows.
-        let l = compute_layout(&ALL, input(DisplayMode::Text, 48.0, 96), &Fixed);
+        let l = compute_layout(&specs(&ALL), input(DisplayMode::Text, 48.0, 96), &Fixed);
         let rows: std::collections::BTreeSet<i32> =
             l.cells.iter().map(|c| c.rect.y as i32).collect();
         assert_eq!(rows.len(), 2);
@@ -300,7 +376,7 @@ mod tests {
 
     #[test]
     fn text_mode_small_taskbar_uses_one_row() {
-        let l = compute_layout(&ALL, input(DisplayMode::Text, 32.0, 96), &Fixed);
+        let l = compute_layout(&specs(&ALL), input(DisplayMode::Text, 32.0, 96), &Fixed);
         let rows: std::collections::BTreeSet<i32> =
             l.cells.iter().map(|c| c.rect.y as i32).collect();
         assert_eq!(rows.len(), 1);
@@ -308,7 +384,7 @@ mod tests {
 
     #[test]
     fn text_mode_rows_are_capped_at_three() {
-        let l = compute_layout(&ALL, input(DisplayMode::Text, 200.0, 96), &Fixed);
+        let l = compute_layout(&specs(&ALL), input(DisplayMode::Text, 200.0, 96), &Fixed);
         let rows: std::collections::BTreeSet<i32> =
             l.cells.iter().map(|c| c.rect.y as i32).collect();
         assert_eq!(rows.len(), 3);
@@ -317,7 +393,7 @@ mod tests {
     #[test]
     fn text_mode_network_takes_two_cells() {
         let l = compute_layout(
-            &[ItemKind::Network],
+            &specs(&[ItemKind::Network]),
             input(DisplayMode::Text, 48.0, 96),
             &Fixed,
         );
@@ -328,7 +404,7 @@ mod tests {
     #[test]
     fn text_mode_keeps_an_items_parts_in_one_column() {
         let items = [ItemKind::Cpu, ItemKind::Network, ItemKind::Gpu];
-        let l = compute_layout(&items, input(DisplayMode::Text, 48.0, 96), &Fixed);
+        let l = compute_layout(&specs(&items), input(DisplayMode::Text, 48.0, 96), &Fixed);
         let x_of = |part| l.cells.iter().find(|c| c.part == part).unwrap().rect.x;
         assert_eq!(x_of(CellPart::Down), x_of(CellPart::Up));
         let cpu = l.cells.iter().find(|c| c.kind == ItemKind::Cpu).unwrap();
@@ -342,7 +418,7 @@ mod tests {
 
     #[test]
     fn text_mode_single_row_still_places_every_part() {
-        let l = compute_layout(&ALL, input(DisplayMode::Text, 32.0, 96), &Fixed);
+        let l = compute_layout(&specs(&ALL), input(DisplayMode::Text, 32.0, 96), &Fixed);
         assert_eq!(l.cells.len(), ALL.len() + 1);
         assert_no_overlap(&l);
     }
@@ -351,7 +427,7 @@ mod tests {
     fn text_mode_column_width_reserves_widest_value() {
         // One column: labels "CPU","RAM" = 3 chars → 18px; widest "100%" = 4 chars → 24px; gap 4px.
         let l = compute_layout(
-            &[ItemKind::Cpu, ItemKind::Ram],
+            &specs(&[ItemKind::Cpu, ItemKind::Ram]),
             input(DisplayMode::Text, 48.0, 96),
             &Fixed,
         );
@@ -364,7 +440,7 @@ mod tests {
     fn text_mode_labels_align_within_a_column() {
         // "PING" is wider than "CPU"; both values start at the same x.
         let l = compute_layout(
-            &[ItemKind::Cpu, ItemKind::Ping],
+            &specs(&[ItemKind::Cpu, ItemKind::Ping]),
             input(DisplayMode::Text, 48.0, 96),
             &Fixed,
         );
@@ -373,8 +449,8 @@ mod tests {
 
     #[test]
     fn layout_scales_with_dpi() {
-        let a = compute_layout(&ALL, input(DisplayMode::Text, 48.0, 96), &Fixed);
-        let b = compute_layout(&ALL, input(DisplayMode::Text, 72.0, 144), &Fixed);
+        let a = compute_layout(&specs(&ALL), input(DisplayMode::Text, 48.0, 96), &Fixed);
+        let b = compute_layout(&specs(&ALL), input(DisplayMode::Text, 72.0, 144), &Fixed);
         assert!(
             (b.width / a.width - 1.5).abs() < 0.01,
             "{} vs {}",
@@ -386,7 +462,7 @@ mod tests {
 
     #[test]
     fn graph_mode_one_tile_per_item_full_height() {
-        let l = compute_layout(&ALL, input(DisplayMode::Graph, 48.0, 96), &Fixed);
+        let l = compute_layout(&specs(&ALL), input(DisplayMode::Graph, 48.0, 96), &Fixed);
         assert_eq!(l.cells.len(), ALL.len());
         for c in &l.cells {
             assert_eq!(c.rect.h, 40.0);
@@ -398,7 +474,7 @@ mod tests {
 
     #[test]
     fn graph_tiles_fit_their_widest_text() {
-        let l = compute_layout(&ALL, input(DisplayMode::Graph, 48.0, 96), &Fixed);
+        let l = compute_layout(&specs(&ALL), input(DisplayMode::Graph, 48.0, 96), &Fixed);
         let net = l
             .cells
             .iter()
@@ -412,26 +488,117 @@ mod tests {
 
     #[test]
     fn no_items_gives_zero_width() {
-        let l = compute_layout(&[], input(DisplayMode::Text, 48.0, 96), &Fixed);
+        let l = compute_layout(&specs(&[]), input(DisplayMode::Text, 48.0, 96), &Fixed);
         assert_eq!(l.width, 0.0);
         assert!(l.cells.is_empty());
     }
 
     #[test]
     fn tiny_taskbar_still_lays_out_one_row() {
-        let l = compute_layout(&ALL, input(DisplayMode::Text, 10.0, 96), &Fixed);
+        let l = compute_layout(&specs(&ALL), input(DisplayMode::Text, 10.0, 96), &Fixed);
         assert!(!l.cells.is_empty());
         assert!(l.cells.iter().all(|c| c.rect.y >= 0.0));
     }
 
     #[test]
     fn hit_test_finds_item() {
-        let l = compute_layout(&ALL, input(DisplayMode::Graph, 48.0, 96), &Fixed);
+        let l = compute_layout(&specs(&ALL), input(DisplayMode::Graph, 48.0, 96), &Fixed);
         let gpu = l.cells.iter().find(|c| c.kind == ItemKind::Gpu).unwrap();
         assert_eq!(
             l.hit_test(gpu.rect.x + 1.0, gpu.rect.y + 1.0),
             Some(ItemKind::Gpu)
         );
         assert_eq!(l.hit_test(-5.0, 0.0), None);
+    }
+    #[test]
+    fn per_drive_disk_has_a_cell_per_drive_in_text_mode() {
+        let mut c = Config::default();
+        c.disk.drives = vec!["C".into(), "D".into()];
+        let disk = item_specs(&c)
+            .into_iter()
+            .find(|s| s.kind == ItemKind::Disk)
+            .unwrap();
+        assert_eq!(
+            disk.parts,
+            [CellPart::DriveActive(b'C'), CellPart::DriveActive(b'D')]
+        );
+        c.disk.value = DriveValue::Used;
+        let disk = item_specs(&c)
+            .into_iter()
+            .find(|s| s.kind == ItemKind::Disk)
+            .unwrap();
+        assert_eq!(
+            disk.parts,
+            [CellPart::DriveUsed(b'C'), CellPart::DriveUsed(b'D')]
+        );
+        let l = compute_layout(&[disk], input(DisplayMode::Text, 48.0, 96), &Fixed);
+        assert_eq!(l.cells.len(), 2);
+        assert_eq!(cell_label(ItemKind::Disk, l.cells[1].part, false), "D:");
+    }
+
+    #[test]
+    fn per_drive_disk_has_a_tile_per_drive_in_graph_mode() {
+        let items = [ItemSpec {
+            kind: ItemKind::Disk,
+            parts: vec![CellPart::DriveActive(b'C'), CellPart::DriveActive(b'D')],
+        }];
+        let l = compute_layout(&items, input(DisplayMode::Graph, 48.0, 96), &Fixed);
+        assert_eq!(l.cells.len(), 2);
+        assert_ne!(l.cells[0].rect.x, l.cells[1].rect.x);
+        assert_eq!(
+            l.hit_test(l.cells[1].rect.x + 1.0, l.cells[1].rect.y + 1.0),
+            Some(ItemKind::Disk)
+        );
+        assert_no_overlap(&l);
+    }
+
+    #[test]
+    fn network_stays_one_graph_tile() {
+        let l = compute_layout(
+            &specs(&[ItemKind::Network]),
+            input(DisplayMode::Graph, 48.0, 96),
+            &Fixed,
+        );
+        assert_eq!(l.cells.len(), 1);
+    }
+
+    #[test]
+    fn short_labels_make_text_mode_narrower() {
+        let long = compute_layout(&specs(&ALL), input(DisplayMode::Text, 48.0, 96), &Fixed);
+        let mut i = input(DisplayMode::Text, 48.0, 96);
+        i.short_labels = true;
+        let short = compute_layout(&specs(&ALL), i, &Fixed);
+        assert!(
+            short.width < long.width * 0.9,
+            "{} vs {}",
+            short.width,
+            long.width
+        );
+        assert_eq!(cell_label(ItemKind::Cpu, CellPart::Main, true), "C");
+        assert_eq!(cell_label(ItemKind::Network, CellPart::Up, true), "↑");
+        assert_eq!(
+            cell_label(ItemKind::Disk, CellPart::DriveActive(b'C'), true),
+            "C:"
+        );
+    }
+
+    #[test]
+    fn part_metrics_cover_drives_and_network() {
+        assert_eq!(
+            part_metric(ItemKind::Disk, CellPart::DriveUsed(b'E')),
+            MetricKey::DriveUsedPercent(b'E')
+        );
+        assert_eq!(
+            part_metric(ItemKind::Disk, CellPart::DriveActive(b'E')),
+            MetricKey::DriveActivePercent(b'E')
+        );
+        assert_eq!(
+            part_metric(ItemKind::Network, CellPart::Up),
+            MetricKey::NetUpBps
+        );
+        assert_eq!(
+            part_metric(ItemKind::GpuTemp, CellPart::Main),
+            MetricKey::GpuTempC
+        );
     }
 }

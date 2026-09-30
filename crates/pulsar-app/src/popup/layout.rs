@@ -193,8 +193,16 @@ mod tests {
             taskbar_height_px: 48.0,
             dpi: 96,
             font_size_pt: 9.0,
+            short_labels: false,
         };
-        let l = compute_layout(&[ItemKind::Cpu, ItemKind::Network], input, &Fixed);
+        let specs: Vec<_> = [ItemKind::Cpu, ItemKind::Network]
+            .into_iter()
+            .map(|kind| pulsar_core::layout::ItemSpec {
+                kind,
+                parts: pulsar_core::layout::default_parts(kind),
+            })
+            .collect();
+        let l = compute_layout(&specs, input, &Fixed);
         let net = item_screen_rect(&l, ItemKind::Network, (1000, 1032)).unwrap();
         let cells: Vec<_> = l
             .cells

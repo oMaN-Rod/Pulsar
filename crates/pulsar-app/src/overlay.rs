@@ -1,6 +1,5 @@
 use pulsar_core::config::{Config, DisplayMode};
-use pulsar_core::layout::{Layout, LayoutInput, compute_layout};
-use pulsar_core::metric::ItemKind;
+use pulsar_core::layout::{ItemSpec, Layout, LayoutInput, compute_layout, item_specs};
 use windows::Win32::Foundation::{HINSTANCE, HWND};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DestroyWindow, HWND_TOPMOST, IDC_ARROW, LoadCursorW, RegisterClassW, SW_HIDE,
@@ -31,8 +30,9 @@ struct LayoutKey {
     height: i32,
     dpi: u32,
     mode: DisplayMode,
-    items: Vec<ItemKind>,
+    items: Vec<ItemSpec>,
     font_size_pt: u32,
+    short_labels: bool,
 }
 
 /// One always-on-top, non-activating layered window per taskbar. It is a
@@ -81,8 +81,9 @@ impl Overlay {
             height: self.taskbar.rect.height(),
             dpi: self.taskbar.dpi,
             mode: config.display.mode,
-            items: config.enabled_items(),
+            items: item_specs(config),
             font_size_pt: config.display.font_size_pt.to_bits(),
+            short_labels: config.display.short_labels,
         };
         if self.key.as_ref() == Some(&key) {
             return;
@@ -94,6 +95,7 @@ impl Overlay {
                 taskbar_height_px: key.height as f32,
                 dpi: key.dpi,
                 font_size_pt: config.display.font_size_pt,
+                short_labels: key.short_labels,
             },
             text,
         );

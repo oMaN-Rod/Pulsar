@@ -2,15 +2,9 @@
 
 use pulsar_core::format::format_value;
 use pulsar_core::history::History;
-use pulsar_core::layout::{CellPart, Rect, primary_metric};
-use pulsar_core::metric::{ItemKind, MetricKey, Snapshot, Unit};
-
-pub fn metric_for(kind: ItemKind, part: CellPart) -> MetricKey {
-    match part {
-        CellPart::Up => MetricKey::NetUpBps,
-        _ => primary_metric(kind),
-    }
-}
+pub use pulsar_core::layout::part_metric as metric_for;
+use pulsar_core::layout::{CellPart, Rect};
+use pulsar_core::metric::{ItemKind, Snapshot, Unit};
 
 /// The value shown for a cell; a dash when the source failed or has no data yet.
 pub fn cell_value(kind: ItemKind, part: CellPart, snapshot: &Snapshot) -> String {
@@ -63,7 +57,7 @@ pub fn area_points(history: &History, rect: Rect, max: f64) -> Vec<(f32, f32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pulsar_core::metric::SourceId;
+    use pulsar_core::metric::{MetricKey, SourceId};
 
     fn history(values: &[f64], capacity: usize) -> History {
         let mut h = History::new(capacity);
