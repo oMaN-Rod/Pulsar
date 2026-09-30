@@ -14,6 +14,7 @@ pub enum SourceId {
     Gpu,
     Ping,
     Processes,
+    GpuSensors,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -24,15 +25,17 @@ pub enum ItemKind {
     Disk,
     Network,
     Gpu,
+    GpuTemp,
     Ping,
 }
 
 impl ItemKind {
     /// Default display order; adjacent pairs share a text-mode column.
-    pub const ALL: [ItemKind; 6] = [
+    pub const ALL: [ItemKind; 7] = [
         ItemKind::Cpu,
         ItemKind::Ram,
         ItemKind::Gpu,
+        ItemKind::GpuTemp,
         ItemKind::Disk,
         ItemKind::Network,
         ItemKind::Ping,
@@ -45,6 +48,7 @@ impl ItemKind {
             ItemKind::Disk => SourceId::DiskIo,
             ItemKind::Network => SourceId::Network,
             ItemKind::Gpu => SourceId::Gpu,
+            ItemKind::GpuTemp => SourceId::GpuSensors,
             ItemKind::Ping => SourceId::Ping,
         }
     }
@@ -57,6 +61,20 @@ impl ItemKind {
             ItemKind::Network => "NET",
             ItemKind::Gpu => "GPU",
             ItemKind::Ping => "PING",
+            ItemKind::GpuTemp => "TEMP",
+        }
+    }
+
+    /// One-letter labels for compact text; network parts keep their arrows.
+    pub fn short_label(self) -> &'static str {
+        match self {
+            ItemKind::Cpu => "C",
+            ItemKind::Ram => "M",
+            ItemKind::Gpu => "G",
+            ItemKind::GpuTemp => "T",
+            ItemKind::Disk => "D",
+            ItemKind::Network => "↓",
+            ItemKind::Ping => "P",
         }
     }
 }
@@ -88,12 +106,18 @@ pub enum MetricKey {
     /// Drive letter as an ASCII byte, e.g. `b'C'`.
     VolumeFreeBytes(u8),
     VolumeTotalBytes(u8),
+    DriveActivePercent(u8),
+    DriveUsedPercent(u8),
     NetDownBps,
     NetUpBps,
     GpuUtil,
     GpuEngine(GpuEngineKind),
     GpuDedicatedBytes,
     GpuSharedBytes,
+    GpuTempC,
+    GpuFanRpm,
+    GpuPowerPercent,
+    GpuMemClockMhz,
     PingMs,
     PingLossPercent,
 }
@@ -105,21 +129,33 @@ pub enum Unit {
     BytesPerSec,
     Millis,
     MHz,
+    Celsius,
+    Rpm,
 }
 
 impl MetricKey {
     pub fn unit(self) -> Unit {
         use MetricKey::*;
         match self {
-            CpuTotal | CpuCore(_) | MemUsedPercent | DiskActivePercent | GpuUtil | GpuEngine(_)
-            | PingLossPercent => Unit::Percent,
+            CpuTotal
+            | CpuCore(_)
+            | MemUsedPercent
+            | DiskActivePercent
+            | GpuUtil
+            | GpuEngine(_)
+            | PingLossPercent
+            | GpuPowerPercent
+            | DriveActivePercent(_)
+            | DriveUsedPercent(_) => Unit::Percent,
             MemUsedBytes | MemAvailableBytes | MemTotalBytes | CommitBytes | CommitLimitBytes
             | VolumeFreeBytes(_) | VolumeTotalBytes(_) | GpuDedicatedBytes | GpuSharedBytes => {
                 Unit::Bytes
             }
             DiskReadBps | DiskWriteBps | NetDownBps | NetUpBps => Unit::BytesPerSec,
             PingMs => Unit::Millis,
-            CpuClockMhz => Unit::MHz,
+            CpuClockMhz | GpuMemClockMhz => Unit::MHz,
+            GpuTempC => Unit::Celsius,
+            GpuFanRpm => Unit::Rpm,
         }
     }
 }

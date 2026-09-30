@@ -56,6 +56,7 @@ impl Sampler {
                     sources.push(or_failed(SourceId::Network, NetworkSource::new()))
                 }
                 ItemKind::Gpu => sources.push(or_failed(SourceId::Gpu, GpuSource::new())),
+                ItemKind::GpuTemp => {}
                 ItemKind::Ping => sources.push(Box::new(PingSource::spawn(
                     config.ping.host.clone(),
                     Duration::from_millis(config.ping.interval_ms.into()),

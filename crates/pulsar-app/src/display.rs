@@ -25,7 +25,8 @@ pub fn cell_value(kind: ItemKind, part: CellPart, snapshot: &Snapshot) -> String
 /// the recent peak with headroom, never below a floor so idle noise stays flat.
 pub fn graph_max(unit: Unit, histories: &[&History]) -> f64 {
     let floor = match unit {
-        Unit::Percent => return 100.0,
+        Unit::Percent | Unit::Celsius => return 100.0,
+        Unit::Rpm => 1000.0,
         Unit::BytesPerSec => 16.0 * 1024.0,
         Unit::Millis => 100.0,
         Unit::Bytes | Unit::MHz => 1.0,

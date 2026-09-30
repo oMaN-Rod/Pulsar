@@ -13,6 +13,8 @@ pub fn format_value(value: f64, unit: Unit) -> String {
         Unit::BytesPerSec => scaled(value.max(0.0), &["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]),
         Unit::Millis => format!("{:.0} ms", value.clamp(0.0, 999.0)),
         Unit::MHz => format!("{:.2} GHz", value.max(0.0) / 1000.0),
+        Unit::Celsius => format!("{:.0}°C", value.clamp(-99.0, 199.0)),
+        Unit::Rpm => format!("{:.0} RPM", value.clamp(0.0, 99_999.0)),
     }
 }
 
@@ -25,6 +27,8 @@ pub fn widest_value(unit: Unit) -> &'static str {
         Unit::BytesPerSec => "99.9 MB/s",
         Unit::Millis => "999 ms",
         Unit::MHz => "9.99 GHz",
+        Unit::Celsius => "199°C",
+        Unit::Rpm => "99999 RPM",
     }
 }
 
@@ -99,6 +103,8 @@ mod tests {
             Unit::BytesPerSec,
             Unit::Millis,
             Unit::MHz,
+            Unit::Celsius,
+            Unit::Rpm,
         ];
         let mut v = 0.0;
         while v < 1e13 {

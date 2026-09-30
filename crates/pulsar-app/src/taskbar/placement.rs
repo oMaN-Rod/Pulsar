@@ -82,7 +82,7 @@ pub fn place(input: &PlacementInput) -> Placement {
     let offset = scaled(input.offset_px, input.dpi);
     let x = match input.position {
         Position::Left => tb.left + gap + offset,
-        Position::Right => {
+        Position::Right | Position::Floating => {
             let anchor = if tray_is_laid_out(&tb, input.tray.as_ref()) {
                 input.tray.unwrap().left
             } else {

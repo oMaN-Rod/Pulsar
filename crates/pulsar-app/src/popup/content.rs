@@ -255,6 +255,12 @@ pub fn build(
                 processes(snapshot, ProcessSort::Gpu),
             ],
         ),
+        ItemKind::GpuTemp => (
+            "GPU temperature",
+            cell_value(kind, CellPart::Main, snapshot),
+            vec![CellPart::Main],
+            Vec::new(),
+        ),
         ItemKind::Ping => (
             "Ping",
             cell_value(kind, CellPart::Main, snapshot),

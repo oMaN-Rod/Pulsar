@@ -20,6 +20,7 @@ pub enum DisplayMode {
 pub enum Position {
     Left,
     Right,
+    Floating,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -30,6 +31,8 @@ pub struct Config {
     pub display: Display,
     pub items: Vec<ItemConfig>,
     pub ping: PingConfig,
+    pub disk: DiskConfig,
+    pub network: NetworkConfig,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -60,6 +63,43 @@ pub struct Display {
     pub panel_color: Option<String>,
     /// 0–100; 0 (the default) draws no panel.
     pub panel_opacity: u8,
+    /// One-letter labels.
+    pub short_labels: bool,
+    /// `#RRGGBB` overrides for label and value text; `None` follows the theme.
+    pub label_color: Option<String>,
+    pub value_color: Option<String>,
+    /// Draw each label in its item's colour.
+    pub color_labels: bool,
+    /// None uses Segoe UI Variable.
+    pub font_family: Option<String>,
+    pub font_bold: bool,
+    pub hide_in_fullscreen: bool,
+    /// Top-left corner in physical screen pixels; None centres it above the taskbar.
+    pub float_position: Option<[i32; 2]>,
+    pub lock_position: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DriveValue {
+    #[default]
+    Activity,
+    Used,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DiskConfig {
+    /// Drive letters with their own cell; empty shows all disks combined.
+    pub drives: Vec<String>,
+    pub value: DriveValue,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct NetworkConfig {
+    /// PDH instance name of the one adapter to show; None sums hardware adapters.
+    pub adapter: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -93,11 +133,13 @@ impl Default for Config {
                 .iter()
                 .map(|&kind| ItemConfig {
                     kind,
-                    enabled: kind != ItemKind::Ping,
+                    enabled: !matches!(kind, ItemKind::Ping | ItemKind::GpuTemp),
                     color: None,
                 })
                 .collect(),
             ping: PingConfig::default(),
+            disk: DiskConfig::default(),
+            network: NetworkConfig::default(),
         }
     }
 }
@@ -128,6 +170,15 @@ impl Default for Display {
             tile_opacity: None,
             panel_color: None,
             panel_opacity: 0,
+            short_labels: false,
+            label_color: None,
+            value_color: None,
+            color_labels: false,
+            font_family: None,
+            font_bold: false,
+            hide_in_fullscreen: true,
+            float_position: None,
+            lock_position: false,
         }
     }
 }
@@ -159,10 +210,41 @@ impl Config {
         d.offset_px = d.offset_px.clamp(-2000, 2000);
         d.tile_opacity = d.tile_opacity.map(|o| o.min(100));
         d.panel_opacity = d.panel_opacity.min(100);
-        for color in [&mut d.tile_color, &mut d.panel_color] {
+        for color in [
+            &mut d.tile_color,
+            &mut d.panel_color,
+            &mut d.label_color,
+            &mut d.value_color,
+        ] {
             if color.as_deref().is_some_and(|c| !is_hex_color(c)) {
                 *color = None;
             }
+        }
+        if d.font_family
+            .as_deref()
+            .is_some_and(|f| f.trim().is_empty())
+        {
+            d.font_family = None;
+        }
+        let mut drives: Vec<String> = Vec::new();
+        for drive in &self.disk.drives {
+            let upper = drive.trim().to_ascii_uppercase();
+            if upper.len() == 1
+                && upper.as_bytes()[0].is_ascii_uppercase()
+                && !drives.contains(&upper)
+            {
+                drives.push(upper);
+            }
+        }
+        drives.truncate(8);
+        self.disk.drives = drives;
+        if self
+            .network
+            .adapter
+            .as_deref()
+            .is_some_and(|a| a.trim().is_empty())
+        {
+            self.network.adapter = None;
         }
         self.ping.interval_ms = self.ping.interval_ms.clamp(1000, 60_000);
         if self.ping.host.trim().is_empty() {
@@ -200,6 +282,10 @@ impl Config {
             .collect()
     }
 
+    pub fn drive_letters(&self) -> Vec<u8> {
+        self.disk.drives.iter().map(|d| d.as_bytes()[0]).collect()
+    }
+
     pub fn is_enabled(&self, kind: ItemKind) -> bool {
         self.items.iter().any(|i| i.kind == kind && i.enabled)
     }
@@ -219,6 +305,7 @@ pub fn sampling_changed(old: &Config, new: &Config) -> bool {
     let pinging = new.is_enabled(ItemKind::Ping);
     a != b
         || old.general.sample_interval_ms != new.general.sample_interval_ms
+        || old.network.adapter != new.network.adapter
         || (pinging
             && (old.ping.host != new.ping.host || old.ping.interval_ms != new.ping.interval_ms))
 }
@@ -447,6 +534,7 @@ sample_interval_ms = 1
                 ItemKind::Cpu,
                 ItemKind::Ram,
                 ItemKind::Gpu,
+                ItemKind::GpuTemp,
                 ItemKind::Disk,
                 ItemKind::Network,
                 ItemKind::Ping
@@ -535,6 +623,96 @@ panel_opacity = 60
         assert!(
             !sampling_changed(&base, &typed),
             "typing a host with ping disabled must not restart sampling"
+        );
+    }
+
+    #[test]
+    fn new_items_and_fields_default_off() {
+        let c = Config::default();
+        assert!(!c.is_enabled(ItemKind::GpuTemp));
+        assert_eq!(c.items.len(), 7);
+        let d = &c.display;
+        assert!(!d.short_labels && !d.color_labels && !d.font_bold && !d.lock_position);
+        assert!(d.hide_in_fullscreen);
+        assert_eq!(
+            (
+                d.label_color.as_deref(),
+                d.value_color.as_deref(),
+                d.font_family.as_deref()
+            ),
+            (None, None, None)
+        );
+        assert_eq!(d.float_position, None);
+        assert!(c.disk.drives.is_empty());
+        assert_eq!(c.disk.value, DriveValue::Activity);
+        assert_eq!(c.network.adapter, None);
+    }
+
+    #[test]
+    fn an_old_file_loads_with_the_new_item_disabled() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "[[items]]\nkind = \"cpu\"\n[[items]]\nkind = \"gpu\"\n",
+        )
+        .unwrap();
+        let c = load(&path).config;
+        let kinds: Vec<ItemKind> = c.items.iter().map(|i| i.kind).collect();
+        assert_eq!(kinds[..2], [ItemKind::Cpu, ItemKind::Gpu]);
+        assert!(!c.is_enabled(ItemKind::GpuTemp));
+        assert!(c.display.hide_in_fullscreen);
+    }
+
+    #[test]
+    fn sanitize_repairs_new_display_fields() {
+        let mut c = Config::default();
+        c.display.label_color = Some("blue".into());
+        c.display.value_color = Some("#ABCDEF".into());
+        c.display.font_family = Some("   ".into());
+        c.disk.drives = vec!["c".into(), "CC".into(), "1".into(), "D".into(), "C".into()];
+        c.network.adapter = Some(" ".into());
+        let c = c.sanitize();
+        assert_eq!(c.display.label_color, None);
+        assert_eq!(c.display.value_color.as_deref(), Some("#ABCDEF"));
+        assert_eq!(c.display.font_family, None);
+        assert_eq!(c.disk.drives, ["C", "D"]);
+        assert_eq!(c.drive_letters(), [b'C', b'D']);
+        assert_eq!(c.network.adapter, None);
+    }
+
+    #[test]
+    fn floating_and_new_fields_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        let mut c = Config::default();
+        c.display.position = Position::Floating;
+        c.display.float_position = Some([-1200, 40]);
+        c.display.font_family = Some("Bahnschrift".into());
+        c.disk.drives = vec!["C".into()];
+        c.disk.value = DriveValue::Used;
+        c.network.adapter = Some("Realtek 2.5GbE".into());
+        save(&path, &c).unwrap();
+        assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn adapter_and_gpu_sensors_change_sampling() {
+        let base = Config::default();
+        let mut adapter = base.clone();
+        adapter.network.adapter = Some("x".into());
+        assert!(sampling_changed(&base, &adapter));
+        let mut temp = base.clone();
+        temp.items
+            .iter_mut()
+            .filter(|i| i.kind == ItemKind::GpuTemp)
+            .for_each(|i| i.enabled = true);
+        assert!(sampling_changed(&base, &temp));
+        let mut drives = base.clone();
+        drives.disk.drives = vec!["C".into()];
+        assert!(
+            !sampling_changed(&base, &drives),
+            "per-drive values are always sampled"
         );
     }
 

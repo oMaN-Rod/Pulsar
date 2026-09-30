@@ -13,6 +13,7 @@ pub fn default_rgb(kind: ItemKind, part: CellPart) -> Rgb {
         (ItemKind::Network, CellPart::Up) => (0xF7, 0x63, 0x0C),
         (ItemKind::Network, _) => (0xFF, 0xB9, 0x00),
         (ItemKind::Gpu, _) => (0xFF, 0x6F, 0xB5),
+        (ItemKind::GpuTemp, _) => (0xFF, 0x8C, 0x42),
         (ItemKind::Ping, _) => (0x2E, 0xD5, 0xC4),
     }
 }

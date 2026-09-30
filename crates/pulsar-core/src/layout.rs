@@ -85,6 +85,7 @@ pub fn primary_metric(kind: ItemKind) -> MetricKey {
         ItemKind::Network => MetricKey::NetDownBps,
         ItemKind::Gpu => MetricKey::GpuUtil,
         ItemKind::Ping => MetricKey::PingMs,
+        ItemKind::GpuTemp => MetricKey::GpuTempC,
     }
 }
 
@@ -261,7 +262,7 @@ mod tests {
         }
     }
 
-    const ALL: [ItemKind; 6] = ItemKind::ALL;
+    const ALL: [ItemKind; 7] = ItemKind::ALL;
 
     fn assert_no_overlap(layout: &Layout) {
         for (i, a) in layout.cells.iter().enumerate() {
