@@ -9,6 +9,8 @@ pub mod logging;
 pub mod metric;
 pub mod paths;
 pub mod pdh;
+pub mod project;
 pub mod sampler;
 pub mod single_instance;
 pub mod sources;
+pub mod update;
