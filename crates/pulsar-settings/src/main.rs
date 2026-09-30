@@ -122,12 +122,24 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind]) -> Form {
     }
 }
 
-fn reload(ui: &SettingsWindow, state: &mut State) {
-    let loaded = config::load(&state.path).config;
-    state.kinds = loaded.items.iter().map(|i| i.kind).collect();
-    state.written = modified(&state.path);
-    push(ui, &form::to_form(&loaded));
-    state.config = loaded;
+fn show(ui: &SettingsWindow, state: &mut State, config: Config) {
+    state.kinds = config.items.iter().map(|i| i.kind).collect();
+    push(ui, &form::to_form(&config));
+    state.config = config;
+}
+
+/// Picks up a change made by another process. A file that does not parse
+/// (e.g. caught mid-write, or a hand edit in progress) is left alone and
+/// retried on the next tick; unchanged contents leave the form untouched.
+fn pick_up_external_change(ui: &SettingsWindow, state: &mut State) {
+    let stamp = modified(&state.path);
+    let Ok(config) = config::read(&state.path) else {
+        return;
+    };
+    state.written = stamp;
+    if config != state.config {
+        show(ui, state, config);
+    }
 }
 
 fn sync_autostart(enabled: bool) {
@@ -183,7 +195,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         kinds: Vec::new(),
         written: None,
     }));
-    reload(&ui, &mut state.borrow_mut());
+    {
+        let mut s = state.borrow_mut();
+        let loaded = config::load(&s.path).config;
+        s.written = modified(&s.path);
+        show(&ui, &mut s, loaded);
+    }
 
     let save_timer = Rc::new(Timer::default());
     ui.on_changed({
@@ -253,7 +270,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 modified(&s.path) != s.written
             };
             if changed_elsewhere && !pending.running() {
-                reload(&ui, &mut state.borrow_mut());
+                pick_up_external_change(&ui, &mut state.borrow_mut());
             }
         }
     });

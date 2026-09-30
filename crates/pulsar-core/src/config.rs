@@ -235,6 +235,15 @@ pub struct Loaded {
     pub warning: Option<String>,
 }
 
+/// Reads and sanitises the file without ever moving it; for callers that
+/// poll a file another process owns and may be half-way through writing.
+pub fn read(path: &Path) -> io::Result<Config> {
+    let text = fs::read_to_string(path)?;
+    toml::from_str::<Config>(&text)
+        .map(Config::sanitize)
+        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+}
+
 pub fn load(path: &Path) -> Loaded {
     let text = match fs::read_to_string(path) {
         Ok(text) => text,
@@ -302,6 +311,30 @@ mod tests {
         let loaded = load(&path);
         assert_eq!(loaded.config, Config::default());
         assert!(loaded.warning.is_none());
+    }
+
+    #[test]
+    fn read_leaves_an_invalid_file_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "mode = = half written").unwrap();
+        assert!(read(&path).is_err());
+        assert!(path.exists(), "never renamed or backed up");
+        assert!(!dir.path().join("config.toml.bak").exists());
+    }
+
+    #[test]
+    fn read_returns_a_sanitised_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "[general]
+sample_interval_ms = 1
+",
+        )
+        .unwrap();
+        assert_eq!(read(&path).unwrap().general.sample_interval_ms, 500);
     }
 
     #[test]
