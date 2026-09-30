@@ -5,8 +5,9 @@ mod fonts;
 mod form;
 mod notify;
 mod presets;
+mod titlebar;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -89,6 +90,18 @@ fn rgb((r, g, b): pulsar_core::colors::Rgb) -> Color {
 /// transparent, meaning the theme's colour.
 fn swatch(hex: &str) -> Color {
     form::parse_hex(hex).map_or(Color::from_argb_u8(0, 0, 0, 0), rgb)
+}
+
+/// The caption colour to match: the page background and whether it is dark.
+type Caption = ((u8, u8, u8), bool);
+
+/// Matches the title bar to the page, again whenever the theme changes it.
+fn refresh_caption(ui: &SettingsWindow, applied: &Cell<Option<Caption>>) {
+    let bg = ui.get_backdrop().color();
+    let wanted = ((bg.red(), bg.green(), bg.blue()), ui.get_dark());
+    if applied.get() != Some(wanted) && titlebar::blend(ipc::SETTINGS_TITLE, wanted.0, wanted.1) {
+        applied.set(Some(wanted));
+    }
 }
 
 fn refresh_swatches(ui: &SettingsWindow) {
@@ -496,11 +509,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    let caption = Rc::new(Cell::new(None));
+    Timer::single_shot(Duration::ZERO, {
+        let (weak, caption) = (ui.as_weak(), caption.clone());
+        move || {
+            if let Some(ui) = weak.upgrade() {
+                refresh_caption(&ui, &caption);
+            }
+        }
+    });
     let watch = Timer::default();
     watch.start(TimerMode::Repeated, WATCH_INTERVAL, {
         let (weak, state, pending) = (ui.as_weak(), state.clone(), save_timer.clone());
         move || {
             let Some(ui) = weak.upgrade() else { return };
+            refresh_caption(&ui, &caption);
             if about_requests.as_ref().is_some_and(notify::Request::take) {
                 ui.set_tab(ABOUT_TAB);
             }

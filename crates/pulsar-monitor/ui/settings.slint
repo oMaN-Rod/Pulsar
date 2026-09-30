@@ -172,6 +172,9 @@ export component SettingsWindow inherits Window {
     min-width: 720px;
     min-height: 480px;
     background: Palette.background;
+    // Read by the app to colour the native title bar to match.
+    out property <brush> backdrop: Palette.background;
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
     default-font-family: "Segoe UI Variable Text";
 
     in-out property <int> tab;
@@ -242,24 +245,8 @@ export component SettingsWindow inherits Window {
         VerticalLayout {
             width: 230px;
             padding: 12px;
-            padding-top: 18px;
+            padding-top: 8px;
             spacing: 4px;
-            HorizontalLayout {
-                padding-left: 10px;
-                padding-bottom: 14px;
-                spacing: 10px;
-                Image {
-                    source: @image-url("../assets/pulsar-64.png");
-                    width: 24px;
-                    height: 24px;
-                }
-                Text {
-                    text: "Pulsar";
-                    font-size: 18px;
-                    font-weight: 600;
-                    vertical-alignment: center;
-                }
-            }
             NavItem {
                 icon: Icons.settings;
                 label: "General";
