@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/perfbar-app", "crates/perfbar-core"]
+members = ["crates/pulsar-app", "crates/pulsar-core"]
 resolver = "3"
 
 [workspace.package]

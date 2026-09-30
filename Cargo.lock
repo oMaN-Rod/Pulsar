@@ -82,16 +82,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
-name = "perfbar-app"
+name = "proc-macro2"
+version = "1.0.107"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
+dependencies = [
+ "unicode-ident",
+]
+
+[[package]]
+name = "pulsar-app"
 version = "0.1.0"
 dependencies = [
- "perfbar-core",
+ "pulsar-core",
  "windows",
  "windows-numerics",
 ]
 
 [[package]]
-name = "perfbar-core"
+name = "pulsar-core"
 version = "0.1.0"
 dependencies = [
  "serde",
@@ -99,15 +108,6 @@ dependencies = [
  "thiserror",
  "toml",
  "windows",
-]
-
-[[package]]
-name = "proc-macro2"
-version = "1.0.107"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "985e7ec9bb745e6ce6535b544d84d6cd6f7ad8bd711c398938ae983b91a766d9"
-dependencies = [
- "unicode-ident",
 ]
 
 [[package]]
