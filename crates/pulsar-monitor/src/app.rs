@@ -7,13 +7,15 @@ use pulsar_core::config::{self, Config, Position};
 use pulsar_core::history::HistoryStore;
 use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
+use pulsar_core::{crash, paths, sampler};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     ReleaseCapture, SetCapture, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
 };
 use windows::Win32::UI::Shell::{
-    ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, NIN_SELECT, SHAppBarMessage,
+    ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, NIN_BALLOONUSERCLICK, NIN_SELECT,
+    SHAppBarMessage,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos, GetMessageW,
@@ -145,6 +147,13 @@ impl App {
         if let Some(warning) = warning {
             tray.warn("Pulsar settings reset", &warning);
         }
+        if let Some(report) = paths::logs_dir().and_then(|dir| crash::take_pending(&dir)) {
+            tray.offer(
+                "Pulsar closed unexpectedly",
+                "Select to open the crash report. Attaching it to a GitHub issue helps get it fixed.",
+                report.display().to_string(),
+            );
+        }
         Ok(Self {
             instance,
             host,
@@ -192,6 +201,7 @@ impl App {
         if floating {
             found.truncate(1);
         }
+        let before = self.overlays.len();
         self.overlays
             .retain(|o| found.iter().any(|t| t.hwnd == o.taskbar.hwnd));
         for tb in found {
@@ -203,6 +213,9 @@ impl App {
                     }
                 }
             }
+        }
+        if self.overlays.len() != before {
+            log::info!("attached to {} taskbar(s)", self.overlays.len());
         }
         self.install_hooks();
         let mut tray_pending = false;
@@ -409,6 +422,12 @@ impl App {
         let mut received = false;
         while let Ok(snapshot) = self.sampler.snapshots.try_recv() {
             self.history.record(&snapshot);
+            for (id, change) in sampler::error_changes(&self.latest.errors, &snapshot.errors) {
+                match change {
+                    Some(reason) => log::warn!("{id:?} unavailable: {reason}"),
+                    None => log::info!("{id:?} recovered"),
+                }
+            }
             self.latest = snapshot;
             received = true;
         }
@@ -635,7 +654,14 @@ impl App {
         }
     }
 
+    fn on_balloon_click(&mut self) {
+        if let Some(target) = self.tray.target() {
+            menu::shell_open(&target);
+        }
+    }
+
     fn on_taskbar_created(&mut self) {
+        log::info!("taskbar re-created; attaching again");
         self.tray.add();
         self.retry_step = 0;
         self.refresh();
@@ -683,6 +709,7 @@ impl App {
         if new == self.config {
             return;
         }
+        log::info!("settings changed");
         if config::sampling_changed(&self.config, &new) {
             self.close_popup();
             self.sampler = SamplerThread::spawn(&new, Some(self.host));
@@ -749,6 +776,10 @@ fn tray_opens_settings(event: u32) -> bool {
     event == NIN_SELECT || event == NIN_KEYSELECT
 }
 
+fn tray_balloon_clicked(event: u32) -> bool {
+    event == NIN_BALLOONUSERCLICK
+}
+
 fn cursor() -> (i32, i32) {
     let mut pt = POINT::default();
     unsafe {
@@ -807,6 +838,8 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
                 context_menu(x, y);
             } else if tray_opens_settings(event) {
                 with_app(|a| a.apply(Command::Settings));
+            } else if tray_balloon_clicked(event) {
+                with_app(App::on_balloon_click);
             }
         }
         WM_TIMER => {
@@ -972,5 +1005,11 @@ mod tests {
             "coordinates on a monitor left of primary"
         );
         assert_eq!(low_word(0x0001_007B), WM_CONTEXTMENU);
+    }
+
+    #[test]
+    fn clicking_a_balloon_opens_its_target() {
+        assert!(tray_balloon_clicked(NIN_BALLOONUSERCLICK));
+        assert!(!tray_balloon_clicked(NIN_SELECT));
     }
 }

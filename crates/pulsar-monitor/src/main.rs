@@ -24,6 +24,9 @@ use windows::Win32::UI::HiDpi::{
 
 use pulsar_core::ipc::APP_MUTEX;
 use pulsar_core::single_instance::SingleInstance;
+use pulsar_core::{crash, logging, paths};
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> windows::core::Result<()> {
     unsafe {
@@ -35,5 +38,12 @@ fn main() -> windows::core::Result<()> {
         let _ = launcher::open(launcher::Page::General);
         return Ok(());
     };
-    app::run()
+    if let Some(dir) = paths::logs_dir() {
+        logging::init(&dir, "pulsar");
+        crash::install_panic_hook(dir, "pulsar", VERSION);
+    }
+    log::info!("Pulsar {VERSION} started");
+    let result = app::run();
+    log::info!("Pulsar exited");
+    result
 }

@@ -3187,6 +3187,7 @@ dependencies = [
 name = "pulsar-monitor"
 version = "0.1.0"
 dependencies = [
+ "log",
  "pulsar-monitor-core",
  "slint",
  "slint-build",

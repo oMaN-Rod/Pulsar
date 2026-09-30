@@ -1,7 +1,10 @@
+use std::cell::RefCell;
+
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::Shell::{
-    NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_WARNING, NIM_ADD, NIM_DELETE, NIM_MODIFY,
-    NIM_SETVERSION, NOTIFYICON_VERSION_4, NOTIFYICONDATAW, Shell_NotifyIconW,
+    NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIIF_WARNING, NIM_ADD, NIM_DELETE,
+    NIM_MODIFY, NIM_SETVERSION, NOTIFY_ICON_INFOTIP_FLAGS, NOTIFYICON_VERSION_4, NOTIFYICONDATAW,
+    Shell_NotifyIconW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{IDI_APPLICATION, LoadIconW};
 
@@ -11,6 +14,8 @@ const ICON_ID: u32 = 1;
 
 pub struct Tray {
     host: HWND,
+    /// What clicking the current balloon opens.
+    target: RefCell<Option<String>>,
 }
 
 fn copy_into<const N: usize>(dst: &mut [u16; N], s: &str) {
@@ -21,7 +26,10 @@ fn copy_into<const N: usize>(dst: &mut [u16; N], s: &str) {
 
 impl Tray {
     pub fn new(host: HWND) -> Self {
-        let tray = Self { host };
+        let tray = Self {
+            host,
+            target: RefCell::new(None),
+        };
         tray.add();
         tray
     }
@@ -49,15 +57,31 @@ impl Tray {
         }
     }
 
-    pub fn warn(&self, title: &str, message: &str) {
+    fn balloon(&self, flags: NOTIFY_ICON_INFOTIP_FLAGS, title: &str, message: &str) {
         let mut data = self.data();
         data.uFlags = NIF_INFO;
-        data.dwInfoFlags = NIIF_WARNING;
+        data.dwInfoFlags = flags;
         copy_into(&mut data.szInfoTitle, title);
         copy_into(&mut data.szInfo, message);
         unsafe {
             let _ = Shell_NotifyIconW(NIM_MODIFY, &data);
         }
+    }
+
+    pub fn warn(&self, title: &str, message: &str) {
+        log::warn!("{title}: {message}");
+        self.target.replace(None);
+        self.balloon(NIIF_WARNING, title, message);
+    }
+
+    /// A balloon that opens `target` (a file or URL) when clicked.
+    pub fn offer(&self, title: &str, message: &str, target: String) {
+        self.target.replace(Some(target));
+        self.balloon(NIIF_INFO, title, message);
+    }
+
+    pub fn target(&self) -> Option<String> {
+        self.target.borrow().clone()
     }
 }
 
@@ -79,5 +103,15 @@ mod tests {
         copy_into(&mut buf, "Pulsar");
         assert_eq!(String::from_utf16_lossy(&buf[..3]), "Pul");
         assert_eq!(buf[3], 0);
+    }
+
+    #[test]
+    fn an_offer_is_kept_until_a_warning_replaces_it() {
+        let tray = Tray::new(HWND::default());
+        tray.offer("t", "m", "https://example.com".into());
+        assert_eq!(tray.target().as_deref(), Some("https://example.com"));
+        assert_eq!(tray.target().as_deref(), Some("https://example.com"));
+        tray.warn("t", "m");
+        assert_eq!(tray.target(), None);
     }
 }

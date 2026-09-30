@@ -159,17 +159,22 @@ pub fn show(owner: HWND, x: i32, y: i32, display: &Display) -> Option<Command> {
     }
 }
 
-pub fn open_task_manager() {
+/// Opens a file, folder or URL with its default handler.
+pub fn shell_open(target: &str) {
     unsafe {
         ShellExecuteW(
             None,
             w!("open"),
-            &HSTRING::from("taskmgr.exe"),
+            &HSTRING::from(target),
             PCWSTR::null(),
             PCWSTR::null(),
             SW_SHOWNORMAL,
         );
     }
+}
+
+pub fn open_task_manager() {
+    shell_open("taskmgr.exe");
 }
 
 #[cfg(test)]

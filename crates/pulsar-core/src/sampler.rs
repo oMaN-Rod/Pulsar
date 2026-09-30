@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -109,6 +110,27 @@ impl Sampler {
         }
         snapshot
     }
+}
+
+/// Sources whose error state differs between two snapshots, in `SourceId`
+/// order: `Some(reason)` when one started failing or its reason changed,
+/// `None` when it recovered.
+pub fn error_changes(
+    old: &HashMap<SourceId, String>,
+    new: &HashMap<SourceId, String>,
+) -> Vec<(SourceId, Option<String>)> {
+    let mut changes: Vec<(SourceId, Option<String>)> = new
+        .iter()
+        .filter(|(id, reason)| old.get(id) != Some(reason))
+        .map(|(id, reason)| (*id, Some(reason.clone())))
+        .chain(
+            old.keys()
+                .filter(|id| !new.contains_key(id))
+                .map(|id| (*id, None)),
+        )
+        .collect();
+    changes.sort_by_key(|(id, _)| *id as u8);
+    changes
 }
 
 fn run(source: &mut dyn Source, snapshot: &mut Snapshot) {
@@ -302,5 +324,26 @@ mod tests {
             None,
         );
         assert_eq!(sampler.sample().errors[&SourceId::Gpu], "nope");
+    }
+
+    #[test]
+    fn error_changes_report_new_changed_and_recovered_sources() {
+        let old = HashMap::from([
+            (SourceId::Gpu, "GPU counters unavailable".to_string()),
+            (SourceId::Ping, "timeout".to_string()),
+        ]);
+        let new = HashMap::from([
+            (SourceId::Ping, "unreachable".to_string()),
+            (SourceId::Cpu, "no counters".to_string()),
+        ]);
+        assert_eq!(
+            error_changes(&old, &new),
+            vec![
+                (SourceId::Cpu, Some("no counters".to_string())),
+                (SourceId::Gpu, None),
+                (SourceId::Ping, Some("unreachable".to_string())),
+            ]
+        );
+        assert!(error_changes(&new, &new).is_empty());
     }
 }

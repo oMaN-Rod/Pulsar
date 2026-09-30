@@ -22,6 +22,7 @@ path = "src/settings/main.rs"
 [dependencies]
 pulsar-core = { package = "pulsar-monitor-core", version = "0.1.0", path = "../pulsar-core" }
 slint.workspace = true
+log.workspace = true
 windows-numerics.workspace = true
 windows = { workspace = true, features = [
     "Win32_Foundation",
