@@ -1,5 +1,6 @@
 pub mod colors;
 pub mod config;
+pub mod crash;
 pub mod format;
 pub mod history;
 pub mod ipc;
