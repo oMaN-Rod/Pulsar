@@ -16,6 +16,7 @@ mod taskbar;
 mod text;
 mod theme;
 mod tray;
+mod update;
 
 use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
 use windows::Win32::UI::HiDpi::{
@@ -29,6 +30,9 @@ use pulsar_core::{crash, logging, paths};
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> windows::core::Result<()> {
+    if std::env::args().any(|a| a == pulsar_core::update::CHECK_ARG) {
+        std::process::exit(update::helper_main());
+    }
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;

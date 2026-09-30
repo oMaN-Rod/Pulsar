@@ -1,12 +1,14 @@
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 use pulsar_core::config::{self, Config, Position};
 use pulsar_core::history::HistoryStore;
 use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
+use pulsar_core::update::{self as release, Outcome, UpdateState};
 use pulsar_core::{crash, paths, sampler};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -32,7 +34,7 @@ use crate::hover::{HoverArming, popup_orphaned};
 use crate::launcher::{self, Page};
 use crate::menu::{self, Command};
 use crate::messages::{
-    WM_APP_APPBAR, WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY,
+    WM_APP_APPBAR, WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY, WM_APP_UPDATE,
 };
 use crate::overlay::{self, Overlay};
 use crate::popup::content::needs_processes;
@@ -48,11 +50,17 @@ use crate::taskbar::{self, Taskbar};
 use crate::text::Text;
 use crate::theme::{Palette, accent_color, taskbar_is_light};
 use crate::tray::Tray;
+use crate::update;
 
 const TIMER_WATCH: usize = 1;
 const TIMER_VALIDATE: usize = 2;
 const TIMER_RETRY: usize = 3;
 const TIMER_FADE: usize = 5;
+const TIMER_UPDATE: usize = 4;
+/// The first check waits for startup to settle; after that an hourly tick asks
+/// whether a day has passed, since a PC may stay on for days.
+const UPDATE_FIRST_MS: u32 = 60_000;
+const UPDATE_EVERY_MS: u32 = 60 * 60 * 1000;
 const WATCH_MS: u32 = 250;
 const FADE_MS: u32 = 15;
 const FADE_STEP: u8 = 40;
@@ -133,6 +141,8 @@ pub struct App {
     hover: HoverArming,
     /// A floating overlay being moved with the mouse.
     drag: Option<(HWND, Drag)>,
+    /// The release check running in the helper process, if any.
+    update_check: Option<Receiver<Outcome>>,
 }
 
 impl App {
@@ -177,6 +187,7 @@ impl App {
             popup_owner: None,
             hover: HoverArming::default(),
             drag: None,
+            update_check: None,
         })
     }
 
@@ -184,6 +195,7 @@ impl App {
         unsafe {
             SetTimer(Some(self.host), TIMER_WATCH, WATCH_MS, None);
             SetTimer(Some(self.host), TIMER_VALIDATE, VALIDATE_MS, None);
+            SetTimer(Some(self.host), TIMER_UPDATE, UPDATE_FIRST_MS, None);
         }
         self.fullscreen = Debounce::new(taskbar::fullscreen_monitor());
         self.register_appbar(ABM_NEW);
@@ -644,6 +656,10 @@ impl App {
             TIMER_WATCH => self.watch(),
             TIMER_VALIDATE => self.refresh(),
             TIMER_FADE => self.fade_tick(),
+            TIMER_UPDATE => {
+                unsafe { SetTimer(Some(self.host), TIMER_UPDATE, UPDATE_EVERY_MS, None) };
+                self.check_for_update();
+            }
             TIMER_RETRY => {
                 unsafe {
                     let _ = KillTimer(Some(self.host), TIMER_RETRY);
@@ -651,6 +667,49 @@ impl App {
                 self.refresh();
             }
             _ => {}
+        }
+    }
+
+    fn check_for_update(&mut self) {
+        // An outcome whose message arrived while the app was busy.
+        if self.update_check.is_some() {
+            self.on_update_checked();
+        }
+        if !self.config.general.update_check || self.update_check.is_some() {
+            return;
+        }
+        if release::state_path().is_some_and(|path| UpdateState::load(&path).due(update::now())) {
+            self.update_check = update::spawn(self.host);
+        }
+    }
+
+    fn on_update_checked(&mut self) {
+        let Some(outcome) = self.update_check.as_ref().and_then(|rx| rx.try_recv().ok()) else {
+            return;
+        };
+        self.update_check = None;
+        let Some(path) = release::state_path() else {
+            return;
+        };
+        let mut state = UpdateState::load(&path);
+        let announcement = release::apply(&mut state, &outcome, update::current(), update::now());
+        match (&outcome, &announcement) {
+            (_, Some(a)) => log::info!("Pulsar {} is available: {}", a.version, a.url),
+            (Outcome::Failed(reason), _) => log::warn!("update check failed: {reason}"),
+            (Outcome::NoRelease, _) => log::info!("update check: no release published yet"),
+            (Outcome::Found(r), None) => {
+                log::info!("update check: latest release is {}", r.tag_name)
+            }
+        }
+        if let Err(e) = state.save(&path) {
+            log::warn!("could not save the update check state: {e}");
+        }
+        if let Some(a) = announcement {
+            self.tray.offer(
+                &format!("Pulsar {} is available", a.version),
+                "Select to open the release page.",
+                a.url,
+            );
         }
     }
 
@@ -827,6 +886,9 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
         WM_APP_FOREGROUND => {
             hooks::handled(msg);
             with_app(App::watch);
+        }
+        WM_APP_UPDATE => {
+            with_app(App::on_update_checked);
         }
         WM_APP_APPBAR if wp.0 as u32 == ABN_FULLSCREENAPP => {
             with_app(App::watch);
