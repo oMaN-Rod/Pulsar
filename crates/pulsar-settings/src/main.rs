@@ -1,8 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod autostart;
+mod fonts;
 mod form;
 mod notify;
+mod presets;
 
 use std::cell::RefCell;
 use std::error::Error;
@@ -14,6 +16,7 @@ use pulsar_core::config::{self, Config};
 use pulsar_core::ipc;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::single_instance::SingleInstance;
+use pulsar_core::sources::{fixed_drives, hardware_adapters};
 use slint::{Color, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 
 use form::Form;
@@ -33,6 +36,42 @@ struct State {
     kinds: Vec<ItemKind>,
     /// Modification time of our last write, to tell our saves from others.
     written: Option<SystemTime>,
+    choices: Choices,
+}
+
+/// What the font and adapter pickers offer, and the value behind each entry.
+#[derive(Default)]
+struct Choices {
+    fonts: Vec<String>,
+    adapters: Vec<String>,
+    font_values: Vec<String>,
+    adapter_values: Vec<String>,
+}
+
+/// A picker with a "none" first entry. A configured value that is no longer
+/// available stays listed, marked, so it is not silently replaced.
+fn picker(
+    first: &str,
+    available: &[String],
+    current: &str,
+    missing: &str,
+) -> (Vec<SharedString>, Vec<String>, i32) {
+    let mut names: Vec<SharedString> = vec![first.into()];
+    let mut values = vec![String::new()];
+    for a in available {
+        names.push(a.as_str().into());
+        values.push(a.clone());
+    }
+    if !current.is_empty() && !available.iter().any(|a| a == current) {
+        names.push(format!("{current} ({missing})").into());
+        values.push(current.to_string());
+    }
+    let index = values.iter().position(|v| v == current).unwrap_or(0);
+    (names, values, index as i32)
+}
+
+fn strings(v: Vec<SharedString>) -> ModelRc<SharedString> {
+    ModelRc::new(VecModel::from(v))
 }
 
 fn modified(path: &PathBuf) -> Option<SystemTime> {
@@ -52,16 +91,58 @@ fn swatch(hex: &str) -> Color {
 fn refresh_swatches(ui: &SettingsWindow) {
     ui.set_tile_swatch(swatch(&ui.get_tile_color()));
     ui.set_panel_swatch(swatch(&ui.get_panel_color()));
+    ui.set_label_swatch(swatch(&ui.get_label_color()));
+    ui.set_value_swatch(swatch(&ui.get_value_color()));
 }
 
-fn push(ui: &SettingsWindow, f: &Form) {
+fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_autostart(f.autostart);
     ui.set_update_check(f.update_check);
     ui.set_sample_interval_ms(f.sample_interval_ms);
     ui.set_history_len(f.history_len);
     ui.set_mode(i32::from(f.text_mode));
     ui.set_hover_popup(f.hover_popup);
-    ui.set_position(i32::from(f.position_left));
+    ui.set_position(f.position);
+    ui.set_lock_position(f.lock_position);
+    ui.set_hide_in_fullscreen(f.hide_in_fullscreen);
+    ui.set_short_labels(f.short_labels);
+    ui.set_label_color(f.label_color.as_str().into());
+    ui.set_value_color(f.value_color.as_str().into());
+    ui.set_color_labels(f.color_labels);
+    ui.set_font_bold(f.font_bold);
+    let (names, values, index) = picker("Default", &choices.fonts, &f.font_family, "not installed");
+    ui.set_fonts(strings(names));
+    ui.set_font_index(index);
+    choices.font_values = values;
+    let (names, values, index) = picker(
+        "All hardware adapters",
+        &choices.adapters,
+        &f.adapter,
+        "not connected",
+    );
+    ui.set_adapters(strings(names));
+    ui.set_adapter_index(index);
+    choices.adapter_values = values;
+    let mut letters: Vec<String> = fixed_drives()
+        .into_iter()
+        .map(|d| (d as char).to_string())
+        .collect();
+    for d in &f.drives {
+        if !letters.contains(d) {
+            letters.push(d.clone());
+        }
+    }
+    letters.sort();
+    let drives: Vec<DriveRow> = letters
+        .into_iter()
+        .map(|letter| DriveRow {
+            checked: f.drives.contains(&letter),
+            letter: letter.into(),
+        })
+        .collect();
+    ui.set_drive_rows(ModelRc::new(VecModel::from(drives)));
+    ui.set_per_drive(!f.drives.is_empty());
+    ui.set_drive_used(f.drive_used);
     ui.set_offset_px(f.offset_px);
     ui.set_fallback_margin_px(f.fallback_margin_px);
     ui.set_font_size_pt(f.font_size_pt);
@@ -88,7 +169,13 @@ fn push(ui: &SettingsWindow, f: &Form) {
     ui.set_ping_interval_ms(f.ping_interval_ms);
 }
 
-fn pull(ui: &SettingsWindow, kinds: &[ItemKind]) -> Form {
+fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
+    let chosen = |values: &[String], index: i32| {
+        values
+            .get(index.max(0) as usize)
+            .cloned()
+            .unwrap_or_default()
+    };
     Form {
         autostart: ui.get_autostart(),
         update_check: ui.get_update_check(),
@@ -96,7 +183,15 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind]) -> Form {
         history_len: ui.get_history_len(),
         text_mode: ui.get_mode() == 1,
         hover_popup: ui.get_hover_popup(),
-        position_left: ui.get_position() == 1,
+        position: ui.get_position(),
+        lock_position: ui.get_lock_position(),
+        hide_in_fullscreen: ui.get_hide_in_fullscreen(),
+        short_labels: ui.get_short_labels(),
+        label_color: ui.get_label_color().to_string(),
+        value_color: ui.get_value_color().to_string(),
+        color_labels: ui.get_color_labels(),
+        font_family: chosen(&choices.font_values, ui.get_font_index()),
+        font_bold: ui.get_font_bold(),
         offset_px: ui.get_offset_px(),
         fallback_margin_px: ui.get_fallback_margin_px(),
         font_size_pt: ui.get_font_size_pt(),
@@ -119,12 +214,23 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind]) -> Form {
             .collect(),
         ping_host: ui.get_ping_host().to_string(),
         ping_interval_ms: ui.get_ping_interval_ms(),
+        drives: if ui.get_per_drive() {
+            ui.get_drive_rows()
+                .iter()
+                .filter(|r| r.checked)
+                .map(|r| r.letter.to_string())
+                .collect()
+        } else {
+            Vec::new()
+        },
+        drive_used: ui.get_drive_used(),
+        adapter: chosen(&choices.adapter_values, ui.get_adapter_index()),
     }
 }
 
 fn show(ui: &SettingsWindow, state: &mut State, config: Config) {
     state.kinds = config.items.iter().map(|i| i.kind).collect();
-    push(ui, &form::to_form(&config));
+    push(ui, &form::to_form(&config), &mut state.choices);
     state.config = config;
 }
 
@@ -151,7 +257,11 @@ fn sync_autostart(enabled: bool) {
 }
 
 fn save(ui: &SettingsWindow, state: &mut State) {
-    let new = form::to_config(&pull(ui, &state.kinds), &state.config);
+    let new = form::to_config(&pull(ui, &state.kinds, &state.choices), &state.config);
+    write(state, new);
+}
+
+fn write(state: &mut State, new: Config) {
     if new == state.config {
         return;
     }
@@ -199,7 +309,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         config: Config::default(),
         kinds: Vec::new(),
         written: None,
+        choices: Choices {
+            fonts: fonts::system_families(),
+            adapters: hardware_adapters(),
+            ..Choices::default()
+        },
     }));
+    ui.set_presets(strings(
+        presets::PRESETS.iter().map(|p| p.name.into()).collect(),
+    ));
     {
         let mut s = state.borrow_mut();
         let loaded = config::load(&s.path).config;
@@ -249,10 +367,76 @@ fn main() -> Result<(), Box<dyn Error>> {
         let (weak, state) = (ui.as_weak(), state.clone());
         move |index, up| {
             let Some(ui) = weak.upgrade() else { return };
-            let mut f = pull(&ui, &state.borrow().kinds);
+            let mut s = state.borrow_mut();
+            let mut f = pull(&ui, &s.kinds, &s.choices);
             form::move_item(&mut f.items, index.max(0) as usize, up);
-            state.borrow_mut().kinds = f.items.iter().map(|r| r.kind).collect();
-            push(&ui, &f);
+            s.kinds = f.items.iter().map(|r| r.kind).collect();
+            push(&ui, &f, &mut s.choices);
+            drop(s);
+            ui.invoke_changed();
+        }
+    });
+    ui.on_apply_preset({
+        let (weak, state) = (ui.as_weak(), state.clone());
+        move |index| {
+            let Some(ui) = weak.upgrade() else { return };
+            let Some(preset) = presets::PRESETS.get(index.max(0) as usize) else {
+                return;
+            };
+            let mut s = state.borrow_mut();
+            let mut f = pull(&ui, &s.kinds, &s.choices);
+            presets::apply(&mut f, preset);
+            push(&ui, &f, &mut s.choices);
+            drop(s);
+            ui.invoke_changed();
+        }
+    });
+    ui.on_reset_all({
+        let (weak, state) = (ui.as_weak(), state.clone());
+        move || {
+            let Some(ui) = weak.upgrade() else { return };
+            let mut s = state.borrow_mut();
+            let f = form::reset(&pull(&ui, &s.kinds, &s.choices));
+            s.kinds = f.items.iter().map(|r| r.kind).collect();
+            push(&ui, &f, &mut s.choices);
+            drop(s);
+            ui.invoke_changed();
+        }
+    });
+    ui.on_reset_position({
+        let state = state.clone();
+        move || {
+            let mut s = state.borrow_mut();
+            let mut new = s.config.clone();
+            new.display.float_position = None;
+            write(&mut s, new);
+        }
+    });
+    ui.on_drive_toggled({
+        let weak = ui.as_weak();
+        move |index, checked| {
+            let Some(ui) = weak.upgrade() else { return };
+            let rows = ui.get_drive_rows();
+            if let Some(mut row) = rows.row_data(index.max(0) as usize) {
+                row.checked = checked;
+                rows.set_row_data(index.max(0) as usize, row);
+            }
+            ui.invoke_changed();
+        }
+    });
+    ui.on_per_drive_selected({
+        let weak = ui.as_weak();
+        move || {
+            let Some(ui) = weak.upgrade() else { return };
+            let rows = ui.get_drive_rows();
+            // "Each drive" with nothing ticked would mean "combined"; start with the first.
+            if ui.get_per_drive()
+                && !rows.iter().any(|r| r.checked)
+                && let Some(mut first) = rows.row_data(0)
+            {
+                first.checked = true;
+                rows.set_row_data(0, first);
+            }
             ui.invoke_changed();
         }
     });

@@ -10,6 +10,7 @@ pulsar-core = { path = "../pulsar-core" }
 slint.workspace = true
 windows = { workspace = true, features = [
     "Win32_Foundation",
+    "Win32_Graphics_DirectWrite",
     "Win32_Graphics_Gdi",
     "Win32_System_LibraryLoader",
     "Win32_Security",

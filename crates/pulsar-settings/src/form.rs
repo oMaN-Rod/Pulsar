@@ -1,7 +1,7 @@
 //! The values shown in the settings window, and their mapping to `Config`.
 
 use pulsar_core::colors::{Rgb, default_rgb};
-use pulsar_core::config::{Config, DisplayMode, ItemConfig, Position};
+use pulsar_core::config::{Config, DisplayMode, DriveValue, ItemConfig, Position};
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 
@@ -24,7 +24,18 @@ pub struct Form {
     pub history_len: i32,
     pub text_mode: bool,
     pub hover_popup: bool,
-    pub position_left: bool,
+    /// 0 next to the tray, 1 left edge, 2 floating.
+    pub position: i32,
+    pub lock_position: bool,
+    pub hide_in_fullscreen: bool,
+    pub short_labels: bool,
+    /// Empty for the theme colour.
+    pub label_color: String,
+    pub value_color: String,
+    pub color_labels: bool,
+    /// Empty for the default font.
+    pub font_family: String,
+    pub font_bold: bool,
     pub offset_px: i32,
     pub fallback_margin_px: i32,
     pub font_size_pt: i32,
@@ -41,6 +52,11 @@ pub struct Form {
     pub items: Vec<ItemRow>,
     pub ping_host: String,
     pub ping_interval_ms: i32,
+    /// Letters with their own disk cell; empty shows all disks combined.
+    pub drives: Vec<String>,
+    pub drive_used: bool,
+    /// Empty sums every hardware adapter.
+    pub adapter: String,
 }
 
 /// `#RRGGBB` → `(r, g, b)`, for the colour swatches; anything else is `None`.
@@ -76,7 +92,19 @@ pub fn to_form(c: &Config) -> Form {
         history_len: c.general.history_len as i32,
         text_mode: d.mode == DisplayMode::Text,
         hover_popup: d.hover_popup,
-        position_left: d.position == Position::Left,
+        position: match d.position {
+            Position::Right => 0,
+            Position::Left => 1,
+            Position::Floating => 2,
+        },
+        lock_position: d.lock_position,
+        hide_in_fullscreen: d.hide_in_fullscreen,
+        short_labels: d.short_labels,
+        label_color: d.label_color.clone().unwrap_or_default(),
+        value_color: d.value_color.clone().unwrap_or_default(),
+        color_labels: d.color_labels,
+        font_family: d.font_family.clone().unwrap_or_default(),
+        font_bold: d.font_bold,
         offset_px: d.offset_px,
         fallback_margin_px: d.fallback_margin_px,
         font_size_pt: d.font_size_pt.round() as i32,
@@ -98,6 +126,18 @@ pub fn to_form(c: &Config) -> Form {
             .collect(),
         ping_host: c.ping.host.clone(),
         ping_interval_ms: c.ping.interval_ms as i32,
+        drives: c.disk.drives.clone(),
+        drive_used: c.disk.value == DriveValue::Used,
+        adapter: c.network.adapter.clone().unwrap_or_default(),
+    }
+}
+
+/// Every setting back to its default, except autostart, which mirrors the
+/// registry and is changed only by its own switch.
+pub fn reset(current: &Form) -> Form {
+    Form {
+        autostart: current.autostart,
+        ..to_form(&Config::default())
     }
 }
 
@@ -125,11 +165,19 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         DisplayMode::Graph
     };
     d.hover_popup = f.hover_popup;
-    d.position = if f.position_left {
-        Position::Left
-    } else {
-        Position::Right
+    d.position = match f.position {
+        1 => Position::Left,
+        2 => Position::Floating,
+        _ => Position::Right,
     };
+    d.lock_position = f.lock_position;
+    d.hide_in_fullscreen = f.hide_in_fullscreen;
+    d.short_labels = f.short_labels;
+    d.label_color = non_empty(&f.label_color);
+    d.value_color = non_empty(&f.value_color);
+    d.color_labels = f.color_labels;
+    d.font_family = non_empty(&f.font_family);
+    d.font_bold = f.font_bold;
     d.offset_px = f.offset_px;
     d.fallback_margin_px = f.fallback_margin_px;
     d.font_size_pt = f.font_size_pt as f32;
@@ -150,6 +198,13 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         .collect();
     c.ping.host = f.ping_host.trim().to_string();
     c.ping.interval_ms = f.ping_interval_ms.max(0) as u32;
+    c.disk.drives = f.drives.clone();
+    c.disk.value = if f.drive_used {
+        DriveValue::Used
+    } else {
+        DriveValue::Activity
+    };
+    c.network.adapter = non_empty(&f.adapter);
     c.sanitize()
 }
 
@@ -230,11 +285,13 @@ mod tests {
         let c = Config::default();
         let mut f = to_form(&c);
         f.text_mode = true;
-        f.position_left = true;
+        f.position = 1;
         let out = to_config(&f, &c);
         assert_eq!(out.display.mode, DisplayMode::Text);
         assert_eq!(out.display.position, Position::Left);
-        assert!(to_form(&out).text_mode && to_form(&out).position_left);
+        assert!(to_form(&out).text_mode && to_form(&out).position == 1);
+        f.position = 2;
+        assert_eq!(to_config(&f, &c).display.position, Position::Floating);
     }
 
     #[test]
@@ -294,5 +351,37 @@ mod tests {
         for kind in ItemKind::ALL {
             assert!(!item_name(kind).is_empty());
         }
+    }
+
+    #[test]
+    fn new_fields_round_trip_through_the_form() {
+        let mut c = Config::default();
+        c.display.short_labels = true;
+        c.display.label_color = Some("#101010".into());
+        c.display.value_color = Some("#EEEEEE".into());
+        c.display.color_labels = true;
+        c.display.font_family = Some("Bahnschrift".into());
+        c.display.font_bold = true;
+        c.display.hide_in_fullscreen = false;
+        c.display.position = Position::Floating;
+        c.display.float_position = Some([10, 20]);
+        c.display.lock_position = true;
+        c.disk.drives = vec!["C".into(), "D".into()];
+        c.disk.value = DriveValue::Used;
+        c.network.adapter = Some("eth".into());
+        let c = c.sanitize();
+        assert_eq!(to_config(&to_form(&c), &c), c);
+    }
+
+    #[test]
+    fn reset_keeps_autostart_and_nothing_else() {
+        let mut f = to_form(&Config::default());
+        f.autostart = true;
+        f.short_labels = true;
+        f.font_family = "Arial".into();
+        let r = reset(&f);
+        assert!(r.autostart);
+        assert!(!r.short_labels);
+        assert_eq!(r.font_family, "");
     }
 }

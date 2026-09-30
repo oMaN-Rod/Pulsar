@@ -1,10 +1,15 @@
-import { Button, ComboBox, LineEdit, Palette, ScrollView, Slider, SpinBox, Switch } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, LineEdit, Palette, ScrollView, Slider, SpinBox, Switch } from "std-widgets.slint";
 
 export struct ItemRow {
     name: string,
     enabled: bool,
     color: string,
     swatch: color,
+}
+
+export struct DriveRow {
+    letter: string,
+    checked: bool,
 }
 
 // Glyphs from the Segoe Fluent Icons font that ships with Windows 11.
@@ -193,6 +198,25 @@ export component SettingsWindow inherits Window {
     in-out property <int> ping-interval-ms;
     in property <string> version;
     in property <string> config-path;
+    in-out property <bool> short-labels;
+    in-out property <bool> hide-in-fullscreen;
+    in-out property <bool> lock-position;
+    in-out property <string> label-color;
+    in property <color> label-swatch;
+    in-out property <string> value-color;
+    in property <color> value-swatch;
+    in-out property <bool> color-labels;
+    in property <[string]> fonts;
+    in-out property <int> font-index;
+    in-out property <bool> font-bold;
+    in property <[string]> presets;
+    in-out property <int> preset-index;
+    in property <[string]> adapters;
+    in-out property <int> adapter-index;
+    in-out property <[DriveRow]> drive-rows;
+    in-out property <bool> per-drive;
+    in-out property <bool> drive-used;
+    property <bool> confirm-reset;
 
     // Any edit; the app saves shortly after the last one.
     callback changed();
@@ -200,6 +224,11 @@ export component SettingsWindow inherits Window {
     callback item-color(int, string);
     callback move-item(int, bool);
     callback open-config-folder();
+    callback apply-preset(int);
+    callback reset-all();
+    callback reset-position();
+    callback drive-toggled(int, bool);
+    callback per-drive-selected();
 
     HorizontalLayout {
         // Navigation
@@ -302,6 +331,29 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
+                SectionTitle { text: "Reset"; }
+                Card {
+                    SettingRow {
+                        title: "Reset all settings";
+                        description: root.confirm-reset ? "Everything except Start with Windows goes back to its default." : "Start over with the default look and items.";
+                        if !root.confirm-reset: Button {
+                            text: "Reset…";
+                            clicked => { root.confirm-reset = true; }
+                        }
+                        if root.confirm-reset: Button {
+                            text: "Reset";
+                            primary: true;
+                            clicked => {
+                                root.confirm-reset = false;
+                                root.reset-all();
+                            }
+                        }
+                        if root.confirm-reset: Button {
+                            text: "Cancel";
+                            clicked => { root.confirm-reset = false; }
+                        }
+                    }
+                }
             }
 
             if root.tab == 1: Page {
@@ -328,6 +380,45 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
+                        title: "Short labels";
+                        description: "One letter per item (C, M, G, T, D, P) for a narrower overlay.";
+                        Switch {
+                            checked <=> root.short-labels;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Hide in fullscreen";
+                        description: "Fade out while a fullscreen game or video is in front.";
+                        Switch {
+                            checked <=> root.hide-in-fullscreen;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: "Text"; }
+                Card {
+                    SettingRow {
+                        title: "Font";
+                        description: "Fonts without fixed-width digits may shift slightly as values change.";
+                        ComboBox {
+                            width: 220px;
+                            model: root.fonts;
+                            current-index <=> root.font-index;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Bold";
+                        Switch {
+                            checked <=> root.font-bold;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
                         title: "Font size";
                         description: "Points.";
                         SpinBox {
@@ -348,6 +439,55 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
+                SectionTitle { text: "Colours"; }
+                Card {
+                    SettingRow {
+                        title: "Theme preset";
+                        description: "Sets item, label, value, tile and panel colours at once.";
+                        ComboBox {
+                            width: 180px;
+                            model: root.presets;
+                            current-index <=> root.preset-index;
+                        }
+                        Button {
+                            text: "Apply";
+                            clicked => { root.apply-preset(root.preset-index); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Label colour";
+                        description: "Empty uses the theme.";
+                        Swatch { value: root.label-swatch; }
+                        LineEdit {
+                            width: 140px;
+                            placeholder-text: "#RRGGBB";
+                            text <=> root.label-color;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Value colour";
+                        description: "Empty uses the theme.";
+                        Swatch { value: root.value-swatch; }
+                        LineEdit {
+                            width: 140px;
+                            placeholder-text: "#RRGGBB";
+                            text <=> root.value-color;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Colour labels by item";
+                        description: "Draw each label in its item's colour.";
+                        Switch {
+                            checked <=> root.color-labels;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
                 SectionTitle { text: "Position"; }
                 Card {
                     SettingRow {
@@ -355,9 +495,22 @@ export component SettingsWindow inherits Window {
                         description: "Where the overlay sits on the taskbar.";
                         ComboBox {
                             width: 200px;
-                            model: ["Next to the tray", "Left edge"];
+                            model: ["Next to the tray", "Left edge", "Floating"];
                             current-index <=> root.position;
                             selected => { root.changed(); }
+                        }
+                    }
+                    if root.position == 2: Divider { }
+                    if root.position == 2: SettingRow {
+                        title: "Lock position";
+                        description: "Drag the overlay to move it. Add a panel background so it stays readable over any window.";
+                        Button {
+                            text: "Reset position";
+                            clicked => { root.reset-position(); }
+                        }
+                        Switch {
+                            checked <=> root.lock-position;
+                            toggled => { root.changed(); }
                         }
                     }
                     Divider { }
@@ -486,6 +639,57 @@ export component SettingsWindow inherits Window {
                                 checked: row.enabled;
                                 toggled => { root.item-enabled(i, self.checked); }
                             }
+                        }
+                    }
+                }
+                SectionTitle { text: "Disk"; }
+                Card {
+                    SettingRow {
+                        title: "Disks";
+                        description: "One combined cell, or a cell per drive.";
+                        ComboBox {
+                            width: 200px;
+                            model: ["All disks combined", "Each drive"];
+                            current-index: root.per-drive ? 1 : 0;
+                            selected(value) => {
+                                root.per-drive = value == "Each drive";
+                                root.per-drive-selected();
+                            }
+                        }
+                    }
+                    if root.per-drive: Divider { }
+                    if root.per-drive: SettingRow {
+                        title: "Drives";
+                        for drive[i] in root.drive-rows: CheckBox {
+                            text: drive.letter + ":";
+                            checked: drive.checked;
+                            toggled => { root.drive-toggled(i, self.checked); }
+                        }
+                    }
+                    if root.per-drive: Divider { }
+                    if root.per-drive: SettingRow {
+                        title: "Drive value";
+                        ComboBox {
+                            width: 200px;
+                            model: ["Activity", "Used space"];
+                            current-index: root.drive-used ? 1 : 0;
+                            selected(value) => {
+                                root.drive-used = value == "Used space";
+                                root.changed();
+                            }
+                        }
+                    }
+                }
+                SectionTitle { text: "Network"; }
+                Card {
+                    SettingRow {
+                        title: "Adapter";
+                        description: "Count one adapter, or every physical one.";
+                        ComboBox {
+                            width: 260px;
+                            model: root.adapters;
+                            current-index <=> root.adapter-index;
+                            selected => { root.changed(); }
                         }
                     }
                 }
