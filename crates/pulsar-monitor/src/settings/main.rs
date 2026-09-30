@@ -32,6 +32,7 @@ const SAVE_DELAY: Duration = Duration::from_millis(300);
 /// How often to look for changes made by the app (e.g. the tray menu).
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);
 const ABOUT_TAB: i32 = 3;
+const CAPTION_RETRY: Duration = Duration::from_millis(15);
 
 struct State {
     path: PathBuf,
@@ -510,11 +511,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let caption = Rc::new(Cell::new(None));
-    Timer::single_shot(Duration::ZERO, {
-        let (weak, caption) = (ui.as_weak(), caption.clone());
+    // The window appears a few frames after the event loop starts; colour its
+    // caption as soon as it exists rather than on the next watch tick.
+    let first_caption = Rc::new(Timer::default());
+    first_caption.start(TimerMode::Repeated, CAPTION_RETRY, {
+        let (weak, caption, timer) = (ui.as_weak(), caption.clone(), Rc::downgrade(&first_caption));
         move || {
             if let Some(ui) = weak.upgrade() {
                 refresh_caption(&ui, &caption);
+            }
+            if caption.get().is_some()
+                && let Some(timer) = timer.upgrade()
+            {
+                timer.stop();
             }
         }
     });
