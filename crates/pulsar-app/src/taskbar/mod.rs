@@ -1,9 +1,12 @@
 pub mod hooks;
 pub mod placement;
 
-use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT};
+use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
     GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromPoint, MonitorFromWindow,
+};
+use windows::Win32::System::Threading::{
+    OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -11,7 +14,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetForegroundWindow, GetWindow, GetWindowLongW, GetWindowRect, GetWindowThreadProcessId,
     IsWindowVisible, IsZoomed, WS_CAPTION,
 };
-use windows::core::{BOOL, w};
+use windows::core::{BOOL, PWSTR, w};
 
 use placement::Rect32;
 
@@ -140,17 +143,50 @@ pub fn is_behind(overlay: HWND, taskbar: HWND) -> bool {
 
 /// The desktop, taskbars, and shell surfaces that cover a monitor briefly
 /// (Task View, Start, Search, Alt+Tab).
-const SHELL_CLASSES: [&str; 9] = [
+const SHELL_CLASSES: [&str; 8] = [
     "Progman",
     "WorkerW",
     "Shell_TrayWnd",
     "Shell_SecondaryTrayWnd",
     "MultitaskingViewFrame",
     "XamlExplorerHostIslandWindow",
-    "Windows.UI.Core.CoreWindow",
     "ForegroundStaging",
     "TopLevelWindowForOverflowXamlIsland",
 ];
+
+/// Start, Search and the notification flyouts are CoreWindows like any UWP
+/// app; only their host process tells them apart.
+const SHELL_HOSTS: [&str; 3] = [
+    "startmenuexperiencehost.exe",
+    "searchhost.exe",
+    "shellexperiencehost.exe",
+];
+
+pub fn is_shell_host(image_path: &str) -> bool {
+    let name = image_path
+        .rsplit('\\')
+        .next()
+        .unwrap_or(image_path)
+        .to_ascii_lowercase();
+    SHELL_HOSTS.contains(&name.as_str())
+}
+
+fn image_path(pid: u32) -> Option<String> {
+    unsafe {
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut buf = [0u16; 512];
+        let mut len = buf.len() as u32;
+        let ok = QueryFullProcessImageNameW(
+            process,
+            PROCESS_NAME_WIN32,
+            PWSTR(buf.as_mut_ptr()),
+            &mut len,
+        );
+        let _ = CloseHandle(process);
+        ok.ok()?;
+        Some(String::from_utf16_lossy(&buf[..len as usize]))
+    }
+}
 
 /// A non-maximised, captionless window covering its entire monitor
 /// (borderless or exclusive fullscreen). Maximised windows are excluded: with
@@ -175,6 +211,9 @@ pub fn fullscreen_monitor() -> Option<Rect32> {
     let maximized = unsafe { IsZoomed(fg) }.as_bool();
     let style = unsafe { GetWindowLongW(fg, GWL_STYLE) } as u32;
     let has_caption = style & WS_CAPTION.0 == WS_CAPTION.0;
+    if image_path(process_id(fg)).is_some_and(|p| is_shell_host(&p)) {
+        return None;
+    }
     is_fullscreen(
         &rect_of(fg)?,
         &monitor,
@@ -265,7 +304,6 @@ mod tests {
         for class in [
             "MultitaskingViewFrame",
             "XamlExplorerHostIslandWindow",
-            "Windows.UI.Core.CoreWindow",
             "ForegroundStaging",
         ] {
             assert!(
@@ -278,5 +316,26 @@ mod tests {
     #[test]
     fn a_captioned_window_is_not_fullscreen() {
         assert!(!is_fullscreen(&MONITOR, &MONITOR, "Notepad", false, true));
+    }
+
+    #[test]
+    fn a_fullscreen_corewindow_app_hides_the_overlay() {
+        assert!(is_fullscreen(
+            &MONITOR,
+            &MONITOR,
+            "Windows.UI.Core.CoreWindow",
+            false,
+            false
+        ));
+    }
+
+    #[test]
+    fn start_and_search_hosts_are_shell() {
+        assert!(is_shell_host(
+            r"C:\Windows\SystemApps\X\StartMenuExperienceHost.exe"
+        ));
+        assert!(is_shell_host(r"C:\Windows\SystemApps\X\searchhost.exe"));
+        assert!(is_shell_host("ShellExperienceHost.exe"));
+        assert!(!is_shell_host(r"C:\Games\game.exe"));
     }
 }
