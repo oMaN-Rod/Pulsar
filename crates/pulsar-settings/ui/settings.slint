@@ -198,7 +198,8 @@ export component SettingsWindow inherits Window {
     in-out property <int> ping-interval-ms;
     in property <string> version;
     in property <string> config-path;
-    in-out property <bool> short-labels;
+    in-out property <int> labels;
+    in-out property <bool> icons;
     in-out property <bool> hide-in-fullscreen;
     in-out property <bool> lock-position;
     in-out property <string> label-color;
@@ -380,11 +381,32 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Short labels";
-                        description: "One letter per item (C, M, G, T, D, P) for a narrower overlay.";
+                        title: "Labels";
+                        description: "Full names, one letter per item (C, M, G, T, D, P), or none with icons alone.";
+                        ComboBox {
+                            width: 200px;
+                            model: ["Full", "Short", "None (icons only)"];
+                            current-index <=> root.labels;
+                            selected => {
+                                if (root.labels == 2) {
+                                    root.icons = true;
+                                }
+                                root.changed();
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Icons";
+                        description: "An icon before each label, or on its own.";
                         Switch {
-                            checked <=> root.short-labels;
-                            toggled => { root.changed(); }
+                            checked <=> root.icons;
+                            toggled => {
+                                if (!self.checked && root.labels == 2) {
+                                    root.labels = 0;
+                                }
+                                root.changed();
+                            }
                         }
                     }
                     Divider { }

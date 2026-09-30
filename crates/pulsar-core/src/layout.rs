@@ -1,13 +1,15 @@
 //! Pure layout: turns the enabled items, display mode and taskbar metrics into
 //! rectangles. All values are physical pixels.
 
-use crate::config::{Config, DisplayMode, DriveValue};
+use crate::config::{Config, DisplayMode, DriveValue, LabelStyle};
 use crate::format::widest_value;
 use crate::metric::{ItemKind, MetricKey};
 
 pub trait TextMeasure {
     fn width(&self, text: &str, font_px: f32) -> f32;
     fn line_height(&self, font_px: f32) -> f32;
+    /// Width of an icon glyph drawn at `font_px`.
+    fn icon_width(&self, glyph: &str, font_px: f32) -> f32;
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -71,7 +73,8 @@ pub struct LayoutInput {
     pub taskbar_height_px: f32,
     pub dpi: u32,
     pub font_size_pt: f32,
-    pub short_labels: bool,
+    pub labels: LabelStyle,
+    pub icons: bool,
 }
 
 /// An enabled item and the cells it draws.
@@ -109,14 +112,73 @@ pub fn part_metric(kind: ItemKind, part: CellPart) -> MetricKey {
     }
 }
 
-pub fn cell_label(kind: ItemKind, part: CellPart, short: bool) -> String {
+/// The text part of a cell's label. Drive letters always show; network
+/// arrows give way to the direction icons.
+pub fn cell_label(kind: ItemKind, part: CellPart, labels: LabelStyle, icons: bool) -> String {
     match part {
+        CellPart::Down | CellPart::Up if icons => String::new(),
         CellPart::Down => "↓".into(),
         CellPart::Up => "↑".into(),
         CellPart::DriveActive(d) | CellPart::DriveUsed(d) => format!("{}:", d as char),
-        CellPart::Main if short => kind.short_label().into(),
-        CellPart::Main => kind.label().into(),
+        CellPart::Main => match labels {
+            LabelStyle::Full => kind.label().into(),
+            LabelStyle::Short => kind.short_label().into(),
+            LabelStyle::None => String::new(),
+        },
     }
+}
+
+/// A Segoe Fluent Icons glyph for the cell.
+pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
+    match (kind, part) {
+        (_, CellPart::Down) => "\u{E896}",
+        (_, CellPart::Up) => "\u{E898}",
+        (_, CellPart::DriveActive(_) | CellPart::DriveUsed(_)) => "\u{EDA2}",
+        (ItemKind::Cpu, _) => "\u{E950}",
+        (ItemKind::Ram, _) => "\u{EEA0}",
+        (ItemKind::Gpu, _) => "\u{F211}",
+        (ItemKind::GpuTemp, _) => "\u{E9CA}",
+        (ItemKind::Disk, _) => "\u{EDA2}",
+        (ItemKind::Network, _) => "\u{E968}",
+        (ItemKind::Ping, _) => "\u{EC05}",
+    }
+}
+
+/// Space between an icon and the text after it.
+pub fn icon_gap(font_px: f32) -> f32 {
+    (font_px * 0.3).round()
+}
+
+/// Icon and label text together, as drawn.
+pub fn label_width(
+    kind: ItemKind,
+    part: CellPart,
+    labels: LabelStyle,
+    icons: bool,
+    font_px: f32,
+    m: &dyn TextMeasure,
+) -> f32 {
+    let text = cell_label(kind, part, labels, icons);
+    let text_w = if text.is_empty() {
+        0.0
+    } else {
+        m.width(&text, font_px)
+    };
+    if !icons {
+        return text_w;
+    }
+    let icon_w = m.icon_width(cell_icon(kind, part), font_px);
+    if text_w > 0.0 {
+        icon_w + icon_gap(font_px) + text_w
+    } else {
+        icon_w
+    }
+}
+
+#[derive(Clone, Copy)]
+struct Labels {
+    style: LabelStyle,
+    icons: bool,
 }
 
 pub fn default_parts(kind: ItemKind) -> Vec<CellPart> {
@@ -161,10 +223,13 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
             cells: Vec::new(),
         };
     }
-    let short = input.short_labels;
+    let labels = Labels {
+        style: input.labels,
+        icons: input.icons,
+    };
     match input.mode {
-        DisplayMode::Text => text_layout(items, height, scale, font_px, short, m),
-        DisplayMode::Graph => graph_layout(items, height, scale, font_px, short, m),
+        DisplayMode::Text => text_layout(items, height, scale, font_px, labels, m),
+        DisplayMode::Graph => graph_layout(items, height, scale, font_px, labels, m),
     }
 }
 
@@ -192,7 +257,7 @@ fn text_layout(
     height: f32,
     scale: f32,
     font_px: f32,
-    short: bool,
+    labels: Labels,
     m: &dyn TextMeasure,
 ) -> Layout {
     let padding = PADDING_DIP * scale;
@@ -205,7 +270,7 @@ fn text_layout(
     for column in columns(items, rows) {
         let label_w = column
             .iter()
-            .map(|&(k, p)| m.width(&cell_label(k, p, short), font_px))
+            .map(|&(k, p)| label_width(k, p, labels.style, labels.icons, font_px, m))
             .fold(0.0, f32::max);
         let value_w = column
             .iter()
@@ -241,19 +306,15 @@ fn text_layout(
 fn graph_text_width(
     kind: ItemKind,
     part: CellPart,
-    short: bool,
+    labels: Labels,
     font_px: f32,
     m: &dyn TextMeasure,
 ) -> f32 {
     let widest = widest_value(part_metric(kind, part).unit());
+    let label = |part| label_width(kind, part, labels.style, labels.icons, font_px, m);
     match kind {
-        ItemKind::Network => m.width(
-            &format!("{} {widest}", cell_label(kind, CellPart::Down, short)),
-            font_px,
-        ),
-        _ => m
-            .width(&cell_label(kind, part, short), font_px)
-            .max(m.width(widest, font_px)),
+        ItemKind::Network => label(CellPart::Down) + icon_gap(font_px) + m.width(widest, font_px),
+        _ => label(part).max(m.width(widest, font_px)),
     }
 }
 
@@ -262,7 +323,7 @@ fn graph_layout(
     height: f32,
     scale: f32,
     font_px: f32,
-    short: bool,
+    labels: Labels,
     m: &dyn TextMeasure,
 ) -> Layout {
     let padding = PADDING_DIP * scale;
@@ -277,7 +338,7 @@ fn graph_layout(
             spec.parts.clone()
         };
         for part in tiles {
-            let w = (graph_text_width(spec.kind, part, short, font_px, m) + 2.0 * padding)
+            let w = (graph_text_width(spec.kind, part, labels, font_px, m) + 2.0 * padding)
                 .max(MIN_TILE_DIP * scale);
             cells.push(Cell {
                 kind: spec.kind,
@@ -305,7 +366,7 @@ fn graph_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, DriveValue};
+    use crate::config::{Config, DriveValue, LabelStyle};
 
     /// Every character is half the font size wide; lines are 1.25× the font size.
     struct Fixed;
@@ -316,6 +377,9 @@ mod tests {
         fn line_height(&self, font_px: f32) -> f32 {
             font_px * 1.25
         }
+        fn icon_width(&self, _glyph: &str, font_px: f32) -> f32 {
+            font_px
+        }
     }
 
     fn input(mode: DisplayMode, taskbar_height_px: f32, dpi: u32) -> LayoutInput {
@@ -324,7 +388,8 @@ mod tests {
             taskbar_height_px,
             dpi,
             font_size_pt: 9.0,
-            short_labels: false,
+            labels: LabelStyle::Full,
+            icons: false,
         }
     }
 
@@ -480,8 +545,8 @@ mod tests {
             .iter()
             .find(|c| c.kind == ItemKind::Network)
             .unwrap();
-        // "↓ 99.9 MB/s" = 11 chars × 6px + 2 × 4px padding.
-        assert_eq!(net.rect.w, 11.0 * 6.0 + 8.0);
+        // "↓" (6px) + icon gap (4px) + "99.9 MB/s" (54px) + 2 × 4px padding.
+        assert_eq!(net.rect.w, 6.0 + 4.0 + 54.0 + 8.0);
         let cpu = l.cells.iter().find(|c| c.kind == ItemKind::Cpu).unwrap();
         assert_eq!(cpu.rect.w, 44.0, "short text keeps the minimum tile width");
     }
@@ -533,7 +598,10 @@ mod tests {
         );
         let l = compute_layout(&[disk], input(DisplayMode::Text, 48.0, 96), &Fixed);
         assert_eq!(l.cells.len(), 2);
-        assert_eq!(cell_label(ItemKind::Disk, l.cells[1].part, false), "D:");
+        assert_eq!(
+            cell_label(ItemKind::Disk, l.cells[1].part, LabelStyle::Full, false),
+            "D:"
+        );
     }
 
     #[test]
@@ -566,7 +634,7 @@ mod tests {
     fn short_labels_make_text_mode_narrower() {
         let long = compute_layout(&specs(&ALL), input(DisplayMode::Text, 48.0, 96), &Fixed);
         let mut i = input(DisplayMode::Text, 48.0, 96);
-        i.short_labels = true;
+        i.labels = LabelStyle::Short;
         let short = compute_layout(&specs(&ALL), i, &Fixed);
         assert!(
             short.width < long.width * 0.9,
@@ -574,10 +642,21 @@ mod tests {
             short.width,
             long.width
         );
-        assert_eq!(cell_label(ItemKind::Cpu, CellPart::Main, true), "C");
-        assert_eq!(cell_label(ItemKind::Network, CellPart::Up, true), "↑");
         assert_eq!(
-            cell_label(ItemKind::Disk, CellPart::DriveActive(b'C'), true),
+            cell_label(ItemKind::Cpu, CellPart::Main, LabelStyle::Short, false),
+            "C"
+        );
+        assert_eq!(
+            cell_label(ItemKind::Network, CellPart::Up, LabelStyle::Short, false),
+            "↑"
+        );
+        assert_eq!(
+            cell_label(
+                ItemKind::Disk,
+                CellPart::DriveActive(b'C'),
+                LabelStyle::Short,
+                false
+            ),
             "C:"
         );
     }
@@ -600,5 +679,59 @@ mod tests {
             part_metric(ItemKind::GpuTemp, CellPart::Main),
             MetricKey::GpuTempC
         );
+    }
+
+    #[test]
+    fn cell_label_styles() {
+        let label = |style| cell_label(ItemKind::Ram, CellPart::Main, style, true);
+        assert_eq!(label(LabelStyle::Full), "RAM");
+        assert_eq!(label(LabelStyle::Short), "M");
+        assert_eq!(label(LabelStyle::None), "");
+        assert_eq!(cell_icon(ItemKind::Cpu, CellPart::Main), "\u{E950}");
+        assert_eq!(cell_icon(ItemKind::Network, CellPart::Up), "\u{E898}");
+        assert_eq!(
+            cell_icon(ItemKind::Disk, CellPart::DriveUsed(b'D')),
+            "\u{EDA2}"
+        );
+    }
+
+    #[test]
+    fn icons_replace_network_arrows_but_keep_drive_letters() {
+        assert_eq!(
+            cell_label(ItemKind::Network, CellPart::Down, LabelStyle::Full, true),
+            ""
+        );
+        assert_eq!(
+            cell_label(
+                ItemKind::Disk,
+                CellPart::DriveActive(b'C'),
+                LabelStyle::None,
+                true
+            ),
+            "C:"
+        );
+    }
+
+    #[test]
+    fn icons_add_width_and_labels_none_is_narrowest() {
+        let width = |labels, icons| {
+            let mut i = input(DisplayMode::Text, 48.0, 96);
+            i.labels = labels;
+            i.icons = icons;
+            compute_layout(&specs(&ALL), i, &Fixed).width
+        };
+        let full = width(LabelStyle::Full, false);
+        let full_icons = width(LabelStyle::Full, true);
+        let icons_only = width(LabelStyle::None, true);
+        assert!(full_icons > full, "{full_icons} vs {full}");
+        assert!(icons_only < full, "{icons_only} vs {full}");
+        for mode in [DisplayMode::Text, DisplayMode::Graph] {
+            let mut i = input(mode, 48.0, 96);
+            i.labels = LabelStyle::Short;
+            i.icons = true;
+            let l = compute_layout(&specs(&ALL), i, &Fixed);
+            assert_no_overlap(&l);
+            assert_inside(&l);
+        }
     }
 }

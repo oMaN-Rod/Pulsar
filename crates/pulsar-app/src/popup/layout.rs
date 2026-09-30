@@ -182,6 +182,9 @@ mod tests {
         fn line_height(&self, font_px: f32) -> f32 {
             font_px * 1.25
         }
+        fn icon_width(&self, _glyph: &str, font_px: f32) -> f32 {
+            font_px
+        }
     }
 
     #[test]
@@ -193,7 +196,8 @@ mod tests {
             taskbar_height_px: 48.0,
             dpi: 96,
             font_size_pt: 9.0,
-            short_labels: false,
+            labels: pulsar_core::config::LabelStyle::Full,
+            icons: false,
         };
         let specs: Vec<_> = [ItemKind::Cpu, ItemKind::Network]
             .into_iter()

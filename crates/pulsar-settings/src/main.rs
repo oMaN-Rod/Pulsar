@@ -105,7 +105,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_position(f.position);
     ui.set_lock_position(f.lock_position);
     ui.set_hide_in_fullscreen(f.hide_in_fullscreen);
-    ui.set_short_labels(f.short_labels);
+    ui.set_labels(f.labels);
+    ui.set_icons(f.icons);
     ui.set_label_color(f.label_color.as_str().into());
     ui.set_value_color(f.value_color.as_str().into());
     ui.set_color_labels(f.color_labels);
@@ -186,7 +187,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         position: ui.get_position(),
         lock_position: ui.get_lock_position(),
         hide_in_fullscreen: ui.get_hide_in_fullscreen(),
-        short_labels: ui.get_short_labels(),
+        labels: ui.get_labels(),
+        icons: ui.get_icons(),
         label_color: ui.get_label_color().to_string(),
         value_color: ui.get_value_color().to_string(),
         color_labels: ui.get_color_labels(),

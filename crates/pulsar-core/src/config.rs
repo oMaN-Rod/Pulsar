@@ -63,8 +63,9 @@ pub struct Display {
     pub panel_color: Option<String>,
     /// 0–100; 0 (the default) draws no panel.
     pub panel_opacity: u8,
-    /// One-letter labels.
-    pub short_labels: bool,
+    pub labels: LabelStyle,
+    /// An icon before each label; with `LabelStyle::None` it is the only label.
+    pub icons: bool,
     /// `#RRGGBB` overrides for label and value text; `None` follows the theme.
     pub label_color: Option<String>,
     pub value_color: Option<String>,
@@ -77,6 +78,17 @@ pub struct Display {
     /// Top-left corner in physical screen pixels; None centres it above the taskbar.
     pub float_position: Option<[i32; 2]>,
     pub lock_position: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LabelStyle {
+    #[default]
+    Full,
+    /// One letter per item.
+    Short,
+    /// No text; needs icons.
+    None,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -170,7 +182,8 @@ impl Default for Display {
             tile_opacity: None,
             panel_color: None,
             panel_opacity: 0,
-            short_labels: false,
+            labels: LabelStyle::Full,
+            icons: false,
             label_color: None,
             value_color: None,
             color_labels: false,
@@ -219,6 +232,9 @@ impl Config {
             if color.as_deref().is_some_and(|c| !is_hex_color(c)) {
                 *color = None;
             }
+        }
+        if d.labels == LabelStyle::None {
+            d.icons = true;
         }
         if d.font_family
             .as_deref()
@@ -632,7 +648,8 @@ panel_opacity = 60
         assert!(!c.is_enabled(ItemKind::GpuTemp));
         assert_eq!(c.items.len(), 7);
         let d = &c.display;
-        assert!(!d.short_labels && !d.color_labels && !d.font_bold && !d.lock_position);
+        assert_eq!(d.labels, LabelStyle::Full);
+        assert!(!d.icons && !d.color_labels && !d.font_bold && !d.lock_position);
         assert!(d.hide_in_fullscreen);
         assert_eq!(
             (
@@ -720,5 +737,23 @@ panel_opacity = 60
     fn ping_is_disabled_by_default() {
         assert!(!Config::default().is_enabled(ItemKind::Ping));
         assert!(Config::default().is_enabled(ItemKind::Cpu));
+    }
+
+    #[test]
+    fn labels_none_needs_icons() {
+        let mut c = Config::default();
+        c.display.labels = LabelStyle::None;
+        c.display.icons = false;
+        assert!(c.sanitize().display.icons);
+    }
+
+    #[test]
+    fn labels_and_icons_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "[display]\nlabels = \"short\"\nicons = true\n").unwrap();
+        let d = load(&path).config.display;
+        assert_eq!(d.labels, LabelStyle::Short);
+        assert!(d.icons);
     }
 }

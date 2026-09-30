@@ -9,10 +9,12 @@ use windows::Win32::Graphics::DirectWrite::{
 use windows::core::{BOOL, HSTRING, Result, w};
 
 const FAMILIES: [&str; 2] = ["Segoe UI Variable Text", "Segoe UI"];
+const ICON_FAMILIES: [&str; 2] = ["Segoe Fluent Icons", "Segoe MDL2 Assets"];
 
 pub struct Text {
     factory: IDWriteFactory,
     family: HSTRING,
+    icon_family: HSTRING,
     weight: DWRITE_FONT_WEIGHT,
     tabular: IDWriteTypography,
 }
@@ -24,6 +26,8 @@ impl Text {
         let candidates = family.into_iter().chain(FAMILIES);
         let family =
             pick_family(&factory, candidates).unwrap_or_else(|| HSTRING::from(FAMILIES[1]));
+        let icon_family =
+            pick_family(&factory, ICON_FAMILIES).unwrap_or_else(|| HSTRING::from(ICON_FAMILIES[1]));
         let tabular = unsafe {
             let typography = factory.CreateTypography()?;
             typography.AddFontFeature(DWRITE_FONT_FEATURE {
@@ -35,6 +39,7 @@ impl Text {
         Ok(Self {
             factory,
             family,
+            icon_family,
             weight: if bold {
                 DWRITE_FONT_WEIGHT_BOLD
             } else {
@@ -50,11 +55,32 @@ impl Text {
     }
 
     pub fn format(&self, font_px: f32) -> Result<IDWriteTextFormat> {
+        self.create_format(&self.family, self.weight, font_px)
+    }
+
+    pub fn icon_format(&self, font_px: f32) -> Result<IDWriteTextFormat> {
+        self.create_format(&self.icon_family, DWRITE_FONT_WEIGHT_NORMAL, font_px)
+    }
+
+    /// How far to move an icon down so it sits centred on a text line.
+    pub fn icon_offset(&self, glyph: &str, font_px: f32) -> f32 {
+        let icon_h = self
+            .format_metrics(glyph, self.icon_format(font_px))
+            .map_or(font_px, |m| m.height);
+        ((self.line_height(font_px) - icon_h) / 2.0).round()
+    }
+
+    fn create_format(
+        &self,
+        family: &HSTRING,
+        weight: DWRITE_FONT_WEIGHT,
+        font_px: f32,
+    ) -> Result<IDWriteTextFormat> {
         unsafe {
             let format = self.factory.CreateTextFormat(
-                &self.family,
+                family,
                 None,
-                self.weight,
+                weight,
                 DWRITE_FONT_STYLE_NORMAL,
                 DWRITE_FONT_STRETCH_NORMAL,
                 font_px.max(1.0),
@@ -85,7 +111,15 @@ impl Text {
     }
 
     fn metrics(&self, text: &str, font_px: f32) -> Result<DWRITE_TEXT_METRICS> {
-        let layout = self.layout(text, &self.format(font_px)?)?;
+        self.format_metrics(text, self.format(font_px))
+    }
+
+    fn format_metrics(
+        &self,
+        text: &str,
+        format: Result<IDWriteTextFormat>,
+    ) -> Result<DWRITE_TEXT_METRICS> {
+        let layout = self.layout(text, &format?)?;
         let mut metrics = DWRITE_TEXT_METRICS::default();
         unsafe { layout.GetMetrics(&mut metrics)? };
         Ok(metrics)
@@ -103,6 +137,12 @@ impl TextMeasure for Text {
         self.metrics("Ag", font_px)
             .map(|m| m.height.ceil())
             .unwrap_or(font_px * 1.33)
+    }
+
+    fn icon_width(&self, glyph: &str, font_px: f32) -> f32 {
+        self.format_metrics(glyph, self.icon_format(font_px))
+            .map(|m| m.widthIncludingTrailingWhitespace.ceil())
+            .unwrap_or(font_px)
     }
 }
 

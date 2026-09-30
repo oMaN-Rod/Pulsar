@@ -1,6 +1,8 @@
-use pulsar_core::config::DisplayMode;
+use pulsar_core::config::{DisplayMode, LabelStyle};
 use pulsar_core::history::{History, HistoryStore};
-use pulsar_core::layout::{Cell, CellPart, Layout, Rect, cell_label};
+use pulsar_core::layout::{
+    Cell, CellPart, Layout, Rect, TextMeasure, cell_icon, cell_label, icon_gap, label_width,
+};
 use pulsar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
 use windows::Win32::Graphics::Direct2D::Common::{
@@ -85,7 +87,8 @@ pub struct Frame<'a> {
     pub snapshot: &'a Snapshot,
     pub history: &'a HistoryStore,
     pub dpi: u32,
-    pub short_labels: bool,
+    pub labels: LabelStyle,
+    pub icons: bool,
 }
 
 pub struct Renderer {
@@ -192,12 +195,47 @@ impl Renderer {
         self.fill_rounded(bounds, 6.0 * frame.dpi as f32 / 96.0, panel)
     }
 
+    /// A cell's icon (when enabled) followed by its label text.
+    #[allow(clippy::too_many_arguments)]
+    fn draw_label(
+        &self,
+        text: &Text,
+        frame: &Frame,
+        font_px: f32,
+        kind: ItemKind,
+        part: CellPart,
+        x: f32,
+        y: f32,
+    ) -> Result<()> {
+        let color = frame.palette.label_for(kind, part);
+        let mut x = x;
+        if frame.icons {
+            let glyph = cell_icon(kind, part);
+            let format = text.icon_format(font_px)?;
+            let dy = text.icon_offset(glyph, font_px);
+            self.text_at(text, &format, glyph, x, y + dy, color)?;
+            x += text.icon_width(glyph, font_px) + icon_gap(font_px);
+        }
+        let label = cell_label(kind, part, frame.labels, frame.icons);
+        if !label.is_empty() {
+            self.text_at(text, &text.format(font_px)?, &label, x, y, color)?;
+        }
+        Ok(())
+    }
+
     fn draw_text_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
-        let format = text.format(frame.layout.font_px)?;
+        let font_px = frame.layout.font_px;
+        let format = text.format(font_px)?;
         for cell in &frame.layout.cells {
-            let label = cell_label(cell.kind, cell.part, frame.short_labels);
-            let label_color = frame.palette.label_for(cell.kind, cell.part);
-            self.text_at(text, &format, &label, cell.rect.x, cell.rect.y, label_color)?;
+            self.draw_label(
+                text,
+                frame,
+                font_px,
+                cell.kind,
+                cell.part,
+                cell.rect.x,
+                cell.rect.y,
+            )?;
             let value = cell_value(cell.kind, cell.part, frame.snapshot);
             self.text_at(
                 text,
@@ -213,7 +251,8 @@ impl Renderer {
 
     fn draw_graph_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
         let scale = frame.dpi as f32 / 96.0;
-        let small = text.format(frame.layout.font_px * 0.85)?;
+        let small_px = frame.layout.font_px * 0.85;
+        let small = text.format(small_px)?;
         let line_h = frame.layout.font_px * 0.85 * 1.3;
         for cell in &frame.layout.cells {
             self.fill_rounded(cell.rect, 4.0 * scale, frame.palette.tile)?;
@@ -226,17 +265,15 @@ impl Renderer {
             let x = cell.rect.x + pad;
             if cell.kind == ItemKind::Network {
                 for (part, y) in [(CellPart::Down, top), (CellPart::Up, bottom)] {
-                    let value = format!(
-                        "{} {}",
-                        cell_label(cell.kind, part, frame.short_labels),
-                        cell_value(cell.kind, part, frame.snapshot)
-                    );
-                    self.text_at(text, &small, &value, x, y, frame.palette.text)?;
+                    self.draw_label(text, frame, small_px, cell.kind, part, x, y)?;
+                    let label_w =
+                        label_width(cell.kind, part, frame.labels, frame.icons, small_px, text);
+                    let value = cell_value(cell.kind, part, frame.snapshot);
+                    let value_x = x + label_w + icon_gap(small_px);
+                    self.text_at(text, &small, &value, value_x, y, frame.palette.text)?;
                 }
             } else {
-                let label = cell_label(cell.kind, cell.part, frame.short_labels);
-                let color = frame.palette.label_for(cell.kind, cell.part);
-                self.text_at(text, &small, &label, x, top, color)?;
+                self.draw_label(text, frame, small_px, cell.kind, cell.part, x, top)?;
                 let value = cell_value(cell.kind, cell.part, frame.snapshot);
                 self.text_at(text, &small, &value, x, bottom, frame.palette.text)?;
             }
@@ -454,7 +491,8 @@ mod tests {
                 taskbar_height_px: 48.0,
                 dpi: 96,
                 font_size_pt: 9.0,
-                short_labels: false,
+                labels: config.display.labels,
+                icons: config.display.icons,
             },
             &text,
         );
@@ -476,7 +514,8 @@ mod tests {
             snapshot: &snapshot,
             history: &history,
             dpi: 96,
-            short_labels: false,
+            labels: config.display.labels,
+            icons: config.display.icons,
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)
@@ -549,6 +588,23 @@ mod tests {
                     .count();
                 assert!(opaque > 10, "{mode:?} {:?} drew nothing", cell.kind);
             }
+        }
+    }
+
+    #[test]
+    fn icons_draw_in_every_cell() {
+        let mut config = Config::default();
+        config.display.labels = pulsar_core::config::LabelStyle::None;
+        config.display.icons = true;
+        let (surface, layout) = render_with(DisplayMode::Text, &[], &config);
+        let px = pixels(&surface);
+        for cell in &layout.cells {
+            let r = cell.rect;
+            let ink = (r.y as i32..(r.y + r.h) as i32)
+                .flat_map(|y| (r.x as i32..cell.value_x as i32).map(move |x| (x, y)))
+                .filter(|&(x, y)| px[(y * surface.width + x) as usize] >> 24 > 0x40)
+                .count();
+            assert!(ink > 5, "{:?} {:?} has no icon", cell.kind, cell.part);
         }
     }
 }

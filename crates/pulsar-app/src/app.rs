@@ -386,7 +386,8 @@ impl App {
             snapshot: &self.latest,
             history: &self.history,
             dpi,
-            short_labels: self.config.display.short_labels,
+            labels: self.config.display.labels,
+            icons: self.config.display.icons,
         };
         self.renderer.draw(surface, &frame, &self.text)?;
         self.renderer.present_alpha(hwnd, surface, x, y, alpha)?;

@@ -1,7 +1,7 @@
 //! The values shown in the settings window, and their mapping to `Config`.
 
 use pulsar_core::colors::{Rgb, default_rgb};
-use pulsar_core::config::{Config, DisplayMode, DriveValue, ItemConfig, Position};
+use pulsar_core::config::{Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, Position};
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 
@@ -28,7 +28,9 @@ pub struct Form {
     pub position: i32,
     pub lock_position: bool,
     pub hide_in_fullscreen: bool,
-    pub short_labels: bool,
+    /// 0 full, 1 short, 2 none (icons only).
+    pub labels: i32,
+    pub icons: bool,
     /// Empty for the theme colour.
     pub label_color: String,
     pub value_color: String,
@@ -99,7 +101,12 @@ pub fn to_form(c: &Config) -> Form {
         },
         lock_position: d.lock_position,
         hide_in_fullscreen: d.hide_in_fullscreen,
-        short_labels: d.short_labels,
+        labels: match d.labels {
+            LabelStyle::Full => 0,
+            LabelStyle::Short => 1,
+            LabelStyle::None => 2,
+        },
+        icons: d.icons,
         label_color: d.label_color.clone().unwrap_or_default(),
         value_color: d.value_color.clone().unwrap_or_default(),
         color_labels: d.color_labels,
@@ -172,7 +179,12 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     };
     d.lock_position = f.lock_position;
     d.hide_in_fullscreen = f.hide_in_fullscreen;
-    d.short_labels = f.short_labels;
+    d.labels = match f.labels {
+        1 => LabelStyle::Short,
+        2 => LabelStyle::None,
+        _ => LabelStyle::Full,
+    };
+    d.icons = f.icons;
     d.label_color = non_empty(&f.label_color);
     d.value_color = non_empty(&f.value_color);
     d.color_labels = f.color_labels;
@@ -356,7 +368,8 @@ mod tests {
     #[test]
     fn new_fields_round_trip_through_the_form() {
         let mut c = Config::default();
-        c.display.short_labels = true;
+        c.display.labels = LabelStyle::None;
+        c.display.icons = true;
         c.display.label_color = Some("#101010".into());
         c.display.value_color = Some("#EEEEEE".into());
         c.display.color_labels = true;
@@ -377,11 +390,13 @@ mod tests {
     fn reset_keeps_autostart_and_nothing_else() {
         let mut f = to_form(&Config::default());
         f.autostart = true;
-        f.short_labels = true;
+        f.labels = 1;
+        f.icons = true;
         f.font_family = "Arial".into();
         let r = reset(&f);
         assert!(r.autostart);
-        assert!(!r.short_labels);
+        assert_eq!(r.labels, 0);
+        assert!(!r.icons);
         assert_eq!(r.font_family, "");
     }
 }
