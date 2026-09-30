@@ -20,6 +20,7 @@ targets = ["x86_64-pc-windows-msvc"]
 
 [dependencies]
 serde.workspace = true
+log.workspace = true
 thiserror.workspace = true
 toml.workspace = true
 windows = { workspace = true, features = [

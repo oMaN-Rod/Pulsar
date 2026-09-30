@@ -18,6 +18,7 @@ categories = ["gui", "os::windows-apis"]
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 toml = "1"
+log = { version = "0.4", features = ["std"] }
 windows = "0.62"
 windows-numerics = "0.3"
 slint = { version = "1.18", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-software"] }

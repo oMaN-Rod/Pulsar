@@ -3198,6 +3198,7 @@ dependencies = [
 name = "pulsar-monitor-core"
 version = "0.1.0"
 dependencies = [
+ "log",
  "serde",
  "tempfile",
  "thiserror 2.0.21",
