@@ -7,8 +7,9 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, FindWindowExW, FindWindowW, GW_HWNDPREV, GetClassNameW, GetForegroundWindow,
-    GetWindow, GetWindowRect, GetWindowThreadProcessId, IsWindowVisible, IsZoomed,
+    EnumWindows, FindWindowExW, FindWindowW, GW_HWNDPREV, GWL_STYLE, GetClassNameW,
+    GetForegroundWindow, GetWindow, GetWindowLongW, GetWindowRect, GetWindowThreadProcessId,
+    IsWindowVisible, IsZoomed, WS_CAPTION,
 };
 use windows::core::{BOOL, w};
 
@@ -113,18 +114,31 @@ pub fn is_behind(overlay: HWND, taskbar: HWND) -> bool {
     false
 }
 
-const SHELL_CLASSES: [&str; 4] = [
+/// The desktop, taskbars, and shell surfaces that cover a monitor briefly
+/// (Task View, Start, Search, Alt+Tab).
+const SHELL_CLASSES: [&str; 9] = [
     "Progman",
     "WorkerW",
     "Shell_TrayWnd",
     "Shell_SecondaryTrayWnd",
+    "MultitaskingViewFrame",
+    "XamlExplorerHostIslandWindow",
+    "Windows.UI.Core.CoreWindow",
+    "ForegroundStaging",
+    "TopLevelWindowForOverflowXamlIsland",
 ];
 
-/// A non-maximised window covering its entire monitor (borderless or
-/// exclusive fullscreen). Maximised windows are excluded: with an auto-hide
-/// taskbar their rect also covers the monitor.
-pub fn is_fullscreen(window: &Rect32, monitor: &Rect32, class: &str, maximized: bool) -> bool {
-    !maximized && !SHELL_CLASSES.contains(&class) && window.covers(monitor)
+/// A non-maximised, captionless window covering its entire monitor
+/// (borderless or exclusive fullscreen). Maximised windows are excluded: with
+/// an auto-hide taskbar their rect also covers the monitor.
+pub fn is_fullscreen(
+    window: &Rect32,
+    monitor: &Rect32,
+    class: &str,
+    maximized: bool,
+    has_caption: bool,
+) -> bool {
+    !maximized && !has_caption && !SHELL_CLASSES.contains(&class) && window.covers(monitor)
 }
 
 /// The monitor whose taskbar should hide because a fullscreen app is in front.
@@ -135,7 +149,16 @@ pub fn fullscreen_monitor() -> Option<Rect32> {
     }
     let monitor = monitor_of(fg);
     let maximized = unsafe { IsZoomed(fg) }.as_bool();
-    is_fullscreen(&rect_of(fg)?, &monitor, &class_name(fg), maximized).then_some(monitor)
+    let style = unsafe { GetWindowLongW(fg, GWL_STYLE) } as u32;
+    let has_caption = style & WS_CAPTION.0 == WS_CAPTION.0;
+    is_fullscreen(
+        &rect_of(fg)?,
+        &monitor,
+        &class_name(fg),
+        maximized,
+        has_caption,
+    )
+    .then_some(monitor)
 }
 
 #[cfg(test)]
@@ -155,6 +178,7 @@ mod tests {
             &MONITOR,
             &MONITOR,
             "Chrome_WidgetWin_1",
+            false,
             false
         ));
         let bigger = Rect32 {
@@ -163,14 +187,20 @@ mod tests {
             right: 1928,
             bottom: 1088,
         };
-        assert!(is_fullscreen(&bigger, &MONITOR, "UnityWndClass", false));
+        assert!(is_fullscreen(
+            &bigger,
+            &MONITOR,
+            "UnityWndClass",
+            false,
+            false
+        ));
         let maximised = Rect32 {
             left: -8,
             top: -8,
             right: 1928,
             bottom: 1040,
         };
-        assert!(!is_fullscreen(&maximised, &MONITOR, "Notepad", true));
+        assert!(!is_fullscreen(&maximised, &MONITOR, "Notepad", true, false));
     }
 
     #[test]
@@ -183,13 +213,16 @@ mod tests {
             right: 1928,
             bottom: 1088,
         };
-        assert!(!is_fullscreen(&maximised, &MONITOR, "Notepad", true));
+        assert!(!is_fullscreen(&maximised, &MONITOR, "Notepad", true, false));
     }
 
     #[test]
     fn desktop_and_shell_are_never_fullscreen() {
         for class in SHELL_CLASSES {
-            assert!(!is_fullscreen(&MONITOR, &MONITOR, class, false), "{class}");
+            assert!(
+                !is_fullscreen(&MONITOR, &MONITOR, class, false, false),
+                "{class}"
+            );
         }
     }
 
@@ -201,5 +234,25 @@ mod tests {
         assert!(primary.rect.width() > 0 && primary.rect.height() > 0);
         assert!(primary.tray.is_some());
         assert!(primary.dpi >= 96);
+    }
+
+    #[test]
+    fn shell_surfaces_are_never_fullscreen() {
+        for class in [
+            "MultitaskingViewFrame",
+            "XamlExplorerHostIslandWindow",
+            "Windows.UI.Core.CoreWindow",
+            "ForegroundStaging",
+        ] {
+            assert!(
+                !is_fullscreen(&MONITOR, &MONITOR, class, false, false),
+                "{class}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_captioned_window_is_not_fullscreen() {
+        assert!(!is_fullscreen(&MONITOR, &MONITOR, "Notepad", false, true));
     }
 }

@@ -1,6 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
 
 use pulsar_core::config::{self, Config};
 use pulsar_core::history::HistoryStore;
@@ -11,7 +12,9 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
 };
-use windows::Win32::UI::Shell::NIN_SELECT;
+use windows::Win32::UI::Shell::{
+    ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, NIN_SELECT, SHAppBarMessage,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos, GetMessageW,
     KillTimer, MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW, RegisterWindowMessageW,
@@ -21,10 +24,13 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
+use crate::fade::{self, Debounce};
 use crate::hover::{HoverArming, popup_orphaned};
 use crate::launcher::{self, Page};
 use crate::menu::{self, Command};
-use crate::messages::{WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY};
+use crate::messages::{
+    WM_APP_APPBAR, WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY,
+};
 use crate::overlay::{self, Overlay};
 use crate::popup::content::needs_processes;
 use crate::popup::layout::item_screen_rect;
@@ -41,7 +47,13 @@ use crate::tray::Tray;
 const TIMER_WATCH: usize = 1;
 const TIMER_VALIDATE: usize = 2;
 const TIMER_RETRY: usize = 3;
+const TIMER_FADE: usize = 5;
 const WATCH_MS: u32 = 250;
+const FADE_MS: u32 = 15;
+const FADE_STEP: u8 = 40;
+/// A fullscreen window must stay in front this long before overlays hide,
+/// so shell transitions do not flicker them.
+const FULLSCREEN_DELAY: Duration = Duration::from_millis(300);
 const VALIDATE_MS: u32 = 2000;
 /// Explorer lays out the tray some time after announcing the taskbar.
 const RETRY_MS: [u32; 4] = [100, 250, 500, 1000];
@@ -108,7 +120,7 @@ pub struct App {
     overlays: Vec<Overlay>,
     tray: Tray,
     hooks: Option<(u32, Hooks)>,
-    fullscreen: Option<Rect32>,
+    fullscreen: Debounce<Option<Rect32>>,
     retry_step: usize,
     popup: Popup,
     /// The overlay the open popup belongs to.
@@ -145,7 +157,7 @@ impl App {
             overlays: Vec::new(),
             tray,
             hooks: None,
-            fullscreen: None,
+            fullscreen: Debounce::new(None),
             retry_step: 0,
             popup: Popup::create(instance)?,
             popup_owner: None,
@@ -158,7 +170,8 @@ impl App {
             SetTimer(Some(self.host), TIMER_WATCH, WATCH_MS, None);
             SetTimer(Some(self.host), TIMER_VALIDATE, VALIDATE_MS, None);
         }
-        self.fullscreen = taskbar::fullscreen_monitor();
+        self.fullscreen = Debounce::new(taskbar::fullscreen_monitor());
+        self.register_appbar(ABM_NEW);
         self.refresh();
     }
 
@@ -244,21 +257,89 @@ impl App {
             fallback_margin_px: self.config.display.fallback_margin_px,
             dpi: tb.dpi,
         });
-        let covered = self.fullscreen == Some(tb.monitor);
+        let covered = self.config.display.hide_in_fullscreen
+            && *self.fullscreen.current() == Some(tb.monitor);
         match placement {
             Placement::At { x, y } if !covered => {
+                let o = &mut self.overlays[i];
+                if o.fade_target == 0 {
+                    o.fade_target = 255;
+                    if o.shown_at.is_none() {
+                        o.alpha = 0;
+                    }
+                    self.start_fade();
+                }
                 if self.draw(i, x, y).is_err() {
                     self.overlays[i].hide();
                 }
             }
-            _ => self.overlays[i].hide(),
+            Placement::At { .. } => {
+                let o = &mut self.overlays[i];
+                if o.fade_target != 0 {
+                    o.fade_target = 0;
+                    if o.shown_at.is_some() {
+                        self.start_fade();
+                    }
+                }
+            }
+            Placement::Hidden(_) => {
+                let o = &mut self.overlays[i];
+                o.hide();
+                o.alpha = 255;
+                o.fade_target = 255;
+            }
         }
+    }
+
+    fn start_fade(&self) {
+        unsafe { SetTimer(Some(self.host), TIMER_FADE, FADE_MS, None) };
+    }
+
+    /// One step of every running fade; an overlay that fades out is hidden.
+    fn fade_tick(&mut self) {
+        let mut running = false;
+        for o in &mut self.overlays {
+            if o.alpha == o.fade_target {
+                continue;
+            }
+            o.alpha = fade::step(o.alpha, o.fade_target, FADE_STEP);
+            if let Some((x, y)) = o.shown_at {
+                if o.alpha == 0 {
+                    o.hide();
+                } else {
+                    let hwnd = o.hwnd;
+                    let alpha = o.alpha;
+                    if let Ok(surface) = o.surface() {
+                        let _ = self.renderer.present_alpha(hwnd, surface, x, y, alpha);
+                    }
+                }
+            }
+            running |= o.alpha != o.fade_target;
+        }
+        if !running {
+            unsafe {
+                let _ = KillTimer(Some(self.host), TIMER_FADE);
+            }
+        }
+    }
+
+    /// A callback-only appbar: Windows then tells us when a fullscreen app
+    /// opens or closes. It never claims screen space, so the work area is untouched.
+    fn register_appbar(&self, message: u32) {
+        let mut data = APPBARDATA {
+            cbSize: size_of::<APPBARDATA>() as u32,
+            hWnd: self.host,
+            uCallbackMessage: WM_APP_APPBAR,
+            ..Default::default()
+        };
+        unsafe { SHAppBarMessage(message, &mut data) };
     }
 
     fn draw(&mut self, i: usize, x: i32, y: i32) -> Result<()> {
         let o = &mut self.overlays[i];
         let dpi = o.taskbar.dpi;
         let hwnd = o.hwnd;
+        let alpha = o.alpha;
         let layout = o.layout.clone();
         let surface = o.surface()?;
         let frame = Frame {
@@ -271,7 +352,7 @@ impl App {
             short_labels: self.config.display.short_labels,
         };
         self.renderer.draw(surface, &frame, &self.text)?;
-        self.renderer.present(hwnd, surface, x, y)?;
+        self.renderer.present_alpha(hwnd, surface, x, y, alpha)?;
         o.mark_shown(x, y);
         Ok(())
     }
@@ -402,8 +483,11 @@ impl App {
     /// and lifts overlays that the taskbar has been raised above.
     fn watch(&mut self) {
         let fullscreen = taskbar::fullscreen_monitor();
-        if fullscreen != self.fullscreen {
-            self.fullscreen = fullscreen;
+        let leaving = fullscreen.is_none();
+        if self
+            .fullscreen
+            .update(fullscreen, Instant::now(), FULLSCREEN_DELAY, leaving)
+        {
             self.refresh();
             return;
         }
@@ -428,6 +512,7 @@ impl App {
         match id {
             TIMER_WATCH => self.watch(),
             TIMER_VALIDATE => self.refresh(),
+            TIMER_FADE => self.fade_tick(),
             TIMER_RETRY => {
                 unsafe {
                     let _ = KillTimer(Some(self.host), TIMER_RETRY);
@@ -465,6 +550,24 @@ impl App {
             return;
         };
         let new = config::load(path).config;
+        self.apply_config(new);
+    }
+
+    /// Changes the config from the app itself (the menu), saving it so the
+    /// settings window picks it up.
+    fn change_config(&mut self, edit: impl FnOnce(&mut Config)) {
+        let mut new = self.config.clone();
+        edit(&mut new);
+        if let Some(path) = &self.config_path
+            && let Err(e) = config::save(path, &new)
+        {
+            self.tray
+                .warn("Pulsar could not save settings", &e.to_string());
+        }
+        self.apply_config(new);
+    }
+
+    fn apply_config(&mut self, new: Config) {
         if new == self.config {
             return;
         }
@@ -495,16 +598,8 @@ impl App {
 
     fn apply(&mut self, command: Command) {
         match command {
-            Command::Mode(mode) => {
-                self.config.display.mode = mode;
-                if let Some(path) = &self.config_path
-                    && let Err(e) = config::save(path, &self.config)
-                {
-                    self.tray
-                        .warn("Pulsar could not save settings", &e.to_string());
-                }
-                self.refresh();
-            }
+            Command::Mode(mode) => self.change_config(|c| c.display.mode = mode),
+            Command::Toggle(toggle) => self.change_config(|c| menu::apply_toggle(c, toggle)),
             Command::Settings => self.open_settings(Page::General),
             Command::About => self.open_settings(Page::About),
             Command::TaskManager => menu::open_task_manager(),
@@ -515,14 +610,20 @@ impl App {
     }
 }
 
+impl Drop for App {
+    fn drop(&mut self) {
+        self.register_appbar(ABM_REMOVE);
+    }
+}
+
 fn context_menu(x: i32, y: i32) {
-    let Some((host, mode)) = with_app(|a| {
+    let Some((host, display)) = with_app(|a| {
         a.close_popup();
-        (a.host, a.config.display.mode)
+        (a.host, a.config.display.clone())
     }) else {
         return;
     };
-    if let Some(command) = menu::show(host, x, y, mode) {
+    if let Some(command) = menu::show(host, x, y, &display) {
         with_app(|a| a.apply(command));
     }
 }
@@ -574,6 +675,9 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
         }
         WM_APP_FOREGROUND => {
             hooks::handled(msg);
+            with_app(App::watch);
+        }
+        WM_APP_APPBAR if wp.0 as u32 == ABN_FULLSCREENAPP => {
             with_app(App::watch);
         }
         WM_APP_TRAY => {

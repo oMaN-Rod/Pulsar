@@ -73,6 +73,7 @@ impl Popup {
                 Some(instance),
                 None,
             )?;
+            crate::overlay::disable_transitions(hwnd);
             Ok(Self {
                 hwnd,
                 surface: None,

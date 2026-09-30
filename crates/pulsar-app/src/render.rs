@@ -143,10 +143,22 @@ impl Renderer {
     }
 
     pub fn present(&self, hwnd: HWND, surface: &Surface, x: i32, y: i32) -> Result<()> {
+        self.present_alpha(hwnd, surface, x, y, 255)
+    }
+
+    /// Presents with the whole window's opacity scaled by `alpha`, for fades.
+    pub fn present_alpha(
+        &self,
+        hwnd: HWND,
+        surface: &Surface,
+        x: i32,
+        y: i32,
+        alpha: u8,
+    ) -> Result<()> {
         let blend = BLENDFUNCTION {
             BlendOp: AC_SRC_OVER as u8,
             BlendFlags: 0,
-            SourceConstantAlpha: 255,
+            SourceConstantAlpha: alpha,
             AlphaFormat: AC_SRC_ALPHA as u8,
         };
         unsafe {

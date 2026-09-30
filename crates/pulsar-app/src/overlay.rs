@@ -1,12 +1,13 @@
 use pulsar_core::config::{Config, DisplayMode};
 use pulsar_core::layout::{ItemSpec, Layout, LayoutInput, compute_layout, item_specs};
 use windows::Win32::Foundation::{HINSTANCE, HWND};
+use windows::Win32::Graphics::Dwm::{DWMWA_TRANSITIONS_FORCEDISABLED, DwmSetWindowAttribute};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DestroyWindow, HWND_TOPMOST, IDC_ARROW, LoadCursorW, RegisterClassW, SW_HIDE,
     SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowPos, ShowWindow, WNDCLASSW,
     WNDPROC, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
-use windows::core::{Result, w};
+use windows::core::{BOOL, Result, w};
 
 use crate::render::Surface;
 use crate::taskbar::Taskbar;
@@ -44,6 +45,23 @@ pub struct Overlay {
     key: Option<LayoutKey>,
     surface: Option<Surface>,
     pub shown_at: Option<(i32, i32)>,
+    /// Current and target opacity; a target of 0 means hidden for fullscreen.
+    pub alpha: u8,
+    pub fade_target: u8,
+}
+
+/// Stops DWM animating the window when it is shown or hidden, which flickers
+/// during Task View and other shell transitions.
+pub fn disable_transitions(hwnd: HWND) {
+    let on = BOOL(1);
+    unsafe {
+        let _ = DwmSetWindowAttribute(
+            hwnd,
+            DWMWA_TRANSITIONS_FORCEDISABLED,
+            (&on as *const BOOL).cast(),
+            size_of::<BOOL>() as u32,
+        );
+    }
 }
 
 impl Overlay {
@@ -64,6 +82,7 @@ impl Overlay {
                 None,
             )?
         };
+        disable_transitions(hwnd);
         Ok(Self {
             hwnd,
             taskbar,
@@ -71,6 +90,8 @@ impl Overlay {
             key: None,
             surface: None,
             shown_at: None,
+            alpha: 255,
+            fade_target: 255,
         })
     }
 
