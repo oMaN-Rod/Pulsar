@@ -7,6 +7,7 @@ rust-version.workspace = true
 
 [dependencies]
 pulsar-core = { path = "../pulsar-core" }
+slint.workspace = true
 windows = { workspace = true, features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
@@ -14,3 +15,6 @@ windows = { workspace = true, features = [
     "Win32_System_Registry",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+[build-dependencies]
+slint-build.workspace = true

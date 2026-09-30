@@ -1,0 +1,564 @@
+import { Button, ComboBox, LineEdit, Palette, ScrollView, Slider, SpinBox, Switch } from "std-widgets.slint";
+
+export struct ItemRow {
+    name: string,
+    enabled: bool,
+    color: string,
+    swatch: color,
+}
+
+// Glyphs from the Segoe Fluent Icons font that ships with Windows 11.
+global Icons {
+    out property <string> settings: "\u{E713}";
+    out property <string> display: "\u{E7F4}";
+    out property <string> list: "\u{EA37}";
+    out property <string> info: "\u{E946}";
+    out property <string> up: "\u{E70E}";
+    out property <string> down: "\u{E70D}";
+    out property <string> folder: "\u{E8B7}";
+    out property <string> chart: "\u{E9D9}";
+}
+
+component Icon inherits Text {
+    font-family: "Segoe Fluent Icons";
+    font-size: 16px;
+    vertical-alignment: center;
+    horizontal-alignment: center;
+}
+
+component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <bool> enabled: true;
+    callback clicked();
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: touch.has-hover && root.enabled ? Palette.foreground.transparentize(0.9) : transparent;
+    Icon {
+        text: root.icon;
+        font-size: 12px;
+        color: root.enabled ? Palette.foreground : Palette.foreground.transparentize(0.7);
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+}
+
+component NavItem inherits Rectangle {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+    height: 40px;
+    border-radius: 6px;
+    background: root.selected ? Palette.alternate-background : touch.has-hover ? Palette.alternate-background.transparentize(0.5) : transparent;
+    Rectangle {
+        x: 0;
+        width: 3px;
+        height: root.selected ? 16px : 0;
+        border-radius: 1.5px;
+        background: Palette.accent-background;
+        animate height { duration: 120ms; }
+    }
+    HorizontalLayout {
+        padding-left: 14px;
+        spacing: 12px;
+        Icon {
+            text: root.icon;
+            width: 20px;
+        }
+        Text {
+            text: root.label;
+            vertical-alignment: center;
+            font-size: 14px;
+        }
+    }
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// A setting: title and description on the left, its control on the right.
+component SettingRow inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> description;
+    padding-left: 16px;
+    padding-right: 16px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    spacing: 16px;
+    VerticalLayout {
+        alignment: center;
+        spacing: 2px;
+        horizontal-stretch: 1;
+        Text {
+            text: root.title;
+            font-size: 14px;
+            wrap: word-wrap;
+        }
+        if root.description != "": Text {
+            text: root.description;
+            font-size: 12px;
+            color: Palette.foreground.transparentize(0.35);
+            wrap: word-wrap;
+        }
+    }
+    HorizontalLayout {
+        alignment: end;
+        horizontal-stretch: 0;
+        spacing: 8px;
+        @children
+    }
+}
+
+component Card inherits Rectangle {
+    background: Palette.alternate-background;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: Palette.border.transparentize(0.6);
+    VerticalLayout {
+        padding-top: 2px;
+        padding-bottom: 2px;
+        @children
+    }
+}
+
+component Divider inherits Rectangle {
+    height: 1px;
+    background: Palette.border.transparentize(0.7);
+}
+
+component SectionTitle inherits Text {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+component Swatch inherits Rectangle {
+    in property <color> value;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: Palette.border;
+    background: root.value;
+}
+
+component Page inherits VerticalLayout {
+    in property <string> title;
+    padding: 28px;
+    padding-top: 20px;
+    spacing: 12px;
+    alignment: start;
+    Text {
+        text: root.title;
+        font-size: 28px;
+        font-weight: 600;
+    }
+    @children
+}
+
+export component SettingsWindow inherits Window {
+    in property <string> window-title;
+    title: root.window-title;
+    preferred-width: 820px;
+    preferred-height: 620px;
+    min-width: 720px;
+    min-height: 480px;
+    background: Palette.background;
+    default-font-family: "Segoe UI Variable Text";
+
+    in-out property <int> tab;
+    in-out property <bool> autostart;
+    in-out property <bool> update-check;
+    in-out property <int> sample-interval-ms;
+    in-out property <int> history-len;
+    in-out property <int> mode;
+    in-out property <bool> hover-popup;
+    in-out property <int> position;
+    in-out property <int> offset-px;
+    in-out property <int> fallback-margin-px;
+    in-out property <int> font-size-pt;
+    in-out property <bool> show-on-all-taskbars;
+    in-out property <bool> accent-graphs;
+    in-out property <string> tile-color;
+    in property <color> tile-swatch;
+    in-out property <bool> tile-opacity-custom;
+    in-out property <float> tile-opacity;
+    in-out property <string> panel-color;
+    in property <color> panel-swatch;
+    in-out property <float> panel-opacity;
+    in-out property <[ItemRow]> items;
+    in-out property <string> ping-host;
+    in-out property <int> ping-interval-ms;
+    in property <string> version;
+    in property <string> config-path;
+
+    // Any edit; the app saves shortly after the last one.
+    callback changed();
+    callback item-enabled(int, bool);
+    callback item-color(int, string);
+    callback move-item(int, bool);
+    callback open-config-folder();
+
+    HorizontalLayout {
+        // Navigation
+        VerticalLayout {
+            width: 230px;
+            padding: 12px;
+            padding-top: 18px;
+            spacing: 4px;
+            HorizontalLayout {
+                padding-left: 10px;
+                padding-bottom: 14px;
+                spacing: 10px;
+                Icon {
+                    text: Icons.chart;
+                    font-size: 20px;
+                    color: Palette.accent-background;
+                }
+                Text {
+                    text: "Pulsar";
+                    font-size: 18px;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+            }
+            NavItem {
+                icon: Icons.settings;
+                label: "General";
+                selected: root.tab == 0;
+                clicked => { root.tab = 0; }
+            }
+            NavItem {
+                icon: Icons.display;
+                label: "Display";
+                selected: root.tab == 1;
+                clicked => { root.tab = 1; }
+            }
+            NavItem {
+                icon: Icons.list;
+                label: "Items";
+                selected: root.tab == 2;
+                clicked => { root.tab = 2; }
+            }
+            NavItem {
+                icon: Icons.info;
+                label: "About";
+                selected: root.tab == 3;
+                clicked => { root.tab = 3; }
+            }
+            Rectangle { }
+        }
+
+        // Content
+        ScrollView {
+            if root.tab == 0: Page {
+                title: "General";
+                Card {
+                    SettingRow {
+                        title: "Start with Windows";
+                        description: "Launch Pulsar when you sign in.";
+                        Switch {
+                            checked <=> root.autostart;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Check for updates";
+                        description: "Look for a new release once a day. Nothing is downloaded automatically.";
+                        Switch {
+                            checked <=> root.update-check;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: "Sampling"; }
+                Card {
+                    SettingRow {
+                        title: "Update interval";
+                        description: "Milliseconds between readings.";
+                        SpinBox {
+                            width: 140px;
+                            minimum: 500;
+                            maximum: 5000;
+                            step-size: 250;
+                            value <=> root.sample-interval-ms;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "History length";
+                        description: "Readings kept for the graphs.";
+                        SpinBox {
+                            width: 140px;
+                            minimum: 10;
+                            maximum: 600;
+                            step-size: 10;
+                            value <=> root.history-len;
+                            edited => { root.changed(); }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 1: Page {
+                title: "Display";
+                Card {
+                    SettingRow {
+                        title: "Mode";
+                        description: "Graphs, or compact text only.";
+                        ComboBox {
+                            width: 200px;
+                            model: ["Graphs", "Text only"];
+                            current-index <=> root.mode;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Details on hover";
+                        description: "Show a graph and details when the mouse rests on an item.";
+                        Switch {
+                            checked <=> root.hover-popup;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Font size";
+                        description: "Points.";
+                        SpinBox {
+                            width: 140px;
+                            minimum: 6;
+                            maximum: 20;
+                            value <=> root.font-size-pt;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Accent colour graphs";
+                        description: "Draw graphs in your Windows accent colour.";
+                        Switch {
+                            checked <=> root.accent-graphs;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: "Position"; }
+                Card {
+                    SettingRow {
+                        title: "Placement";
+                        description: "Where the overlay sits on the taskbar.";
+                        ComboBox {
+                            width: 200px;
+                            model: ["Next to the tray", "Left edge"];
+                            current-index <=> root.position;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Offset";
+                        description: "Extra space in pixels, moving away from the anchor.";
+                        SpinBox {
+                            width: 140px;
+                            minimum: -2000;
+                            maximum: 2000;
+                            step-size: 4;
+                            value <=> root.offset-px;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Tray fallback margin";
+                        description: "Used when the tray position cannot be read.";
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 2000;
+                            step-size: 10;
+                            value <=> root.fallback-margin-px;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Every taskbar";
+                        description: "Also show on the taskbars of other monitors.";
+                        Switch {
+                            checked <=> root.show-on-all-taskbars;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: "Background"; }
+                Card {
+                    SettingRow {
+                        title: "Tile colour";
+                        description: "Empty uses the theme tint.";
+                        Swatch { value: root.tile-swatch; }
+                        LineEdit {
+                            width: 140px;
+                            placeholder-text: "#RRGGBB";
+                            text <=> root.tile-color;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Custom tile opacity";
+                        description: root.tile-opacity-custom ? "\{Math.round(root.tile-opacity)}% — 0% removes the tiles." : "Using the theme default.";
+                        Slider {
+                            width: 160px;
+                            enabled: root.tile-opacity-custom;
+                            minimum: 0;
+                            maximum: 100;
+                            value <=> root.tile-opacity;
+                            changed => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.tile-opacity-custom;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Panel colour";
+                        description: "A panel behind the whole overlay. Empty uses the theme.";
+                        Swatch { value: root.panel-swatch; }
+                        LineEdit {
+                            width: 140px;
+                            placeholder-text: "#RRGGBB";
+                            text <=> root.panel-color;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Panel opacity";
+                        description: root.panel-opacity > 0 ? "\{Math.round(root.panel-opacity)}%" : "Off";
+                        Slider {
+                            width: 200px;
+                            minimum: 0;
+                            maximum: 100;
+                            value <=> root.panel-opacity;
+                            changed => { root.changed(); }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 2: Page {
+                title: "Items";
+                Text {
+                    text: "Choose what the overlay shows, its order, and each item's colour (empty uses the default).";
+                    color: Palette.foreground.transparentize(0.35);
+                    wrap: word-wrap;
+                }
+                Card {
+                    for row[i] in root.items: VerticalLayout {
+                        if i > 0: Divider { }
+                        SettingRow {
+                            title: row.name;
+                            Swatch { value: row.swatch; }
+                            LineEdit {
+                                width: 120px;
+                                placeholder-text: "Default";
+                                text: row.color;
+                                edited(text) => { root.item-color(i, text); }
+                            }
+                            IconButton {
+                                icon: Icons.up;
+                                enabled: i > 0;
+                                clicked => { root.move-item(i, true); }
+                            }
+                            IconButton {
+                                icon: Icons.down;
+                                enabled: i < root.items.length - 1;
+                                clicked => { root.move-item(i, false); }
+                            }
+                            Switch {
+                                checked: row.enabled;
+                                toggled => { root.item-enabled(i, self.checked); }
+                            }
+                        }
+                    }
+                }
+                SectionTitle { text: "Ping"; }
+                Card {
+                    SettingRow {
+                        title: "Host";
+                        description: "An IPv4 address or a name.";
+                        LineEdit {
+                            width: 200px;
+                            text <=> root.ping-host;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Interval";
+                        description: "Milliseconds between pings.";
+                        SpinBox {
+                            width: 140px;
+                            minimum: 1000;
+                            maximum: 60000;
+                            step-size: 500;
+                            value <=> root.ping-interval-ms;
+                            edited => { root.changed(); }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 3: Page {
+                title: "About";
+                Card {
+                    HorizontalLayout {
+                        padding: 20px;
+                        spacing: 16px;
+                        Icon {
+                            text: Icons.chart;
+                            font-size: 40px;
+                            color: Palette.accent-background;
+                            width: 48px;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 4px;
+                            Text {
+                                text: "Pulsar \{root.version}";
+                                font-size: 20px;
+                                font-weight: 600;
+                            }
+                            Text {
+                                text: "A Windows 11 taskbar system monitor.";
+                                color: Palette.foreground.transparentize(0.35);
+                            }
+                        }
+                    }
+                }
+                Card {
+                    SettingRow {
+                        title: "License";
+                        description: "GNU General Public License v3.0 or later. Built with Slint.";
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: "Settings file";
+                        description: root.config-path;
+                        Button {
+                            text: "Open folder";
+                            clicked => { root.open-config-folder(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
