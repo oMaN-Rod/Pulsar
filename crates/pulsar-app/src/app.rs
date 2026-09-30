@@ -462,9 +462,8 @@ impl App {
         if config::sampling_changed(&self.config, &new) {
             self.close_popup();
             self.sampler = SamplerThread::spawn(&new, Some(self.host));
-            self.latest = Snapshot::default();
-            self.history = HistoryStore::new(new.general.history_len);
-        } else if new.general.history_len != self.config.general.history_len {
+        }
+        if new.general.history_len != self.config.general.history_len {
             self.history = HistoryStore::new(new.general.history_len);
         }
         self.config = new;

@@ -210,16 +210,17 @@ fn is_hex_color(s: &str) -> bool {
 }
 
 /// Whether moving from `old` to `new` needs a new sampler: the set of
-/// sources, the interval or the ping target changed.
+/// sources or the interval changed, or the ping target changed while ping is on.
 pub fn sampling_changed(old: &Config, new: &Config) -> bool {
     let mut a = old.enabled_items();
     let mut b = new.enabled_items();
     a.sort_by_key(|k| *k as u8);
     b.sort_by_key(|k| *k as u8);
+    let pinging = new.is_enabled(ItemKind::Ping);
     a != b
         || old.general.sample_interval_ms != new.general.sample_interval_ms
-        || old.ping.host != new.ping.host
-        || old.ping.interval_ms != new.ping.interval_ms
+        || (pinging
+            && (old.ping.host != new.ping.host || old.ping.interval_ms != new.ping.interval_ms))
 }
 
 /// `%APPDATA%\Pulsar\config.toml`.
@@ -484,9 +485,24 @@ panel_opacity = 60
         slower.general.sample_interval_ms = 2000;
         assert!(sampling_changed(&base, &slower));
 
-        let mut host = base.clone();
+        let mut host = ping_on.clone();
         host.ping.host = "8.8.8.8".into();
-        assert!(sampling_changed(&base, &host));
+        assert!(
+            sampling_changed(&ping_on, &host),
+            "ping target changed while pinging"
+        );
+    }
+
+    #[test]
+    fn ping_settings_do_not_matter_while_ping_is_off() {
+        let base = Config::default();
+        let mut typed = base.clone();
+        typed.ping.host = "google.c".into();
+        typed.ping.interval_ms = 5000;
+        assert!(
+            !sampling_changed(&base, &typed),
+            "typing a host with ping disabled must not restart sampling"
+        );
     }
 
     #[test]
