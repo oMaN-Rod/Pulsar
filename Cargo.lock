@@ -3184,32 +3184,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "pulsar-app"
+name = "pulsar-monitor"
 version = "0.1.0"
 dependencies = [
- "pulsar-core",
+ "pulsar-monitor-core",
+ "slint",
+ "slint-build",
  "windows",
  "windows-numerics",
 ]
 
 [[package]]
-name = "pulsar-core"
+name = "pulsar-monitor-core"
 version = "0.1.0"
 dependencies = [
  "serde",
  "tempfile",
  "thiserror 2.0.21",
  "toml",
- "windows",
-]
-
-[[package]]
-name = "pulsar-settings"
-version = "0.1.0"
-dependencies = [
- "pulsar-core",
- "slint",
- "slint-build",
  "windows",
 ]
 

@@ -1,16 +1,27 @@
 [package]
-name = "pulsar-app"
+name = "pulsar-monitor"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+description.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [[bin]]
 name = "pulsar"
 path = "src/main.rs"
 
+[[bin]]
+name = "pulsar-settings"
+path = "src/settings/main.rs"
+
 [dependencies]
-pulsar-core = { path = "../pulsar-core" }
+pulsar-core = { package = "pulsar-monitor-core", version = "0.1.0", path = "../pulsar-core" }
+slint.workspace = true
 windows-numerics.workspace = true
 windows = { workspace = true, features = [
     "Win32_Foundation",
@@ -31,3 +42,10 @@ windows = { workspace = true, features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
+
+[build-dependencies]
+slint-build.workspace = true
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = ["x86_64-pc-windows-msvc"]

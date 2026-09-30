@@ -1,9 +1,22 @@
 [package]
-name = "pulsar-core"
+name = "pulsar-monitor-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
+description = "Sampling, history, layout and settings for the Pulsar taskbar monitor."
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[lib]
+name = "pulsar_core"
+
+[package.metadata.docs.rs]
+default-target = "x86_64-pc-windows-msvc"
+targets = ["x86_64-pc-windows-msvc"]
 
 [dependencies]
 serde.workspace = true

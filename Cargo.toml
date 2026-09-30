@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/pulsar-app", "crates/pulsar-core", "crates/pulsar-settings"]
+members = ["crates/pulsar-core", "crates/pulsar-monitor"]
 resolver = "3"
 
 [workspace.package]
@@ -7,6 +7,12 @@ version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-or-later"
 rust-version = "1.88"
+description = "A lightweight Windows 11 taskbar monitor for CPU, memory, disk, network, GPU and ping."
+repository = "https://github.com/oMaN-Rod/Pulsar"
+homepage = "https://github.com/oMaN-Rod/Pulsar"
+readme = "README.md"
+keywords = ["taskbar", "system-monitor", "windows", "gpu", "performance"]
+categories = ["gui", "os::windows-apis"]
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
