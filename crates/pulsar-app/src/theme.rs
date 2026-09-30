@@ -44,6 +44,9 @@ impl Color {
 pub struct Palette {
     pub text: Color,
     pub label: Color,
+    /// Popup text on the theme's popup background; never overridden.
+    pub popup_text: Color,
+    pub popup_label: Color,
     pub tile: Color,
     /// Near-transparent fill so the whole overlay receives mouse input.
     pub hit: Color,
@@ -75,6 +78,7 @@ impl Palette {
             )
         };
         let d = &config.display;
+        let (popup_text, popup_label) = (text, label);
         let custom = |hex: &Option<String>| hex.as_deref().and_then(Color::parse_hex);
         let text = custom(&d.value_color).unwrap_or(text);
         let label = custom(&d.label_color).unwrap_or(label);
@@ -119,6 +123,8 @@ impl Palette {
         Self {
             text,
             label,
+            popup_text,
+            popup_label,
             panel,
             popup: theme_panel.with_alpha(0.98),
             popup_border: if light_taskbar {
@@ -348,5 +354,16 @@ mod tests {
             p.graph(ItemKind::Disk, CellPart::DriveUsed(b'D')),
             p.graph(ItemKind::Disk, CellPart::Main)
         );
+    }
+
+    #[test]
+    fn popups_keep_theme_text_whatever_the_overlay_colours() {
+        let plain = Palette::new(true, &Config::default(), None);
+        let mut c = Config::default();
+        c.display.label_color = Some("#F8FAFC".into());
+        c.display.value_color = Some("#FFFFFF".into());
+        let custom = Palette::new(true, &c, None);
+        assert_eq!(custom.popup_text, plain.text);
+        assert_eq!(custom.popup_label, plain.label);
     }
 }

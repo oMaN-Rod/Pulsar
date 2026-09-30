@@ -184,7 +184,7 @@ fn draw(
     let accent = p.graph(content.kind, content.series[0]);
     let mut y = m.pad;
 
-    r.text_at(text, &title, content.title, m.pad, y, p.text)?;
+    r.text_at(text, &title, content.title, m.pad, y, p.popup_text)?;
     let value_w = text.width(&content.value, m.title_px);
     r.text_at(text, &title, &content.value, right - value_w, y, accent)?;
     y += m.title_h + m.block_gap;
@@ -226,21 +226,21 @@ fn draw(
         match block {
             Block::Rows { heading, rows } => {
                 if let Some(heading) = heading {
-                    r.text_at(text, &body, heading, m.pad, y, p.label)?;
+                    r.text_at(text, &body, heading, m.pad, y, p.popup_label)?;
                     y += m.line_h;
                 }
                 for (label, value) in rows {
                     let value_w = text.width(value, m.font_px);
-                    r.text_at(text, &body, value, right - value_w, y, p.text)?;
+                    r.text_at(text, &body, value, right - value_w, y, p.popup_text)?;
                     let room = right - value_w - gap - m.pad;
                     let label = ellipsize(label, room, m.font_px, text);
-                    r.text_at(text, &body, &label, m.pad, y, p.text)?;
+                    r.text_at(text, &body, &label, m.pad, y, p.popup_text)?;
                     y += m.line_h;
                 }
             }
             Block::Bars { values, .. } if values.is_empty() => continue,
             Block::Bars { heading, values } => {
-                r.text_at(text, &body, heading, m.pad, y, p.label)?;
+                r.text_at(text, &body, heading, m.pad, y, p.popup_label)?;
                 y += m.line_h;
                 let n = values.len() as f32;
                 let bar_gap = 2.0 * m.scale;
