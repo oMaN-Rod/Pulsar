@@ -14,9 +14,11 @@ $id = 'oMaN-Rod.Pulsar'
 $repo = 'https://github.com/oMaN-Rod/Pulsar'
 $out = Join-Path $dist "winget\$id\$Version"
 New-Item -ItemType Directory -Force $out | Out-Null
-$schema = '1.6.0'
+$schema = '1.12.0'
 
 @"
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.version.$schema.schema.json
+
 PackageIdentifier: $id
 PackageVersion: $Version
 DefaultLocale: en-US
@@ -25,6 +27,8 @@ ManifestVersion: $schema
 "@ | Set-Content (Join-Path $out "$id.yaml") -Encoding utf8
 
 @"
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.installer.$schema.schema.json
+
 PackageIdentifier: $id
 PackageVersion: $Version
 Platform:
@@ -48,6 +52,8 @@ ManifestVersion: $schema
 "@ | Set-Content (Join-Path $out "$id.installer.yaml") -Encoding utf8
 
 @"
+# yaml-language-server: `$schema=https://aka.ms/winget-manifest.defaultLocale.$schema.schema.json
+
 PackageIdentifier: $id
 PackageVersion: $Version
 PackageLocale: en-US
