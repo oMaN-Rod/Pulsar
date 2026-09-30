@@ -2,6 +2,7 @@ use std::io;
 use std::process::Command;
 
 use pulsar_core::ipc::{ABOUT_ARG, SETTINGS_EXE, sibling};
+use windows::Win32::UI::WindowsAndMessaging::{ASFW_ANY, AllowSetForegroundWindow};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
@@ -20,6 +21,11 @@ pub fn args(page: Page) -> &'static [&'static str] {
 /// The settings process focuses an already open window itself.
 pub fn open(page: Page) -> io::Result<()> {
     let exe = sibling(&std::env::current_exe()?, SETTINGS_EXE);
+    // Tray clicks and menu picks give this process the right to take the
+    // foreground; pass it on so the settings window is not left behind.
+    unsafe {
+        let _ = AllowSetForegroundWindow(ASFW_ANY);
+    }
     Command::new(exe).args(args(page)).spawn().map(drop)
 }
 
