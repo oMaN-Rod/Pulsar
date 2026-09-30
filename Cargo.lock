@@ -115,6 +115,7 @@ name = "pulsar-settings"
 version = "0.1.0"
 dependencies = [
  "pulsar-core",
+ "windows",
 ]
 
 [[package]]
