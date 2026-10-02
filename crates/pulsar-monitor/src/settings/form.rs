@@ -68,6 +68,10 @@ pub fn parse_hex(s: &str) -> Option<Rgb> {
     Some((byte(0)?, byte(2)?, byte(4)?))
 }
 
+pub fn to_hex((r, g, b): Rgb) -> String {
+    format!("#{r:02X}{g:02X}{b:02X}")
+}
+
 /// The colour an item is drawn in: its valid custom colour, else the default.
 pub fn item_rgb(kind: ItemKind, hex: &str) -> Rgb {
     parse_hex(hex).unwrap_or_else(|| default_rgb(kind, CellPart::Main))
@@ -343,6 +347,13 @@ mod tests {
         assert_eq!(parse_hex("FF8000"), None);
         assert_eq!(parse_hex("#GG8000"), None);
         assert_eq!(parse_hex("#ÄÄÄÄÄÄ"), None, "non-ASCII never panics");
+    }
+
+    #[test]
+    fn formats_hex_that_parses_back() {
+        assert_eq!(to_hex((255, 128, 0)), "#FF8000");
+        assert_eq!(to_hex((0, 1, 2)), "#000102");
+        assert_eq!(parse_hex(&to_hex((18, 52, 86))), Some((18, 52, 86)));
     }
 
     #[test]

@@ -139,6 +139,11 @@ component SectionTitle inherits Text {
     font-weight: 600;
 }
 
+export global ColorUtil {
+    in property <[color]> swatches;
+    pure callback hex(color) -> string;
+}
+
 component Swatch inherits Rectangle {
     in property <color> value;
     width: 28px;
@@ -147,6 +152,203 @@ component Swatch inherits Rectangle {
     border-width: 1px;
     border-color: Palette.border;
     background: root.value;
+}
+
+component HueBar inherits Rectangle {
+    in-out property <float> hue;
+    callback edited();
+    height: 14px;
+    border-radius: 7px;
+    background: @linear-gradient(90deg, #ff0000 0%, #ffff00 16.67%, #00ff00 33.33%, #00ffff 50%, #0000ff 66.67%, #ff00ff 83.33%, #ff0000 100%);
+    function pick(x: length) {
+        root.hue = Math.clamp(x / root.width, 0, 1) * 359.9;
+        root.edited();
+    }
+    Rectangle {
+        x: root.hue / 360 * root.width - self.width / 2;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        border-width: 2px;
+        border-color: white;
+        background: hsv(root.hue, 1, 1);
+        drop-shadow-blur: 2px;
+        drop-shadow-color: #00000060;
+    }
+    TouchArea {
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) {
+                root.pick(self.mouse-x);
+            }
+        }
+        moved => { root.pick(self.mouse-x); }
+    }
+}
+
+// Saturation left to right, brightness top to bottom.
+component SaturationValueArea inherits Rectangle {
+    in property <float> hue;
+    in-out property <float> saturation;
+    in-out property <float> value;
+    callback edited();
+    border-radius: 6px;
+    background: hsv(root.hue, 1, 1);
+    function pick(x: length, y: length) {
+        root.saturation = Math.clamp(x / root.width, 0, 1);
+        root.value = 1 - Math.clamp(y / root.height, 0, 1);
+        root.edited();
+    }
+    Rectangle {
+        border-radius: root.border-radius;
+        background: @linear-gradient(90deg, #ffffff 0%, #ffffff00 100%);
+    }
+    Rectangle {
+        border-radius: root.border-radius;
+        background: @linear-gradient(180deg, #00000000 0%, #000000 100%);
+    }
+    Rectangle {
+        x: root.saturation * root.width - self.width / 2;
+        y: (1 - root.value) * root.height - self.height / 2;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        border-width: 2px;
+        border-color: white;
+        background: hsv(root.hue, root.saturation, root.value);
+        drop-shadow-blur: 2px;
+        drop-shadow-color: #00000060;
+    }
+    TouchArea {
+        pointer-event(e) => {
+            if (e.kind == PointerEventKind.down) {
+                root.pick(self.mouse-x, self.mouse-y);
+            }
+        }
+        moved => { root.pick(self.mouse-x, self.mouse-y); }
+    }
+}
+
+// A colour setting: a swatch that opens a picker, and the hex text.
+component ColorField inherits HorizontalLayout {
+    in-out property <string> text;
+    // Transparent when the text is empty or half-typed.
+    in property <color> swatch;
+    // Where the picker starts when there is no valid colour.
+    in property <color> fallback;
+    in property <string> placeholder: "#RRGGBB";
+    in property <length> field-width: 140px;
+    // Typed or picked; empty means the default.
+    callback edited(string);
+    property <float> hue;
+    property <float> saturation;
+    property <float> value;
+    spacing: 8px;
+
+    function set(hex: string) {
+        root.text = hex;
+        root.edited(hex);
+    }
+    function picked() {
+        root.set(ColorUtil.hex(hsv(root.hue, root.saturation, root.value)));
+    }
+    function start-from(c: color) {
+        let h = c.to-hsv();
+        root.hue = h.hue;
+        root.saturation = h.saturation;
+        root.value = h.value;
+    }
+
+    swatch-button := Rectangle {
+        width: 28px;
+        height: 28px;
+        Swatch {
+            value: root.swatch;
+            border-color: touch.has-hover ? Palette.accent-background : Palette.border;
+        }
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => {
+                root.start-from(root.swatch.to-hsv().alpha > 0 ? root.swatch : root.fallback);
+                picker.show();
+            }
+        }
+    }
+    LineEdit {
+        width: root.field-width;
+        placeholder-text: root.placeholder;
+        text <=> root.text;
+        edited(text) => { root.edited(text); }
+    }
+
+    picker := PopupWindow {
+        x: swatch-button.x + swatch-button.width - self.width;
+        y: swatch-button.y + swatch-button.height + 6px;
+        width: 268px;
+        height: content.preferred-height;
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Palette.background;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Palette.border;
+            drop-shadow-blur: 12px;
+            drop-shadow-offset-y: 4px;
+            drop-shadow-color: #00000040;
+        }
+        content := VerticalLayout {
+            padding: 16px;
+            spacing: 12px;
+            SaturationValueArea {
+                height: 150px;
+                hue: root.hue;
+                saturation <=> root.saturation;
+                value <=> root.value;
+                edited => { root.picked(); }
+            }
+            HueBar {
+                hue <=> root.hue;
+                edited => { root.picked(); }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                for c in ColorUtil.swatches: Rectangle {
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: preset-touch.has-hover ? Palette.accent-background : Palette.border;
+                    background: c;
+                    preset-touch := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => {
+                            root.start-from(c);
+                            root.picked();
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                Swatch {
+                    value: hsv(root.hue, root.saturation, root.value);
+                }
+                Text {
+                    text: root.text == "" ? "Default" : root.text;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Button {
+                    text: "Use default";
+                    enabled: root.text != "";
+                    clicked => {
+                        root.set("");
+                        picker.close();
+                    }
+                }
+            }
+        }
+    }
 }
 
 component Page inherits VerticalLayout {
@@ -192,10 +394,12 @@ export component SettingsWindow inherits Window {
     in-out property <bool> accent-graphs;
     in-out property <string> tile-color;
     in property <color> tile-swatch;
+    in property <color> tile-default;
     in-out property <bool> tile-opacity-custom;
     in-out property <float> tile-opacity;
     in-out property <string> panel-color;
     in property <color> panel-swatch;
+    in property <color> panel-default;
     in-out property <float> panel-opacity;
     in-out property <[ItemRow]> items;
     in-out property <string> ping-host;
@@ -211,8 +415,10 @@ export component SettingsWindow inherits Window {
     in-out property <bool> lock-position;
     in-out property <string> label-color;
     in property <color> label-swatch;
+    in property <color> label-default;
     in-out property <string> value-color;
     in property <color> value-swatch;
+    in property <color> value-default;
     in-out property <bool> color-labels;
     in property <[string]> fonts;
     in-out property <int> font-index;
@@ -477,11 +683,10 @@ export component SettingsWindow inherits Window {
                     SettingRow {
                         title: "Label colour";
                         description: "Empty uses the theme.";
-                        Swatch { value: root.label-swatch; }
-                        LineEdit {
-                            width: 140px;
-                            placeholder-text: "#RRGGBB";
+                        ColorField {
                             text <=> root.label-color;
+                            swatch: root.label-swatch;
+                            fallback: root.label-default;
                             edited => { root.changed(); }
                         }
                     }
@@ -489,11 +694,10 @@ export component SettingsWindow inherits Window {
                     SettingRow {
                         title: "Value colour";
                         description: "Empty uses the theme.";
-                        Swatch { value: root.value-swatch; }
-                        LineEdit {
-                            width: 140px;
-                            placeholder-text: "#RRGGBB";
+                        ColorField {
                             text <=> root.value-color;
+                            swatch: root.value-swatch;
+                            fallback: root.value-default;
                             edited => { root.changed(); }
                         }
                     }
@@ -573,11 +777,10 @@ export component SettingsWindow inherits Window {
                     SettingRow {
                         title: "Tile colour";
                         description: "Empty uses the theme tint.";
-                        Swatch { value: root.tile-swatch; }
-                        LineEdit {
-                            width: 140px;
-                            placeholder-text: "#RRGGBB";
+                        ColorField {
                             text <=> root.tile-color;
+                            swatch: root.tile-swatch;
+                            fallback: root.tile-default;
                             edited => { root.changed(); }
                         }
                     }
@@ -602,11 +805,10 @@ export component SettingsWindow inherits Window {
                     SettingRow {
                         title: "Panel colour";
                         description: "A panel behind the whole overlay. Empty uses the theme.";
-                        Swatch { value: root.panel-swatch; }
-                        LineEdit {
-                            width: 140px;
-                            placeholder-text: "#RRGGBB";
+                        ColorField {
                             text <=> root.panel-color;
+                            swatch: root.panel-swatch;
+                            fallback: root.panel-default;
                             edited => { root.changed(); }
                         }
                     }
@@ -637,11 +839,12 @@ export component SettingsWindow inherits Window {
                         if i > 0: Divider { }
                         SettingRow {
                             title: row.name;
-                            Swatch { value: row.swatch; }
-                            LineEdit {
-                                width: 120px;
-                                placeholder-text: "Default";
+                            ColorField {
                                 text: row.color;
+                                swatch: row.swatch;
+                                fallback: row.swatch;
+                                placeholder: "Default";
+                                field-width: 120px;
                                 edited(text) => { root.item-color(i, text); }
                             }
                             IconButton {

@@ -13,12 +13,14 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
+use pulsar_core::colors::{self, default_rgb};
 use pulsar_core::config::{self, Config};
+use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::single_instance::SingleInstance;
 use pulsar_core::sources::{fixed_drives, hardware_adapters};
-use pulsar_core::{crash, ipc, logging, paths, project};
-use slint::{Color, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
+use pulsar_core::{crash, ipc, logging, paths, project, system_theme};
+use slint::{Color, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 use windows::core::{HSTRING, PCWSTR, w};
@@ -103,6 +105,24 @@ fn refresh_caption(ui: &SettingsWindow, applied: &Cell<Option<Caption>>) {
     if applied.get() != Some(wanted) && titlebar::blend(ipc::SETTINGS_TITLE, wanted.0, wanted.1) {
         applied.set(Some(wanted));
     }
+}
+
+/// Sets up the colour pickers: hex formatting, quick swatches, and the
+/// theme colours they start from when a setting is empty.
+fn init_color_pickers(ui: &SettingsWindow) {
+    let util = ui.global::<ColorUtil>();
+    util.on_hex(|c| form::to_hex((c.red(), c.green(), c.blue())).into());
+    let mut swatches: Vec<Color> = ItemKind::ALL
+        .into_iter()
+        .map(|k| rgb(default_rgb(k, CellPart::Main)))
+        .collect();
+    swatches.extend([rgb((0xFF, 0xFF, 0xFF)), rgb((0, 0, 0))]);
+    util.set_swatches(ModelRc::new(VecModel::from(swatches)));
+    let theme = colors::theme_rgb(system_theme::taskbar_is_light());
+    ui.set_label_default(rgb(theme.label));
+    ui.set_value_default(rgb(theme.text));
+    ui.set_tile_default(rgb(theme.tile));
+    ui.set_panel_default(rgb(theme.panel));
 }
 
 fn refresh_swatches(ui: &SettingsWindow) {
@@ -358,6 +378,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
     ui.on_open_link(|url| open_link(&url));
+    init_color_pickers(&ui);
     if about {
         ui.set_tab(ABOUT_TAB);
     }
