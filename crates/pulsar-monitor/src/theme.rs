@@ -2,8 +2,6 @@ use pulsar_core::colors;
 use pulsar_core::config::Config;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
-use windows::Win32::System::Registry::{HKEY_CURRENT_USER, RRF_RT_REG_DWORD, RegGetValueW};
-use windows::core::w;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
@@ -62,21 +60,9 @@ pub struct Palette {
 
 impl Palette {
     pub fn new(light_taskbar: bool, config: &Config, accent: Option<Color>) -> Self {
-        let (text, label, theme_tile, theme_panel) = if light_taskbar {
-            (
-                Color::rgb(0x1A, 0x1A, 0x1A),
-                Color::rgb(0x5C, 0x5C, 0x5C),
-                Color::rgb(0, 0, 0).with_alpha(0.06),
-                Color::rgb(0xF3, 0xF3, 0xF3),
-            )
-        } else {
-            (
-                Color::rgb(0xFF, 0xFF, 0xFF),
-                Color::rgb(0xB8, 0xB8, 0xB8),
-                Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(0.08),
-                Color::rgb(0x20, 0x20, 0x20),
-            )
-        };
+        let theme = colors::theme_rgb(light_taskbar);
+        let (text, label, theme_panel) = (rgb(theme.text), rgb(theme.label), rgb(theme.panel));
+        let theme_tile = rgb(theme.tile).with_alpha(if light_taskbar { 0.06 } else { 0.08 });
         let d = &config.display;
         let (popup_text, popup_label) = (text, label);
         let custom = |hex: &Option<String>| hex.as_deref().and_then(Color::parse_hex);
@@ -167,41 +153,18 @@ impl Palette {
     }
 }
 
-pub fn default_color(kind: ItemKind, part: CellPart) -> Color {
-    let (r, g, b) = colors::default_rgb(kind, part);
+fn rgb((r, g, b): colors::Rgb) -> Color {
     Color::rgb(r, g, b)
 }
 
-fn read_dword(subkey: windows::core::PCWSTR, value: windows::core::PCWSTR) -> Option<u32> {
-    let mut data = 0u32;
-    let mut size = size_of::<u32>() as u32;
-    unsafe {
-        RegGetValueW(
-            HKEY_CURRENT_USER,
-            subkey,
-            value,
-            RRF_RT_REG_DWORD,
-            None,
-            Some((&mut data as *mut u32).cast()),
-            Some(&mut size),
-        )
-    }
-    .ok()
-    .ok()?;
-    Some(data)
+pub fn default_color(kind: ItemKind, part: CellPart) -> Color {
+    rgb(colors::default_rgb(kind, part))
 }
 
-/// The taskbar follows the "Windows mode" setting, not the app mode.
-pub fn taskbar_is_light() -> bool {
-    read_dword(
-        w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-        w!("SystemUsesLightTheme"),
-    )
-    .is_some_and(|v| v != 0)
-}
+pub use pulsar_core::system_theme::taskbar_is_light;
 
 pub fn accent_color() -> Option<Color> {
-    read_dword(w!(r"Software\Microsoft\Windows\DWM"), w!("AccentColor")).map(Color::from_abgr)
+    pulsar_core::system_theme::accent_abgr().map(Color::from_abgr)
 }
 
 #[cfg(test)]
@@ -316,12 +279,6 @@ mod tests {
             p.graph(ItemKind::Network, CellPart::Down),
             p.graph(ItemKind::Network, CellPart::Up)
         );
-    }
-
-    #[test]
-    fn reads_theme_from_registry_without_panicking() {
-        let _ = taskbar_is_light();
-        let _ = accent_color();
     }
 
     #[test]

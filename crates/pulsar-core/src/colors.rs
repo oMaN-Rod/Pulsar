@@ -18,9 +18,44 @@ pub fn default_rgb(kind: ItemKind, part: CellPart) -> Rgb {
     }
 }
 
+/// The overlay's colours when no custom colour is set.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ThemeRgb {
+    pub text: Rgb,
+    pub label: Rgb,
+    /// Drawn at the theme's tile opacity.
+    pub tile: Rgb,
+    pub panel: Rgb,
+}
+
+pub fn theme_rgb(light_taskbar: bool) -> ThemeRgb {
+    if light_taskbar {
+        ThemeRgb {
+            text: (0x1A, 0x1A, 0x1A),
+            label: (0x5C, 0x5C, 0x5C),
+            tile: (0, 0, 0),
+            panel: (0xF3, 0xF3, 0xF3),
+        }
+    } else {
+        ThemeRgb {
+            text: (0xFF, 0xFF, 0xFF),
+            label: (0xB8, 0xB8, 0xB8),
+            tile: (0xFF, 0xFF, 0xFF),
+            panel: (0x20, 0x20, 0x20),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn theme_text_contrasts_with_the_taskbar() {
+        assert_eq!(theme_rgb(false).text, (0xFF, 0xFF, 0xFF));
+        assert_eq!(theme_rgb(true).text, (0x1A, 0x1A, 0x1A));
+        assert_ne!(theme_rgb(false).panel, theme_rgb(true).panel);
+    }
 
     #[test]
     fn items_have_distinct_default_colours() {

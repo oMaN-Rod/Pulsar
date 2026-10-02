@@ -13,4 +13,5 @@ pub mod project;
 pub mod sampler;
 pub mod single_instance;
 pub mod sources;
+pub mod system_theme;
 pub mod update;
