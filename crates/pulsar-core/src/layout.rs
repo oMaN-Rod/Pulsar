@@ -105,6 +105,9 @@ pub fn primary_metric(kind: ItemKind) -> MetricKey {
         ItemKind::GpuTemp => MetricKey::GpuTempC,
         ItemKind::CpuTemp => MetricKey::CpuTempC,
         ItemKind::CpuPower => MetricKey::CpuPowerW,
+        ItemKind::CpuClock => MetricKey::CpuClockMhz,
+        ItemKind::DiskTemp => MetricKey::DiskTempMaxC,
+        ItemKind::ChipsetTemp => MetricKey::ChipsetTempC,
     }
 }
 
@@ -142,8 +145,11 @@ pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
         (ItemKind::Cpu, _) => "\u{E950}",
         (ItemKind::Ram, _) => "\u{EEA0}",
         (ItemKind::Gpu, _) => "\u{F211}",
-        (ItemKind::GpuTemp | ItemKind::CpuTemp, _) => "\u{E9CA}",
+        (ItemKind::GpuTemp | ItemKind::CpuTemp | ItemKind::DiskTemp | ItemKind::ChipsetTemp, _) => {
+            "\u{E9CA}"
+        }
         (ItemKind::CpuPower, _) => "\u{E945}",
+        (ItemKind::CpuClock, _) => "\u{EC4A}",
         (ItemKind::Disk, _) => "\u{EDA2}",
         (ItemKind::Network, _) => "\u{E968}",
         (ItemKind::Ping, _) => "\u{EC05}",
@@ -469,7 +475,7 @@ mod tests {
             .collect()
     }
 
-    const ALL: [ItemKind; 9] = ItemKind::ALL;
+    const ALL: [ItemKind; 12] = ItemKind::ALL;
 
     fn assert_no_overlap(layout: &Layout) {
         for (i, a) in layout.cells.iter().enumerate() {

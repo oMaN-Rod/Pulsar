@@ -18,6 +18,9 @@ pub fn format_value(value: f64, unit: Unit) -> String {
         Unit::Watts if value < 10.0 => format!("{:.1} W", value.max(0.0)),
         Unit::Watts => format!("{:.0} W", value.clamp(0.0, 999.0)),
         Unit::Volts => format!("{:.3} V", value.clamp(0.0, 9.999)),
+        Unit::Ratio if value.fract() == 0.0 => format!("×{:.0}", value.clamp(0.0, 999.0)),
+        Unit::Ratio => format!("×{:.2}", value.clamp(0.0, 999.0)),
+        Unit::Cycles => format!("{:.0}", value.clamp(0.0, 9999.0)),
     }
 }
 
@@ -34,6 +37,8 @@ pub fn widest_value(unit: Unit) -> &'static str {
         Unit::Rpm => "99999 RPM",
         Unit::Watts => "999 W",
         Unit::Volts => "9.999 V",
+        Unit::Ratio => "×99.75",
+        Unit::Cycles => "9999",
     }
 }
 

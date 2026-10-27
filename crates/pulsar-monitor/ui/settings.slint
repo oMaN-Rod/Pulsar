@@ -891,11 +891,11 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
-                SectionTitle { text: "CPU temperature and power"; }
+                SectionTitle { text: "Temperatures and power"; }
                 Card {
                     SettingRow {
                         title: "Sensor service";
-                        description: "CPU temperature and power need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards.";
+                        description: "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only.";
                         Button {
                             text: "About PawnIO";
                             clicked => { root.open-link("https://pawnio.eu"); }

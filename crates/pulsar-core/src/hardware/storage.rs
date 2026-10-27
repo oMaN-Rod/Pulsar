@@ -256,14 +256,25 @@ impl Source for DriveTempSource {
     }
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
+        if self.drives.is_empty() {
+            return Err(SourceError::Unavailable(
+                "No drive reports a temperature".into(),
+            ));
+        }
+        let mut hottest = None;
         for (number, drive) in &self.drives {
             if let Some((temp, _, _)) = property(drive, TEMPERATURE_PROPERTY, 256)
                 .as_deref()
                 .and_then(temperatures)
                 && temp > 0
             {
-                out.set(MetricKey::DiskTempC(*number), f64::from(temp));
+                let temp = f64::from(temp);
+                out.set(MetricKey::DiskTempC(*number), temp);
+                hottest = Some(hottest.map_or(temp, |h: f64| h.max(temp)));
             }
+        }
+        if let Some(temp) = hottest {
+            out.set(MetricKey::DiskTempMaxC, temp);
         }
         Ok(())
     }

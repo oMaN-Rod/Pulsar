@@ -34,13 +34,15 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 - **Labels your way.** Full labels (`CPU`), one-letter labels (`C`), icons, or icons alone.
 - **Hover details.** Each item opens a popup:
   - **CPU:** per-core bars, clock speed and top processes
+  - **CPU clock:** average and fastest core, with per-core bars
   - **Memory:** commit charge
   - **Disk:** free space per drive
   - **Network:** traffic per adapter
   - **GPU:** engine breakdown, VRAM, and temperature, fan and power
+  - **Drive temperature:** each drive that reports one
   - **Ping:** min/avg/max and packet loss
-- **A full system details window.** Ctrl+click the overlay for a CPU-Z-style view of the whole machine: processor (microarchitecture, cores, caches, instruction sets), memory modules, graphics cards, drives with their temperatures, network adapters, motherboard and BIOS, plus every live sensor with its low and high. The hover graphs are there too, with their full history.
-- **CPU temperature and power, if you opt in.** Windows gives unelevated programs no real CPU temperature or power draw, so these need the optional [sensor service](#sensor-service), which also adds a few extra CPU and GPU readings.
+- **A full system details window.** Ctrl+click the overlay for a CPU-Z-style view of the whole machine: processor (microarchitecture, cores, caches, instruction sets), memory modules, graphics cards with their PCIe link, drives with their temperatures, network adapters, motherboard, chipset and BIOS, plus every live sensor with its low and high. The hover graphs are there too, with their full history.
+- **CPU and chipset temperature and CPU power, if you opt in.** Windows gives unelevated programs no real CPU temperature or power draw, so these need the optional [sensor service](#sensor-service), which also adds a few extra CPU, memory and GPU readings.
 - **GPU monitoring for any vendor.** Utilisation matches Task Manager. Temperature is read the same way Task Manager does, with no drivers or vendor SDKs.
 - **Per-drive disks and adapter choice.** Show each drive's activity or used space, and count one network adapter or all physical ones.
 - **Stays put.** Survives Explorer restarts, taskbar moves, auto-hide, DPI changes and multiple monitors, and fades out while a fullscreen game or video is in front.
@@ -94,11 +96,16 @@ Everything Pulsar shows by default is read without administrator rights. A few r
 
 | Reading | Built in | With the sensor service |
 |---|---|---|
-| CPU usage, clock speed, per-core load, top processes | ✓ | |
+| CPU usage, clock speed (item and popup), per-core load, top processes | ✓ | |
 | Memory, disk, network and ping | ✓ | |
+| Drive temperature (item and popup), for drives that report one | ✓ | |
+| GPU board maker and PCIe link, chipset model (details window) | ✓ | |
 | GPU usage, VRAM, temperature, fan and power | ✓ | |
 | CPU temperature (item and popup) | | Intel, and AMD Ryzen (Zen and later) |
 | CPU power (item and popup) | | Intel, and AMD Ryzen (Zen and later) |
+| Chipset temperature (item and popup) | | Intel, chipsets from the 8 series on |
+| TDP, power limits, multiplier range and ring clock (details window) | | Intel |
+| Memory timings and clocks (details window) | | Intel 12th–14th gen; AMD Ryzen without the controller clock |
 | Hottest core (popup) | | Intel |
 | Per-core temperature (details window) | | Intel |
 | Per-core clock (details window) | | Intel, and AMD Ryzen |
@@ -117,13 +124,13 @@ How to set it up depends on how you installed Pulsar:
 - **winget:** `winget install` runs the installer silently, which never asks for administrator rights and so skips that page. Run `winget install -i oMaN-Rod.Pulsar` to see it, or follow the next step using `%LOCALAPPDATA%\Programs\Pulsar\pulsar-sensors.exe`.
 - **Portable zip or Cargo:** install PawnIO (`winget install namazso.PawnIO`), then run `pulsar-sensors.exe --install` from an administrator terminal.
 
-Then turn on *CPU temperature* or *CPU power* in Settings → Items.
+Then turn on *CPU temperature*, *CPU power* or *Chipset temperature* in Settings → Items.
 
 The service runs from its own copy of `pulsar-sensors.exe`. The installer's wizard refreshes that copy, but a silent upgrade (`winget upgrade`) and `cargo install` do not, so run `pulsar-sensors.exe --install` again after those if Pulsar says the service needs updating.
 
 To remove the service, run `pulsar-sensors.exe --uninstall` from an administrator terminal. Uninstalling Pulsar from Windows Settings or winget does this for you; `cargo uninstall` and deleting the portable folder do not.
 
-Without the service, the *CPU temperature* and *CPU power* items show "—" and their popup says what is missing; the other rows are simply left out.
+Without the service, the *CPU temperature*, *CPU power* and *Chipset temperature* items show "—" and their popup says what is missing; the other rows are simply left out.
 
 ### The details window with the service
 

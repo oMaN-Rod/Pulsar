@@ -16,6 +16,9 @@ pub fn default_rgb(kind: ItemKind, part: CellPart) -> Rgb {
         (ItemKind::GpuTemp, _) => (0xFF, 0x8C, 0x42),
         (ItemKind::CpuTemp, _) => (0xFF, 0x5A, 0x5F),
         (ItemKind::CpuPower, _) => (0xF5, 0xD0, 0x4A),
+        (ItemKind::CpuClock, _) => (0x8E, 0xA8, 0xFF),
+        (ItemKind::ChipsetTemp, _) => (0xFF, 0x9E, 0x7A),
+        (ItemKind::DiskTemp, _) => (0xB5, 0xE3, 0x6B),
         (ItemKind::Ping, _) => (0x2E, 0xD5, 0xC4),
     }
 }

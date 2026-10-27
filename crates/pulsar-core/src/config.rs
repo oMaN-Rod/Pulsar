@@ -153,9 +153,13 @@ impl Default for Config {
                 .iter()
                 .map(|&kind| ItemConfig {
                     kind,
-                    enabled: !matches!(
+                    enabled: matches!(
                         kind,
-                        ItemKind::Ping | ItemKind::GpuTemp | ItemKind::CpuTemp | ItemKind::CpuPower
+                        ItemKind::Cpu
+                            | ItemKind::Ram
+                            | ItemKind::Gpu
+                            | ItemKind::Disk
+                            | ItemKind::Network
                     ),
                     color: None,
                     graph: true,
@@ -577,10 +581,13 @@ sample_interval_ms = 1
                 ItemKind::Cpu,
                 ItemKind::CpuTemp,
                 ItemKind::CpuPower,
+                ItemKind::CpuClock,
                 ItemKind::Ram,
+                ItemKind::ChipsetTemp,
                 ItemKind::Gpu,
                 ItemKind::GpuTemp,
                 ItemKind::Disk,
+                ItemKind::DiskTemp,
                 ItemKind::Network,
                 ItemKind::Ping
             ]
@@ -677,7 +684,10 @@ panel_opacity = 60
         assert!(!c.is_enabled(ItemKind::GpuTemp));
         assert!(!c.is_enabled(ItemKind::CpuTemp));
         assert!(!c.is_enabled(ItemKind::CpuPower));
-        assert_eq!(c.items.len(), 9);
+        assert!(!c.is_enabled(ItemKind::CpuClock));
+        assert!(!c.is_enabled(ItemKind::DiskTemp));
+        assert!(!c.is_enabled(ItemKind::ChipsetTemp));
+        assert_eq!(c.items.len(), 12);
         let d = &c.display;
         assert_eq!(d.labels, LabelStyle::Full);
         assert!(!d.icons && !d.color_labels && !d.font_bold && !d.lock_position);

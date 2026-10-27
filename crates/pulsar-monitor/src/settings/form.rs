@@ -91,6 +91,9 @@ pub fn item_name(kind: ItemKind) -> &'static str {
         ItemKind::GpuTemp => "GPU temperature",
         ItemKind::CpuTemp => "CPU temperature",
         ItemKind::CpuPower => "CPU power",
+        ItemKind::CpuClock => "CPU clock",
+        ItemKind::DiskTemp => "Drive temperature",
+        ItemKind::ChipsetTemp => "Chipset temperature",
     }
 }
 

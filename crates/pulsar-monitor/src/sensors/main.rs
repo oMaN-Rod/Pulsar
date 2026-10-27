@@ -4,8 +4,10 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod chipset;
 mod cores;
 mod gpu;
+mod memory;
 mod pawnio;
 mod reader;
 mod service;

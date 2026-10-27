@@ -31,32 +31,41 @@ pub enum ItemKind {
     Ping,
     CpuTemp,
     CpuPower,
+    CpuClock,
+    DiskTemp,
+    ChipsetTemp,
 }
 
 impl ItemKind {
     /// Default display order; adjacent pairs share a text-mode column.
-    pub const ALL: [ItemKind; 9] = [
+    pub const ALL: [ItemKind; 12] = [
         ItemKind::Cpu,
         ItemKind::CpuTemp,
         ItemKind::CpuPower,
+        ItemKind::CpuClock,
         ItemKind::Ram,
+        ItemKind::ChipsetTemp,
         ItemKind::Gpu,
         ItemKind::GpuTemp,
         ItemKind::Disk,
+        ItemKind::DiskTemp,
         ItemKind::Network,
         ItemKind::Ping,
     ];
 
     pub fn source(self) -> SourceId {
         match self {
-            ItemKind::Cpu => SourceId::Cpu,
+            ItemKind::Cpu | ItemKind::CpuClock => SourceId::Cpu,
             ItemKind::Ram => SourceId::Memory,
             ItemKind::Disk => SourceId::DiskIo,
             ItemKind::Network => SourceId::Network,
             ItemKind::Gpu => SourceId::Gpu,
             ItemKind::GpuTemp => SourceId::GpuSensors,
             ItemKind::Ping => SourceId::Ping,
-            ItemKind::CpuTemp | ItemKind::CpuPower => SourceId::SensorService,
+            ItemKind::CpuTemp | ItemKind::CpuPower | ItemKind::ChipsetTemp => {
+                SourceId::SensorService
+            }
+            ItemKind::DiskTemp => SourceId::DriveTemps,
         }
     }
 
@@ -71,6 +80,9 @@ impl ItemKind {
             ItemKind::GpuTemp => "TEMP",
             ItemKind::CpuTemp => "CPU°",
             ItemKind::CpuPower => "PWR",
+            ItemKind::CpuClock => "CLK",
+            ItemKind::DiskTemp => "DSK°",
+            ItemKind::ChipsetTemp => "PCH°",
         }
     }
 
@@ -86,6 +98,9 @@ impl ItemKind {
             ItemKind::Ping => "P",
             ItemKind::CpuTemp => "H",
             ItemKind::CpuPower => "W",
+            ItemKind::CpuClock => "F",
+            ItemKind::DiskTemp => "S",
+            ItemKind::ChipsetTemp => "B",
         }
     }
 }
@@ -145,8 +160,33 @@ pub enum MetricKey {
     CpuThrottling,
     /// By physical drive number.
     DiskTempC(u8),
+    /// The hottest drive.
+    DiskTempMaxC,
+    /// The platform controller hub, the board's chipset.
+    ChipsetTempC,
+    CpuTdpW,
+    CpuPowerLimit1W,
+    CpuPowerLimit2W,
+    /// The lowest and highest multipliers of the bus clock.
+    CpuMinRatio,
+    CpuMaxRatio,
+    RingClockMhz,
+    /// Half the memory transfer rate.
+    MemClockMhz,
+    MemControllerClockMhz,
+    MemTiming(Timing),
     PingMs,
     PingLossPercent,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Timing {
+    Cl,
+    Rcd,
+    Rp,
+    Ras,
+    Rc,
+    CommandRate,
 }
 
 /// A metric with one value per core, such as `MetricKey::CpuCoreTempC`.
@@ -163,6 +203,8 @@ pub enum Unit {
     Rpm,
     Watts,
     Volts,
+    Ratio,
+    Cycles,
 }
 
 impl MetricKey {
@@ -186,15 +228,20 @@ impl MetricKey {
             }
             DiskReadBps | DiskWriteBps | NetDownBps | NetUpBps => Unit::BytesPerSec,
             PingMs => Unit::Millis,
-            CpuClockMhz | GpuMemClockMhz | CpuCoreClockMhz(_) => Unit::MHz,
+            CpuClockMhz
+            | GpuMemClockMhz
+            | CpuCoreClockMhz(_)
+            | RingClockMhz
+            | MemClockMhz
+            | MemControllerClockMhz => Unit::MHz,
+            CpuMinRatio | CpuMaxRatio => Unit::Ratio,
+            MemTiming(_) => Unit::Cycles,
             CpuCoreVolts(_) => Unit::Volts,
-            GpuTempC | GpuHotSpotC | GpuMemTempC | CpuTempC | CpuCoreTempC(_) | DiskTempC(_) => {
-                Unit::Celsius
-            }
+            GpuTempC | GpuHotSpotC | GpuMemTempC | CpuTempC | CpuCoreTempC(_) | DiskTempC(_)
+            | DiskTempMaxC | ChipsetTempC => Unit::Celsius,
             GpuFanRpm => Unit::Rpm,
-            CpuPowerW | CpuCorePowerW(_) | CpuCoresPowerW | CpuGraphicsPowerW | CpuDramPowerW => {
-                Unit::Watts
-            }
+            CpuPowerW | CpuCorePowerW(_) | CpuCoresPowerW | CpuGraphicsPowerW | CpuDramPowerW
+            | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W => Unit::Watts,
         }
     }
 }

@@ -48,10 +48,13 @@ const TICK: Duration = Duration::from_secs(5);
 fn page_for(item: Option<ItemKind>) -> Page {
     match item {
         None => Page::Overview,
-        Some(ItemKind::Cpu | ItemKind::CpuTemp | ItemKind::CpuPower) => Page::Cpu,
+        Some(ItemKind::Cpu | ItemKind::CpuTemp | ItemKind::CpuPower | ItemKind::CpuClock) => {
+            Page::Cpu
+        }
         Some(ItemKind::Ram) => Page::Memory,
         Some(ItemKind::Gpu | ItemKind::GpuTemp) => Page::Gpu,
-        Some(ItemKind::Disk) => Page::Storage,
+        Some(ItemKind::Disk | ItemKind::DiskTemp) => Page::Storage,
+        Some(ItemKind::ChipsetTemp) => Page::System,
         Some(ItemKind::Network | ItemKind::Ping) => Page::Network,
     }
 }

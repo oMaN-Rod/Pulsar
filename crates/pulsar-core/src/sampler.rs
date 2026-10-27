@@ -61,15 +61,21 @@ impl Sampler {
     }
 
     pub fn from_config(config: &Config) -> Self {
-        let enabled = config.enabled_items();
+        let mut enabled: Vec<ItemKind> = Vec::new();
+        for kind in config.enabled_items().into_iter().map(sources_of) {
+            if !enabled.contains(&kind) {
+                enabled.push(kind);
+            }
+        }
         let mut sources: Vec<Box<dyn Source>> = enabled
             .iter()
             .flat_map(|&kind| item_sources(kind, config))
             .collect();
         // The CPU and GPU popups show the service's readings when it is
         // there, but only the sensor items need it.
-        let sensors_required =
-            config.is_enabled(ItemKind::CpuTemp) || config.is_enabled(ItemKind::CpuPower);
+        let sensors_required = [ItemKind::CpuTemp, ItemKind::CpuPower, ItemKind::ChipsetTemp]
+            .into_iter()
+            .any(|kind| config.is_enabled(kind));
         let sensors_shown = [ItemKind::Cpu, ItemKind::Gpu, ItemKind::GpuTemp]
             .into_iter()
             .any(|kind| config.is_enabled(kind));
@@ -93,7 +99,9 @@ impl Sampler {
             let mut extras: Vec<Box<dyn Source>> = ItemKind::ALL
                 .into_iter()
                 // Pinging is traffic the user turned off.
-                .filter(|kind| !enabled.contains(kind) && *kind != ItemKind::Ping)
+                .filter(|&kind| {
+                    sources_of(kind) == kind && !enabled.contains(&kind) && kind != ItemKind::Ping
+                })
                 .flat_map(|kind| item_sources(kind, &config))
                 .collect();
             if !sensors {
@@ -102,7 +110,6 @@ impl Sampler {
             if !gpu_sensors {
                 extras.push(gpu_sensors_source());
             }
-            extras.push(Box::new(DriveTempSource::new()));
             extras
         }))
     }
@@ -180,7 +187,20 @@ fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
             config.ping.host.clone(),
             Duration::from_millis(config.ping.interval_ms.into()),
         ))],
-        ItemKind::GpuTemp | ItemKind::CpuTemp | ItemKind::CpuPower => Vec::new(),
+        ItemKind::DiskTemp => vec![Box::new(DriveTempSource::new())],
+        ItemKind::GpuTemp
+        | ItemKind::CpuTemp
+        | ItemKind::CpuPower
+        | ItemKind::CpuClock
+        | ItemKind::ChipsetTemp => Vec::new(),
+    }
+}
+
+/// The item whose sources `kind` reads.
+fn sources_of(kind: ItemKind) -> ItemKind {
+    match kind {
+        ItemKind::CpuClock => ItemKind::Cpu,
+        kind => kind,
     }
 }
 
@@ -279,6 +299,32 @@ mod tests {
             }];
             Ok(())
         }
+    }
+
+    #[test]
+    fn the_clock_item_shares_the_cpu_source() {
+        let mut config = Config::default();
+        for item in &mut config.items {
+            item.enabled = matches!(item.kind, ItemKind::Cpu | ItemKind::CpuClock);
+        }
+        let ids = |config: &Config| -> Vec<SourceId> {
+            Sampler::from_config(config)
+                .sources
+                .iter()
+                .map(|s| s.id())
+                .collect()
+        };
+        assert_eq!(
+            ids(&config)
+                .iter()
+                .filter(|&&id| id == SourceId::Cpu)
+                .count(),
+            1
+        );
+        for item in &mut config.items {
+            item.enabled = item.kind == ItemKind::CpuClock;
+        }
+        assert!(ids(&config).contains(&SourceId::Cpu));
     }
 
     #[test]

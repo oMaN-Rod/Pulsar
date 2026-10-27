@@ -8,11 +8,12 @@ use std::time::Duration;
 use pulsar_core::config::Config;
 use pulsar_core::format::format_value;
 use pulsar_core::hardware::cpu::{Cache, CacheKind, Topology};
+use pulsar_core::hardware::pci::{self, Link};
 use pulsar_core::hardware::{DiskInfo, HardwareInfo};
 use pulsar_core::history::HistoryStore;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::{
-    GpuEngineKind, ItemKind, MetricKey, ProcessUsage, Snapshot, SourceId, Unit,
+    GpuEngineKind, ItemKind, MetricKey, ProcessUsage, Snapshot, SourceId, Timing, Unit,
 };
 use pulsar_core::sensors::Unavailable;
 use pulsar_core::sources::{ProcessSort, pdh_instance_name, top_by};
@@ -631,6 +632,20 @@ fn cpu(data: &Data) -> View {
     }
     view.stats
         .extend(data.stat("Speed", MetricKey::CpuClockMhz));
+    let bus_mhz = data
+        .info
+        .firmware
+        .processor
+        .as_ref()
+        .and_then(|p| p.bus_mhz)
+        .map_or(100.0, f64::from);
+    if let Some(clock) = data.get(MetricKey::CpuClockMhz) {
+        let ratio = (clock / bus_mhz * 10.0).round() / 10.0;
+        view.stats
+            .push(stat("Multiplier", format_value(ratio, Unit::Ratio)));
+    }
+    view.stats
+        .extend(data.stat("Ring clock", MetricKey::RingClockMhz));
     view.stats
         .extend(data.stat("Temperature", MetricKey::CpuTempC));
     view.stats
@@ -690,6 +705,20 @@ fn cpu(data: &Data) -> View {
             ("Socket", firmware_cpu.and_then(|p| p.socket.clone())),
             ("Base clock", c.base_mhz.map(mhz)),
             ("Bus clock", firmware_cpu.and_then(|p| p.bus_mhz).map(mhz)),
+            (
+                "Multiplier range",
+                data.get(MetricKey::CpuMinRatio)
+                    .zip(data.get(MetricKey::CpuMaxRatio))
+                    .map(|(lo, hi)| {
+                        format!(
+                            "{} – {}",
+                            format_value(lo, Unit::Ratio),
+                            format_value(hi, Unit::Ratio)
+                        )
+                    }),
+            ),
+            ("TDP", data.get(MetricKey::CpuTdpW).map(watts)),
+            ("Power limits", power_limits(data)),
             ("Microcode", c.microcode.map(|m| format!("0x{m:X}"))),
             ("Packages", (t.packages > 1).then(|| t.packages.to_string())),
             ("Instructions", Some(c.features.join(", "))),
@@ -875,6 +904,9 @@ fn memory(data: &Data) -> View {
     if let Some(s) = speed {
         view.stats.push(stat("Speed", format!("{s} MT/s")));
     }
+    if let Some(timings) = timings(data) {
+        view.groups.push(timings);
+    }
     for m in array.modules.iter().filter(|m| m.installed()) {
         let mut g = group(
             "\u{EEA0}",
@@ -910,6 +942,84 @@ fn memory(data: &Data) -> View {
     }
     view.groups.push(processes(data, ProcessSort::Memory));
     view
+}
+
+fn watts(w: f64) -> String {
+    format!("{w:.0} W")
+}
+
+/// The sustained and burst package power limits.
+fn power_limits(data: &Data) -> Option<String> {
+    let pl1 = data.get(MetricKey::CpuPowerLimit1W);
+    let pl2 = data.get(MetricKey::CpuPowerLimit2W);
+    let parts: Vec<String> = [("PL1", pl1), ("PL2", pl2)]
+        .into_iter()
+        .filter_map(|(name, w)| {
+            // The largest value the register holds means no limit.
+            let w = w?;
+            Some(if w >= 4095.0 {
+                format!("{name} unlimited")
+            } else {
+                format!("{name} {}", watts(w))
+            })
+        })
+        .collect();
+    (!parts.is_empty()).then(|| parts.join(" · "))
+}
+
+/// The memory controller's timings, as the sensor service reads them.
+fn timings(data: &Data) -> Option<SpecGroup> {
+    let cycles = |t: Timing| data.get(MetricKey::MemTiming(t)).map(|v| format!("{v:.0}"));
+    let primary = [Timing::Cl, Timing::Rcd, Timing::Rp, Timing::Ras]
+        .into_iter()
+        .map(cycles)
+        .collect::<Option<Vec<_>>>()
+        .map(|t| t.join("-"));
+    let clock = data.get(MetricKey::MemClockMhz);
+    let controller = data.get(MetricKey::MemControllerClockMhz);
+    let rows = vec![
+        ("Memory clock", clock.map(|c| format!("{c:.0} MHz"))),
+        (
+            "Controller clock",
+            controller.map(|mc| match clock {
+                Some(c) if mc > 0.0 && (c / mc).round() >= 1.0 => {
+                    format!("{mc:.0} MHz (gear {:.0})", (c / mc).round())
+                }
+                _ => format!("{mc:.0} MHz"),
+            }),
+        ),
+        ("CL-tRCD-tRP-tRAS", primary),
+        ("tRC", cycles(Timing::Rc)),
+        (
+            "Command rate",
+            data.get(MetricKey::MemTiming(Timing::CommandRate))
+                .map(|cr| format!("{cr:.0}T")),
+        ),
+    ];
+    rows.iter()
+        .any(|(_, v)| v.is_some())
+        .then(|| group("\u{E916}", "Timings", "", rows))
+}
+
+/// `PCIe 4.0 ×16`.
+fn pcie(generation: u32, width: u32) -> String {
+    format!("PCIe {generation}.0 ×{width}")
+}
+
+fn link_rows(link: Link) -> [(&'static str, Option<String>); 2] {
+    [
+        (
+            "Link",
+            Some(match pci::transfer_rate(link.generation) {
+                Some(rate) => format!("{} ({rate})", pcie(link.generation, link.width)),
+                None => pcie(link.generation, link.width),
+            }),
+        ),
+        (
+            "Max link",
+            (link.max_generation > 0).then(|| pcie(link.max_generation, link.max_width)),
+        ),
+    ]
 }
 
 fn mem_usage(data: &Data) -> MemUsage {
@@ -1063,6 +1173,23 @@ fn gpu(data: &Data) -> View {
     view.groups.push(engines);
     view.groups.push(memory);
     for g in gpus {
+        let device = data.info.pci.iter().find(|d| {
+            u32::from(d.ids.vendor) == g.vendor_id && u32::from(d.ids.device) == g.device_id
+        });
+        let mut rows = vec![
+            (
+                "Board maker",
+                device
+                    .and_then(|d| pci::board_maker(d.ids.subsystem_vendor))
+                    .filter(|maker| Some(*maker) != g.vendor)
+                    .map(str::to_string),
+            ),
+            (
+                "Revision",
+                device.map(|d| format!("{:02X}", d.ids.revision)),
+            ),
+        ];
+        rows.extend(device.and_then(|d| d.link).into_iter().flat_map(link_rows));
         let mut card = group(
             "\u{F211}",
             &g.name,
@@ -1081,7 +1208,10 @@ fn gpu(data: &Data) -> View {
                     "Device ID",
                     Some(format!("{:04X}:{:04X}", g.vendor_id, g.device_id)),
                 ),
-            ],
+            ]
+            .into_iter()
+            .chain(rows)
+            .collect(),
         );
         card.badge = if g.integrated() {
             "Integrated"
@@ -1323,6 +1453,12 @@ fn system(data: &Data) -> View {
             ("Manufacturer", board.manufacturer.clone()),
             ("Model", board.product.clone()),
             ("Revision", board.version),
+            ("Chipset", pci::chipset(&data.info.pci)),
+            (
+                "Chipset temperature",
+                data.get(MetricKey::ChipsetTempC)
+                    .map(|t| format_value(t, Unit::Celsius)),
+            ),
             (
                 "CPU socket",
                 fw.processor.as_ref().and_then(|p| p.socket.clone()),
@@ -1488,6 +1624,17 @@ fn sensors(data: &Data) -> View {
             .join(" · ")
     };
 
+    let board = data.info.firmware.board.as_ref();
+    tree.hardware(
+        "board".into(),
+        Page::System.icon(),
+        data.color(ItemKind::ChipsetTemp),
+        board
+            .and_then(|b| b.product.as_deref())
+            .unwrap_or("Motherboard"),
+        summary(&[MetricKey::ChipsetTempC]),
+    );
+    tree.add("Temperatures", "Chipset", MetricKey::ChipsetTempC);
     tree.hardware(
         "cpu".into(),
         Page::Cpu.icon(),
@@ -1505,6 +1652,7 @@ fn sensors(data: &Data) -> View {
         tree.add("Load", format!("CPU {i}"), MetricKey::CpuCore(i));
     }
     tree.add("Clocks", "Average", MetricKey::CpuClockMhz);
+    tree.add("Clocks", "Ring", MetricKey::RingClockMhz);
     for i in 0..cores {
         tree.add("Clocks", core(i), MetricKey::CpuCoreClockMhz(i));
     }

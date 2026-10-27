@@ -6,8 +6,10 @@ use std::time::{Duration, Instant};
 use pulsar_core::sensors::{CoreReadings, Publisher, Sensor, Status};
 use windows::Win32::System::SystemInformation::GROUP_AFFINITY;
 
+use crate::chipset::Chipset;
 use crate::cores;
 use crate::gpu::Gpu;
+use crate::memory::{self, IntelMemory, Timings};
 use crate::pawnio::{PawnIo, PciLock};
 
 const INTEL_MODULE: &[u8] = include_bytes!("../../resources/pawnio/IntelMSR.bin");
@@ -21,7 +23,14 @@ const INTEL_PKG_ENERGY: u32 = 0x611;
 const INTEL_DRAM_ENERGY: u32 = 0x619;
 const INTEL_PP0_ENERGY: u32 = 0x639;
 const INTEL_PP1_ENERGY: u32 = 0x641;
+const INTEL_PLATFORM_INFO: u32 = 0xCE;
+const INTEL_TURBO_RATIO_LIMIT: u32 = 0x1AD;
+const INTEL_PKG_POWER_LIMIT: u32 = 0x610;
+const INTEL_PKG_POWER_INFO: u32 = 0x614;
+const INTEL_UNCORE_PERF_STATUS: u32 = 0x621;
 const INTEL_MPERF: u32 = 0xE7;
+/// Intel's reference clock, which the ring's ratio multiplies.
+const BUS_MHZ: f64 = 100.0;
 const INTEL_APERF: u32 = 0xE8;
 const AMD_MPERF: u32 = 0xC000_00E7;
 const AMD_APERF: u32 = 0xC000_00E8;
@@ -136,6 +145,37 @@ fn energy_unit(power_unit: u64) -> f64 {
     1.0 / f64::from(1u32 << ((power_unit >> 8) & 0x1F))
 }
 
+/// Watts per count of the power limit registers.
+fn power_unit(power_unit: u64) -> f64 {
+    1.0 / f64::from(1u32 << (power_unit & 0xF))
+}
+
+/// The package's design power, in watts.
+fn intel_tdp(info: u64, watts_per_count: f64) -> Option<f64> {
+    let raw = info & 0x7FFF;
+    (raw > 0).then_some(raw as f64 * watts_per_count)
+}
+
+/// The sustained and burst package power limits, where enabled.
+fn intel_power_limits(limit: u64, watts_per_count: f64) -> [Option<f64>; 2] {
+    [(0, 15), (32, 47)].map(|(at, enabled)| {
+        (limit & (1 << enabled) != 0).then(|| ((limit >> at) & 0x7FFF) as f64 * watts_per_count)
+    })
+}
+
+/// The lowest ratio the CPU runs at.
+fn intel_min_ratio(platform_info: u64) -> u64 {
+    (platform_info >> 40) & 0xFF
+}
+
+/// The highest turbo ratio, which the fewest active cores get.
+fn intel_max_turbo(limits: u64) -> Option<u64> {
+    (0..8)
+        .map(|group| (limits >> (group * 8)) & 0xFF)
+        .max()
+        .filter(|&ratio| ratio > 0)
+}
+
 /// The voltage a core asks its regulator for, from `IA32_PERF_STATUS`:
 /// bits 47:32 in units of 2^-13 V. Zero means the field is not reported.
 fn intel_vid(status: u64) -> Option<f64> {
@@ -213,6 +253,8 @@ struct Session {
     previous: Vec<CoreRead>,
     previous_at: Option<Instant>,
     gpu: Option<Gpu>,
+    chipset: Option<Chipset>,
+    intel_memory: Option<IntelMemory>,
 }
 
 impl Session {
@@ -233,6 +275,7 @@ impl Session {
             },
         };
         let joules_per_count = io.read_msr(unit_msr).map_or(0.0, energy_unit);
+        let (family, model, _) = pulsar_core::hardware::cpu::display_family_model(cpuid(1).eax);
         let domains = match vendor {
             Vendor::Intel => vec![
                 (Sensor::CpuCoresPower, Energy::new(INTEL_PP0_ENERGY)),
@@ -253,7 +296,48 @@ impl Session {
             previous: Vec::new(),
             previous_at: None,
             gpu: Gpu::connect(),
+            chipset: (vendor == Vendor::Intel).then(Chipset::connect).flatten(),
+            intel_memory: (vendor == Vendor::Intel && memory::intel_supported(family, model))
+                .then(IntelMemory::connect)
+                .flatten(),
         })
+    }
+
+    /// Intel's power limits, multipliers and ring clock.
+    fn intel_limits(&self) -> Vec<(Sensor, f64)> {
+        let read = |msr| self.io.read_msr(msr).ok();
+        let mut values = Vec::new();
+        if let Some(unit) = read(INTEL_POWER_UNIT).map(power_unit) {
+            values.extend(
+                read(INTEL_PKG_POWER_INFO)
+                    .and_then(|info| intel_tdp(info, unit))
+                    .map(|w| (Sensor::CpuTdp, w)),
+            );
+            if let Some([pl1, pl2]) =
+                read(INTEL_PKG_POWER_LIMIT).map(|l| intel_power_limits(l, unit))
+            {
+                values.extend(pl1.map(|w| (Sensor::CpuPowerLimit1, w)));
+                values.extend(pl2.map(|w| (Sensor::CpuPowerLimit2, w)));
+            }
+        }
+        values.extend(
+            read(INTEL_PLATFORM_INFO)
+                .map(intel_min_ratio)
+                .filter(|&ratio| ratio > 0)
+                .map(|ratio| (Sensor::CpuMinRatio, ratio as f64)),
+        );
+        values.extend(
+            read(INTEL_TURBO_RATIO_LIMIT)
+                .and_then(intel_max_turbo)
+                .map(|ratio| (Sensor::CpuMaxRatio, ratio as f64)),
+        );
+        values.extend(
+            read(INTEL_UNCORE_PERF_STATUS)
+                .map(|status| status & 0x7F)
+                .filter(|&ratio| ratio > 0)
+                .map(|ratio| (Sensor::RingClock, ratio as f64 * BUS_MHZ)),
+        );
+        values
     }
 
     /// Reads every core's own registers, one core at a time.
@@ -358,9 +442,20 @@ impl Session {
         for (sensor, energy) in &mut self.domains {
             values.extend(energy.watts(&self.io, unit).map(|v| (*sensor, v)));
         }
+        if self.vendor == Vendor::Intel {
+            values.extend(self.intel_limits());
+        }
         if let Some(gpu) = &mut self.gpu {
             values.extend(gpu.sample());
         }
+        if let Some(temp) = self.chipset.as_ref().and_then(Chipset::temp) {
+            values.push((Sensor::ChipsetTemp, temp));
+        }
+        let timings = match &self.thermal {
+            Thermal::Intel => self.intel_memory.as_ref().and_then(IntelMemory::timings),
+            Thermal::Amd { pci, .. } => memory::amd_timings_of(&self.io, pci),
+        };
+        values.extend(timings.iter().flat_map(Timings::values));
         (values, cores)
     }
 }
@@ -513,10 +608,47 @@ mod tests {
         );
     }
 
+    /// Needs an elevated terminal and the PawnIO driver.
+    #[test]
+    #[ignore]
+    fn print_this_machines_readings() {
+        let mut session = Session::connect().unwrap_or_else(|s| panic!("{s:?}"));
+        session.sample();
+        sleep(SAMPLE);
+        let (values, cores) = session.sample();
+        for (sensor, value) in values {
+            println!("{sensor:?}: {value}");
+        }
+        println!("{cores:?}");
+    }
+
+    #[test]
+    fn power_limits_count_in_eighths_of_a_watt() {
+        let unit = power_unit(0x000A_0E03);
+        assert_eq!(unit, 0.125);
+        assert_eq!(intel_tdp(0x0000_03E8, unit), Some(125.0));
+        // PL1 125 W enabled, PL2 253 W enabled.
+        let limit = (1 << 47) | (2024 << 32) | (1 << 15) | 1000;
+        assert_eq!(intel_power_limits(limit, unit), [Some(125.0), Some(253.0)]);
+        assert_eq!(intel_power_limits(1000, unit), [None, None]);
+    }
+
+    #[test]
+    fn ratios_come_from_their_own_bytes() {
+        assert_eq!(intel_min_ratio(0x0000_0800_0000_2200), 8);
+        assert_eq!(intel_max_turbo(0x2F2F_3030_3131_3335), Some(0x35));
+        assert_eq!(intel_max_turbo(0), None);
+    }
+
     #[test]
     fn the_bundled_modules_are_signed() {
         // A signature length, then the signature, then the module.
-        for module in [INTEL_MODULE, AMD_MODULE] {
+        for module in [
+            INTEL_MODULE,
+            AMD_MODULE,
+            crate::chipset::MODULE,
+            memory::INTEL_MODULE,
+        ] {
             let signature = u32::from_le_bytes(module[..4].try_into().unwrap()) as usize;
             assert!(signature > 0 && signature + 4 < module.len());
         }

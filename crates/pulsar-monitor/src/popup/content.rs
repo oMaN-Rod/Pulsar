@@ -173,6 +173,31 @@ fn cpu_sensors(snapshot: &Snapshot) -> Vec<(String, String)> {
     rows
 }
 
+fn core_clocks(snapshot: &Snapshot) -> Vec<f64> {
+    (0..)
+        .map_while(|i| snapshot.get(MetricKey::CpuCoreClockMhz(i)))
+        .collect()
+}
+
+/// Each core's clock as a share of the fastest one's.
+fn clock_bars(clocks: &[f64]) -> Vec<f64> {
+    let fastest = clocks.iter().copied().fold(0.0, f64::max);
+    if fastest <= 0.0 {
+        return Vec::new();
+    }
+    clocks.iter().map(|c| c / fastest * 100.0).collect()
+}
+
+/// Drives that reported a temperature, by physical drive number.
+fn drive_temps(snapshot: &Snapshot) -> Vec<(String, String)> {
+    (0..=u8::MAX)
+        .filter_map(|n| {
+            let temp = snapshot.get(MetricKey::DiskTempC(n))?;
+            Some((format!("Disk {n}"), format_value(temp, Unit::Celsius)))
+        })
+        .collect()
+}
+
 fn drive_rows(snapshot: &Snapshot, drives: &[u8]) -> Vec<(String, String)> {
     drives
         .iter()
@@ -369,6 +394,57 @@ pub fn build(
                     values: core_temps(snapshot),
                 },
             ],
+        ),
+        ItemKind::CpuClock => {
+            let clocks = core_clocks(snapshot);
+            let mut rows = vec![("Average".to_string(), fmt(snapshot, MetricKey::CpuClockMhz))];
+            if let Some(fastest) = clocks.iter().copied().reduce(f64::max) {
+                rows.push(("Fastest core".into(), format_value(fastest, Unit::MHz)));
+            }
+            (
+                "CPU clock",
+                cell_value(kind, CellPart::Main, snapshot),
+                vec![CellPart::Main],
+                vec![
+                    Block::Rows {
+                        heading: None,
+                        rows,
+                    },
+                    Block::Bars {
+                        heading: "Core clocks",
+                        values: clock_bars(&clocks),
+                    },
+                ],
+            )
+        }
+        ItemKind::DiskTemp => (
+            "Drive temperature",
+            cell_value(kind, CellPart::Main, snapshot),
+            vec![CellPart::Main],
+            vec![Block::Rows {
+                heading: None,
+                rows: drive_temps(snapshot),
+            }],
+        ),
+        ItemKind::ChipsetTemp => (
+            "Chipset temperature",
+            cell_value(kind, CellPart::Main, snapshot),
+            vec![CellPart::Main],
+            vec![Block::Rows {
+                heading: None,
+                rows: [
+                    ("Chipset", MetricKey::ChipsetTempC),
+                    ("CPU", MetricKey::CpuTempC),
+                    ("GPU", MetricKey::GpuTempC),
+                    ("Hottest drive", MetricKey::DiskTempMaxC),
+                ]
+                .into_iter()
+                .filter_map(|(label, key)| {
+                    let value = snapshot.get(key)?;
+                    Some((label.to_string(), format_value(value, key.unit())))
+                })
+                .collect(),
+            }],
         ),
         ItemKind::Ping => (
             "Ping",

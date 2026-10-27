@@ -25,7 +25,7 @@ pub fn graph_max(unit: Unit, histories: &[&History]) -> f64 {
         Unit::Volts => 1.5,
         Unit::BytesPerSec => 16.0 * 1024.0,
         Unit::Millis => 100.0,
-        Unit::Bytes | Unit::MHz => 1.0,
+        Unit::Bytes | Unit::MHz | Unit::Ratio | Unit::Cycles => 1.0,
     };
     let peak = histories.iter().filter_map(|h| h.max()).fold(0.0, f64::max);
     (peak * 1.1).max(floor)

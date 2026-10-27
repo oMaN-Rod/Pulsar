@@ -1,6 +1,6 @@
 //! Readings from the optional sensor service.
 
-use crate::metric::{MetricKey, PerCoreKey, Snapshot, Source, SourceError, SourceId};
+use crate::metric::{MetricKey, PerCoreKey, Snapshot, Source, SourceError, SourceId, Timing};
 use crate::sensors::{self, PerCore, Sensor, Unavailable};
 
 pub struct SensorServiceSource {
@@ -29,6 +29,27 @@ impl Source for SensorServiceSource {
             (Sensor::CpuCoresPower, MetricKey::CpuCoresPowerW),
             (Sensor::CpuGraphicsPower, MetricKey::CpuGraphicsPowerW),
             (Sensor::CpuDramPower, MetricKey::CpuDramPowerW),
+            (Sensor::ChipsetTemp, MetricKey::ChipsetTempC),
+            (Sensor::CpuTdp, MetricKey::CpuTdpW),
+            (Sensor::CpuPowerLimit1, MetricKey::CpuPowerLimit1W),
+            (Sensor::CpuPowerLimit2, MetricKey::CpuPowerLimit2W),
+            (Sensor::CpuMinRatio, MetricKey::CpuMinRatio),
+            (Sensor::CpuMaxRatio, MetricKey::CpuMaxRatio),
+            (Sensor::RingClock, MetricKey::RingClockMhz),
+            (Sensor::MemoryClock, MetricKey::MemClockMhz),
+            (
+                Sensor::MemoryControllerClock,
+                MetricKey::MemControllerClockMhz,
+            ),
+            (Sensor::MemoryCl, MetricKey::MemTiming(Timing::Cl)),
+            (Sensor::MemoryRcd, MetricKey::MemTiming(Timing::Rcd)),
+            (Sensor::MemoryRp, MetricKey::MemTiming(Timing::Rp)),
+            (Sensor::MemoryRas, MetricKey::MemTiming(Timing::Ras)),
+            (Sensor::MemoryRc, MetricKey::MemTiming(Timing::Rc)),
+            (
+                Sensor::MemoryCommandRate,
+                MetricKey::MemTiming(Timing::CommandRate),
+            ),
         ] {
             if let Some(value) = readings.get(sensor) {
                 out.set(key, value);

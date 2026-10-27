@@ -19,13 +19,13 @@ use windows::core::{HSTRING, PCWSTR, w};
 pub const SERVICE_NAME: &str = "PulsarSensors";
 const MAPPING_NAME: &str = r"Global\Pulsar.Sensors";
 const MAGIC: u32 = 0x534E_5350;
-const VERSION: u32 = 4;
+const VERSION: u32 = 5;
 /// A reading older than this means the service has stopped.
 const STALE_MS: u64 = 5000;
 /// The service and administrators own the section; everyone else reads it.
 const SECURITY: PCWSTR = w!("D:(A;;GA;;;SY)(A;;GA;;;BA)(A;;GR;;;AU)");
 /// More slots than sensors, so adding one keeps the layout.
-const SENSOR_SLOTS: usize = 16;
+const SENSOR_SLOTS: usize = 64;
 /// Each per-core reading follows the sensors, one slot a core.
 const CORE_SLOTS: usize = 256;
 const SLOTS: usize = SENSOR_SLOTS + PerCore::ALL.len() * CORE_SLOTS;
@@ -50,6 +50,31 @@ pub enum Sensor {
     CpuGraphicsPower = 6,
     /// Watts drawn by the memory, where the CPU measures it.
     CpuDramPower = 7,
+    /// °C, the platform controller hub.
+    ChipsetTemp = 8,
+    /// Watts the CPU is designed to dissipate.
+    CpuTdp = 9,
+    /// Watts the CPU may draw indefinitely.
+    CpuPowerLimit1 = 10,
+    /// Watts the CPU may draw in bursts.
+    CpuPowerLimit2 = 11,
+    /// The lowest and highest multipliers of the bus clock.
+    CpuMinRatio = 12,
+    CpuMaxRatio = 13,
+    /// MHz of the ring that links the cores and the last-level cache.
+    RingClock = 14,
+    /// MHz of the memory bus, half the transfer rate.
+    MemoryClock = 15,
+    /// MHz the memory controller runs at.
+    MemoryControllerClock = 16,
+    /// Memory timings in memory clock cycles.
+    MemoryCl = 17,
+    MemoryRcd = 18,
+    MemoryRp = 19,
+    MemoryRas = 20,
+    MemoryRc = 21,
+    /// 1 or 2: memory clock cycles per command.
+    MemoryCommandRate = 22,
 }
 
 /// A reading taken on each physical core, in processor order.
