@@ -91,6 +91,8 @@ pub struct Frame<'a> {
     pub labels: LabelStyle,
     pub icons: bool,
     pub graph_inline: bool,
+    /// Graph mode: items drawn without their graph.
+    pub text_only: &'a [ItemKind],
 }
 
 pub struct Renderer {
@@ -258,7 +260,9 @@ impl Renderer {
         let line_h = small_px * 1.3;
         for cell in &frame.layout.cells {
             self.fill_rounded(cell.rect, 4.0 * scale, frame.palette.tile)?;
-            self.draw_series(frame, cell, scale)?;
+            if !frame.text_only.contains(&cell.kind) {
+                self.draw_series(frame, cell, scale)?;
+            }
             let pad = 4.0 * scale;
             let (top, bottom) = (
                 cell.rect.y + pad * 0.5,
@@ -538,6 +542,7 @@ mod tests {
             labels: config.display.labels,
             icons: config.display.icons,
             graph_inline: config.display.graph_inline,
+            text_only: &config.text_only_items(),
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)
@@ -640,6 +645,27 @@ mod tests {
                 .any(|&y| (half..r.right() as i32).any(|x| ink(x, y))),
             "the value sits beside the label"
         );
+    }
+
+    #[test]
+    fn text_only_items_draw_no_graph() {
+        // The CPU graph peaks at 100%, so the tile's top-right corner is ink
+        // only while the graph is drawn.
+        let corner = |config: &Config| {
+            let (surface, layout) = render_with(DisplayMode::Graph, &[100.0; 60], config);
+            let cpu = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Cpu)
+                .unwrap();
+            alpha_at(&surface, cpu.rect.right() - 3.0, cpu.rect.y + 3.0)
+        };
+        let mut config = Config::default();
+        config.display.tile_opacity = Some(0);
+        assert!(corner(&config) > 0x40, "graph drawn by default");
+        config.items[0].graph = false;
+        assert_eq!(config.items[0].kind, ItemKind::Cpu);
+        assert_eq!(corner(&config), 1, "only the hit-test fill remains");
     }
 
     #[test]

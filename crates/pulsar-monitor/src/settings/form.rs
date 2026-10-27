@@ -14,6 +14,7 @@ pub struct ItemRow {
     pub enabled: bool,
     /// `#RRGGBB`, or empty for the default colour.
     pub color: String,
+    pub graph: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -139,6 +140,7 @@ pub fn to_form(c: &Config) -> Form {
                 kind: i.kind,
                 enabled: i.enabled,
                 color: i.color.clone().unwrap_or_default(),
+                graph: i.graph,
             })
             .collect(),
         ping_host: c.ping.host.clone(),
@@ -218,6 +220,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
             kind: r.kind,
             enabled: r.enabled,
             color: non_empty(&r.color),
+            graph: r.graph,
         })
         .collect();
     c.ping.host = f.ping_host.trim().to_string();
@@ -403,6 +406,7 @@ mod tests {
         c.disk.drives = vec!["C".into(), "D".into()];
         c.disk.value = DriveValue::Used;
         c.network.adapter = Some("eth".into());
+        c.items[0].graph = false;
         let c = c.sanitize();
         assert_eq!(to_config(&to_form(&c), &c), c);
     }

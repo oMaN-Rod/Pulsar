@@ -208,6 +208,7 @@ mod tests {
             kind: ItemKind::Cpu,
             enabled: true,
             color: Some("#102030".into()),
+            graph: true,
         }];
         let p = Palette::new(false, &config, Some(accent));
         assert_eq!(

@@ -5,6 +5,7 @@ export struct ItemRow {
     enabled: bool,
     color: string,
     swatch: color,
+    graph: bool,
 }
 
 export struct DriveRow {
@@ -438,6 +439,7 @@ export component SettingsWindow inherits Window {
     callback changed();
     callback item-enabled(int, bool);
     callback item-color(int, string);
+    callback item-graph(int, bool);
     callback move-item(int, bool);
     callback open-config-folder();
     callback open-logs-folder();
@@ -850,7 +852,7 @@ export component SettingsWindow inherits Window {
             if root.tab == 2: Page {
                 title: "Items";
                 Text {
-                    text: "Choose what the overlay shows, its order, and each item's colour (empty uses the default).";
+                    text: "Choose what the overlay shows, its order, and each item's colour (empty uses the default). In graph mode, clear Graph to show an item as text only.";
                     color: Palette.foreground.transparentize(0.35);
                     wrap: word-wrap;
                 }
@@ -859,6 +861,11 @@ export component SettingsWindow inherits Window {
                         if i > 0: Divider { }
                         SettingRow {
                             title: row.name;
+                            if root.mode == 0: CheckBox {
+                                text: "Graph";
+                                checked: row.graph;
+                                toggled => { root.item-graph(i, self.checked); }
+                            }
                             ColorField {
                                 text: row.color;
                                 swatch: row.swatch;

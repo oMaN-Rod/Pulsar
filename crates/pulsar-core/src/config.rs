@@ -127,6 +127,9 @@ pub struct ItemConfig {
     /// `#RRGGBB`; `None` uses the theme default.
     #[serde(default)]
     pub color: Option<String>,
+    /// Graph mode: draw the history graph behind the text; off shows text only.
+    #[serde(default = "enabled_default")]
+    pub graph: bool,
 }
 
 fn enabled_default() -> bool {
@@ -155,6 +158,7 @@ impl Default for Config {
                         ItemKind::Ping | ItemKind::GpuTemp | ItemKind::CpuTemp | ItemKind::CpuPower
                     ),
                     color: None,
+                    graph: true,
                 })
                 .collect(),
             ping: PingConfig::default(),
@@ -289,6 +293,7 @@ impl Config {
                     kind,
                     enabled: false,
                     color: None,
+                    graph: true,
                 });
             }
         }
@@ -314,6 +319,15 @@ impl Config {
 
     pub fn is_enabled(&self, kind: ItemKind) -> bool {
         self.items.iter().any(|i| i.kind == kind && i.enabled)
+    }
+
+    /// Items whose graph tile shows text only.
+    pub fn text_only_items(&self) -> Vec<ItemKind> {
+        self.items
+            .iter()
+            .filter(|i| !i.graph)
+            .map(|i| i.kind)
+            .collect()
     }
 }
 
@@ -527,16 +541,19 @@ sample_interval_ms = 1
                     kind: ItemKind::Gpu,
                     enabled: true,
                     color: Some("#00FF00".into()),
+                    graph: true,
                 },
                 ItemConfig {
                     kind: ItemKind::Gpu,
                     enabled: false,
                     color: None,
+                    graph: true,
                 },
                 ItemConfig {
                     kind: ItemKind::Cpu,
                     enabled: true,
                     color: Some("red".into()),
+                    graph: true,
                 },
             ],
             ..Config::default()
@@ -764,6 +781,29 @@ panel_opacity = 60
         c.display.labels = LabelStyle::None;
         c.display.icons = false;
         assert!(c.sanitize().display.icons);
+    }
+
+    #[test]
+    fn graphs_default_on_and_can_be_turned_off_per_item() {
+        let c = Config::default();
+        assert!(c.items.iter().all(|i| i.graph));
+        assert!(c.text_only_items().is_empty());
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "[[items]]
+kind = \"network\"
+graph = false
+[[items]]
+kind = \"cpu\"
+",
+        )
+        .unwrap();
+        let c = load(&path).config;
+        assert_eq!(c.text_only_items(), [ItemKind::Network]);
+        assert!(c.items[1].graph, "missing field keeps the graph");
     }
 
     #[test]

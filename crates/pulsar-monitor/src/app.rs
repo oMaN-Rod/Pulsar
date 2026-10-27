@@ -407,6 +407,7 @@ impl App {
         let alpha = o.alpha;
         let layout = o.layout.clone();
         let surface = o.surface()?;
+        let text_only = self.config.text_only_items();
         let frame = Frame {
             layout: &layout,
             mode: self.config.display.mode,
@@ -417,6 +418,7 @@ impl App {
             labels: self.config.display.labels,
             icons: self.config.display.icons,
             graph_inline: self.config.display.graph_inline,
+            text_only: &text_only,
         };
         self.renderer.draw(surface, &frame, &self.text)?;
         self.renderer.present_alpha(hwnd, surface, x, y, alpha)?;

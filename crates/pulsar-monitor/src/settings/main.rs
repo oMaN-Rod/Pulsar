@@ -201,6 +201,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
             enabled: r.enabled,
             color: r.color.as_str().into(),
             swatch: rgb(form::item_rgb(r.kind, &r.color)),
+            graph: r.graph,
         })
         .collect();
     ui.set_items(ModelRc::new(VecModel::from(rows)));
@@ -253,6 +254,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 kind,
                 enabled: r.enabled,
                 color: r.color.to_string(),
+                graph: r.graph,
             })
             .collect(),
         ping_host: ui.get_ping_host().to_string(),
@@ -431,6 +433,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         move |index, enabled| {
             if let Some(ui) = weak.upgrade() {
                 update_row(&ui, index, |r| r.enabled = enabled);
+                ui.invoke_changed();
+            }
+        }
+    });
+    ui.on_item_graph({
+        let weak = ui.as_weak();
+        move |index, graph| {
+            if let Some(ui) = weak.upgrade() {
+                update_row(&ui, index, |r| r.graph = graph);
                 ui.invoke_changed();
             }
         }

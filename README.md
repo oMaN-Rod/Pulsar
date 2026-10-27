@@ -30,7 +30,7 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 
 ## Features
 
-- **Graphs or text.** Graph tiles with scrolling history, or a dense text layout that stays readable on a standard 48 px taskbar. On a shorter taskbar, graph tiles can put the icon, label and value on one line.
+- **Graphs or text.** Graph tiles with scrolling history, or a dense text layout that stays readable on a standard 48 px taskbar. On a shorter taskbar, graph tiles can put the icon, label and value on one line. Turn off the graph on any item, such as network, to show just its text.
 - **Labels your way.** Full labels (`CPU`), one-letter labels (`C`), icons, or icons alone.
 - **Hover details.** Each item opens a popup:
   - **CPU:** per-core bars, clock speed and top processes
