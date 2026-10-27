@@ -20,7 +20,7 @@ fn main() {
         format!("VER_PATCH={}", parts[2]),
         format!("VER_STRING=\"{version}\""),
     ];
-    for bin in ["pulsar", "pulsar-settings", "pulsar-details"] {
+    for bin in ["pulsar", "pulsar-settings", "pulsar-details", "pulsar-sensors"] {
         embed_resource::compile_for(format!("resources/{bin}.rc"), [bin], &macros)
             .manifest_optional()
             .expect("compile the Windows resources");

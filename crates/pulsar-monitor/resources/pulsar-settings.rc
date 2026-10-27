@@ -12,11 +12,14 @@ BEGIN
     BEGIN
         BLOCK "040904b0"
         BEGIN
+            VALUE "CompanyName", "oMaN-Rod"
             VALUE "FileDescription", "Pulsar Settings"
             VALUE "ProductName", "Pulsar"
+            VALUE "InternalName", "pulsar-settings"
+            VALUE "OriginalFilename", "pulsar-settings.exe"
             VALUE "FileVersion", VER_STRING
             VALUE "ProductVersion", VER_STRING
-            VALUE "LegalCopyright", "GPL-3.0-or-later"
+            VALUE "LegalCopyright", "Copyright (C) oMaN-Rod. GPL-3.0-or-later"
         END
     END
     BLOCK "VarFileInfo"
