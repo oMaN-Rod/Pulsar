@@ -5,6 +5,7 @@ pub mod cpu;
 pub mod gpu;
 pub mod network;
 pub mod os;
+pub mod pci;
 mod registry;
 pub mod smbios;
 pub mod storage;
@@ -13,6 +14,7 @@ pub use cpu::CpuInfo;
 pub use gpu::GpuInfo;
 pub use network::NetInfo;
 pub use os::OsInfo;
+pub use pci::PciDevice;
 pub use smbios::Smbios;
 pub use storage::{DiskInfo, DriveTempSource};
 
@@ -24,6 +26,7 @@ pub struct HardwareInfo {
     pub disks: Vec<DiskInfo>,
     pub network: Vec<NetInfo>,
     pub os: OsInfo,
+    pub pci: Vec<PciDevice>,
 }
 
 /// Takes a fraction of a second, mostly in DirectX and the disk queries.
@@ -35,5 +38,6 @@ pub fn collect() -> HardwareInfo {
         disks: storage::read(),
         network: network::read(),
         os: os::read(),
+        pci: pci::read(),
     }
 }
