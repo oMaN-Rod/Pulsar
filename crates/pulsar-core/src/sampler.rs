@@ -7,8 +7,9 @@ use crate::config::Config;
 use crate::hardware::DriveTempSource;
 use crate::metric::{ItemKind, Snapshot, Source, SourceError, SourceId};
 use crate::sources::{
-    BatterySource, CpuSource, DiskIoSource, DiskSpaceSource, FramesSource, GpuSensorsSource,
-    GpuSource, MemorySource, NetworkSource, PingSource, ProcessesSource, SensorServiceSource,
+    BatterySource, CpuSource, DiskIoSource, DiskSpaceSource, EnergyMeterSource, FramesSource,
+    GpuSensorsSource, GpuSource, MemorySource, NetworkSource, PingSource, ProcessesSource,
+    SensorServiceSource, ThermalZoneSource,
 };
 
 pub type ProcessesFactory = Box<dyn Fn() -> Box<dyn Source> + Send>;
@@ -84,6 +85,7 @@ impl Sampler {
             sources.push(Box::new(SensorServiceSource {
                 required: sensors_required,
             }));
+            sources.extend(sensor_fallbacks());
         }
         // The GPU popup shows the sensors too, so either item needs them.
         let gpu_sensors = config.is_sampled(ItemKind::Gpu) || config.is_sampled(ItemKind::GpuTemp);
@@ -109,6 +111,7 @@ impl Sampler {
                 .collect();
             if !sensors {
                 extras.push(Box::new(SensorServiceSource { required: false }));
+                extras.extend(sensor_fallbacks());
             }
             if !gpu_sensors {
                 extras.push(gpu_sensors_source());
@@ -209,6 +212,15 @@ fn sources_of(kind: ItemKind) -> ItemKind {
         ItemKind::CpuClock => ItemKind::Cpu,
         kind => kind,
     }
+}
+
+/// Windows' own readings, for what the sensor service did not provide;
+/// they must run after it.
+fn sensor_fallbacks() -> [Box<dyn Source>; 2] {
+    [
+        Box::new(ThermalZoneSource::default()),
+        Box::new(EnergyMeterSource::default()),
+    ]
 }
 
 fn gpu_sensors_source() -> Box<dyn Source> {

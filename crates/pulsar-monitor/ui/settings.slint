@@ -1377,7 +1377,7 @@ export component SettingsWindow inherits Window {
                 Card {
                     SettingRow {
                         title: @tr("Sensor service");
-                        description: @tr("CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Frame rate needs the service but not PawnIO.");
+                        description: @tr("CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO.");
                         Button {
                             text: @tr("About PawnIO");
                             clicked => { root.open-link("https://pawnio.eu"); }

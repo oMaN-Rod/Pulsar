@@ -19,6 +19,8 @@ pub enum SourceId {
     DriveTemps,
     Battery,
     Frames,
+    ThermalZones,
+    EnergyMeter,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -373,6 +375,15 @@ impl Snapshot {
 
     pub fn set(&mut self, key: MetricKey, value: f64) {
         self.metrics.insert(key, value);
+    }
+
+    /// Why `kind` has no reading. A sensor item that Windows' own thermal
+    /// zones or energy meters filled in has none.
+    pub fn item_error(&self, kind: ItemKind) -> Option<&String> {
+        let error = self.errors.get(&kind.source())?;
+        let filled = matches!(kind, ItemKind::CpuTemp | ItemKind::CpuPower)
+            && self.get(crate::layout::primary_metric(kind)).is_some();
+        (!filled).then_some(error)
     }
 }
 

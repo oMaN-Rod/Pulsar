@@ -600,7 +600,7 @@ pub fn build_with(
     options: &Options,
 ) -> PopupContent {
     let (ping_host, drives, count) = (options.ping_host, &options.drives[..], options.processes);
-    let error = snapshot.errors.get(&kind.source()).cloned();
+    let error = snapshot.item_error(kind).cloned();
     let (title, value, series, mut blocks) = match kind {
         ItemKind::Cpu => (
             tr!("CPU"),

@@ -10,7 +10,7 @@ use crate::metric::{ItemKind, Snapshot, Unit};
 pub fn cell_value(kind: ItemKind, part: CellPart, snapshot: &Snapshot) -> String {
     let key = metric_for(kind, part);
     match snapshot.get(key) {
-        Some(v) if !snapshot.errors.contains_key(&kind.source()) => format_value(v, key.unit()),
+        Some(v) if snapshot.item_error(kind).is_none() => format_value(v, key.unit()),
         _ => format_value(f64::NAN, key.unit()),
     }
 }
@@ -181,6 +181,25 @@ mod tests {
         s.errors
             .insert(SourceId::Gpu, "GPU counters unavailable".into());
         assert_eq!(cell_value(ItemKind::Gpu, CellPart::Main, &s), "—");
+    }
+
+    #[test]
+    fn a_fallback_reading_shows_despite_the_service_error() {
+        let mut s = Snapshot::default();
+        s.errors
+            .insert(SourceId::SensorService, "not installed".into());
+        s.set(MetricKey::CpuPowerW, 42.0);
+        assert_eq!(cell_value(ItemKind::CpuPower, CellPart::Main, &s), "42 W");
+        assert!(s.item_error(ItemKind::CpuPower).is_none());
+        assert!(
+            s.item_error(ItemKind::CpuTemp).is_some(),
+            "no fallback reading"
+        );
+        s.set(MetricKey::ChipsetTempC, 50.0);
+        assert!(
+            s.item_error(ItemKind::ChipsetTemp).is_some(),
+            "has no fallback"
+        );
     }
 
     #[test]

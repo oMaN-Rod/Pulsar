@@ -116,7 +116,7 @@ impl Frame<'_> {
         if graphed {
             return self.palette.text;
         }
-        let failed = self.snapshot.errors.contains_key(&kind.source());
+        let failed = self.snapshot.item_error(kind).is_some();
         let value = self
             .snapshot
             .get(metric_for(kind, part))

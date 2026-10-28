@@ -1845,8 +1845,8 @@ msgid "Sensor service"
 msgstr "Servicio de sensores"
 
 #: ui/settings.slint
-msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Frame rate needs the service but not PawnIO."
-msgstr "La temperatura y el consumo de la CPU y la temperatura del chipset requieren el servicio de sensores opcional de Pulsar y el controlador PawnIO, que necesitan permisos de administrador. Vuelve a ejecutar el instalador de Pulsar para añadirlos. CPU Intel y AMD Ryzen desde Zen; temperatura del chipset solo en Intel. La velocidad de fotogramas requiere el servicio, pero no PawnIO."
+msgid "CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO."
+msgstr "La temperatura y el consumo de la CPU y la temperatura del chipset provienen del servicio de sensores opcional de Pulsar y del controlador PawnIO, que necesitan derechos de administrador. Vuelve a ejecutar el instalador de Pulsar para añadirlos. CPU Intel y AMD Ryzen desde Zen; la temperatura del chipset solo en Intel. Sin ellos, el consumo y la temperatura de la CPU provienen de Windows cuando el equipo los publica. La frecuencia de fotogramas necesita el servicio pero no PawnIO."
 
 #: ui/settings.slint
 msgid "About PawnIO"

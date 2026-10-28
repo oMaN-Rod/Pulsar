@@ -2,6 +2,7 @@ mod battery;
 mod cpu;
 mod disk_io;
 mod disk_space;
+mod energy_meter;
 mod frames;
 mod gpu;
 mod gpu_sensors;
@@ -10,11 +11,13 @@ mod network;
 mod ping;
 mod processes;
 mod sensor_service;
+mod thermal_zones;
 
 pub use battery::{BatteryDetails, BatterySource, PowerStatus};
 pub use cpu::CpuSource;
 pub use disk_io::{DiskIoSource, drive_letter};
 pub use disk_space::{DiskSpaceSource, fixed_drives, used_percent};
+pub use energy_meter::EnergyMeterSource;
 pub use frames::FramesSource;
 pub use gpu::{GpuSource, GpuUsage, aggregate_engines, parse_engine_instance};
 pub use gpu_sensors::{GpuSensorsSource, SensorReading, pick_reading};
@@ -26,3 +29,4 @@ pub use network::{
 pub use ping::{PingSource, loss_percent};
 pub use processes::{ProcessSort, ProcessesSource, group_processes, top_by};
 pub use sensor_service::SensorServiceSource;
+pub use thermal_zones::ThermalZoneSource;
