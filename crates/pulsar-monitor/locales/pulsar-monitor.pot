@@ -50,7 +50,7 @@ msgstr ""
 msgid "Memory"
 msgstr ""
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "Graphics"
 msgstr ""
 
@@ -991,6 +991,14 @@ msgid "Charge cycles"
 msgstr ""
 
 #: src/popup/content.rs
+msgid "Jitter"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Min / avg / max"
+msgstr ""
+
+#: src/popup/content.rs
 msgid "Processes"
 msgstr ""
 
@@ -1031,7 +1039,31 @@ msgid "Sent"
 msgstr ""
 
 #: src/popup/content.rs
-msgid "Jitter"
+msgid "Free space"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Core temperatures"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Core power"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Core clocks"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Sustained limit"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Burst limit"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Unlimited"
 msgstr ""
 
 #: src/popup/content.rs
@@ -1051,10 +1083,6 @@ msgid "Drives"
 msgstr ""
 
 #: src/popup/content.rs
-msgid "Free space"
-msgstr ""
-
-#: src/popup/content.rs
 msgid "Adapters"
 msgstr ""
 
@@ -1063,23 +1091,11 @@ msgid "No traffic"
 msgstr ""
 
 #: src/popup/content.rs
-msgid "Core temperatures"
-msgstr ""
-
-#: src/popup/content.rs
 msgid "Fastest core"
-msgstr ""
-
-#: src/popup/content.rs
-msgid "Core clocks"
 msgstr ""
 
 #: src/popup/content.rs ui/settings.slint
 msgid "Host"
-msgstr ""
-
-#: src/popup/content.rs
-msgid "Min / avg / max"
 msgstr ""
 
 #: src/settings/main.rs ui/settings.slint

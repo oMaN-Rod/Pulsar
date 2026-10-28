@@ -52,7 +52,7 @@ msgstr "Procesador"
 msgid "Memory"
 msgstr "Memoria"
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "Graphics"
 msgstr "Gráficos"
 
@@ -993,6 +993,14 @@ msgid "Charge cycles"
 msgstr "Ciclos de carga"
 
 #: src/popup/content.rs
+msgid "Jitter"
+msgstr "Fluctuación"
+
+#: src/popup/content.rs
+msgid "Min / avg / max"
+msgstr "Mín. / prom. / máx."
+
+#: src/popup/content.rs
 msgid "Processes"
 msgstr "Procesos"
 
@@ -1033,8 +1041,32 @@ msgid "Sent"
 msgstr "Enviado"
 
 #: src/popup/content.rs
-msgid "Jitter"
-msgstr "Fluctuación"
+msgid "Free space"
+msgstr "Espacio libre"
+
+#: src/popup/content.rs
+msgid "Core temperatures"
+msgstr "Temperaturas de los núcleos"
+
+#: src/popup/content.rs
+msgid "Core power"
+msgstr "Consumo de los núcleos"
+
+#: src/popup/content.rs
+msgid "Core clocks"
+msgstr "Frecuencias de los núcleos"
+
+#: src/popup/content.rs
+msgid "Sustained limit"
+msgstr "Límite sostenido"
+
+#: src/popup/content.rs
+msgid "Burst limit"
+msgstr "Límite de ráfaga"
+
+#: src/popup/content.rs
+msgid "Unlimited"
+msgstr "Sin límite"
 
 #: src/popup/content.rs
 msgid "Hottest core"
@@ -1053,10 +1085,6 @@ msgid "Drives"
 msgstr "Unidades"
 
 #: src/popup/content.rs
-msgid "Free space"
-msgstr "Espacio libre"
-
-#: src/popup/content.rs
 msgid "Adapters"
 msgstr "Adaptadores"
 
@@ -1065,24 +1093,12 @@ msgid "No traffic"
 msgstr "Sin tráfico"
 
 #: src/popup/content.rs
-msgid "Core temperatures"
-msgstr "Temperaturas de los núcleos"
-
-#: src/popup/content.rs
 msgid "Fastest core"
 msgstr "Núcleo más rápido"
-
-#: src/popup/content.rs
-msgid "Core clocks"
-msgstr "Frecuencias de los núcleos"
 
 #: src/popup/content.rs ui/settings.slint
 msgid "Host"
 msgstr "Host"
-
-#: src/popup/content.rs
-msgid "Min / avg / max"
-msgstr "Mín. / prom. / máx."
 
 #: src/settings/main.rs ui/settings.slint
 msgid "Default"

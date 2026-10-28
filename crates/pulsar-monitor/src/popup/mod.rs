@@ -155,7 +155,7 @@ fn create_window(instance: HINSTANCE, extra: WINDOW_EX_STYLE) -> Result<HWND> {
         CreateWindowExW(
             WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST | extra,
             CLASS,
-            w!("Pulsar details"),
+            w!("Pulsar popup"),
             WS_POPUP,
             0,
             0,

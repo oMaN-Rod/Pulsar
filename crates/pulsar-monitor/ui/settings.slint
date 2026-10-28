@@ -489,25 +489,25 @@ export component SettingsWindow inherits Window {
                 icon: Icons.settings;
                 label: @tr("General");
                 selected: root.tab == 0;
-                clicked => { root.tab = 0; }
+                clicked => { root.tab = 0; scroll.content-y = 0; }
             }
             NavItem {
                 icon: Icons.display;
                 label: @tr("Display");
                 selected: root.tab == 1;
-                clicked => { root.tab = 1; }
+                clicked => { root.tab = 1; scroll.content-y = 0; }
             }
             NavItem {
                 icon: Icons.list;
                 label: @tr("Items");
                 selected: root.tab == 2;
-                clicked => { root.tab = 2; }
+                clicked => { root.tab = 2; scroll.content-y = 0; }
             }
             NavItem {
                 icon: Icons.info;
                 label: @tr("About");
                 selected: root.tab == 3;
-                clicked => { root.tab = 3; }
+                clicked => { root.tab = 3; scroll.content-y = 0; }
             }
             Rectangle { }
         }

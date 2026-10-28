@@ -145,6 +145,8 @@ pub struct App {
     /// The release check running in the helper process, if any.
     update_check: Option<Receiver<Outcome>>,
     details: Option<Details>,
+    /// Physical drive names, read when a drive temperature popup first opens.
+    disk_names: Option<Vec<(u8, String)>>,
 }
 
 impl App {
@@ -194,6 +196,7 @@ impl App {
             drag: None,
             update_check: None,
             details: None,
+            disk_names: None,
         })
     }
 
@@ -657,12 +660,12 @@ impl App {
     }
 
     fn show_popup(&mut self, kind: ItemKind, anchor: Anchor) {
-        let content = popup::content::build_with(
-            kind,
-            &self.latest,
-            &self.history,
-            &PopupOptions::new(&self.config, kind),
-        );
+        if kind == ItemKind::DiskTemp && self.disk_names.is_none() {
+            self.disk_names = Some(disk_names());
+        }
+        let mut options = PopupOptions::new(&self.config, kind);
+        options.disk_names = self.disk_names.as_deref().unwrap_or_default();
+        let content = popup::content::build_with(kind, &self.latest, &self.history, &options);
         let style = PopupStyle {
             palette: &self.palette,
             history: &self.history,
@@ -901,20 +904,32 @@ impl Drop for App {
     }
 }
 
+/// Each drive's letters and model, by physical drive number.
+fn disk_names() -> Vec<(u8, String)> {
+    pulsar_core::hardware::storage::read()
+        .into_iter()
+        .filter_map(|d| {
+            let mut name: Vec<String> = d.letters.iter().map(|l| format!("{l}:")).collect();
+            name.push(d.model);
+            Some((u8::try_from(d.number).ok()?, name.join(" ")))
+        })
+        .collect()
+}
+
 fn translucent_popups(config: &Config) -> bool {
     config.popup.background == pulsar_core::config::PopupBackground::Translucent
 }
 
 /// `item` is the overlay item that was right-clicked, if any.
 fn context_menu(x: i32, y: i32, item: Option<(HWND, i32, i32)>) {
-    let Some((host, config, kind)) = with_app(|a| {
+    let Some((host, config, kind, dark)) = with_app(|a| {
         a.close_popup();
         let kind = item.and_then(|(overlay, x, y)| a.hit(overlay, x, y));
-        (a.host, a.config.clone(), kind)
+        (a.host, a.config.clone(), kind, !a.palette.light())
     }) else {
         return;
     };
-    if let Some(command) = menu::show(host, x, y, &config, kind) {
+    if let Some(command) = menu::show(host, x, y, &config, kind, dark) {
         with_app(|a| a.apply(command));
     }
 }

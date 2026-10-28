@@ -53,7 +53,7 @@ msgstr "处理器"
 msgid "Memory"
 msgstr "内存"
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "Graphics"
 msgstr "显卡"
 
@@ -994,6 +994,14 @@ msgid "Charge cycles"
 msgstr "充电循环次数"
 
 #: src/popup/content.rs
+msgid "Jitter"
+msgstr "抖动"
+
+#: src/popup/content.rs
+msgid "Min / avg / max"
+msgstr "最小 / 平均 / 最大"
+
+#: src/popup/content.rs
 msgid "Processes"
 msgstr "进程"
 
@@ -1034,8 +1042,32 @@ msgid "Sent"
 msgstr "已发送"
 
 #: src/popup/content.rs
-msgid "Jitter"
-msgstr "抖动"
+msgid "Free space"
+msgstr "可用空间"
+
+#: src/popup/content.rs
+msgid "Core temperatures"
+msgstr "各核心温度"
+
+#: src/popup/content.rs
+msgid "Core power"
+msgstr "各核心功耗"
+
+#: src/popup/content.rs
+msgid "Core clocks"
+msgstr "各核心频率"
+
+#: src/popup/content.rs
+msgid "Sustained limit"
+msgstr "长时功耗限制"
+
+#: src/popup/content.rs
+msgid "Burst limit"
+msgstr "短时功耗限制"
+
+#: src/popup/content.rs
+msgid "Unlimited"
+msgstr "无限制"
 
 #: src/popup/content.rs
 msgid "Hottest core"
@@ -1054,10 +1086,6 @@ msgid "Drives"
 msgstr "驱动器"
 
 #: src/popup/content.rs
-msgid "Free space"
-msgstr "可用空间"
-
-#: src/popup/content.rs
 msgid "Adapters"
 msgstr "网卡"
 
@@ -1066,24 +1094,12 @@ msgid "No traffic"
 msgstr "无流量"
 
 #: src/popup/content.rs
-msgid "Core temperatures"
-msgstr "各核心温度"
-
-#: src/popup/content.rs
 msgid "Fastest core"
 msgstr "最快核心"
-
-#: src/popup/content.rs
-msgid "Core clocks"
-msgstr "各核心频率"
 
 #: src/popup/content.rs ui/settings.slint
 msgid "Host"
 msgstr "主机"
-
-#: src/popup/content.rs
-msgid "Min / avg / max"
-msgstr "最小 / 平均 / 最大"
 
 #: src/settings/main.rs ui/settings.slint
 msgid "Default"

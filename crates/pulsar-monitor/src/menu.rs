@@ -5,13 +5,14 @@ use pulsar_core::config::{
 use pulsar_core::metric::ItemKind;
 use pulsar_core::tr;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryW};
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{
     AppendMenuW, CreatePopupMenu, DestroyMenu, HMENU, MENU_ITEM_FLAGS, MF_CHECKED, MF_GRAYED,
     MF_POPUP, MF_SEPARATOR, MF_STRING, PostMessageW, SW_SHOWNORMAL, SetForegroundWindow,
     TPM_BOTTOMALIGN, TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TrackPopupMenu, WM_NULL,
 };
-use windows::core::{HSTRING, PCWSTR, w};
+use windows::core::{HSTRING, PCSTR, PCWSTR, w};
 
 use crate::names::{
     COLOR_MODES, DETAILS, STYLES, color_mode_name, detail_name, item_name, style_name,
@@ -425,13 +426,39 @@ fn interval_menu(config: &Config) -> Option<Menu> {
 /// Shows the context menu at a screen position and returns the chosen
 /// command; `item` is the overlay item under the mouse, if any. Runs a
 /// modal loop: the caller must not hold app state borrowed.
+/// Win32 menus are drawn dark only in an app that opts in, which takes the
+/// undocumented uxtheme exports `SetPreferredAppMode` (#135) and
+/// `FlushMenuThemes` (#136).
+fn match_theme(dark: bool) {
+    const FORCE_DARK: i32 = 2;
+    const FORCE_LIGHT: i32 = 3;
+    let Ok(uxtheme) = (unsafe { GetModuleHandleW(w!("uxtheme.dll")) })
+        .or_else(|_| unsafe { LoadLibraryW(w!("uxtheme.dll")) })
+    else {
+        return;
+    };
+    let export = |ordinal: usize| unsafe { GetProcAddress(uxtheme, PCSTR(ordinal as *const u8)) };
+    let (Some(set_mode), Some(flush)) = (export(135), export(136)) else {
+        return;
+    };
+    unsafe {
+        let set_mode: unsafe extern "system" fn(i32) -> i32 = std::mem::transmute(set_mode);
+        let flush: unsafe extern "system" fn() = std::mem::transmute(flush);
+        set_mode(if dark { FORCE_DARK } else { FORCE_LIGHT });
+        flush();
+    }
+}
+
+/// `dark` draws the menu dark, to match a dark taskbar.
 pub fn show(
     owner: HWND,
     x: i32,
     y: i32,
     config: &Config,
     item: Option<ItemKind>,
+    dark: bool,
 ) -> Option<Command> {
+    match_theme(dark);
     let menu = Menu::new()?;
     let display = &config.display;
     let floating = display.position == Position::Floating;

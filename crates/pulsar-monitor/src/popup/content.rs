@@ -8,7 +8,7 @@ use pulsar_core::metric::{GpuEngineKind, ItemKind, MetricKey, Snapshot, SourceId
 use pulsar_core::sources::{ProcessSort, top_by};
 use pulsar_core::tr;
 
-use pulsar_core::display::cell_value;
+use pulsar_core::display::{cell_value, metric_for};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Block {
@@ -52,6 +52,8 @@ pub struct Options<'a> {
     /// The letters shown as separate disk cells.
     pub drives: Vec<u8>,
     pub upload_on_top: bool,
+    /// Names for physical drives by number, for drive temperatures.
+    pub disk_names: &'a [(u8, String)],
 }
 
 impl<'a> Options<'a> {
@@ -63,6 +65,7 @@ impl<'a> Options<'a> {
             ping_host: &config.ping.host,
             drives: config.drive_letters(),
             upload_on_top: config.display.upload_on_top,
+            disk_names: &[],
         }
     }
 }
@@ -132,13 +135,26 @@ fn known(snapshot: &Snapshot, rows: &[(&str, MetricKey)]) -> Vec<(String, String
         .collect()
 }
 
+/// Memory in use as Task Manager counts it, leaving out modified pages
+/// when the memory lists can be read.
+fn memory_in_use(snapshot: &Snapshot) -> Option<f64> {
+    let lists = || {
+        let total = snapshot.get(MetricKey::MemTotalBytes)?;
+        let standby = snapshot.get(MetricKey::MemStandbyBytes)?;
+        let modified = snapshot.get(MetricKey::MemModifiedBytes)?;
+        let free = snapshot.get(MetricKey::MemFreeBytes)?;
+        Some((total - standby - modified - free).max(0.0))
+    };
+    lists().or_else(|| snapshot.get(MetricKey::MemUsedBytes))
+}
+
 /// Where physical memory goes, as Task Manager splits it.
 fn memory_composition(snapshot: &Snapshot) -> Option<Block> {
-    let total = snapshot.get(MetricKey::MemTotalBytes)?;
+    snapshot.get(MetricKey::MemTotalBytes)?;
     let standby = snapshot.get(MetricKey::MemStandbyBytes)?;
     let modified = snapshot.get(MetricKey::MemModifiedBytes)?;
     let free = snapshot.get(MetricKey::MemFreeBytes)?;
-    let in_use = (total - standby - modified - free).max(0.0);
+    let in_use = memory_in_use(snapshot)?;
     let part =
         |label: &str, bytes: f64| (label.to_string(), bytes, format_value(bytes, Unit::Bytes));
     Some(Block::Composition {
@@ -215,8 +231,37 @@ fn battery_details(snapshot: &Snapshot) -> Vec<(String, String)> {
     rows
 }
 
+/// The lowest, mean and highest of the graph's history.
+fn history_range(history: &HistoryStore, key: MetricKey) -> Option<String> {
+    let h = history.get(key)?;
+    let unit = key.unit();
+    Some(format!(
+        "{} / {} / {}",
+        format_value(h.min()?, unit),
+        format_value(h.avg()?, unit),
+        format_value(h.max()?, unit)
+    ))
+}
+
+/// What the detailed popup adds to the standard one's first rows.
+fn detailed_rows(kind: ItemKind, history: &HistoryStore) -> Vec<(String, String)> {
+    match kind {
+        ItemKind::Network => Vec::new(),
+        ItemKind::Ping => history
+            .get(MetricKey::PingMs)
+            .and_then(jitter)
+            .map(|ms| (tr!("Jitter").to_string(), format_value(ms, Unit::Millis)))
+            .into_iter()
+            .collect(),
+        _ => history_range(history, metric_for(kind, CellPart::Main))
+            .map(|range| (tr!("Min / avg / max").to_string(), range))
+            .into_iter()
+            .collect(),
+    }
+}
+
 /// What the detailed popup adds to the standard one.
-fn detailed_blocks(kind: ItemKind, snapshot: &Snapshot, history: &HistoryStore) -> Vec<Block> {
+fn detailed_blocks(kind: ItemKind, snapshot: &Snapshot) -> Vec<Block> {
     match kind {
         ItemKind::Cpu => vec![Block::Rows {
             heading: Some(tr!("System")),
@@ -257,21 +302,82 @@ fn detailed_blocks(kind: ItemKind, snapshot: &Snapshot, history: &HistoryStore) 
                 ],
             ),
         }],
-        ItemKind::Ping => vec![Block::Rows {
-            heading: None,
-            rows: history
-                .get(MetricKey::PingMs)
-                .and_then(jitter)
-                .map(|ms| (tr!("Jitter").to_string(), format_value(ms, Unit::Millis)))
-                .into_iter()
-                .collect(),
-        }],
         ItemKind::Battery => vec![Block::Rows {
             heading: Some(tr!("Battery")),
             rows: battery_details(snapshot),
         }],
+        ItemKind::Gpu => vec![
+            Block::Rows {
+                heading: Some(tr!("Engines")),
+                rows: engines(snapshot),
+            },
+            Block::Rows {
+                heading: Some(tr!("Sensors")),
+                rows: match snapshot.get(MetricKey::GpuTempC) {
+                    Some(_) => sensors(snapshot),
+                    None => Vec::new(),
+                },
+            },
+        ],
+        ItemKind::Disk => vec![Block::Rows {
+            heading: Some(tr!("Free space")),
+            rows: match snapshot.errors.get(&SourceId::DiskSpace) {
+                Some(reason) => vec![(reason.clone(), String::new())],
+                None => volumes(snapshot),
+            },
+        }],
+        ItemKind::CpuTemp => vec![Block::Bars {
+            heading: tr!("Core temperatures"),
+            values: core_temps(snapshot),
+        }],
+        ItemKind::CpuPower => vec![
+            Block::Rows {
+                heading: Some(tr!("Power")),
+                rows: cpu_power_rows(snapshot),
+            },
+            Block::Bars {
+                heading: tr!("Core power"),
+                values: relative_bars(&core_values(snapshot, MetricKey::CpuCorePowerW)),
+            },
+        ],
+        ItemKind::CpuClock => vec![Block::Bars {
+            heading: tr!("Core clocks"),
+            values: relative_bars(&core_values(snapshot, MetricKey::CpuCoreClockMhz)),
+        }],
         _ => Vec::new(),
     }
+}
+
+/// Where the package power goes, and the limits it is held to.
+fn cpu_power_rows(snapshot: &Snapshot) -> Vec<(String, String)> {
+    let mut rows = known(
+        snapshot,
+        &[
+            (tr!("Cores"), MetricKey::CpuCoresPowerW),
+            (tr!("Graphics"), MetricKey::CpuGraphicsPowerW),
+            (tr!("Memory"), MetricKey::CpuDramPowerW),
+            ("TDP", MetricKey::CpuTdpW),
+        ],
+    );
+    // Desktop processors report no memory power, as a steady zero.
+    if snapshot.get(MetricKey::CpuDramPowerW) == Some(0.0) {
+        rows.retain(|(label, _)| label != tr!("Memory"));
+    }
+    for (label, key) in [
+        (tr!("Sustained limit"), MetricKey::CpuPowerLimit1W),
+        (tr!("Burst limit"), MetricKey::CpuPowerLimit2W),
+    ] {
+        // The largest value the register holds means no limit.
+        if let Some(w) = snapshot.get(key) {
+            let value = if w >= 4095.0 {
+                tr!("Unlimited").to_string()
+            } else {
+                format_value(w, Unit::Watts)
+            };
+            rows.push((label.to_string(), value));
+        }
+    }
+    rows
 }
 
 /// The mean change between consecutive replies.
@@ -358,9 +464,11 @@ fn sensors(snapshot: &Snapshot) -> Vec<(String, String)> {
 }
 
 fn core_temps(snapshot: &Snapshot) -> Vec<f64> {
-    (0..)
-        .map_while(|i| snapshot.get(MetricKey::CpuCoreTempC(i)))
-        .collect()
+    core_values(snapshot, MetricKey::CpuCoreTempC)
+}
+
+fn core_values(snapshot: &Snapshot, key: fn(u16) -> MetricKey) -> Vec<f64> {
+    (0..).map_while(|i| snapshot.get(key(i))).collect()
 }
 
 /// Whatever the sensor service reported; nothing without it.
@@ -390,27 +498,25 @@ fn cpu_sensors(snapshot: &Snapshot) -> Vec<(String, String)> {
     rows
 }
 
-fn core_clocks(snapshot: &Snapshot) -> Vec<f64> {
-    (0..)
-        .map_while(|i| snapshot.get(MetricKey::CpuCoreClockMhz(i)))
-        .collect()
-}
-
-/// Each core's clock as a share of the fastest one's.
-fn clock_bars(clocks: &[f64]) -> Vec<f64> {
-    let fastest = clocks.iter().copied().fold(0.0, f64::max);
-    if fastest <= 0.0 {
+/// Each value as a share of the highest one.
+fn relative_bars(values: &[f64]) -> Vec<f64> {
+    let highest = values.iter().copied().fold(0.0, f64::max);
+    if highest <= 0.0 {
         return Vec::new();
     }
-    clocks.iter().map(|c| c / fastest * 100.0).collect()
+    values.iter().map(|v| v / highest * 100.0).collect()
 }
 
-/// Drives that reported a temperature, by physical drive number.
-fn drive_temps(snapshot: &Snapshot) -> Vec<(String, String)> {
+/// Drives that reported a temperature, by name where known.
+fn drive_temps(snapshot: &Snapshot, names: &[(u8, String)]) -> Vec<(String, String)> {
     (0..=u8::MAX)
         .filter_map(|n| {
             let temp = snapshot.get(MetricKey::DiskTempC(n))?;
-            Some((tr!("Disk {}", n), format_value(temp, Unit::Celsius)))
+            let name = names
+                .iter()
+                .find(|(number, _)| *number == n)
+                .map_or_else(|| tr!("Disk {}", n), |(_, name)| name.clone());
+            Some((name, format_value(temp, Unit::Celsius)))
         })
         .collect()
 }
@@ -451,6 +557,7 @@ pub fn build(
         ping_host,
         drives: drives.to_vec(),
         upload_on_top: false,
+        disk_names: &[],
     };
     build_with(kind, snapshot, history, &options)
 }
@@ -493,7 +600,14 @@ pub fn build_with(
                     rows: vec![
                         (
                             tr!("In use").into(),
-                            of(snapshot, MetricKey::MemUsedBytes, MetricKey::MemTotalBytes),
+                            tr!(
+                                "{} of {}",
+                                format_value(
+                                    memory_in_use(snapshot).unwrap_or(f64::NAN),
+                                    Unit::Bytes
+                                ),
+                                fmt(snapshot, MetricKey::MemTotalBytes)
+                            ),
                         ),
                         (
                             tr!("Available").into(),
@@ -527,13 +641,6 @@ pub fn build_with(
                 Block::Rows {
                     heading: Some(tr!("Drives")),
                     rows: drive_rows(snapshot, drives),
-                },
-                Block::Rows {
-                    heading: Some(tr!("Free space")),
-                    rows: match snapshot.errors.get(&SourceId::DiskSpace) {
-                        Some(reason) => vec![(reason.clone(), String::new())],
-                        None => volumes(snapshot),
-                    },
                 },
                 processes(snapshot, ProcessSort::Io, count),
             ],
@@ -584,20 +691,8 @@ pub fn build_with(
             vec![CellPart::Main],
             vec![
                 Block::Rows {
-                    heading: Some(tr!("Engines")),
-                    rows: engines(snapshot),
-                },
-                Block::Rows {
-                    heading: Some(tr!("Sensors")),
-                    rows: match snapshot.get(MetricKey::GpuTempC) {
-                        Some(_) => std::iter::once((
-                            tr!("Temperature").to_string(),
-                            fmt(snapshot, MetricKey::GpuTempC),
-                        ))
-                        .chain(sensors(snapshot))
-                        .collect(),
-                        None => Vec::new(),
-                    },
+                    heading: None,
+                    rows: known(snapshot, &[(tr!("Temperature"), MetricKey::GpuTempC)]),
                 },
                 Block::Rows {
                     heading: Some(tr!("Memory")),
@@ -632,19 +727,13 @@ pub fn build_with(
             },
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
-            vec![
-                Block::Rows {
-                    heading: None,
-                    rows: cpu_sensors(snapshot),
-                },
-                Block::Bars {
-                    heading: tr!("Core temperatures"),
-                    values: core_temps(snapshot),
-                },
-            ],
+            vec![Block::Rows {
+                heading: None,
+                rows: cpu_sensors(snapshot),
+            }],
         ),
         ItemKind::CpuClock => {
-            let clocks = core_clocks(snapshot);
+            let clocks = core_values(snapshot, MetricKey::CpuCoreClockMhz);
             let mut rows = vec![(
                 tr!("Average").to_string(),
                 fmt(snapshot, MetricKey::CpuClockMhz),
@@ -656,16 +745,10 @@ pub fn build_with(
                 tr!("CPU clock"),
                 cell_value(kind, CellPart::Main, snapshot),
                 vec![CellPart::Main],
-                vec![
-                    Block::Rows {
-                        heading: None,
-                        rows,
-                    },
-                    Block::Bars {
-                        heading: tr!("Core clocks"),
-                        values: clock_bars(&clocks),
-                    },
-                ],
+                vec![Block::Rows {
+                    heading: None,
+                    rows,
+                }],
             )
         }
         ItemKind::DiskTemp => (
@@ -674,7 +757,7 @@ pub fn build_with(
             vec![CellPart::Main],
             vec![Block::Rows {
                 heading: None,
-                rows: drive_temps(snapshot),
+                rows: drive_temps(snapshot, options.disk_names),
             }],
         ),
         ItemKind::ChipsetTemp => (
@@ -726,7 +809,32 @@ pub fn build_with(
     match options.detail {
         PopupDetail::Simple => blocks.clear(),
         PopupDetail::Standard => {}
-        PopupDetail::Detailed => blocks.extend(detailed_blocks(kind, snapshot, history)),
+        PopupDetail::Detailed => {
+            let rows = detailed_rows(kind, history);
+            match blocks.iter_mut().find_map(|b| match b {
+                Block::Rows {
+                    heading: None,
+                    rows,
+                } => Some(rows),
+                _ => None,
+            }) {
+                Some(first) => first.extend(rows),
+                None if !rows.is_empty() => blocks.insert(
+                    0,
+                    Block::Rows {
+                        heading: None,
+                        rows,
+                    },
+                ),
+                None => {}
+            }
+            // Process lists stay last.
+            let at = blocks
+                .iter()
+                .position(is_process_list)
+                .unwrap_or(blocks.len());
+            blocks.splice(at..at, detailed_blocks(kind, snapshot));
+        }
     }
     if count == 0 {
         blocks.retain(|b| !is_process_list(b));
@@ -780,7 +888,25 @@ mod tests {
             ping_host: "",
             drives: Vec::new(),
             upload_on_top: false,
+            disk_names: &[],
         }
+    }
+
+    fn detailed(kind: ItemKind, snapshot: &Snapshot) -> PopupContent {
+        build_with(
+            kind,
+            snapshot,
+            &HistoryStore::new(60),
+            &options(PopupDetail::Detailed, 5),
+        )
+    }
+
+    fn rows_under<'c>(c: &'c PopupContent, title: &str) -> &'c [(String, String)] {
+        c.blocks
+            .iter()
+            .find(|b| heading(b) == Some(title))
+            .map(rows)
+            .unwrap_or_else(|| panic!("no {title} in {:?}", c.blocks))
     }
 
     fn heading(block: &Block) -> Option<&'static str> {
@@ -857,9 +983,9 @@ mod tests {
     fn failed_disk_space_shows_its_reason() {
         let mut s = Snapshot::default();
         s.errors.insert(SourceId::DiskSpace, "Access denied".into());
-        let c = build(ItemKind::Disk, &s, &HistoryStore::new(60), "", &[]);
+        let c = detailed(ItemKind::Disk, &s);
         assert_eq!(
-            rows(&c.blocks[1]),
+            rows_under(&c, "Free space"),
             [("Access denied".to_string(), String::new())]
         );
     }
@@ -885,8 +1011,8 @@ mod tests {
             s.set(MetricKey::VolumeFreeBytes(letter), free * GB);
             s.set(MetricKey::VolumeTotalBytes(letter), 931.0 * GB);
         }
-        let c = build(ItemKind::Disk, &s, &HistoryStore::new(60), "", &[]);
-        let v = rows(&c.blocks[1]);
+        let c = detailed(ItemKind::Disk, &s);
+        let v = rows_under(&c, "Free space");
         assert_eq!(v[0], ("C:".into(), "269 GB free of 931 GB".into()));
         assert_eq!(v[1].0, "D:");
     }
@@ -924,8 +1050,11 @@ mod tests {
         let mut s = Snapshot::default();
         s.set(MetricKey::GpuEngine(GpuEngineKind::ThreeD), 7.0);
         s.set(MetricKey::GpuEngine(GpuEngineKind::VideoDecode), 2.0);
-        let c = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "", &[]);
-        let labels: Vec<&str> = rows(&c.blocks[0]).iter().map(|(l, _)| l.as_str()).collect();
+        let c = detailed(ItemKind::Gpu, &s);
+        let labels: Vec<&str> = rows_under(&c, "Engines")
+            .iter()
+            .map(|(l, _)| l.as_str())
+            .collect();
         assert_eq!(labels, ["3D", "Video decode"]);
     }
 
@@ -1174,8 +1303,101 @@ mod tests {
             &history,
             &options(PopupDetail::Detailed, 5),
         );
-        let last = c.blocks.last().unwrap();
-        assert_eq!(rows(last), [("Jitter".to_string(), "8 ms".to_string())]);
+        assert_eq!(c.blocks.len(), 1, "jitter joins the other rows");
+        assert_eq!(
+            rows(&c.blocks[0]).last().unwrap(),
+            &("Jitter".to_string(), "8 ms".to_string())
+        );
+    }
+
+    #[test]
+    fn detailed_adds_the_history_range_to_the_first_rows() {
+        let mut history = HistoryStore::new(60);
+        for c in [40.0, 50.0, 45.0] {
+            let mut s = Snapshot::default();
+            s.set(MetricKey::DiskTempMaxC, c);
+            history.record(&s);
+        }
+        let c = build_with(
+            ItemKind::DiskTemp,
+            &Snapshot::default(),
+            &history,
+            &options(PopupDetail::Detailed, 5),
+        );
+        assert_eq!(
+            rows(&c.blocks[0]),
+            [(
+                "Min / avg / max".to_string(),
+                "40°C / 45°C / 50°C".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn detailed_sections_come_before_the_process_list() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::GpuTempC, 55.0);
+        s.processes = vec![proc("game", 0.0, 0.0, 40.0)];
+        let c = detailed(ItemKind::Gpu, &s);
+        assert!(is_process_list(c.blocks.last().unwrap()));
+        let standard = build(ItemKind::Gpu, &s, &HistoryStore::new(60), "", &[]);
+        assert!(c.blocks.len() > standard.blocks.len());
+    }
+
+    #[test]
+    fn cpu_power_details_show_the_split_and_limits() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::CpuCoresPowerW, 20.0);
+        s.set(MetricKey::CpuPowerLimit1W, 125.0);
+        s.set(MetricKey::CpuPowerLimit2W, 4095.0);
+        s.set(MetricKey::CpuCorePowerW(0), 2.0);
+        s.set(MetricKey::CpuCorePowerW(1), 4.0);
+        let c = detailed(ItemKind::CpuPower, &s);
+        assert_eq!(
+            rows_under(&c, "Power"),
+            [
+                ("Cores".to_string(), "20 W".to_string()),
+                ("Sustained limit".to_string(), "125 W".to_string()),
+                ("Burst limit".to_string(), "Unlimited".to_string()),
+            ]
+        );
+        assert!(c.blocks.contains(&Block::Bars {
+            heading: "Core power",
+            values: vec![50.0, 100.0],
+        }));
+    }
+
+    #[test]
+    fn drive_temperatures_use_drive_names() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::DiskTempC(0), 34.0);
+        s.set(MetricKey::DiskTempC(4), 43.0);
+        let names = [(4, "C: Samsung 990".to_string())];
+        let mut o = options(PopupDetail::Standard, 5);
+        o.disk_names = &names;
+        let c = build_with(ItemKind::DiskTemp, &s, &HistoryStore::new(60), &o);
+        let labels: Vec<&str> = rows(&c.blocks[0]).iter().map(|(l, _)| l.as_str()).collect();
+        assert_eq!(labels, ["Disk 0", "C: Samsung 990"]);
+    }
+
+    #[test]
+    fn memory_in_use_leaves_out_modified_pages() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::MemTotalBytes, 32.0 * GB);
+        s.set(MetricKey::MemUsedBytes, 16.2 * GB);
+        s.set(MetricKey::MemStandbyBytes, 15.0 * GB);
+        s.set(MetricKey::MemModifiedBytes, 0.5 * GB);
+        s.set(MetricKey::MemFreeBytes, 0.5 * GB);
+        let c = detailed(ItemKind::Ram, &s);
+        assert_eq!(rows(&c.blocks[0])[0].1, "16.0 GB of 32.0 GB");
+        let Some(Block::Composition { parts, .. }) = c
+            .blocks
+            .iter()
+            .find(|b| matches!(b, Block::Composition { .. }))
+        else {
+            panic!("no breakdown");
+        };
+        assert_eq!(parts[0].2, "16.0 GB");
     }
 
     #[test]
@@ -1209,21 +1431,15 @@ mod tests {
         };
         let mut s = Snapshot::default();
         s.set(MetricKey::GpuTempC, 55.0);
-        assert!(sensors(&build(
+        assert!(sensors(&detailed(ItemKind::Gpu, &s)));
+        assert!(!sensors(&build(
             ItemKind::Gpu,
             &s,
             &HistoryStore::new(60),
             "",
             &[]
         )));
-        let without = build(
-            ItemKind::Gpu,
-            &Snapshot::default(),
-            &HistoryStore::new(60),
-            "",
-            &[],
-        );
-        assert!(!sensors(&without));
+        assert!(!sensors(&detailed(ItemKind::Gpu, &Snapshot::default())));
     }
 
     #[test]
