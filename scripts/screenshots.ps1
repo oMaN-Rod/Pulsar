@@ -508,8 +508,8 @@ try {
         $settings = Find-Window $null 'Pulsar Settings'
         Start-Sleep -Seconds 2
         # Navigation rows, by their centre in the sidebar; group headings sit between them.
-        $pages = 'items', 'layout', 'theme', 'popups', 'sensors', 'drives', 'general', 'about'
-        $rows = 62, 106, 150, 194, 272, 316, 394, 438
+        $pages = 'items', 'layout', 'theme', 'popups', 'widget', 'sensors', 'drives', 'general', 'about'
+        $rows = 62, 106, 150, 194, 238, 316, 360, 438, 482
         for ($i = 0; $i -lt $pages.Count; $i++) {
             Send-Click $settings 115 $rows[$i]
             $previous = Save-Window $settings "settings-$($pages[$i])"

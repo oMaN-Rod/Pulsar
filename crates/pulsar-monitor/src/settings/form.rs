@@ -5,13 +5,13 @@ use pulsar_core::colors::Rgb;
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, PopupBackground, Position, RateUnit,
-    TemperatureUnit,
+    TemperatureUnit, WidgetLayer, WidgetStyle,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::theme::{Colors, Theme};
 
-use crate::names::{COLOR_MODES, DETAILS, STYLES};
+use crate::names::{COLOR_MODES, DETAILS, STYLES, WIDGET_STYLES};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ItemRow {
@@ -26,6 +26,12 @@ pub struct ItemRow {
     /// 0 follows the popup setting; otherwise one more than an index into
     /// `names::DETAILS`.
     pub popup: i32,
+    /// 0 follows the widget; otherwise one more than an index into
+    /// `names::WIDGET_STYLES`.
+    pub widget_style: i32,
+    /// 0 follows the widget; otherwise one more than an index into
+    /// `names::DETAILS`.
+    pub widget_detail: i32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -90,6 +96,20 @@ pub struct Form {
     pub popup_graph: bool,
     pub popup_translucent: bool,
     pub popup_processes: i32,
+    pub widget_enabled: bool,
+    pub widget_on_top: bool,
+    /// 0 sparklines, 1 tiles, 2 meters.
+    pub widget_style: i32,
+    pub widget_lock: bool,
+    pub widget_click_through: bool,
+    /// An index into `names::DETAILS`.
+    pub widget_detail: i32,
+    pub widget_width: i32,
+    pub widget_opacity: i32,
+    pub widget_hide_in_fullscreen: bool,
+    /// Off shows the taskbar's items.
+    pub widget_own_items: bool,
+    pub widget_items: Vec<ItemKind>,
 }
 
 /// `#RRGGBB` → `(r, g, b)`, for the colour swatches; anything else is `None`.
@@ -227,6 +247,10 @@ pub fn to_form(c: &Config) -> Form {
                 style: index_of(&STYLES, &i.graph.then_some(i.style)),
                 color_mode: index_of(&COLOR_MODES, &i.color_mode),
                 popup: i.popup.map_or(0, |p| index_of(&DETAILS, &p) + 1),
+                widget_style: i
+                    .widget_style
+                    .map_or(0, |s| index_of(&WIDGET_STYLES, &s) + 1),
+                widget_detail: i.widget_detail.map_or(0, |d| index_of(&DETAILS, &d) + 1),
             })
             .collect(),
         ping_host: c.ping.host.clone(),
@@ -242,6 +266,26 @@ pub fn to_form(c: &Config) -> Form {
         popup_graph: c.popup.graph,
         popup_translucent: c.popup.background == PopupBackground::Translucent,
         popup_processes: i32::from(c.popup.processes),
+        widget_enabled: c.widget.enabled,
+        widget_on_top: c.widget.layer == WidgetLayer::OnTop,
+        widget_style: match c.widget.style {
+            WidgetStyle::Sparklines => 0,
+            WidgetStyle::Tiles => 1,
+            WidgetStyle::Meters => 2,
+        },
+        widget_lock: c.widget.lock_position,
+        widget_click_through: c.widget.click_through,
+        widget_detail: index_of(&DETAILS, &c.widget.detail),
+        widget_width: i32::from(c.widget.width),
+        widget_opacity: i32::from(c.widget.opacity),
+        widget_hide_in_fullscreen: c.widget.hide_in_fullscreen,
+        widget_own_items: !c.widget.items.is_empty(),
+        // Choosing items starts from the taskbar's.
+        widget_items: if c.widget.items.is_empty() {
+            c.enabled_items()
+        } else {
+            c.widget.items.clone()
+        },
     }
 }
 
@@ -325,6 +369,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
                     .unwrap_or_else(|| base.item(r.kind).map(|i| i.style).unwrap_or_default()),
                 color_mode: at(&COLOR_MODES, r.color_mode).unwrap_or_default(),
                 popup: at(&DETAILS, r.popup - 1),
+                widget_style: at(&WIDGET_STYLES, r.widget_style - 1),
+                widget_detail: at(&DETAILS, r.widget_detail - 1),
                 ..ItemConfig::new(r.kind, r.enabled)
             }
         })
@@ -357,6 +403,29 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         PopupBackground::Solid
     };
     c.popup.processes = f.popup_processes.clamp(0, 255) as u8;
+    let w = &mut c.widget;
+    w.enabled = f.widget_enabled;
+    w.layer = if f.widget_on_top {
+        WidgetLayer::OnTop
+    } else {
+        WidgetLayer::Desktop
+    };
+    w.style = match f.widget_style {
+        1 => WidgetStyle::Tiles,
+        2 => WidgetStyle::Meters,
+        _ => WidgetStyle::Sparklines,
+    };
+    w.lock_position = f.widget_lock;
+    w.click_through = f.widget_click_through;
+    w.detail = at(&DETAILS, f.widget_detail).unwrap_or_default();
+    w.width = f.widget_width.clamp(0, i32::from(u16::MAX)) as u16;
+    w.opacity = clamp_u8(f.widget_opacity);
+    w.hide_in_fullscreen = f.widget_hide_in_fullscreen;
+    w.items = if f.widget_own_items {
+        f.widget_items.clone()
+    } else {
+        Vec::new()
+    };
     c.sanitize()
 }
 
@@ -506,6 +575,54 @@ mod tests {
             item_rgb(ItemKind::Cpu, "#01", &ocean.dark),
             ocean.dark.item(ItemKind::Cpu, CellPart::Main)
         );
+    }
+
+    #[test]
+    fn per_item_widget_choices_round_trip() {
+        let c = Config::default();
+        let mut f = to_form(&c);
+        assert!(
+            f.items
+                .iter()
+                .all(|r| r.widget_style == 0 && r.widget_detail == 0)
+        );
+        f.items[0].widget_style = 2;
+        f.items[0].widget_detail = 3;
+        let out = to_config(&f, &c);
+        let kind = f.items[0].kind;
+        assert_eq!(out.widget_style(kind), WIDGET_STYLES[1]);
+        assert_eq!(out.widget_detail(kind), DETAILS[2]);
+        assert_eq!(to_form(&out).items[0].widget_style, 2);
+        f.items[0].widget_style = 0;
+        assert_eq!(to_config(&f, &c).item(kind).unwrap().widget_style, None);
+    }
+
+    #[test]
+    fn widget_settings_round_trip() {
+        let c = Config::default();
+        let mut f = to_form(&c);
+        assert!(!f.widget_own_items);
+        assert_eq!(
+            f.widget_items,
+            c.enabled_items(),
+            "prefilled from the taskbar"
+        );
+        assert_eq!(
+            to_config(&f, &c).widget.items,
+            [],
+            "still following the taskbar"
+        );
+        f.widget_enabled = true;
+        f.widget_on_top = true;
+        f.widget_own_items = true;
+        f.widget_items = vec![ItemKind::Ping];
+        f.widget_width = 10_000;
+        let out = to_config(&f, &c);
+        assert!(out.widget.enabled);
+        assert_eq!(out.widget.layer, WidgetLayer::OnTop);
+        assert_eq!(out.widget.items, [ItemKind::Ping]);
+        assert_eq!(out.widget.width, 600);
+        assert_eq!(to_form(&out).widget_items, [ItemKind::Ping]);
     }
 
     #[test]

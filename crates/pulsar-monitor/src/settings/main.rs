@@ -37,7 +37,7 @@ slint::include_modules!();
 const SAVE_DELAY: Duration = Duration::from_millis(300);
 /// How often to look for changes made by the app (e.g. the tray menu).
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);
-const ABOUT_TAB: i32 = 7;
+const ABOUT_TAB: i32 = 8;
 const CAPTION_RETRY: Duration = Duration::from_millis(15);
 
 struct State {
@@ -230,6 +230,27 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_popup_graph(f.popup_graph);
     ui.set_popup_translucent(f.popup_translucent);
     ui.set_popup_processes(f.popup_processes);
+    ui.set_widget_enabled(f.widget_enabled);
+    ui.set_widget_layer(i32::from(f.widget_on_top));
+    ui.set_widget_style(f.widget_style);
+    ui.set_widget_lock(f.widget_lock);
+    ui.set_widget_click_through(f.widget_click_through);
+    ui.set_widget_detail(f.widget_detail);
+    ui.set_widget_width(f.widget_width);
+    ui.set_widget_opacity(f.widget_opacity as f32);
+    ui.set_widget_hide_in_fullscreen(f.widget_hide_in_fullscreen);
+    ui.set_widget_own_items(f.widget_own_items);
+    let widget_rows: Vec<WidgetItemRow> = f
+        .items
+        .iter()
+        .map(|r| WidgetItemRow {
+            name: names::item_name(r.kind).into(),
+            checked: f.widget_items.contains(&r.kind),
+            style: r.widget_style,
+            detail: r.widget_detail,
+        })
+        .collect();
+    ui.set_widget_items(ModelRc::new(VecModel::from(widget_rows)));
     ui.set_font_bold(f.font_bold);
     ui.set_language_index(
         l10n::LANGUAGES
@@ -364,14 +385,17 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         items: ui
             .get_items()
             .iter()
+            .zip(ui.get_widget_items().iter())
             .zip(kinds)
-            .map(|(r, &kind)| form::ItemRow {
+            .map(|((r, w), &kind)| form::ItemRow {
                 kind,
                 enabled: r.enabled,
                 color: r.color.to_string(),
                 style: r.style,
                 color_mode: r.color_mode,
                 popup: r.popup,
+                widget_style: w.style,
+                widget_detail: w.detail,
             })
             .collect(),
         ping_host: ui.get_ping_host().to_string(),
@@ -400,6 +424,23 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         popup_graph: ui.get_popup_graph(),
         popup_translucent: ui.get_popup_translucent(),
         popup_processes: ui.get_popup_processes(),
+        widget_enabled: ui.get_widget_enabled(),
+        widget_on_top: ui.get_widget_layer() == 1,
+        widget_style: ui.get_widget_style(),
+        widget_lock: ui.get_widget_lock(),
+        widget_click_through: ui.get_widget_click_through(),
+        widget_detail: ui.get_widget_detail(),
+        widget_width: ui.get_widget_width(),
+        widget_opacity: ui.get_widget_opacity().round() as i32,
+        widget_hide_in_fullscreen: ui.get_widget_hide_in_fullscreen(),
+        widget_own_items: ui.get_widget_own_items(),
+        widget_items: ui
+            .get_widget_items()
+            .iter()
+            .zip(kinds)
+            .filter(|(r, _)| r.checked)
+            .map(|(_, &kind)| kind)
+            .collect(),
     }
 }
 
@@ -426,6 +467,20 @@ fn localize(ui: &SettingsWindow) {
     ui.set_popup_details(strings(details.clone()));
     ui.set_item_popup_details(strings(
         std::iter::once(tr!("Same as other items").into())
+            .chain(details.clone())
+            .collect(),
+    ));
+    ui.set_widget_item_styles(strings(
+        std::iter::once(tr!("Widget style").into())
+            .chain(
+                names::WIDGET_STYLES
+                    .iter()
+                    .map(|&s| names::widget_style_name(s).into()),
+            )
+            .collect(),
+    ));
+    ui.set_widget_item_details(strings(
+        std::iter::once(tr!("Widget detail").into())
             .chain(details)
             .collect(),
     ));
@@ -782,6 +837,34 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut new = s.config.clone();
             new.display.float_position = None;
             write(&mut s, new);
+        }
+    });
+    ui.on_widget_item_choice({
+        let weak = ui.as_weak();
+        move |index, which, value| {
+            let Some(ui) = weak.upgrade() else { return };
+            let rows = ui.get_widget_items();
+            if let Some(mut row) = rows.row_data(index.max(0) as usize) {
+                if which == 0 {
+                    row.style = value;
+                } else {
+                    row.detail = value;
+                }
+                rows.set_row_data(index.max(0) as usize, row);
+            }
+            ui.invoke_changed();
+        }
+    });
+    ui.on_widget_item_toggled({
+        let weak = ui.as_weak();
+        move |index, checked| {
+            let Some(ui) = weak.upgrade() else { return };
+            let rows = ui.get_widget_items();
+            if let Some(mut row) = rows.row_data(index.max(0) as usize) {
+                row.checked = checked;
+                rows.set_row_data(index.max(0) as usize, row);
+            }
+            ui.invoke_changed();
         }
     });
     ui.on_drive_toggled({

@@ -742,6 +742,10 @@ msgid "Popup detail"
 msgstr "弹出窗口详细程度"
 
 #: src/menu.rs
+msgid "On the widget"
+msgstr "在小组件上"
+
+#: src/menu.rs
 msgid "Swap with item on the left"
 msgstr "与左侧监控项交换"
 
@@ -752,6 +756,14 @@ msgstr "与右侧监控项交换"
 #: src/menu.rs
 msgid "Hide"
 msgstr "隐藏"
+
+#: src/menu.rs
+msgid "Same as the widget ({})"
+msgstr "与小组件相同（{}）"
+
+#: src/menu.rs
+msgid "Same detail as the widget ({})"
+msgstr "与小组件相同的详细程度（{}）"
 
 #: src/menu.rs ui/settings.slint
 msgid "Graph"
@@ -842,6 +854,14 @@ msgid "Lock position"
 msgstr "锁定位置"
 
 #: src/menu.rs
+msgid "Desktop widget"
+msgstr "桌面小组件"
+
+#: src/menu.rs
+msgid "Lock widget"
+msgstr "锁定小组件"
+
+#: src/menu.rs
 msgid "Settings…"
 msgstr "设置…"
 
@@ -908,6 +928,18 @@ msgstr "Windows 主题色"
 #: src/names.rs
 msgid "Colour by load"
 msgstr "按负载着色"
+
+#: src/names.rs
+msgid "Sparkline"
+msgstr "迷你图"
+
+#: src/names.rs
+msgid "Tile"
+msgstr "磁贴"
+
+#: src/names.rs
+msgid "Meter"
+msgstr "仪表"
 
 #: src/names.rs
 msgid "Simple"
@@ -1122,6 +1154,14 @@ msgid "Same as other items"
 msgstr "与其他监控项相同"
 
 #: src/settings/main.rs
+msgid "Widget style"
+msgstr "小组件样式"
+
+#: src/settings/main.rs
+msgid "Widget detail"
+msgstr "小组件详细程度"
+
+#: src/settings/main.rs
 msgid "Windows default ({})"
 msgstr "跟随 Windows（{}）"
 
@@ -1252,6 +1292,10 @@ msgstr "布局"
 #: ui/settings.slint
 msgid "Theme"
 msgstr "主题"
+
+#: ui/settings.slint
+msgid "Widget"
+msgstr "小组件"
 
 #: ui/settings.slint
 msgid "Readings"
@@ -1552,6 +1596,90 @@ msgstr "每个弹出窗口顶部的近期历史。"
 #: ui/settings.slint
 msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
 msgstr "CPU、内存、GPU 和磁盘列出的进程数；0 表示隐藏列表。"
+
+#: ui/settings.slint
+msgid "A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu."
+msgstr "桌面上的面板，显示每个项目的图表和详细信息，就像一直打开的弹出窗口。拖动可移动它；右键单击可打开菜单。"
+
+#: ui/settings.slint
+msgid "Show the widget"
+msgstr "显示小组件"
+
+#: ui/settings.slint
+msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
+msgstr "“在桌面上”会位于所有窗口之后，显示桌面时会移到前面。"
+
+#: ui/settings.slint
+msgid "On the desktop"
+msgstr "在桌面上"
+
+#: ui/settings.slint
+msgid "Always on top"
+msgstr "始终置顶"
+
+#: ui/settings.slint
+msgid "Click-through while locked"
+msgstr "锁定时点击穿透"
+
+#: ui/settings.slint
+msgid "Clicks go to whatever is underneath. Unlock it from the tray icon's menu."
+msgstr "点击会传给下方的内容。可从托盘图标菜单中解锁。"
+
+#: ui/settings.slint
+msgid "While a fullscreen app is on the widget's monitor."
+msgstr "当小组件所在的显示器上有全屏应用时。"
+
+#: ui/settings.slint
+msgid "Look"
+msgstr "外观"
+
+#: ui/settings.slint
+msgid "Style"
+msgstr "样式"
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value."
+msgstr "迷你图：每个项目一行，带一个小图表。磁贴：小图表网格。仪表：显示当前值的条形。"
+
+#: ui/settings.slint
+msgid "Sparklines"
+msgstr "迷你图"
+
+#: ui/settings.slint
+msgid "Tiles"
+msgstr "磁贴"
+
+#: ui/settings.slint
+msgid "Meters"
+msgstr "仪表"
+
+#: ui/settings.slint
+msgid "Tiles show the value and graph only."
+msgstr "磁贴只显示数值和图表。"
+
+#: ui/settings.slint
+msgid "How much each item shows. Colours follow the theme."
+msgstr "每个项目显示的内容多少。颜色跟随主题。"
+
+#: ui/settings.slint
+msgid "Width"
+msgstr "宽度"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling."
+msgstr "100% 缩放时的像素。"
+
+#: ui/settings.slint
+msgid "Background opacity"
+msgstr "背景不透明度"
+
+#: ui/settings.slint
+msgid "Choose items"
+msgstr "选择项目"
+
+#: ui/settings.slint
+msgid "Off shows the same items as the taskbar."
+msgstr "关闭时显示与任务栏相同的项目。"
 
 #: ui/settings.slint
 msgid "Temperatures and power"

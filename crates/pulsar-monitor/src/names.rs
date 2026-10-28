@@ -1,6 +1,6 @@
 //! Names for items and choices, shared by the menu and the settings window.
 
-use pulsar_core::config::{ColorMode, GraphStyle, PopupDetail};
+use pulsar_core::config::{ColorMode, GraphStyle, PopupDetail, WidgetStyle};
 use pulsar_core::metric::ItemKind;
 use pulsar_core::tr;
 
@@ -56,6 +56,20 @@ pub const DETAILS: [PopupDetail; 3] = [
     PopupDetail::Standard,
     PopupDetail::Detailed,
 ];
+
+pub const WIDGET_STYLES: [WidgetStyle; 3] = [
+    WidgetStyle::Sparklines,
+    WidgetStyle::Tiles,
+    WidgetStyle::Meters,
+];
+
+pub fn widget_style_name(style: WidgetStyle) -> &'static str {
+    match style {
+        WidgetStyle::Sparklines => tr!("Sparkline"),
+        WidgetStyle::Tiles => tr!("Tile"),
+        WidgetStyle::Meters => tr!("Meter"),
+    }
+}
 
 pub fn detail_name(detail: PopupDetail) -> &'static str {
     match detail {

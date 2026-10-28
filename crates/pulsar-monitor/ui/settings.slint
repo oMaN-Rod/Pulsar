@@ -23,6 +23,15 @@ export struct ThemeCard {
     items: [color],
 }
 
+export struct WidgetItemRow {
+    name: string,
+    checked: bool,
+    // 0 follows the widget; otherwise one more than an index into the
+    // style and detail lists.
+    style: int,
+    detail: int,
+}
+
 export struct DriveRow {
     letter: string,
     checked: bool,
@@ -43,6 +52,7 @@ global Icons {
     out property <string> popup: "\u{E8BD}";
     out property <string> sensor: "\u{E950}";
     out property <string> drive: "\u{EDA2}";
+    out property <string> widget: "\u{ECA5}";
 }
 
 component Icon inherits Text {
@@ -579,6 +589,19 @@ export component SettingsWindow inherits Window {
     in property <[string]> adapters;
     in-out property <int> adapter-index;
     in-out property <[DriveRow]> drive-rows;
+    in-out property <bool> widget-enabled;
+    in-out property <int> widget-layer;
+    in-out property <int> widget-style;
+    in-out property <bool> widget-lock;
+    in-out property <bool> widget-click-through;
+    in-out property <int> widget-detail;
+    in-out property <int> widget-width;
+    in-out property <float> widget-opacity;
+    in-out property <bool> widget-hide-in-fullscreen;
+    in-out property <bool> widget-own-items;
+    in-out property <[WidgetItemRow]> widget-items;
+    in property <[string]> widget-item-styles;
+    in property <[string]> widget-item-details;
     in-out property <bool> per-drive;
     in-out property <bool> drive-used;
     property <bool> confirm-reset;
@@ -601,6 +624,9 @@ export component SettingsWindow inherits Window {
     callback reset-all();
     callback reset-position();
     callback drive-toggled(int, bool);
+    callback widget-item-toggled(int, bool);
+    // Row, which choice (0 style, 1 detail), new index.
+    callback widget-item-choice(int, int, int);
     callback per-drive-selected();
 
     HorizontalLayout {
@@ -635,31 +661,37 @@ export component SettingsWindow inherits Window {
                 selected: root.tab == 3;
                 clicked => { root.tab = 3; scroll.content-y = 0; }
             }
+            NavItem {
+                icon: Icons.widget;
+                label: @tr("Widget");
+                selected: root.tab == 4;
+                clicked => { root.tab = 4; scroll.content-y = 0; }
+            }
             NavGroup { text: @tr("Readings"); }
             NavItem {
                 icon: Icons.sensor;
                 label: @tr("Sensors");
-                selected: root.tab == 4;
-                clicked => { root.tab = 4; scroll.content-y = 0; }
+                selected: root.tab == 5;
+                clicked => { root.tab = 5; scroll.content-y = 0; }
             }
             NavItem {
                 icon: Icons.drive;
                 label: @tr("Drives and network");
-                selected: root.tab == 5;
-                clicked => { root.tab = 5; scroll.content-y = 0; }
+                selected: root.tab == 6;
+                clicked => { root.tab = 6; scroll.content-y = 0; }
             }
             NavGroup { text: @tr("App"); }
             NavItem {
                 icon: Icons.settings;
                 label: @tr("General");
-                selected: root.tab == 6;
-                clicked => { root.tab = 6; scroll.content-y = 0; }
+                selected: root.tab == 7;
+                clicked => { root.tab = 7; scroll.content-y = 0; }
             }
             NavItem {
                 icon: Icons.info;
                 label: @tr("About");
-                selected: root.tab == 7;
-                clicked => { root.tab = 7; scroll.content-y = 0; }
+                selected: root.tab == 8;
+                clicked => { root.tab = 8; scroll.content-y = 0; }
             }
             Rectangle { }
         }
@@ -1133,6 +1165,145 @@ export component SettingsWindow inherits Window {
             }
 
             if root.tab == 4: Page {
+                title: @tr("Widget");
+                Text {
+                    text: @tr("A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu.");
+                    color: Palette.foreground.transparentize(0.35);
+                    wrap: word-wrap;
+                }
+                Card {
+                    SettingRow {
+                        title: @tr("Show the widget");
+                        Switch {
+                            checked <=> root.widget-enabled;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Placement");
+                        description: @tr("On the desktop stays behind your windows and comes forward when you show the desktop.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("On the desktop"), @tr("Always on top")];
+                            current-index <=> root.widget-layer;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Lock position");
+                        Switch {
+                            checked <=> root.widget-lock;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Click-through while locked");
+                        description: @tr("Clicks go to whatever is underneath. Unlock it from the tray icon's menu.");
+                        Switch {
+                            enabled: root.widget-lock;
+                            checked <=> root.widget-click-through;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Hide in fullscreen");
+                        description: @tr("While a fullscreen app is on the widget's monitor.");
+                        Switch {
+                            checked <=> root.widget-hide-in-fullscreen;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Look"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Style");
+                        description: @tr("Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Sparklines"), @tr("Tiles"), @tr("Meters")];
+                            current-index <=> root.widget-style;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Detail");
+                        description: root.widget-style == 1 ? @tr("Tiles show the value and graph only.") : @tr("How much each item shows. Colours follow the theme.");
+                        ComboBox {
+                            width: 200px;
+                            model: root.popup-details;
+                            current-index <=> root.widget-detail;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Width");
+                        description: @tr("Pixels at 100 % scaling.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 220;
+                            maximum: 600;
+                            step-size: 20;
+                            value <=> root.widget-width;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Background opacity");
+                        description: "\{Math.round(root.widget-opacity)}%";
+                        Slider {
+                            width: 200px;
+                            minimum: 0;
+                            maximum: 100;
+                            value <=> root.widget-opacity;
+                            changed => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Items"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Choose items");
+                        description: @tr("Off shows the same items as the taskbar.");
+                        Switch {
+                            checked <=> root.widget-own-items;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    for row[i] in root.widget-items: VerticalLayout {
+                        Divider { }
+                        SettingRow {
+                            title: row.name;
+                            ComboBox {
+                                width: 150px;
+                                model: root.widget-item-styles;
+                                current-index: row.style;
+                                selected => { root.widget-item-choice(i, 0, self.current-index); }
+                            }
+                            ComboBox {
+                                width: 150px;
+                                model: root.widget-item-details;
+                                current-index: row.detail;
+                                selected => { root.widget-item-choice(i, 1, self.current-index); }
+                            }
+                            Switch {
+                                enabled: root.widget-own-items;
+                                checked: row.checked;
+                                toggled => { root.widget-item-toggled(i, self.checked); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 5: Page {
                 title: @tr("Sensors");
                 SectionTitle { text: @tr("Temperatures and power"); }
                 Card {
@@ -1159,7 +1330,7 @@ export component SettingsWindow inherits Window {
                 }
             }
 
-            if root.tab == 5: Page {
+            if root.tab == 6: Page {
                 title: @tr("Drives and network");
                 SectionTitle { text: @tr("Disk"); }
                 Card {
@@ -1259,7 +1430,7 @@ export component SettingsWindow inherits Window {
                 }
             }
 
-            if root.tab == 6: Page {
+            if root.tab == 7: Page {
                 title: @tr("General");
                 Card {
                     SettingRow {
@@ -1353,7 +1524,7 @@ export component SettingsWindow inherits Window {
                 }
             }
 
-            if root.tab == 7: Page {
+            if root.tab == 8: Page {
                 title: @tr("About");
                 Card {
                     HorizontalLayout {

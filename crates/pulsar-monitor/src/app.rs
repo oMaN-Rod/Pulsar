@@ -20,11 +20,12 @@ use windows::Win32::UI::Shell::{
     NIN_SELECT, SHAppBarMessage,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos, GetMessageW,
-    GetSystemMetrics, KillTimer, MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW,
-    RegisterWindowMessageW, SM_CXDRAG, SetTimer, TranslateMessage, WM_CAPTURECHANGED,
-    WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE,
-    WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
+    GetForegroundWindow, GetMessageW, GetSystemMetrics, KillTimer, MA_NOACTIVATE, MSG,
+    PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SM_CXDRAG, SetTimer, TranslateMessage,
+    WM_CAPTURECHANGED, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETCURSOR, WM_SETTINGCHANGE, WM_TIMER,
+    WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
@@ -52,6 +53,7 @@ use crate::text::Text;
 use crate::theme::Palette;
 use crate::tray::Tray;
 use crate::update;
+use crate::widget::{self, Widget};
 
 const TIMER_WATCH: usize = 1;
 const TIMER_VALIDATE: usize = 2;
@@ -147,6 +149,9 @@ pub struct App {
     details: Option<Details>,
     /// Physical drive names, read when a drive temperature popup first opens.
     disk_names: Option<Vec<(u8, String)>>,
+    widget: Widget,
+    /// The widget being moved with the mouse.
+    widget_drag: Option<Drag>,
 }
 
 impl App {
@@ -197,6 +202,8 @@ impl App {
             update_check: None,
             details: None,
             disk_names: None,
+            widget: Widget::create(instance)?,
+            widget_drag: None,
         })
     }
 
@@ -263,6 +270,7 @@ impl App {
         if popup_orphaned(self.popup_owner.map(key), &shown) {
             self.close_popup();
         }
+        self.show_widget();
     }
 
     fn install_hooks(&mut self) {
@@ -444,6 +452,111 @@ impl App {
                 self.overlays[i].hide();
             }
         }
+        self.show_widget();
+    }
+
+    /// Draws the widget, or hides it when it is off, empty, or covered by a
+    /// fullscreen app on its monitor.
+    fn show_widget(&mut self) {
+        let w = &self.config.widget;
+        let items = self.config.widget_items();
+        if items.is_empty() {
+            self.widget.hide();
+            return;
+        }
+        let saved = w.position.map(|[x, y]| (x, y));
+        let probe = self.widget.shown_at.or(saved).unwrap_or((0, 0));
+        let (monitor, work) = taskbar::monitor_near(probe.0, probe.1);
+        if w.hide_in_fullscreen && *self.fullscreen.current() == Some(monitor) {
+            self.widget.hide();
+            return;
+        }
+        let dragging = self.widget_drag.as_ref().is_some_and(Drag::moved);
+        let current = self.widget.shown_at;
+        let dpi = self.widget.dpi();
+        let scale = dpi as f32 / 96.0;
+        let look = widget::Look {
+            column_w: f32::from(w.width) * scale,
+            max_h: work.height() as f32 - 2.0 * widget::EDGE_GAP * scale,
+            font_px: self.config.display.font_size_pt * dpi as f32 / 72.0,
+            opacity: f32::from(w.opacity) / 100.0,
+            scale,
+        };
+        let contents: Vec<_> = items
+            .into_iter()
+            .map(|kind| {
+                let mut options = PopupOptions::new(&self.config, kind);
+                options.detail = self.config.widget_detail(kind);
+                options.processes = 0;
+                options.graph = true;
+                options.disk_names = self.disk_names.as_deref().unwrap_or_default();
+                let content =
+                    popup::content::build_with(kind, &self.latest, &self.history, &options);
+                (content, self.config.widget_style(kind))
+            })
+            .collect();
+        let drawn = self.widget.draw(
+            &mut self.renderer,
+            &self.text,
+            &contents,
+            &self.latest,
+            &self.palette,
+            &self.history,
+            &look,
+            |width, height| match current {
+                Some(at) if dragging => at,
+                _ => widget::place(saved, (width, height), work, scale),
+            },
+        );
+        if let Err(e) = drawn {
+            log::warn!("could not draw the widget: {e}");
+            self.widget.hide();
+            return;
+        }
+        let w = &self.config.widget;
+        self.widget
+            .set_click_through(w.lock_position && w.click_through);
+        self.widget
+            .arrange(w.layer, unsafe { GetForegroundWindow() });
+    }
+
+    fn on_widget_button_down(&mut self) {
+        if self.config.widget.lock_position {
+            return;
+        }
+        if let Some(pos) = self.widget.shown_at {
+            self.widget_drag = Some(Drag::new(cursor(), pos));
+            unsafe { SetCapture(self.widget.hwnd) };
+        }
+    }
+
+    fn on_widget_drag_move(&mut self) {
+        let Some(drag) = self.widget_drag.as_mut() else {
+            return;
+        };
+        let threshold = unsafe { GetSystemMetrics(SM_CXDRAG) };
+        let at = cursor();
+        if let Some(to) = drag.to(at, threshold) {
+            let (_, work) = taskbar::monitor_near(at.0, at.1);
+            let scale = self.widget.dpi() as f32 / 96.0;
+            let (x, y) = widget::snap(to, self.widget.size(), work, scale);
+            let _ = self.widget.move_to(&self.renderer, x, y);
+        }
+    }
+
+    fn on_widget_button_up(&mut self) {
+        let Some(drag) = self.widget_drag.take() else {
+            return;
+        };
+        unsafe {
+            let _ = ReleaseCapture();
+        }
+        if drag.moved()
+            && let Some((x, y)) = self.widget.shown_at
+        {
+            // Redraws it too, at the new monitor's DPI.
+            self.change_config(|c| c.widget.position = Some([x, y]));
+        }
     }
 
     fn on_snapshot(&mut self) {
@@ -473,6 +586,9 @@ impl App {
     }
 
     fn hit(&self, overlay: HWND, x: i32, y: i32) -> Option<ItemKind> {
+        if overlay == self.widget.hwnd {
+            return self.widget.hit(x, y);
+        }
         let o = self.overlays.iter().find(|o| o.hwnd == overlay)?;
         o.layout.hit_test(x as f32, y as f32)
     }
@@ -705,6 +821,8 @@ impl App {
                 o.raise();
             }
         }
+        self.widget
+            .arrange(self.config.widget.layer, unsafe { GetForegroundWindow() });
     }
 
     fn on_timer(&mut self, id: usize) {
@@ -789,6 +907,7 @@ impl App {
     fn on_taskbar_created(&mut self) {
         log::info!("taskbar re-created; attaching again");
         self.tray.restore();
+        self.widget.rearrange();
         self.retry_step = 0;
         self.refresh();
         self.schedule_retry();
@@ -922,14 +1041,21 @@ fn translucent_popups(config: &Config) -> bool {
 
 /// `item` is the overlay item that was right-clicked, if any.
 fn context_menu(x: i32, y: i32, item: Option<(HWND, i32, i32)>) {
-    let Some((host, config, kind, dark)) = with_app(|a| {
+    let Some((host, config, kind, on_widget, dark)) = with_app(|a| {
         a.close_popup();
         let kind = item.and_then(|(overlay, x, y)| a.hit(overlay, x, y));
-        (a.host, a.config.clone(), kind, !a.palette.light())
+        let on_widget = item.is_some_and(|(hwnd, ..)| hwnd == a.widget.hwnd);
+        (
+            a.host,
+            a.config.clone(),
+            kind,
+            on_widget,
+            !a.palette.light(),
+        )
     }) else {
         return;
     };
-    if let Some(command) = menu::show(host, x, y, &config, kind, dark) {
+    if let Some(command) = menu::show(host, x, y, &config, kind, on_widget, dark) {
         with_app(|a| a.apply(command));
     }
 }
@@ -1093,6 +1219,42 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
     }
 }
 
+unsafe extern "system" fn widget_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+    match msg {
+        WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+        WM_SETCURSOR if with_app(|a| a.config.widget.lock_position) == Some(false) => {
+            widget::drag_cursor();
+            LRESULT(1)
+        }
+        WM_LBUTTONDOWN => {
+            with_app(App::on_widget_button_down);
+            LRESULT(0)
+        }
+        WM_MOUSEMOVE => {
+            with_app(App::on_widget_drag_move);
+            LRESULT(0)
+        }
+        WM_LBUTTONUP => {
+            with_app(App::on_widget_button_up);
+            LRESULT(0)
+        }
+        WM_CAPTURECHANGED => {
+            with_app(|a| a.widget_drag = None);
+            LRESULT(0)
+        }
+        WM_RBUTTONUP => {
+            let mut pt = POINT::default();
+            unsafe {
+                let _ = GetCursorPos(&mut pt);
+            }
+            let (x, y) = signed_words(lp.0 as usize);
+            context_menu(pt.x, pt.y, Some((hwnd, x, y)));
+            LRESULT(0)
+        }
+        _ => unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
+    }
+}
+
 pub fn run() -> Result<()> {
     let instance: HINSTANCE = unsafe { GetModuleHandleW(None)? }.into();
     let host_class = HSTRING::from(ipc::HOST_CLASS);
@@ -1107,6 +1269,7 @@ pub fn run() -> Result<()> {
         CONFIG_CHANGED.set(RegisterWindowMessageW(&HSTRING::from(ipc::CONFIG_CHANGED)));
     }
     overlay::register_class(instance, Some(overlay_proc));
+    widget::register_class(instance, Some(widget_proc));
 
     // A hidden top-level window: message-only windows miss the
     // TaskbarCreated and WM_SETTINGCHANGE broadcasts.

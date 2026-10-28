@@ -1,6 +1,6 @@
 use pulsar_core::config::{
     ColorMode, Config, DisplayMode, GraphStyle, LabelStyle, MAX_POPUP_PROCESSES, PopupBackground,
-    PopupDetail, Position, RateUnit, TemperatureUnit,
+    PopupDetail, Position, RateUnit, TemperatureUnit, WidgetStyle,
 };
 use pulsar_core::metric::ItemKind;
 use pulsar_core::tr;
@@ -15,7 +15,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::{HSTRING, PCSTR, PCWSTR, w};
 
 use crate::names::{
-    COLOR_MODES, DETAILS, STYLES, color_mode_name, detail_name, item_name, style_name,
+    COLOR_MODES, DETAILS, STYLES, WIDGET_STYLES, color_mode_name, detail_name, item_name,
+    style_name, widget_style_name,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +39,8 @@ pub enum Toggle {
     HideInFullscreen,
     Floating,
     LockPosition,
+    Widget,
+    WidgetLock,
 }
 
 /// A settings change made from the menu.
@@ -62,6 +65,10 @@ pub enum ItemEdit {
     Color(ColorMode),
     /// `None` follows the popup setting for every item.
     Popup(Option<PopupDetail>),
+    /// `None` follows the widget's style.
+    WidgetStyle(Option<WidgetStyle>),
+    /// `None` follows the widget's detail.
+    WidgetDetail(Option<PopupDetail>),
     Move {
         earlier: bool,
     },
@@ -69,7 +76,11 @@ pub enum ItemEdit {
 }
 
 pub fn apply_toggle(c: &mut Config, t: Toggle) {
-    let d = &mut c.display;
+    let Config {
+        display: d,
+        widget: w,
+        ..
+    } = c;
     match t {
         Toggle::ShortLabels => {
             d.labels = if d.labels == LabelStyle::Short {
@@ -94,6 +105,8 @@ pub fn apply_toggle(c: &mut Config, t: Toggle) {
             }
         }
         Toggle::LockPosition => d.lock_position = !d.lock_position,
+        Toggle::Widget => w.enabled = !w.enabled,
+        Toggle::WidgetLock => w.lock_position = !w.lock_position,
     }
 }
 
@@ -130,6 +143,8 @@ pub fn apply_edit(c: &mut Config, e: Edit) {
                 ItemEdit::Style(None) => item.graph = false,
                 ItemEdit::Color(mode) => item.color_mode = mode,
                 ItemEdit::Popup(detail) => item.popup = detail,
+                ItemEdit::WidgetStyle(style) => item.widget_style = style,
+                ItemEdit::WidgetDetail(detail) => item.widget_detail = detail,
                 ItemEdit::Hide => item.enabled = false,
                 ItemEdit::Move { .. } => {}
             }
@@ -150,6 +165,8 @@ const ID_FLOATING: usize = 10;
 const ID_LOCK: usize = 11;
 const ID_ICONS: usize = 12;
 const ID_DETAILS: usize = 13;
+const ID_WIDGET: usize = 14;
+const ID_WIDGET_LOCK: usize = 15;
 /// Plus the index into `DETAILS`.
 const ID_POPUP_DETAIL: usize = 20;
 const ID_POPUP_GRAPH: usize = 25;
@@ -176,6 +193,10 @@ const ITEM_POPUP: usize = 13;
 const ITEM_EARLIER: usize = 20;
 const ITEM_LATER: usize = 21;
 const ITEM_HIDE: usize = 22;
+const ITEM_WIDGET_STYLE_DEFAULT: usize = 23;
+const ITEM_WIDGET_STYLE: usize = 24;
+const ITEM_WIDGET_DETAIL_DEFAULT: usize = 27;
+const ITEM_WIDGET_DETAIL: usize = 28;
 
 const PROCESS_COUNTS: [u8; 6] = [0, 3, 5, 8, 10, 15];
 const INTERVALS_MS: [u32; 4] = [500, 1000, 2000, 5000];
@@ -207,6 +228,14 @@ fn item_command(id: usize) -> Option<Command> {
         ITEM_EARLIER => ItemEdit::Move { earlier: true },
         ITEM_LATER => ItemEdit::Move { earlier: false },
         ITEM_HIDE => ItemEdit::Hide,
+        ITEM_WIDGET_STYLE_DEFAULT => ItemEdit::WidgetStyle(None),
+        o if (ITEM_WIDGET_STYLE..ITEM_WIDGET_STYLE + WIDGET_STYLES.len()).contains(&o) => {
+            ItemEdit::WidgetStyle(Some(WIDGET_STYLES[o - ITEM_WIDGET_STYLE]))
+        }
+        ITEM_WIDGET_DETAIL_DEFAULT => ItemEdit::WidgetDetail(None),
+        o if (ITEM_WIDGET_DETAIL..ITEM_WIDGET_DETAIL + DETAILS.len()).contains(&o) => {
+            ItemEdit::WidgetDetail(Some(DETAILS[o - ITEM_WIDGET_DETAIL]))
+        }
         _ => return None,
     };
     Some(Command::Edit(Edit::Item(kind, edit)))
@@ -226,6 +255,8 @@ pub fn command_for(id: usize) -> Option<Command> {
         ID_HIDE_FULLSCREEN => Some(Command::Toggle(Toggle::HideInFullscreen)),
         ID_FLOATING => Some(Command::Toggle(Toggle::Floating)),
         ID_LOCK => Some(Command::Toggle(Toggle::LockPosition)),
+        ID_WIDGET => Some(Command::Toggle(Toggle::Widget)),
+        ID_WIDGET_LOCK => Some(Command::Toggle(Toggle::WidgetLock)),
         ID_ICONS => Some(Command::Toggle(Toggle::Icons)),
         ID_TASK_MANAGER => Some(Command::TaskManager),
         ID_EXIT => Some(Command::Exit),
@@ -328,6 +359,9 @@ fn item_menu(config: &Config, kind: ItemKind) -> Option<Menu> {
         popup.item(id, detail_name(detail), item.popup == Some(detail), true);
     }
     menu.submenu(popup, tr!("Popup detail"));
+    if config.widget.enabled {
+        menu.submenu(widget_item_menu(config, kind)?, tr!("On the widget"));
+    }
     menu.separator();
     let enabled = config.enabled_items();
     let at = enabled.iter().position(|&k| k == kind);
@@ -346,6 +380,44 @@ fn item_menu(config: &Config, kind: ItemKind) -> Option<Menu> {
         !last,
     );
     menu.item(item_id(kind, ITEM_HIDE), tr!("Hide"), false, true);
+    Some(menu)
+}
+
+/// The item's style and detail on the widget.
+fn widget_item_menu(config: &Config, kind: ItemKind) -> Option<Menu> {
+    let item = config.item(kind)?;
+    let menu = Menu::new()?;
+    let same = tr!(
+        "Same as the widget ({})",
+        widget_style_name(config.widget.style)
+    );
+    menu.item(
+        item_id(kind, ITEM_WIDGET_STYLE_DEFAULT),
+        &same,
+        item.widget_style.is_none(),
+        true,
+    );
+    for (i, style) in WIDGET_STYLES.into_iter().enumerate() {
+        let id = item_id(kind, ITEM_WIDGET_STYLE + i);
+        let checked = item.widget_style == Some(style);
+        menu.item(id, widget_style_name(style), checked, true);
+    }
+    menu.separator();
+    let same = tr!(
+        "Same detail as the widget ({})",
+        detail_name(config.widget.detail)
+    );
+    menu.item(
+        item_id(kind, ITEM_WIDGET_DETAIL_DEFAULT),
+        &same,
+        item.widget_detail.is_none(),
+        true,
+    );
+    for (i, detail) in DETAILS.into_iter().enumerate() {
+        let id = item_id(kind, ITEM_WIDGET_DETAIL + i);
+        let checked = item.widget_detail == Some(detail);
+        menu.item(id, detail_name(detail), checked, true);
+    }
     Some(menu)
 }
 
@@ -449,22 +521,30 @@ fn match_theme(dark: bool) {
     }
 }
 
-/// `dark` draws the menu dark, to match a dark taskbar.
+/// `dark` draws the menu dark, to match a dark taskbar. `on_widget`: the
+/// item was right-clicked on the widget, so its submenu is the widget's.
+#[allow(clippy::too_many_arguments)]
 pub fn show(
     owner: HWND,
     x: i32,
     y: i32,
     config: &Config,
     item: Option<ItemKind>,
+    on_widget: bool,
     dark: bool,
 ) -> Option<Command> {
     match_theme(dark);
     let menu = Menu::new()?;
     let display = &config.display;
     let floating = display.position == Position::Floating;
-    if let Some(kind) = item
-        && let Some(sub) = item_menu(config, kind)
-    {
+    let sub = item.and_then(|kind| {
+        if on_widget {
+            widget_item_menu(config, kind)
+        } else {
+            item_menu(config, kind)
+        }
+    });
+    if let (Some(kind), Some(sub)) = (item, sub) {
         menu.submenu(sub, item_name(kind));
         menu.separator();
     }
@@ -508,6 +588,18 @@ pub fn show(
         tr!("Lock position"),
         display.lock_position,
         floating,
+    );
+    menu.item(
+        ID_WIDGET,
+        tr!("Desktop widget"),
+        config.widget.enabled,
+        true,
+    );
+    menu.item(
+        ID_WIDGET_LOCK,
+        tr!("Lock widget"),
+        config.widget.lock_position,
+        config.widget.enabled,
     );
     menu.separator();
     menu.item(ID_SETTINGS, tr!("Settings…"), false, true);
@@ -572,6 +664,63 @@ mod tests {
             command_for(ID_LOCK),
             Some(Command::Toggle(Toggle::LockPosition))
         );
+        assert_eq!(
+            command_for(ID_WIDGET),
+            Some(Command::Toggle(Toggle::Widget))
+        );
+        assert_eq!(
+            command_for(ID_WIDGET_LOCK),
+            Some(Command::Toggle(Toggle::WidgetLock))
+        );
+    }
+
+    #[test]
+    fn widget_item_commands_round_trip_through_their_ids() {
+        for kind in ItemKind::ALL {
+            assert_eq!(
+                item_command(item_id(kind, ITEM_WIDGET_STYLE_DEFAULT)),
+                Some(Command::Edit(Edit::Item(kind, ItemEdit::WidgetStyle(None))))
+            );
+            for (i, style) in WIDGET_STYLES.into_iter().enumerate() {
+                assert_eq!(
+                    item_command(item_id(kind, ITEM_WIDGET_STYLE + i)),
+                    Some(Command::Edit(Edit::Item(
+                        kind,
+                        ItemEdit::WidgetStyle(Some(style))
+                    )))
+                );
+            }
+            for (i, detail) in DETAILS.into_iter().enumerate() {
+                assert_eq!(
+                    item_command(item_id(kind, ITEM_WIDGET_DETAIL + i)),
+                    Some(Command::Edit(Edit::Item(
+                        kind,
+                        ItemEdit::WidgetDetail(Some(detail))
+                    )))
+                );
+            }
+        }
+        assert!(ITEM_WIDGET_DETAIL + DETAILS.len() <= ITEM_IDS);
+        let mut c = Config::default();
+        apply_edit(
+            &mut c,
+            Edit::Item(
+                ItemKind::Cpu,
+                ItemEdit::WidgetStyle(Some(WidgetStyle::Tiles)),
+            ),
+        );
+        assert_eq!(c.widget_style(ItemKind::Cpu), WidgetStyle::Tiles);
+    }
+
+    #[test]
+    fn widget_toggles_change_only_the_widget() {
+        let mut c = Config::default();
+        apply_toggle(&mut c, Toggle::Widget);
+        apply_toggle(&mut c, Toggle::WidgetLock);
+        assert!(c.widget.enabled && c.widget.lock_position);
+        assert!(!c.display.lock_position);
+        apply_toggle(&mut c, Toggle::Widget);
+        assert!(!c.widget.enabled);
     }
 
     #[test]
@@ -611,7 +760,8 @@ mod tests {
                 Some(Command::Edit(Edit::ShowItem(kind)))
             );
         }
-        assert_eq!(command_for(item_id(ItemKind::Cpu, ITEM_HIDE + 1)), None);
+        let unused = ITEM_WIDGET_DETAIL + DETAILS.len();
+        assert_eq!(command_for(item_id(ItemKind::Cpu, unused)), None);
         assert!(STYLES.len() <= ITEM_COLOR && ITEM_POPUP + DETAILS.len() <= ITEM_EARLIER);
         assert!(ID_SHOW_ITEM + ItemKind::ALL.len() <= ID_ITEM);
     }

@@ -739,6 +739,10 @@ msgid "Popup detail"
 msgstr ""
 
 #: src/menu.rs
+msgid "On the widget"
+msgstr ""
+
+#: src/menu.rs
 msgid "Swap with item on the left"
 msgstr ""
 
@@ -748,6 +752,14 @@ msgstr ""
 
 #: src/menu.rs
 msgid "Hide"
+msgstr ""
+
+#: src/menu.rs
+msgid "Same as the widget ({})"
+msgstr ""
+
+#: src/menu.rs
+msgid "Same detail as the widget ({})"
 msgstr ""
 
 #: src/menu.rs ui/settings.slint
@@ -839,6 +851,14 @@ msgid "Lock position"
 msgstr ""
 
 #: src/menu.rs
+msgid "Desktop widget"
+msgstr ""
+
+#: src/menu.rs
+msgid "Lock widget"
+msgstr ""
+
+#: src/menu.rs
 msgid "Settings…"
 msgstr ""
 
@@ -904,6 +924,18 @@ msgstr ""
 
 #: src/names.rs
 msgid "Colour by load"
+msgstr ""
+
+#: src/names.rs
+msgid "Sparkline"
+msgstr ""
+
+#: src/names.rs
+msgid "Tile"
+msgstr ""
+
+#: src/names.rs
+msgid "Meter"
 msgstr ""
 
 #: src/names.rs
@@ -1119,6 +1151,14 @@ msgid "Same as other items"
 msgstr ""
 
 #: src/settings/main.rs
+msgid "Widget style"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Widget detail"
+msgstr ""
+
+#: src/settings/main.rs
 msgid "Windows default ({})"
 msgstr ""
 
@@ -1248,6 +1288,10 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Theme"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Widget"
 msgstr ""
 
 #: ui/settings.slint
@@ -1548,6 +1592,90 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
+msgstr ""
+
+#: ui/settings.slint
+msgid "A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show the widget"
+msgstr ""
+
+#: ui/settings.slint
+msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
+msgstr ""
+
+#: ui/settings.slint
+msgid "On the desktop"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Always on top"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Click-through while locked"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Clicks go to whatever is underneath. Unlock it from the tray icon's menu."
+msgstr ""
+
+#: ui/settings.slint
+msgid "While a fullscreen app is on the widget's monitor."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Look"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Style"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Sparklines"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Tiles"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Meters"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Tiles show the value and graph only."
+msgstr ""
+
+#: ui/settings.slint
+msgid "How much each item shows. Colours follow the theme."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Width"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Background opacity"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Choose items"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Off shows the same items as the taskbar."
 msgstr ""
 
 #: ui/settings.slint

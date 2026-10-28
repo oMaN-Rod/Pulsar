@@ -19,6 +19,7 @@ mod text;
 mod theme;
 mod tray;
 mod update;
+mod widget;
 
 use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
 use windows::Win32::UI::HiDpi::{

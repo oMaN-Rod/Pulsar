@@ -62,7 +62,7 @@ impl Sampler {
 
     pub fn from_config(config: &Config) -> Self {
         let mut enabled: Vec<ItemKind> = Vec::new();
-        for kind in config.enabled_items().into_iter().map(sources_of) {
+        for kind in config.sampled_items().into_iter().map(sources_of) {
             if !enabled.contains(&kind) {
                 enabled.push(kind);
             }
@@ -75,10 +75,10 @@ impl Sampler {
         // there, but only the sensor items need it.
         let sensors_required = [ItemKind::CpuTemp, ItemKind::CpuPower, ItemKind::ChipsetTemp]
             .into_iter()
-            .any(|kind| config.is_enabled(kind));
+            .any(|kind| config.is_sampled(kind));
         let sensors_shown = [ItemKind::Cpu, ItemKind::Gpu, ItemKind::GpuTemp]
             .into_iter()
-            .any(|kind| config.is_enabled(kind));
+            .any(|kind| config.is_sampled(kind));
         let sensors = sensors_required || sensors_shown;
         if sensors {
             sources.push(Box::new(SensorServiceSource {
@@ -86,7 +86,7 @@ impl Sampler {
             }));
         }
         // The GPU popup shows the sensors too, so either item needs them.
-        let gpu_sensors = config.is_enabled(ItemKind::Gpu) || config.is_enabled(ItemKind::GpuTemp);
+        let gpu_sensors = config.is_sampled(ItemKind::Gpu) || config.is_sampled(ItemKind::GpuTemp);
         if gpu_sensors {
             sources.push(gpu_sensors_source());
         }

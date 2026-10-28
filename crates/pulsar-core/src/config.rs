@@ -98,6 +98,72 @@ pub struct PopupConfig {
 
 pub const MAX_POPUP_PROCESSES: u8 = 15;
 
+/// Where the desktop widget sits among other windows.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WidgetLayer {
+    /// On the desktop, behind every window.
+    #[default]
+    Desktop,
+    OnTop,
+}
+
+/// How the widget draws each item.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WidgetStyle {
+    /// A line per item with a small graph between name and value.
+    #[default]
+    Sparklines,
+    /// A grid of small tiles with a graph behind each value.
+    Tiles,
+    /// A bar showing the current value, with no history.
+    Meters,
+}
+
+/// A panel on the desktop with a section per item, like an always-open popup.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct WidgetConfig {
+    pub enabled: bool,
+    pub layer: WidgetLayer,
+    pub style: WidgetStyle,
+    pub lock_position: bool,
+    /// While locked, clicks go to whatever is underneath.
+    pub click_through: bool,
+    /// Empty shows the taskbar's items.
+    pub items: Vec<ItemKind>,
+    pub detail: PopupDetail,
+    /// Logical pixels.
+    pub width: u16,
+    /// Background opacity, 0–100.
+    pub opacity: u8,
+    pub hide_in_fullscreen: bool,
+    /// Top-left corner in physical screen pixels; `None` is the top right
+    /// of the primary monitor.
+    pub position: Option<[i32; 2]>,
+}
+
+pub const WIDGET_WIDTHS: std::ops::RangeInclusive<u16> = 220..=600;
+
+impl Default for WidgetConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            layer: WidgetLayer::default(),
+            style: WidgetStyle::default(),
+            lock_position: false,
+            click_through: false,
+            items: Vec::new(),
+            detail: PopupDetail::Simple,
+            width: 280,
+            opacity: 90,
+            hide_in_fullscreen: true,
+            position: None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Position {
@@ -118,6 +184,7 @@ pub struct Config {
     pub network: NetworkConfig,
     pub units: Units,
     pub popup: PopupConfig,
+    pub widget: WidgetConfig,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -231,6 +298,12 @@ pub struct ItemConfig {
     /// `None` uses `PopupConfig::detail`.
     #[serde(default)]
     pub popup: Option<PopupDetail>,
+    /// On the widget; `None` uses `WidgetConfig::style`.
+    #[serde(default)]
+    pub widget_style: Option<WidgetStyle>,
+    /// On the widget; `None` uses `WidgetConfig::detail`.
+    #[serde(default)]
+    pub widget_detail: Option<PopupDetail>,
 }
 
 impl ItemConfig {
@@ -243,6 +316,8 @@ impl ItemConfig {
             style: GraphStyle::Area,
             color_mode: ColorMode::Item,
             popup: None,
+            widget_style: None,
+            widget_detail: None,
         }
     }
 }
@@ -283,6 +358,7 @@ impl Default for Config {
             network: NetworkConfig::default(),
             units: Units::default(),
             popup: PopupConfig::default(),
+            widget: WidgetConfig::default(),
         }
     }
 }
@@ -395,6 +471,16 @@ impl Config {
                 *color = None;
             }
         }
+        let w = &mut self.widget;
+        w.width = w.width.clamp(*WIDGET_WIDTHS.start(), *WIDGET_WIDTHS.end());
+        w.opacity = w.opacity.min(100);
+        let mut seen = Vec::new();
+        w.items.retain(|k| {
+            let new = !seen.contains(k);
+            seen.push(*k);
+            new
+        });
+        let d = &mut self.display;
         if d.labels == LabelStyle::None {
             d.icons = true;
         }
@@ -465,6 +551,37 @@ impl Config {
         self.items.iter().any(|i| i.kind == kind && i.enabled)
     }
 
+    /// The widget's items in the taskbar's order; none while it is off.
+    pub fn widget_items(&self) -> Vec<ItemKind> {
+        let w = &self.widget;
+        if !w.enabled {
+            return Vec::new();
+        }
+        if w.items.is_empty() {
+            return self.enabled_items();
+        }
+        self.items
+            .iter()
+            .map(|i| i.kind)
+            .filter(|k| w.items.contains(k))
+            .collect()
+    }
+
+    /// Items the sampler reads: those on the taskbar or the widget.
+    pub fn sampled_items(&self) -> Vec<ItemKind> {
+        let mut all = self.enabled_items();
+        for kind in self.widget_items() {
+            if !all.contains(&kind) {
+                all.push(kind);
+            }
+        }
+        all
+    }
+
+    pub fn is_sampled(&self, kind: ItemKind) -> bool {
+        self.is_enabled(kind) || self.widget_items().contains(&kind)
+    }
+
     /// Items whose graph tile shows text only.
     pub fn text_only_items(&self) -> Vec<ItemKind> {
         self.items
@@ -508,6 +625,20 @@ impl Config {
             .and_then(|i| i.popup)
             .unwrap_or(self.popup.detail)
     }
+
+    /// How `kind` is drawn on the widget.
+    pub fn widget_style(&self, kind: ItemKind) -> WidgetStyle {
+        self.item(kind)
+            .and_then(|i| i.widget_style)
+            .unwrap_or(self.widget.style)
+    }
+
+    /// How much `kind` shows on the widget.
+    pub fn widget_detail(&self, kind: ItemKind) -> PopupDetail {
+        self.item(kind)
+            .and_then(|i| i.widget_detail)
+            .unwrap_or(self.widget.detail)
+    }
 }
 
 fn is_hex_color(s: &str) -> bool {
@@ -517,11 +648,11 @@ fn is_hex_color(s: &str) -> bool {
 /// Whether moving from `old` to `new` needs a new sampler: the set of
 /// sources or the interval changed, or the ping target changed while ping is on.
 pub fn sampling_changed(old: &Config, new: &Config) -> bool {
-    let mut a = old.enabled_items();
-    let mut b = new.enabled_items();
+    let mut a = old.sampled_items();
+    let mut b = new.sampled_items();
     a.sort_by_key(|k| *k as u8);
     b.sort_by_key(|k| *k as u8);
-    let pinging = new.is_enabled(ItemKind::Ping);
+    let pinging = new.is_sampled(ItemKind::Ping);
     a != b
         || old.general.sample_interval_ms != new.general.sample_interval_ms
         || old.network.adapter != new.network.adapter
@@ -948,6 +1079,51 @@ panel_opacity = 60
         assert_eq!(c.disk.drives, ["C", "D"]);
         assert_eq!(c.drive_letters(), [b'C', b'D']);
         assert_eq!(c.network.adapter, None);
+    }
+
+    #[test]
+    fn widget_items_follow_the_taskbar_unless_chosen() {
+        let mut c = Config::default();
+        assert!(c.widget_items().is_empty(), "off by default");
+        c.widget.enabled = true;
+        assert_eq!(c.widget_items(), c.enabled_items());
+        c.widget.items = vec![ItemKind::Ping, ItemKind::Cpu];
+        assert_eq!(
+            c.widget_items(),
+            [ItemKind::Cpu, ItemKind::Ping],
+            "in the taskbar's order"
+        );
+        assert!(c.is_sampled(ItemKind::Ping) && !c.is_enabled(ItemKind::Ping));
+        assert!(c.sampled_items().contains(&ItemKind::Ping));
+        let mut off = c.clone();
+        off.widget.enabled = false;
+        assert!(sampling_changed(&off, &c), "the widget's items are sampled");
+    }
+
+    #[test]
+    fn items_can_override_the_widget_style_and_detail() {
+        let mut c = Config::default();
+        c.widget.style = WidgetStyle::Meters;
+        c.widget.detail = PopupDetail::Standard;
+        let cpu = c.item_mut(ItemKind::Cpu).unwrap();
+        cpu.widget_style = Some(WidgetStyle::Tiles);
+        cpu.widget_detail = Some(PopupDetail::Detailed);
+        assert_eq!(c.widget_style(ItemKind::Cpu), WidgetStyle::Tiles);
+        assert_eq!(c.widget_detail(ItemKind::Cpu), PopupDetail::Detailed);
+        assert_eq!(c.widget_style(ItemKind::Ram), WidgetStyle::Meters);
+        assert_eq!(c.widget_detail(ItemKind::Ram), PopupDetail::Standard);
+    }
+
+    #[test]
+    fn sanitize_clamps_the_widget() {
+        let mut c = Config::default();
+        c.widget.width = 5;
+        c.widget.opacity = 200;
+        c.widget.items = vec![ItemKind::Cpu, ItemKind::Cpu, ItemKind::Ram];
+        let w = c.sanitize().widget;
+        assert_eq!(w.width, *WIDGET_WIDTHS.start());
+        assert_eq!(w.opacity, 100);
+        assert_eq!(w.items, [ItemKind::Cpu, ItemKind::Ram]);
     }
 
     #[test]
