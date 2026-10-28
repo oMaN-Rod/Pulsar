@@ -62,6 +62,26 @@ msgid "{} closed"
 msgstr "{} 已关闭"
 
 #: src/app.rs
+msgid "Recording saved"
+msgstr "记录已保存"
+
+#: src/app.rs
+msgid "Recording readings"
+msgstr "正在记录读数"
+
+#: src/app.rs
+msgid "Every sample goes to {} until you stop."
+msgstr "每次采样都会写入 {}，直到你停止。"
+
+#: src/app.rs
+msgid "Pulsar could not start recording"
+msgstr "Pulsar 无法开始记录"
+
+#: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr "Pulsar 已停止记录"
+
+#: src/app.rs
 msgid "Pulsar could not open the details window"
 msgstr "Pulsar 无法打开详细信息窗口"
 
@@ -920,6 +940,10 @@ msgstr "锁定小组件"
 #: src/menu.rs
 msgid "Count {} as a game"
 msgstr "将 {} 视为游戏"
+
+#: src/menu.rs
+msgid "Record to CSV"
+msgstr "记录到 CSV"
 
 #: src/menu.rs
 msgid "Settings…"
@@ -1952,6 +1976,10 @@ msgstr "打开或关闭桌面小组件"
 #: ui/settings.slint
 msgid "Open system details"
 msgstr "打开系统详细信息"
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr "开始或停止记录到 CSV"
 
 #: ui/settings.slint
 msgid "Alerts"

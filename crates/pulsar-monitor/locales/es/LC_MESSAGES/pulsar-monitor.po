@@ -61,6 +61,26 @@ msgid "{} closed"
 msgstr "{} cerrado"
 
 #: src/app.rs
+msgid "Recording saved"
+msgstr "Grabación guardada"
+
+#: src/app.rs
+msgid "Recording readings"
+msgstr "Grabando lecturas"
+
+#: src/app.rs
+msgid "Every sample goes to {} until you stop."
+msgstr "Cada muestra se guarda en {} hasta que la detengas."
+
+#: src/app.rs
+msgid "Pulsar could not start recording"
+msgstr "Pulsar no pudo empezar a grabar"
+
+#: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr "Pulsar dejó de grabar"
+
+#: src/app.rs
 msgid "Pulsar could not open the details window"
 msgstr "Pulsar no pudo abrir la ventana de detalles"
 
@@ -919,6 +939,10 @@ msgstr "Bloquear widget"
 #: src/menu.rs
 msgid "Count {} as a game"
 msgstr "Considerar {} un juego"
+
+#: src/menu.rs
+msgid "Record to CSV"
+msgstr "Grabar en CSV"
 
 #: src/menu.rs
 msgid "Settings…"
@@ -1951,6 +1975,10 @@ msgstr "Activar o desactivar el widget de escritorio"
 #: ui/settings.slint
 msgid "Open system details"
 msgstr "Abrir los detalles del sistema"
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr "Iniciar o detener la grabación en CSV"
 
 #: ui/settings.slint
 msgid "Alerts"

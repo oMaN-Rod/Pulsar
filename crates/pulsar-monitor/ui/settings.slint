@@ -587,6 +587,7 @@ export component SettingsWindow inherits Window {
     in property <string> hotkey-show-hide;
     in property <string> hotkey-widget;
     in property <string> hotkey-details;
+    in property <string> hotkey-record;
     // Which shortcut, the key's text, then Ctrl, Alt, Shift and Win.
     callback hotkey-pressed(int, string, bool, bool, bool, bool);
     in property <string> version;
@@ -1590,6 +1591,16 @@ export component SettingsWindow inherits Window {
                             text: root.hotkey-details;
                             pressed(event) => {
                                 root.hotkey-pressed(2, event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Start or stop recording to CSV");
+                        HotkeyField {
+                            text: root.hotkey-record;
+                            pressed(event) => {
+                                root.hotkey-pressed(3, event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
                             }
                         }
                     }

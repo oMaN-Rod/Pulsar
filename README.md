@@ -124,7 +124,11 @@ Pulsar can warn you with a notification when the CPU or GPU stays above a temper
 
 ### Shortcuts
 
-Set keyboard shortcuts in *Settings → General* to show or hide Pulsar, turn the desktop widget on or off, and open the system details window. They work anywhere in Windows and are not set until you choose them.
+Set keyboard shortcuts in *Settings → General* to show or hide Pulsar, turn the desktop widget on or off, open the system details window, and start or stop recording. They work anywhere in Windows and are not set until you choose them.
+
+### Recording
+
+Choose *Record to CSV* from the menu to write every sample to a new file in `Documents\Pulsar`, until you choose it again. Each reading Pulsar is sampling gets a column named for it and its unit, such as `cpu_temp_c` or `net_down_bps`; rates are in bytes per second and sizes in bytes.
 
 ### Make it yours
 
@@ -350,6 +354,7 @@ Pulsar is available in English, Spanish (Español) and Simplified Chinese (简�
 | Settings, applied live | `%APPDATA%\Pulsar\config.toml` |
 | Logs, crash reports and diagnostics | `%LOCALAPPDATA%\Pulsar\logs` |
 | Game sessions | `sessions.csv` in the logs folder |
+| Recordings | `Documents\Pulsar\readings-*.csv` |
 | A settings file that could not be read | backed up as `config.toml.bak`, and defaults are used |
 
 ## Privacy

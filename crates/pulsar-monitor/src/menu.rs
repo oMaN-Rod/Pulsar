@@ -29,6 +29,8 @@ pub enum Command {
     Exit,
     /// Flips whether the app last in front counts as a game.
     ToggleGame,
+    /// Starts or stops writing readings to a CSV file.
+    Record,
     Toggle(Toggle),
     Edit(Edit),
 }
@@ -170,6 +172,7 @@ const ID_DETAILS: usize = 13;
 const ID_WIDGET: usize = 14;
 const ID_WIDGET_LOCK: usize = 15;
 const ID_GAME: usize = 16;
+const ID_RECORD: usize = 17;
 /// Plus the index into `DETAILS`.
 const ID_POPUP_DETAIL: usize = 20;
 const ID_POPUP_GRAPH: usize = 25;
@@ -261,6 +264,7 @@ pub fn command_for(id: usize) -> Option<Command> {
         ID_WIDGET => Some(Command::Toggle(Toggle::Widget)),
         ID_WIDGET_LOCK => Some(Command::Toggle(Toggle::WidgetLock)),
         ID_GAME => Some(Command::ToggleGame),
+        ID_RECORD => Some(Command::Record),
         ID_ICONS => Some(Command::Toggle(Toggle::Icons)),
         ID_TASK_MANAGER => Some(Command::TaskManager),
         ID_EXIT => Some(Command::Exit),
@@ -286,6 +290,14 @@ pub fn command_for(id: usize) -> Option<Command> {
         _ if in_range(ID_ITEM, ItemKind::ALL.len() * ITEM_IDS) => item_command(id),
         _ => None,
     }
+}
+
+/// What the menu shows that is not in the settings.
+#[derive(Clone, Debug, Default)]
+pub struct AppState {
+    /// The app last in front and whether it counts as a game.
+    pub game: Option<(String, bool)>,
+    pub recording: bool,
 }
 
 /// A native popup menu that destroys itself and its submenus when dropped.
@@ -527,7 +539,6 @@ fn match_theme(dark: bool) {
 
 /// `dark` draws the menu dark, to match a dark taskbar. `on_widget`: the
 /// item was right-clicked on the widget, so its submenu is the widget's.
-/// `game`: the app last in front and whether it counts as a game.
 #[allow(clippy::too_many_arguments)]
 pub fn show(
     owner: HWND,
@@ -537,7 +548,7 @@ pub fn show(
     item: Option<ItemKind>,
     on_widget: bool,
     dark: bool,
-    game: Option<(String, bool)>,
+    state: &AppState,
 ) -> Option<Command> {
     match_theme(dark);
     let menu = Menu::new()?;
@@ -607,10 +618,11 @@ pub fn show(
         config.widget.lock_position,
         config.widget.enabled,
     );
-    if let Some((name, is_game)) = game {
-        menu.item(ID_GAME, &tr!("Count {} as a game", name), is_game, true);
+    if let Some((name, is_game)) = &state.game {
+        menu.item(ID_GAME, &tr!("Count {} as a game", name), *is_game, true);
     }
     menu.separator();
+    menu.item(ID_RECORD, tr!("Record to CSV"), state.recording, true);
     menu.item(ID_SETTINGS, tr!("Settings…"), false, true);
     menu.item(ID_TASK_MANAGER, tr!("Open Task Manager"), false, true);
     menu.item(ID_ABOUT, tr!("About Pulsar"), false, true);

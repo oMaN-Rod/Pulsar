@@ -59,6 +59,26 @@ msgid "{} closed"
 msgstr ""
 
 #: src/app.rs
+msgid "Recording saved"
+msgstr ""
+
+#: src/app.rs
+msgid "Recording readings"
+msgstr ""
+
+#: src/app.rs
+msgid "Every sample goes to {} until you stop."
+msgstr ""
+
+#: src/app.rs
+msgid "Pulsar could not start recording"
+msgstr ""
+
+#: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr ""
+
+#: src/app.rs
 msgid "Pulsar could not open the details window"
 msgstr ""
 
@@ -916,6 +936,10 @@ msgstr ""
 
 #: src/menu.rs
 msgid "Count {} as a game"
+msgstr ""
+
+#: src/menu.rs
+msgid "Record to CSV"
 msgstr ""
 
 #: src/menu.rs
@@ -1948,6 +1972,10 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Open system details"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
 msgstr ""
 
 #: ui/settings.slint

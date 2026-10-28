@@ -18,6 +18,7 @@ pub mod metric;
 pub mod paths;
 pub mod pdh;
 pub mod project;
+pub mod recording;
 pub mod sampler;
 pub mod sensors;
 pub mod single_instance;

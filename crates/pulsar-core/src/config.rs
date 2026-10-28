@@ -214,11 +214,12 @@ pub struct HotkeysConfig {
     pub show_hide: Option<String>,
     pub widget: Option<String>,
     pub details: Option<String>,
+    pub record: Option<String>,
 }
 
 impl HotkeysConfig {
-    pub fn all(&self) -> [&Option<String>; 3] {
-        [&self.show_hide, &self.widget, &self.details]
+    pub fn all(&self) -> [&Option<String>; 4] {
+        [&self.show_hide, &self.widget, &self.details, &self.record]
     }
 }
 
@@ -579,7 +580,12 @@ impl Config {
             }
         }
         let h = &mut self.hotkeys;
-        for key in [&mut h.show_hide, &mut h.widget, &mut h.details] {
+        for key in [
+            &mut h.show_hide,
+            &mut h.widget,
+            &mut h.details,
+            &mut h.record,
+        ] {
             *key = key
                 .as_deref()
                 .and_then(crate::hotkey::Hotkey::parse)

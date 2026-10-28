@@ -11,17 +11,19 @@ use pulsar_core::history::HistoryStore;
 use pulsar_core::hotkey::Hotkey;
 use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
+use pulsar_core::recording::Recorder;
 use pulsar_core::update::{self as release, Outcome, UpdateState};
 use pulsar_core::{crash, games, paths, sampler, tr};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN, RegisterHotKey, ReleaseCapture,
     SetCapture, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent, UnregisterHotKey,
 };
 use windows::Win32::UI::Shell::{
-    ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, NIN_BALLOONTIMEOUT, NIN_BALLOONUSERCLICK,
-    NIN_SELECT, SHAppBarMessage,
+    ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, FOLDERID_Documents, KF_FLAG_DEFAULT,
+    NIN_BALLOONTIMEOUT, NIN_BALLOONUSERCLICK, NIN_SELECT, SHAppBarMessage, SHGetKnownFolderPath,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
@@ -173,6 +175,7 @@ pub struct App {
     hidden: bool,
     /// Shortcuts another app had taken, last time they were registered.
     hotkeys_taken: Vec<String>,
+    recorder: Option<Recorder>,
 }
 
 /// What drawing an overlay needs besides the overlay.
@@ -281,6 +284,7 @@ impl App {
             alerts: Alerts::default(),
             hidden: false,
             hotkeys_taken: Vec::new(),
+            recorder: None,
         })
     }
 
@@ -344,6 +348,7 @@ impl App {
             }
             1 => self.change_config(|c| menu::apply_toggle(c, menu::Toggle::Widget)),
             2 => self.open_details(None),
+            3 => self.toggle_recording(),
             _ => {}
         }
     }
@@ -740,6 +745,34 @@ impl App {
         self.sampler.processes.store(open, Ordering::Relaxed);
     }
 
+    fn toggle_recording(&mut self) {
+        if let Some(r) = self.recorder.take() {
+            self.tray.offer(
+                tr!("Recording saved"),
+                &r.path.display().to_string(),
+                r.path.display().to_string(),
+            );
+            return;
+        }
+        let Some(dir) = documents_dir().map(|d| d.join("Pulsar")) else {
+            return;
+        };
+        let items = self.sampling_config(&self.config).sampled_items();
+        match Recorder::start(&dir, &items) {
+            Ok(r) => {
+                self.tray.offer(
+                    tr!("Recording readings"),
+                    &tr!("Every sample goes to {} until you stop.", r.path.display()),
+                    dir.display().to_string(),
+                );
+                self.recorder = Some(r);
+            }
+            Err(e) => self
+                .tray
+                .warn(tr!("Pulsar could not start recording"), &e.to_string()),
+        }
+    }
+
     fn toggle_game(&mut self) {
         let Some(path) = self.last_app.clone() else {
             return;
@@ -869,6 +902,13 @@ impl App {
             if let Some(g) = &mut self.game {
                 let in_front = taskbar::process_id(unsafe { GetForegroundWindow() }) == g.pid;
                 g.session.record(&snapshot, in_front);
+            }
+            if let Some(r) = &mut self.recorder
+                && let Err(e) = r.record(&snapshot)
+            {
+                self.recorder = None;
+                self.tray
+                    .warn(tr!("Pulsar stopped recording"), &e.to_string());
             }
             let due = self
                 .alerts
@@ -1330,6 +1370,7 @@ impl App {
             Command::About => self.open_settings(Page::About),
             Command::TaskManager => menu::open_task_manager(),
             Command::ToggleGame => self.toggle_game(),
+            Command::Record => self.toggle_recording(),
             Command::Exit => unsafe {
                 let _ = DestroyWindow(self.host);
             },
@@ -1340,6 +1381,15 @@ impl App {
 impl Drop for App {
     fn drop(&mut self) {
         self.register_appbar(ABM_REMOVE);
+    }
+}
+
+fn documents_dir() -> Option<PathBuf> {
+    unsafe {
+        let path = SHGetKnownFolderPath(&FOLDERID_Documents, KF_FLAG_DEFAULT, None).ok()?;
+        let text = path.to_string();
+        CoTaskMemFree(Some(path.0.cast()));
+        text.ok().map(PathBuf::from)
     }
 }
 
@@ -1361,7 +1411,7 @@ fn translucent_popups(config: &Config) -> bool {
 
 /// `item` is the overlay item that was right-clicked, if any.
 fn context_menu(x: i32, y: i32, item: Option<(HWND, i32, i32)>) {
-    let Some((host, config, kind, on_widget, dark, game)) = with_app(|a| {
+    let Some((host, config, kind, on_widget, dark, state)) = with_app(|a| {
         a.close_popup();
         let kind = item.and_then(|(overlay, x, y)| a.hit(overlay, x, y));
         let on_widget = item.is_some_and(|(hwnd, ..)| hwnd == a.widget.hwnd);
@@ -1376,12 +1426,15 @@ fn context_menu(x: i32, y: i32, item: Option<(HWND, i32, i32)>) {
             kind,
             on_widget,
             !a.palette.light(),
-            game,
+            menu::AppState {
+                game,
+                recording: a.recorder.is_some(),
+            },
         )
     }) else {
         return;
     };
-    if let Some(command) = menu::show(host, x, y, &config, kind, on_widget, dark, game) {
+    if let Some(command) = menu::show(host, x, y, &config, kind, on_widget, dark, &state) {
         with_app(|a| a.apply(command));
     }
 }
