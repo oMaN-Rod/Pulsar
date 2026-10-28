@@ -1,11 +1,14 @@
 //! The optional sensor service: the one part of Pulsar that runs elevated.
-//! It reads the CPU temperature through the PawnIO driver and publishes it
-//! for the unelevated app. It accepts no input from other processes.
+//! It reads the CPU temperature through the PawnIO driver, and frame rates
+//! from the graphics runtimes' events, and publishes them for the
+//! unelevated app. The only input it takes is the app's request for frame
+//! rates, a single bit.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod chipset;
 mod cores;
+mod frames;
 mod gpu;
 mod memory;
 mod pawnio;
@@ -21,6 +24,10 @@ fn main() {
         // In the foreground, for trying it from an elevated terminal.
         Some("--run") => {
             reader::run(&AtomicBool::new(false));
+            0
+        }
+        Some("--frames") => {
+            frames::print();
             0
         }
         Some("--install") => exit_code(setup::install()),

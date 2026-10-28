@@ -18,6 +18,7 @@ pub fn item_name(kind: ItemKind) -> &'static str {
         ItemKind::CpuClock => tr!("CPU clock"),
         ItemKind::DiskTemp => tr!("Drive temperature"),
         ItemKind::ChipsetTemp => tr!("Chipset temperature"),
+        ItemKind::Fps => tr!("Frame rate"),
         ItemKind::Battery => tr!("Battery"),
     }
 }

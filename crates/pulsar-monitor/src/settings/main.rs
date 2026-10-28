@@ -18,6 +18,7 @@ use std::time::{Duration, SystemTime};
 
 use pulsar_core::colors::{self, default_rgb};
 use pulsar_core::config::{self, Config};
+use pulsar_core::hardware::displays::{self, Display};
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::single_instance::SingleInstance;
@@ -57,6 +58,9 @@ struct Choices {
     adapters: Vec<String>,
     font_values: Vec<String>,
     adapter_values: Vec<String>,
+    monitors: Vec<Display>,
+    /// Device paths in the order of the frame rate picker.
+    monitor_values: Vec<String>,
     /// Theme ids in the order of the theme picker.
     theme_values: Vec<String>,
     /// The selected theme, for the colour fields' fallbacks.
@@ -89,6 +93,23 @@ fn picker(
     }
     if !current.is_empty() && !available.iter().any(|a| a == current) {
         names.push(format!("{current} ({missing})").into());
+        values.push(current.to_string());
+    }
+    let index = values.iter().position(|v| v == current).unwrap_or(0);
+    (names, values, index as i32)
+}
+
+/// The foreground app, then each monitor, then the chosen one if it is
+/// not connected.
+fn monitor_picker(monitors: &[Display], current: &str) -> (Vec<SharedString>, Vec<String>, i32) {
+    let mut names: Vec<SharedString> = vec![tr!("The app in front").into()];
+    let mut values = vec![String::new()];
+    for m in monitors {
+        names.push(tr!("Monitor: {}", m.name).into());
+        values.push(m.path.clone());
+    }
+    if !current.is_empty() && !values.iter().any(|v| v == current) {
+        names.push(tr!("A monitor that is not connected").into());
         values.push(current.to_string());
     }
     let index = values.iter().position(|v| v == current).unwrap_or(0);
@@ -276,6 +297,10 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_adapters(strings(names));
     ui.set_adapter_index(index);
     choices.adapter_values = values;
+    let (names, values, index) = monitor_picker(&choices.monitors, &f.frame_monitor);
+    ui.set_frame_monitors(strings(names));
+    ui.set_frame_monitor_index(index);
+    choices.monitor_values = values;
     let mut letters: Vec<String> = fixed_drives()
         .into_iter()
         .map(|d| (d as char).to_string())
@@ -411,6 +436,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         },
         drive_used: ui.get_drive_used(),
         adapter: chosen(&choices.adapter_values, ui.get_adapter_index()),
+        frame_monitor: chosen(&choices.monitor_values, ui.get_frame_monitor_index()),
         language: (ui.get_language_index() - 1)
             .try_into()
             .ok()
@@ -666,6 +692,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         choices: Choices {
             fonts: fonts::system_families(),
             adapters: hardware_adapters(),
+            monitors: displays::active(),
             ..Choices::default()
         },
     }));

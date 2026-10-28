@@ -894,6 +894,10 @@ msgstr ""
 msgid "Drive temperature"
 msgstr ""
 
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Frame rate"
+msgstr ""
+
 #: src/names.rs src/popup/content.rs
 msgid "Battery"
 msgstr ""
@@ -1023,6 +1027,30 @@ msgid "Charge cycles"
 msgstr ""
 
 #: src/popup/content.rs
+msgid "Application"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Application rate"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Frame time"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "1% low"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "0.1% low"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Display ({})"
+msgstr ""
+
+#: src/popup/content.rs
 msgid "Jitter"
 msgstr ""
 
@@ -1128,6 +1156,18 @@ msgstr ""
 
 #: src/popup/content.rs ui/settings.slint
 msgid "Host"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "The app in front"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Monitor: {}"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "A monitor that is not connected"
 msgstr ""
 
 #: src/settings/main.rs ui/settings.slint
@@ -1687,11 +1727,19 @@ msgid "Sensor service"
 msgstr ""
 
 #: ui/settings.slint
-msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
+msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Frame rate needs the service but not PawnIO."
 msgstr ""
 
 #: ui/settings.slint
 msgid "About PawnIO"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Measure"
+msgstr ""
+
+#: ui/settings.slint
+msgid "The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it."
 msgstr ""
 
 #: ui/settings.slint

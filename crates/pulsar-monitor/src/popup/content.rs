@@ -231,6 +231,37 @@ fn battery_details(snapshot: &Snapshot) -> Vec<(String, String)> {
     rows
 }
 
+/// The application in front and its frames, and the display's rate.
+fn frame_rows(snapshot: &Snapshot) -> Vec<(String, String)> {
+    let labels = &snapshot.frames;
+    let mut rows: Vec<(String, String)> = labels
+        .app
+        .iter()
+        .map(|app| (tr!("Application").to_string(), app.clone()))
+        .collect();
+    if labels.pinned {
+        rows.extend(known(
+            snapshot,
+            &[(tr!("Application rate"), MetricKey::AppFrameRate)],
+        ));
+    }
+    rows.extend(known(
+        snapshot,
+        &[
+            (tr!("Frame time"), MetricKey::FrameTimeMs),
+            (tr!("1% low"), MetricKey::FrameRateLow1),
+            (tr!("0.1% low"), MetricKey::FrameRateLow01),
+        ],
+    ));
+    if let (Some(name), Some(fps)) = (&labels.display, snapshot.get(MetricKey::DisplayFrameRate)) {
+        rows.push((
+            tr!("Display ({})", name),
+            format_value(fps, Unit::FramesPerSec),
+        ));
+    }
+    rows
+}
+
 /// The lowest, mean and highest of the graph's history.
 fn history_range(history: &HistoryStore, key: MetricKey) -> Option<String> {
     let h = history.get(key)?;
@@ -780,6 +811,15 @@ pub fn build_with(
                 .collect(),
             }],
         ),
+        ItemKind::Fps => (
+            tr!("Frame rate"),
+            cell_value(kind, CellPart::Main, snapshot),
+            vec![CellPart::Main],
+            vec![Block::Rows {
+                heading: None,
+                rows: frame_rows(snapshot),
+            }],
+        ),
         ItemKind::Ping => (
             tr!("Ping"),
             cell_value(kind, CellPart::Main, snapshot),
@@ -1306,7 +1346,7 @@ mod tests {
         assert_eq!(c.blocks.len(), 1, "jitter joins the other rows");
         assert_eq!(
             rows(&c.blocks[0]).last().unwrap(),
-            &("Jitter".to_string(), "8 ms".to_string())
+            &("Jitter".to_string(), "8.0 ms".to_string())
         );
     }
 

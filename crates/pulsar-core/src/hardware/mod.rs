@@ -2,6 +2,7 @@
 //! needs administrator rights.
 
 pub mod cpu;
+pub mod displays;
 pub mod gpu;
 pub mod network;
 pub mod os;

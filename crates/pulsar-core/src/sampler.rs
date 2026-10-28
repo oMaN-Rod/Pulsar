@@ -7,8 +7,8 @@ use crate::config::Config;
 use crate::hardware::DriveTempSource;
 use crate::metric::{ItemKind, Snapshot, Source, SourceError, SourceId};
 use crate::sources::{
-    BatterySource, CpuSource, DiskIoSource, DiskSpaceSource, GpuSensorsSource, GpuSource,
-    MemorySource, NetworkSource, PingSource, ProcessesSource, SensorServiceSource,
+    BatterySource, CpuSource, DiskIoSource, DiskSpaceSource, FramesSource, GpuSensorsSource,
+    GpuSource, MemorySource, NetworkSource, PingSource, ProcessesSource, SensorServiceSource,
 };
 
 pub type ProcessesFactory = Box<dyn Fn() -> Box<dyn Source> + Send>;
@@ -98,9 +98,12 @@ impl Sampler {
         .with_extras(Box::new(move || {
             let mut extras: Vec<Box<dyn Source>> = ItemKind::ALL
                 .into_iter()
-                // Pinging is traffic the user turned off.
+                // Pinging is traffic the user turned off, and asking for
+                // frame rates starts a trace in the service.
                 .filter(|&kind| {
-                    sources_of(kind) == kind && !enabled.contains(&kind) && kind != ItemKind::Ping
+                    sources_of(kind) == kind
+                        && !enabled.contains(&kind)
+                        && !matches!(kind, ItemKind::Ping | ItemKind::Fps)
                 })
                 .flat_map(|kind| item_sources(kind, &config))
                 .collect();
@@ -189,6 +192,9 @@ fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
         ))],
         ItemKind::DiskTemp => vec![Box::new(DriveTempSource::new())],
         ItemKind::Battery => vec![Box::new(BatterySource::default())],
+        ItemKind::Fps => vec![Box::new(FramesSource {
+            monitor: config.frames.monitor.clone(),
+        })],
         ItemKind::GpuTemp
         | ItemKind::CpuTemp
         | ItemKind::CpuPower

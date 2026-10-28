@@ -52,6 +52,7 @@ pub fn format_in(value: f64, unit: Unit, units: Units) -> String {
             &["bps", "Kbps", "Mbps", "Gbps", "Tbps"],
         ),
         Unit::NetworkRate => scaled(value.max(0.0), &["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]),
+        Unit::Millis if value < 9.95 => format!("{:.1} ms", value.max(0.0)),
         Unit::Millis => format!("{:.0} ms", value.clamp(0.0, 999.0)),
         Unit::MHz => format!("{:.2} GHz", value.max(0.0) / 1000.0),
         Unit::Celsius if fahrenheit => {
@@ -71,6 +72,7 @@ pub fn format_in(value: f64, unit: Unit, units: Units) -> String {
         Unit::WattHours => format!("{:.1} Wh", value.clamp(0.0, 999.0)),
         Unit::Seconds => duration(value.max(0.0)),
         Unit::Count => format!("{:.0}", value.clamp(0.0, 9_999_999.0)),
+        Unit::FramesPerSec => format!("{:.0} fps", value.clamp(0.0, 9999.0)),
     }
 }
 
@@ -108,6 +110,7 @@ pub fn widest_in(unit: Unit, units: Units) -> &'static str {
         Unit::WattHours => "999.9 Wh",
         Unit::Seconds => "23 h 59 min",
         Unit::Count => "9999999",
+        Unit::FramesPerSec => "999 fps",
     }
 }
 
@@ -178,6 +181,8 @@ mod tests {
     #[test]
     fn millis_and_mhz() {
         assert_eq!(format_value(14.2, Unit::Millis), "14 ms");
+        assert_eq!(format_value(6.94, Unit::Millis), "6.9 ms");
+        assert_eq!(format_value(143.6, Unit::FramesPerSec), "144 fps");
         assert_eq!(format_value(1500.0, Unit::Millis), "999 ms");
         assert_eq!(format_value(3920.0, Unit::MHz), "3.92 GHz");
         assert_eq!(format_value(86.6, Unit::Watts), "87 W");

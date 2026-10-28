@@ -86,6 +86,8 @@ pub struct Form {
     pub drive_used: bool,
     /// Empty sums every hardware adapter.
     pub adapter: String,
+    /// A monitor's device path, or empty for the foreground app's rate.
+    pub frame_monitor: String,
     /// A language code, or empty to follow Windows.
     pub language: String,
     pub fahrenheit: bool,
@@ -258,6 +260,7 @@ pub fn to_form(c: &Config) -> Form {
         drives: c.disk.drives.clone(),
         drive_used: c.disk.value == DriveValue::Used,
         adapter: c.network.adapter.clone().unwrap_or_default(),
+        frame_monitor: c.frames.monitor.clone().unwrap_or_default(),
         language: c.general.language.clone().unwrap_or_default(),
         fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
         network_bits: c.units.network == RateUnit::Bits,
@@ -384,6 +387,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         DriveValue::Activity
     };
     c.network.adapter = non_empty(&f.adapter);
+    c.frames.monitor = non_empty(&f.frame_monitor);
     c.general.language = non_empty(&f.language);
     c.units.temperature = if f.fahrenheit {
         TemperatureUnit::Fahrenheit
@@ -732,6 +736,7 @@ mod tests {
         c.disk.drives = vec!["C".into(), "D".into()];
         c.disk.value = DriveValue::Used;
         c.network.adapter = Some("eth".into());
+        c.frames.monitor = Some(r"\\?\DISPLAY#DEL1234#5&1&UID1".into());
         c.general.language = Some("es".into());
         c.items[0].graph = false;
         c.items[1].popup = Some(pulsar_core::config::PopupDetail::Simple);

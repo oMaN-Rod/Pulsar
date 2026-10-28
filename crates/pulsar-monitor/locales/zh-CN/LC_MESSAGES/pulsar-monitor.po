@@ -897,6 +897,10 @@ msgstr "CPU 频率"
 msgid "Drive temperature"
 msgstr "驱动器温度"
 
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Frame rate"
+msgstr "帧率"
+
 #: src/names.rs src/popup/content.rs
 msgid "Battery"
 msgstr "电池"
@@ -1026,6 +1030,30 @@ msgid "Charge cycles"
 msgstr "充电循环次数"
 
 #: src/popup/content.rs
+msgid "Application"
+msgstr "应用程序"
+
+#: src/popup/content.rs
+msgid "Application rate"
+msgstr "应用程序帧率"
+
+#: src/popup/content.rs
+msgid "Frame time"
+msgstr "帧时间"
+
+#: src/popup/content.rs
+msgid "1% low"
+msgstr "1% 低帧"
+
+#: src/popup/content.rs
+msgid "0.1% low"
+msgstr "0.1% 低帧"
+
+#: src/popup/content.rs
+msgid "Display ({})"
+msgstr "显示器（{}）"
+
+#: src/popup/content.rs
 msgid "Jitter"
 msgstr "抖动"
 
@@ -1132,6 +1160,18 @@ msgstr "最快核心"
 #: src/popup/content.rs ui/settings.slint
 msgid "Host"
 msgstr "主机"
+
+#: src/settings/main.rs
+msgid "The app in front"
+msgstr "前台应用"
+
+#: src/settings/main.rs
+msgid "Monitor: {}"
+msgstr "显示器：{}"
+
+#: src/settings/main.rs
+msgid "A monitor that is not connected"
+msgstr "未连接的显示器"
 
 #: src/settings/main.rs ui/settings.slint
 msgid "Default"
@@ -1690,12 +1730,20 @@ msgid "Sensor service"
 msgstr "传感器服务"
 
 #: ui/settings.slint
-msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
-msgstr "CPU 温度、CPU 功耗和芯片组温度需要可选的 Pulsar 传感器服务和 PawnIO 驱动，两者都需要管理员权限。重新运行 Pulsar 安装程序即可添加。支持 Intel CPU，以及 Zen 及之后的 AMD Ryzen；芯片组温度仅支持 Intel。"
+msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Frame rate needs the service but not PawnIO."
+msgstr "CPU 温度、CPU 功耗和芯片组温度需要可选的 Pulsar 传感器服务和 PawnIO 驱动，两者都需要管理员权限。重新运行 Pulsar 安装程序即可添加。支持 Intel CPU，以及 Zen 及之后的 AMD Ryzen；芯片组温度仅支持 Intel。帧率需要该服务，但不需要 PawnIO。"
 
 #: ui/settings.slint
 msgid "About PawnIO"
 msgstr "关于 PawnIO"
+
+#: ui/settings.slint
+msgid "Measure"
+msgstr "测量对象"
+
+#: ui/settings.slint
+msgid "The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it."
+msgstr "前台应用：统计它绘制的帧，无论它在哪个显示器上。显示器：统计其画面变化的频率，无论由哪些应用绘制。"
 
 #: ui/settings.slint
 msgid "Disks"

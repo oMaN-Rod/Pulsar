@@ -3,11 +3,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use pulsar_core::sensors::{CoreReadings, Publisher, Sensor, Status};
+use pulsar_core::sensors::{CoreReadings, FramesWanted, Publisher, Sensor, Status};
 use windows::Win32::System::SystemInformation::GROUP_AFFINITY;
 
 use crate::chipset::Chipset;
 use crate::cores;
+use crate::frames::Frames;
 use crate::gpu::Gpu;
 use crate::memory::{self, IntelMemory, Timings};
 use crate::pawnio::{PawnIo, PciLock};
@@ -465,9 +466,13 @@ pub fn run(stop: &AtomicBool) {
     let Ok(publisher) = Publisher::create() else {
         return;
     };
+    let wanted = FramesWanted::create().ok();
+    let mut frames = Frames::default();
     let mut session: Result<Session, Status> = Err(Status::NoDriver);
     let mut retry_at = Instant::now();
     while !stop.load(Ordering::Relaxed) {
+        let asked = wanted.as_ref().is_some_and(FramesWanted::take);
+        publisher.publish_frames(&frames.update(asked));
         if session.is_err() && Instant::now() >= retry_at {
             session = Session::connect();
             retry_at = Instant::now() + RETRY;

@@ -150,6 +150,7 @@ Popups are translucent by default, blurring what is behind them, or solid if you
 | **Network** | traffic per adapter | totals since Pulsar started |
 | **Ping** | host, min/avg/max, packet loss | jitter |
 | **Battery** | state, time remaining | charge rate, energy, capacity when new, health, charge cycles, voltage |
+| **Frame rate** | application, frame time, 1% and 0.1% lows, how often its monitor's picture changed | min/avg/max |
 
 Every Detailed popup except Network also shows the low, average and high of its graph.
 
@@ -270,7 +271,9 @@ Every option, applied as you change it.
 Everything Pulsar shows by default is read without administrator rights. A few readings need kernel access, which Pulsar does not have and does not ask for by default. Two optional pieces provide them, and both need administrator rights:
 
 - **[PawnIO](https://pawnio.eu)** ([source](https://github.com/namazso/PawnIO)), an open-source signed driver by namazso. It only runs modules signed by its author, and the ones Pulsar uses can read a fixed list of registers.
-- **The Pulsar sensor service** (`pulsar-sensors.exe`), which reads temperatures and power draw through PawnIO once a second and publishes those numbers. It runs as a Windows service from `%ProgramFiles%\Pulsar` and takes no input from other programs. Pulsar itself stays unelevated.
+- **The Pulsar sensor service** (`pulsar-sensors.exe`), which reads temperatures and power draw through PawnIO once a second and publishes those numbers. It runs as a Windows service from `%ProgramFiles%\Pulsar`. Pulsar itself stays unelevated. The only input the service takes is a yes-or-no request for frame rates.
+
+The *Frame rate* item also comes from the service but does not need PawnIO. While the item is on, the service listens to the present events that DXGI, Direct3D 9 and the graphics kernel already log through Event Tracing for Windows, which only an administrator may do. It never touches the game: nothing is loaded into it or read from its memory, which is what anti-cheat software looks for. By default the item shows the rate of the app in front: how often it hands a frame to Windows, counting the GPU process that browsers and apps built on them draw from. An app that is not drawing shows 0 fps. The popup also shows how often the picture changed on that app's monitor. That is not the sum of the apps on it: Windows combines them into one picture per refresh, so it never exceeds the refresh rate, except for a game in fullscreen with V-Sync off. To watch a game on one monitor while working on another, choose that monitor under *Settings → Sensors → Frame rate*. The trace stops a few seconds after the item is turned off.
 
 ### Setting it up
 
@@ -278,14 +281,14 @@ Everything Pulsar shows by default is read without administrator rights. A few r
    - **Installer:** tick the boxes on its *CPU temperature* page. Run the installer again to add or remove them later.
    - **winget:** `winget install` runs the installer silently, which never asks for administrator rights and so skips that page. Run `winget install -i oMaN-Rod.Pulsar` to see it, or follow the next step using `%LOCALAPPDATA%\Programs\Pulsar\pulsar-sensors.exe`.
    - **Portable zip or Cargo:** install PawnIO (`winget install namazso.PawnIO`), then run `pulsar-sensors.exe --install` from an administrator terminal.
-2. Turn on *CPU temperature*, *CPU power* or *Chipset temperature* in *Settings → Items*.
+2. Turn on *CPU temperature*, *CPU power*, *Chipset temperature* or *Frame rate* in *Settings → Items*.
 
 > [!NOTE]
 > The service runs from its own copy of `pulsar-sensors.exe`. The installer's wizard refreshes that copy, but a silent upgrade (`winget upgrade`) and `cargo install` do not, so run `pulsar-sensors.exe --install` again after those if Pulsar says the service needs updating.
 
 To remove the service, run `pulsar-sensors.exe --uninstall` from an administrator terminal. Uninstalling Pulsar from Windows Settings or winget does this for you; `cargo uninstall` and deleting the portable folder do not.
 
-Without the service, the *CPU temperature*, *CPU power* and *Chipset temperature* items show "—" and their popup says what is missing; the other readings are simply left out.
+Without the service, the *CPU temperature*, *CPU power*, *Chipset temperature* and *Frame rate* items show "—" and their popup says what is missing; the other readings are simply left out.
 
 <details>
 <summary><b>What needs the sensor service</b></summary>
@@ -312,6 +315,7 @@ Without the service, the *CPU temperature*, *CPU power* and *Chipset temperature
 | Thermal throttling (popups) | | Intel |
 | GPU hot spot (popups) | | NVIDIA RTX 50 series |
 | GPU memory temperature (popups) | | NVIDIA RTX 30 series and later |
+| Frame rate | | Any CPU, without PawnIO |
 
 The GPU rows appear only where the card has those sensors, and they need one of the supported CPUs.
 

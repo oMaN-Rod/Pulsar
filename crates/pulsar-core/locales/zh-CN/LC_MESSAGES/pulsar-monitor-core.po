@@ -109,6 +109,10 @@ msgstr "PCH°"
 msgid "BAT"
 msgstr "电池"
 
+#: src/metric.rs
+msgid "FPS"
+msgstr "FPS"
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr "未安装 Pulsar 传感器服务"

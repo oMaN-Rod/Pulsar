@@ -185,6 +185,15 @@ pub struct Config {
     pub units: Units,
     pub popup: PopupConfig,
     pub widget: WidgetConfig,
+    pub frames: FramesConfig,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct FramesConfig {
+    /// The device path of the monitor whose rate the item shows; `None`
+    /// for the foreground application's.
+    pub monitor: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -359,6 +368,7 @@ impl Default for Config {
             units: Units::default(),
             popup: PopupConfig::default(),
             widget: WidgetConfig::default(),
+            frames: FramesConfig::default(),
         }
     }
 }
@@ -656,6 +666,7 @@ pub fn sampling_changed(old: &Config, new: &Config) -> bool {
     a != b
         || old.general.sample_interval_ms != new.general.sample_interval_ms
         || old.network.adapter != new.network.adapter
+        || old.frames != new.frames
         || (pinging
             && (old.ping.host != new.ping.host || old.ping.interval_ms != new.ping.interval_ms))
 }
@@ -924,7 +935,8 @@ sample_interval_ms = 1
                 ItemKind::DiskTemp,
                 ItemKind::Network,
                 ItemKind::Ping,
-                ItemKind::Battery
+                ItemKind::Battery,
+                ItemKind::Fps
             ]
         );
     }
@@ -1026,7 +1038,8 @@ panel_opacity = 60
         assert!(!c.is_enabled(ItemKind::DiskTemp));
         assert!(!c.is_enabled(ItemKind::ChipsetTemp));
         assert!(!c.is_enabled(ItemKind::Battery));
-        assert_eq!(c.items.len(), 13);
+        assert!(!c.is_enabled(ItemKind::Fps));
+        assert_eq!(c.items.len(), 14);
         let d = &c.display;
         assert_eq!(d.labels, LabelStyle::Full);
         assert!(!d.icons && !d.color_labels && !d.font_bold && !d.lock_position);

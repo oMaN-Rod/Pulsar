@@ -588,6 +588,8 @@ export component SettingsWindow inherits Window {
     in-out property <int> language-index;
     in property <[string]> adapters;
     in-out property <int> adapter-index;
+    in property <[string]> frame-monitors;
+    in-out property <int> frame-monitor-index;
     in-out property <[DriveRow]> drive-rows;
     in-out property <bool> widget-enabled;
     in-out property <int> widget-layer;
@@ -1309,10 +1311,23 @@ export component SettingsWindow inherits Window {
                 Card {
                     SettingRow {
                         title: @tr("Sensor service");
-                        description: @tr("CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only.");
+                        description: @tr("CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Frame rate needs the service but not PawnIO.");
                         Button {
                             text: @tr("About PawnIO");
                             clicked => { root.open-link("https://pawnio.eu"); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Frame rate"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Measure");
+                        description: @tr("The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it.");
+                        ComboBox {
+                            width: 260px;
+                            model: root.frame-monitors;
+                            current-index <=> root.frame-monitor-index;
+                            selected => { root.changed(); }
                         }
                     }
                 }

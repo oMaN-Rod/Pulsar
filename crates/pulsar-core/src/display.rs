@@ -25,6 +25,7 @@ pub fn graph_max(unit: Unit, histories: &[&History]) -> f64 {
         Unit::Volts => 1.5,
         Unit::BytesPerSec | Unit::NetworkRate => 16.0 * 1024.0,
         Unit::Millis => 100.0,
+        Unit::FramesPerSec => 60.0,
         Unit::Bytes
         | Unit::MHz
         | Unit::Ratio

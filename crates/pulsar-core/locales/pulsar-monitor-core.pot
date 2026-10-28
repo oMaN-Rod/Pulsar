@@ -106,6 +106,10 @@ msgstr ""
 msgid "BAT"
 msgstr ""
 
+#: src/metric.rs
+msgid "FPS"
+msgstr ""
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr ""

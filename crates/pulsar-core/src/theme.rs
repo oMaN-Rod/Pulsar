@@ -416,6 +416,7 @@ fn kind_key(kind: ItemKind) -> &'static str {
         ItemKind::DiskTemp => "disk_temp",
         ItemKind::ChipsetTemp => "chipset_temp",
         ItemKind::Battery => "battery",
+        ItemKind::Fps => "fps",
     }
 }
 

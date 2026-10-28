@@ -18,6 +18,7 @@ pub enum SourceId {
     SensorService,
     DriveTemps,
     Battery,
+    Frames,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -36,11 +37,12 @@ pub enum ItemKind {
     DiskTemp,
     ChipsetTemp,
     Battery,
+    Fps,
 }
 
 impl ItemKind {
     /// Default display order; adjacent pairs share a text-mode column.
-    pub const ALL: [ItemKind; 13] = [
+    pub const ALL: [ItemKind; 14] = [
         ItemKind::Cpu,
         ItemKind::CpuTemp,
         ItemKind::CpuPower,
@@ -54,6 +56,7 @@ impl ItemKind {
         ItemKind::Network,
         ItemKind::Ping,
         ItemKind::Battery,
+        ItemKind::Fps,
     ];
 
     pub fn source(self) -> SourceId {
@@ -70,6 +73,7 @@ impl ItemKind {
             }
             ItemKind::DiskTemp => SourceId::DriveTemps,
             ItemKind::Battery => SourceId::Battery,
+            ItemKind::Fps => SourceId::Frames,
         }
     }
 
@@ -88,6 +92,7 @@ impl ItemKind {
             ItemKind::DiskTemp => crate::tr!("DSK°"),
             ItemKind::ChipsetTemp => crate::tr!("PCH°"),
             ItemKind::Battery => crate::tr!("BAT"),
+            ItemKind::Fps => crate::tr!("FPS"),
         }
     }
 
@@ -107,6 +112,7 @@ impl ItemKind {
             ItemKind::DiskTemp => "S",
             ItemKind::ChipsetTemp => "B",
             ItemKind::Battery => "E",
+            ItemKind::Fps => "R",
         }
     }
 }
@@ -213,6 +219,17 @@ pub enum MetricKey {
     BatteryHealthPercent,
     BatteryCycles,
     BatteryVolts,
+    /// What the frame rate item shows: the foreground application's, or
+    /// a pinned display's.
+    FrameRate,
+    /// The foreground application's, zero while it is not drawing.
+    AppFrameRate,
+    /// How often the picture changed on the display the item follows.
+    DisplayFrameRate,
+    FrameTimeMs,
+    /// The rate the slowest 1% and 0.1% of recent frames would run at.
+    FrameRateLow1,
+    FrameRateLow01,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -247,6 +264,7 @@ pub enum Unit {
     Seconds,
     /// A plain count.
     Count,
+    FramesPerSec,
 }
 
 impl MetricKey {
@@ -289,7 +307,10 @@ impl MetricKey {
             BatteryRemainingWh | BatteryFullWh | BatteryDesignWh => Unit::WattHours,
             DiskReadBps | DiskWriteBps => Unit::BytesPerSec,
             NetDownBps | NetUpBps => Unit::NetworkRate,
-            PingMs => Unit::Millis,
+            PingMs | FrameTimeMs => Unit::Millis,
+            FrameRate | AppFrameRate | DisplayFrameRate | FrameRateLow1 | FrameRateLow01 => {
+                Unit::FramesPerSec
+            }
             CpuClockMhz
             | GpuMemClockMhz
             | CpuCoreClockMhz(_)
@@ -331,6 +352,18 @@ pub struct Snapshot {
     pub errors: HashMap<SourceId, String>,
     pub adapters: Vec<AdapterRate>,
     pub processes: Vec<ProcessUsage>,
+    pub frames: FrameLabels,
+}
+
+/// Names for the frame rate readings.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct FrameLabels {
+    /// The foreground application.
+    pub app: Option<String>,
+    /// The display `DisplayFrameRate` is of.
+    pub display: Option<String>,
+    /// Whether the item shows that display rather than the application.
+    pub pinned: bool,
 }
 
 impl Snapshot {

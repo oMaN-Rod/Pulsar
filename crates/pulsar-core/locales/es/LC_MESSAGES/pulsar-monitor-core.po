@@ -108,6 +108,10 @@ msgstr "PCH°"
 msgid "BAT"
 msgstr "BAT"
 
+#: src/metric.rs
+msgid "FPS"
+msgstr "FPS"
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr "El servicio de sensores de Pulsar no está instalado"

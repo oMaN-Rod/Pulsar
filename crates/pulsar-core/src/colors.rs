@@ -21,6 +21,7 @@ pub fn default_rgb(kind: ItemKind, part: CellPart) -> Rgb {
         (ItemKind::DiskTemp, _) => (0xB5, 0xE3, 0x6B),
         (ItemKind::Ping, _) => (0x2E, 0xD5, 0xC4),
         (ItemKind::Battery, _) => (0x7E, 0xD3, 0x21),
+        (ItemKind::Fps, _) => (0xD9, 0x6B, 0xFF),
     }
 }
 

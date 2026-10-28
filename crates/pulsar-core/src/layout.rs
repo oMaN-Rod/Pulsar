@@ -110,6 +110,7 @@ pub fn primary_metric(kind: ItemKind) -> MetricKey {
         ItemKind::DiskTemp => MetricKey::DiskTempMaxC,
         ItemKind::ChipsetTemp => MetricKey::ChipsetTempC,
         ItemKind::Battery => MetricKey::BatteryPercent,
+        ItemKind::Fps => MetricKey::FrameRate,
     }
 }
 
@@ -156,6 +157,7 @@ pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
         (ItemKind::Network, _) => "\u{E968}",
         (ItemKind::Ping, _) => "\u{EC05}",
         (ItemKind::Battery, _) => "\u{E83F}",
+        (ItemKind::Fps, _) => "\u{E7FC}",
     }
 }
 
@@ -493,7 +495,7 @@ mod tests {
             .collect()
     }
 
-    const ALL: [ItemKind; 13] = ItemKind::ALL;
+    const ALL: [ItemKind; 14] = ItemKind::ALL;
 
     fn assert_no_overlap(layout: &Layout) {
         for (i, a) in layout.cells.iter().enumerate() {

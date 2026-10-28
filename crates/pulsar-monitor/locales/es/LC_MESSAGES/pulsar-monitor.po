@@ -896,6 +896,10 @@ msgstr "Frecuencia de la CPU"
 msgid "Drive temperature"
 msgstr "Temperatura de las unidades"
 
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Frame rate"
+msgstr "Velocidad de fotogramas"
+
 #: src/names.rs src/popup/content.rs
 msgid "Battery"
 msgstr "Batería"
@@ -1025,6 +1029,30 @@ msgid "Charge cycles"
 msgstr "Ciclos de carga"
 
 #: src/popup/content.rs
+msgid "Application"
+msgstr "Aplicación"
+
+#: src/popup/content.rs
+msgid "Application rate"
+msgstr "Velocidad de la aplicación"
+
+#: src/popup/content.rs
+msgid "Frame time"
+msgstr "Tiempo de fotograma"
+
+#: src/popup/content.rs
+msgid "1% low"
+msgstr "1 % más bajo"
+
+#: src/popup/content.rs
+msgid "0.1% low"
+msgstr "0,1 % más bajo"
+
+#: src/popup/content.rs
+msgid "Display ({})"
+msgstr "Pantalla ({})"
+
+#: src/popup/content.rs
 msgid "Jitter"
 msgstr "Fluctuación"
 
@@ -1131,6 +1159,18 @@ msgstr "Núcleo más rápido"
 #: src/popup/content.rs ui/settings.slint
 msgid "Host"
 msgstr "Host"
+
+#: src/settings/main.rs
+msgid "The app in front"
+msgstr "La aplicación en primer plano"
+
+#: src/settings/main.rs
+msgid "Monitor: {}"
+msgstr "Monitor: {}"
+
+#: src/settings/main.rs
+msgid "A monitor that is not connected"
+msgstr "Un monitor que no está conectado"
 
 #: src/settings/main.rs ui/settings.slint
 msgid "Default"
@@ -1689,12 +1729,20 @@ msgid "Sensor service"
 msgstr "Servicio de sensores"
 
 #: ui/settings.slint
-msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
-msgstr "La temperatura y el consumo de la CPU y la temperatura del chipset requieren el servicio de sensores opcional de Pulsar y el controlador PawnIO, que necesitan permisos de administrador. Vuelve a ejecutar el instalador de Pulsar para añadirlos. CPU Intel y AMD Ryzen desde Zen; temperatura del chipset solo en Intel."
+msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Frame rate needs the service but not PawnIO."
+msgstr "La temperatura y el consumo de la CPU y la temperatura del chipset requieren el servicio de sensores opcional de Pulsar y el controlador PawnIO, que necesitan permisos de administrador. Vuelve a ejecutar el instalador de Pulsar para añadirlos. CPU Intel y AMD Ryzen desde Zen; temperatura del chipset solo en Intel. La velocidad de fotogramas requiere el servicio, pero no PawnIO."
 
 #: ui/settings.slint
 msgid "About PawnIO"
 msgstr "Acerca de PawnIO"
+
+#: ui/settings.slint
+msgid "Measure"
+msgstr "Medir"
+
+#: ui/settings.slint
+msgid "The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it."
+msgstr "La aplicación en primer plano cuenta los fotogramas que dibuja, esté en el monitor que esté. Un monitor cuenta cuántas veces cambia su imagen, sean cuales sean las aplicaciones que la dibujan."
 
 #: ui/settings.slint
 msgid "Disks"

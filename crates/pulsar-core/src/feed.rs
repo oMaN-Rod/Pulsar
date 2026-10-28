@@ -4,7 +4,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::history::HistoryStore;
-use crate::metric::{AdapterRate, ItemKind, MetricKey, ProcessUsage, Snapshot, SourceId};
+use crate::metric::{
+    AdapterRate, FrameLabels, ItemKind, MetricKey, ProcessUsage, Snapshot, SourceId,
+};
 
 /// Passed to `pulsar-details.exe` when its standard input carries the feed.
 pub const FEED_ARG: &str = "--feed";
@@ -30,6 +32,8 @@ pub struct WireSnapshot {
     errors: Vec<(SourceId, String)>,
     adapters: Vec<AdapterRate>,
     processes: Vec<ProcessUsage>,
+    #[serde(default)]
+    frames: FrameLabels,
 }
 
 impl Message {
@@ -58,6 +62,7 @@ impl Message {
                 .collect(),
             adapters: snapshot.adapters.clone(),
             processes: snapshot.processes.clone(),
+            frames: snapshot.frames.clone(),
         })
     }
 
@@ -80,6 +85,7 @@ impl From<WireSnapshot> for Snapshot {
             errors: w.errors.into_iter().collect(),
             adapters: w.adapters,
             processes: w.processes,
+            frames: w.frames,
         }
     }
 }
