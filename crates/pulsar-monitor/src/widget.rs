@@ -472,7 +472,8 @@ impl Plan {
             s.lay_out_pairs(d, inner, text);
         }
         let styles: Vec<WidgetStyle> = sections.iter().map(|s| s.style).collect();
-        let units = units(&styles);
+        let wide: Vec<bool> = sections.iter().map(|s| wide_tile(s.content.kind)).collect();
+        let units = units(&styles, &wide);
         let tile_w = (inner - d.gap) / 2.0;
         let heights: Vec<f32> = units
             .iter()
@@ -501,7 +502,7 @@ impl Plan {
                     .get(n + 1)
                     .is_some_and(|&next| styles[units[next][0]] != WidgetStyle::Tiles);
                 for (k, &index) in units[u].iter().enumerate() {
-                    let rect = if is_line {
+                    let rect = if is_line || wide[index] {
                         Rect { x, y, w: inner, h }
                     } else {
                         Rect {
@@ -534,15 +535,21 @@ impl Plan {
     }
 }
 
+/// Network shows two rates, which need a tile the whole width.
+fn wide_tile(kind: ItemKind) -> bool {
+    kind == ItemKind::Network
+}
+
 /// Groups sections into what stacks in a column: one section in a line
-/// style, or up to two tiles side by side.
-fn units(styles: &[WidgetStyle]) -> Vec<Vec<usize>> {
+/// style, a wide tile, or up to two tiles side by side.
+fn units(styles: &[WidgetStyle], wide: &[bool]) -> Vec<Vec<usize>> {
     let mut out: Vec<Vec<usize>> = Vec::new();
-    for (i, &style) in styles.iter().enumerate() {
-        let pairs_up = style == WidgetStyle::Tiles
+    let half = |i: usize| styles[i] == WidgetStyle::Tiles && !wide[i];
+    for i in 0..styles.len() {
+        let pairs_up = half(i)
             && out
                 .last()
-                .is_some_and(|last| last.len() == 1 && styles[last[0]] == WidgetStyle::Tiles);
+                .is_some_and(|last| last.len() == 1 && half(last[0]));
         match out.last_mut() {
             Some(last) if pairs_up => last.push(i),
             _ => out.push(vec![i]),
@@ -870,11 +877,17 @@ mod tests {
     #[test]
     fn tiles_pair_up_and_lines_stand_alone() {
         use WidgetStyle::{Meters, Sparklines, Tiles};
+        let narrow = [false; 6];
         assert_eq!(
-            units(&[Tiles, Tiles, Tiles, Sparklines, Tiles, Meters]),
+            units(&[Tiles, Tiles, Tiles, Sparklines, Tiles, Meters], &narrow),
             [vec![0, 1], vec![2], vec![3], vec![4], vec![5]]
         );
-        assert!(units(&[]).is_empty());
+        assert_eq!(
+            units(&[Tiles, Tiles, Tiles, Tiles], &[false, true, false, false]),
+            [vec![0], vec![1], vec![2, 3]],
+            "a wide tile stands alone"
+        );
+        assert!(units(&[], &[]).is_empty());
     }
 
     #[test]

@@ -37,6 +37,7 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 - **A system details window**: processor, memory modules, graphics, drives, network, motherboard and every live sensor.
 - **GPU monitoring for any vendor**, read the way Task Manager does, with no drivers or vendor SDKs.
 - **CPU temperature and power, if you opt in**, through an optional [sensor service](#sensor-service).
+- **A desktop widget** with sparklines, tiles or meters, and **themes** you can save and share.
 - **Frame rates and game sessions**: the frame rate of the app in front, a strip on the game's monitor while you play, and a summary when the game closes.
 - **Light**: about 10 MB of memory and well under 1% CPU. No admin rights, no drivers and no background services unless you add the sensor service.
 - **No telemetry.** See [Privacy](#privacy).
@@ -99,7 +100,7 @@ Each item draws an area graph, a line, bars, a level meter, or just its text. It
 
 ### Every item
 
-CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, disk, drive temperature, network, ping and battery. Show any of them, in any order.
+CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order.
 
 ![Every item at once](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-all.png)
 
@@ -109,11 +110,21 @@ Detach Pulsar from the taskbar, drag it anywhere and lock it in place, here with
 
 ![Floating mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/floating.gif)
 
+### Desktop widget
+
+A panel on the desktop with a section per item, like a popup that stays open. It sits behind your windows and comes forward when you show the desktop, or stays on top if you prefer. Choose sparklines, tiles or meters and how much detail it shows, for all items or per item, and drag it anywhere. Turn it on in *Settings → Widget* or from the menu.
+
+| Sparklines | Tiles | Meters | Detailed |
+|:---:|:---:|:---:|:---:|
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-sparklines.png" width="220" alt="Widget with sparklines"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-tiles.png" width="220" alt="Widget with tiles"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-meters.png" width="220" alt="Widget with meters"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-detailed.png" width="220" alt="Widget at Detailed"> |
+
 ### In games
 
 Two options in *Settings → Sensors*, both off until you turn them on:
 
 - **A strip in games:** while a game is in front, its frame rate and your taskbar items appear in the top-left corner of its monitor. Clicks pass through it to the game. Windows does not let anything draw over exclusive fullscreen, so this works for borderless and windowed games.
+
+  <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/game-strip.png" alt="The strip in a game">
 - **A summary when a game closes:** a notification with the time played, average frame rate, 1% low and peak CPU and GPU temperatures. Each session is also added to `sessions.csv` in the logs folder.
 
 The frame rate and temperatures need the [sensor service](#sensor-service). A game is any app Windows recognises as one, as Game Bar does. To change that for an app, bring it to the front, right-click Pulsar and choose *Count … as a game*.
@@ -126,6 +137,13 @@ Pulsar can warn you with a notification when the CPU or GPU stays above a temper
 
 Set keyboard shortcuts in *Settings → General* to show or hide Pulsar, turn the desktop widget on or off, open the system details window, and start or stop recording. They work anywhere in Windows and are not set until you choose them.
 
+<details>
+<summary><b>Shortcuts and alerts in Settings</b></summary>
+
+![Settings, shortcuts and alerts](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-general-3.png)
+
+</details>
+
 ### Recording
 
 Choose *Record to CSV* from the menu to write every sample to a new file in `Documents\Pulsar`, until you choose it again. Each reading Pulsar is sampling gets a column named for it and its unit, such as `cpu_temp_c` or `net_down_bps`; rates are in bytes per second and sizes in bytes.
@@ -134,9 +152,18 @@ Choose *Record to CSV* from the menu to write every sample to a new file in `Doc
 
 Save the current setup as a named profile in *Settings → Profiles*, such as one for gaming and one for the desk, and switch between them there or from *Profiles* in the menu. A profile keeps the items, layout, theme, popups, widget, units, drives and network. Language, startup, the update interval, games, alerts and shortcuts are the same in every profile. The menu ticks the profile that matches the current settings.
 
+| Settings | Menu |
+|:---:|:---:|
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-profiles.png" width="400" alt="Settings, Profiles"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/menu-profiles.png" width="300" alt="Menu with profiles"> |
+
+### Themes
+
+Eight built-in themes set the item, label, value, tile and panel colours, each with a variant for light taskbars. Click one in *Settings → Theme* to apply it, change any colour on top, and save the result as your own theme: a small file in `%APPDATA%\Pulsar\themes` you can share.
+
+<img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-theme.png" width="600" alt="Settings, Theme">
+
 ### Make it yours
 
-- theme presets
 - label, value and item colours, with separate label and value colours for a light taskbar
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
@@ -195,6 +222,8 @@ Every Detailed popup except Network also shows the low, average and high of its 
 | GPU | GPU temperature | Disk |
 | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-disk-temp-detailed.png" width="250" alt="Drive temperature"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-network-detailed.png" width="250" alt="Network"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-ping-detailed.png" width="250" alt="Ping"> |
 | Drive temperature | Network | Ping |
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-fps-detailed.png" width="250" alt="Frame rate"> | | |
+| Frame rate | | |
 
 </details>
 
@@ -278,17 +307,41 @@ Every option, applied as you change it.
 <details>
 <summary><b>Settings pages</b></summary>
 
-**General:** language, start with Windows, update checks, the tray icon, and how often Pulsar samples
-
-![Settings, General](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-general.png)
-
-**Display:** mode, labels, fonts, colours, popups, units, position and backgrounds
-
-![Settings, Display](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-display.png)
-
 **Items:** which items show, their order and colour, and each item's graph style, colouring and popup detail
 
 ![Settings, Items](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-items.png)
+
+**Layout:** graphs or text, labels, icons, the font, and where the overlay sits
+
+![Settings, Layout](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-layout.png)
+
+**Theme:** themes, custom colours, and tile and panel backgrounds
+
+![Settings, Theme](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-theme.png)
+
+**Popups:** details on hover, detail, background, graph and top processes
+
+![Settings, Popups](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-popups.png)
+
+**Widget:** placement, style, detail, width, background and which items it shows
+
+![Settings, Widget](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-widget.png)
+
+**Sensors:** the sensor service, frame rate, games and the temperature unit
+
+![Settings, Sensors](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-sensors.png)
+
+**Drives and network:** drives, the network adapter and rates, and the ping host
+
+![Settings, Drives and network](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-drives.png)
+
+**Profiles:** save, apply and delete profiles
+
+![Settings, Profiles](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-profiles.png)
+
+**General:** language, start with Windows, update checks, the tray icon, shortcuts, alerts, how often Pulsar samples, and resetting everything
+
+![Settings, General](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-general.png)
 
 </details>
 

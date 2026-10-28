@@ -1,11 +1,13 @@
 #Requires -Version 7
 <#
 .SYNOPSIS
-Captures the overlay, popups, menus, Settings and the details window to target\screenshots\.
+Captures the overlay, popups, menus, the desktop widget, the game strip, Settings and the
+details window to target\screenshots\.
 .DESCRIPTION
 Runs the release build on the live desktop with a throwaway settings folder, so your own
-settings are never read or changed. It moves the real mouse over the taskbar: leave the PC
-alone until it finishes, in about ten minutes. Exit Pulsar before running it.
+settings are never read or changed. It moves the real mouse over the taskbar and opens
+Notepad for the game strip: leave the PC alone until it finishes, in about ten minutes. Exit
+Pulsar before running it. The frame rate item needs the sensor service.
 .PARAMETER SkipBuild
 Use the existing target\release binaries.
 .PARAMETER Light
@@ -13,10 +15,10 @@ Also capture on a light taskbar. Switches Windows to light mode for a minute, th
 .PARAMETER Publish
 Copy each capture whose name is already in docs\images over that file.
 .PARAMETER Parts
-Which captures to take: overlay, popups, menus, settings, details.
+Which captures to take: overlay, popups, menus, widget, game, settings, details.
 #>
 param(
-    [string[]]$Parts = @('overlay', 'popups', 'menus', 'settings', 'details'),
+    [string[]]$Parts = @('overlay', 'popups', 'menus', 'widget', 'game', 'settings', 'details'),
     [switch]$SkipBuild,
     [switch]$Light,
     [switch]$Publish,
@@ -92,7 +94,7 @@ public static class Native {
 [void][Native]::SetProcessDpiAwarenessContext([IntPtr]-4)
 
 $Kinds = 'cpu', 'cpu_temp', 'cpu_power', 'cpu_clock', 'ram', 'chipset_temp', 'gpu', 'gpu_temp',
-    'disk', 'disk_temp', 'network', 'ping', 'battery'
+    'disk', 'disk_temp', 'network', 'ping', 'battery', 'fps'
 $Showcase = 'cpu', 'cpu_temp', 'ram', 'gpu', 'disk', 'network'
 $All = $Kinds | Where-Object { $_ -ne 'battery' }
 
@@ -109,7 +111,12 @@ function Write-Config {
         [string]$Color = 'item',
         [string[]]$TextOnly = @(),
         [string]$Detail = 'standard',
-        [string]$Background = 'translucent'
+        [string]$Background = 'translucent',
+        # A widget style turns the widget on, drawn above other windows.
+        [string]$Widget,
+        [string]$WidgetDetail = 'simple',
+        # Executable names to count as games, with the strip on.
+        [string[]]$Games = @()
     )
     $toml = @"
 version = 1
@@ -134,6 +141,26 @@ graph = true
 processes = 5
 
 "@
+    if ($Widget) {
+        $toml += @"
+[widget]
+enabled = true
+layer = "on_top"
+style = "$Widget"
+detail = "$WidgetDetail"
+opacity = 100
+hide_in_fullscreen = false
+
+"@
+    }
+    if ($Games) {
+        $toml += @"
+[game]
+strip = true
+games = [$(($Games | ForEach-Object { "`"$_`"" }) -join ', ')]
+
+"@
+    }
     $order = @($Show) + @($Kinds | Where-Object { $_ -notin $Show })
     foreach ($kind in $order) {
         $style = if ($Styles.ContainsKey($kind)) { $Styles[$kind] } else { $Style }
@@ -151,6 +178,22 @@ color_mode = "$Color"
     $dir = Join-Path $env:APPDATA 'Pulsar'
     New-Item -ItemType Directory -Force $dir | Out-Null
     Set-Content -Path (Join-Path $dir 'config.toml') -Value $toml -Encoding utf8NoBOM
+}
+
+# Two profiles for the menu and Settings: one matching the current config, one not.
+function Write-Profiles {
+    $dir = Join-Path $env:APPDATA 'Pulsar\profiles'
+    New-Item -ItemType Directory -Force $dir | Out-Null
+    $config = Get-Content (Join-Path $env:APPDATA 'Pulsar\config.toml') -Raw
+    Set-Content (Join-Path $dir 'desk.toml') "name = `"Desk`"`n$config" -Encoding utf8NoBOM
+    Set-Content (Join-Path $dir 'gaming.toml') "name = `"Gaming`"`n[display]`nmode = `"text`"`n" -Encoding utf8NoBOM
+}
+
+# Captures a window from the screen, with $Pad pixels around it.
+function Save-Around([IntPtr]$h, [string]$Name, [int]$Pad = 12) {
+    $r = Get-Rect $h
+    Save-Screen ($r.Left - $Pad) ($r.Top - $Pad) ($r.Right + $Pad) ($r.Bottom + $Pad) $Name
+    Write-Host "  $Name"
 }
 
 function Send-ConfigChanged {
@@ -419,13 +462,14 @@ try {
     $env:APPDATA = Join-Path $work 'Roaming'
     $env:LOCALAPPDATA = Join-Path $work 'Local'
     New-Item -ItemType Directory -Force $out | Out-Null
-    $prefixes = @{ overlay = 'overlay-'; popups = 'popup-'; menus = 'menu'; settings = 'settings-'; details = 'details-' }
+    $prefixes = @{ overlay = 'overlay-'; popups = 'popup-'; menus = 'menu'; widget = 'widget-'; game = 'game-'; settings = 'settings-'; details = 'details-' }
     Get-ChildItem $out -Filter *.png |
         Where-Object { $name = $_.Name; $Parts | Where-Object { $name.StartsWith($prefixes[$_]) } } |
         Remove-Item
 
+    Write-Config
+    Write-Profiles
     if ($Light -or ($Parts | Where-Object { $_ -ne 'settings' })) {
-        Write-Config
         $started += Start-Process (Join-Path $bin 'pulsar.exe') -PassThru
         [void](Find-Window 'PulsarOverlay')
         Write-Host "Filling the graphs for $Warmup s"
@@ -483,6 +527,44 @@ try {
         Save-Menu $items[0][0..1]
     }
 
+    if ('widget' -in $Parts) {
+        Write-Host 'Widget'
+        $shots = [ordered]@{
+            'widget-sparklines' = @{ Widget = 'sparklines' }
+            'widget-tiles'      = @{ Widget = 'tiles' }
+            'widget-meters'     = @{ Widget = 'meters' }
+            'widget-detailed'   = @{ Widget = 'sparklines'; WidgetDetail = 'detailed' }
+        }
+        foreach ($name in $shots.Keys) {
+            $options = $shots[$name]
+            Write-Config @options
+            Send-ConfigChanged
+            Park-Mouse
+            Save-Around (Find-Window 'PulsarWidget') $name
+        }
+        Write-Config
+        Send-ConfigChanged
+    }
+
+    if ('game' -in $Parts) {
+        Write-Host 'Game strip'
+        Write-Config -Games 'notepad.exe'
+        Send-ConfigChanged
+        $notepad = Start-Process notepad -PassThru
+        try {
+            Start-Sleep -Seconds 6
+            $tb = Get-Rect (Find-Window 'Shell_TrayWnd')
+            $strip = [Native]::Windows('PulsarOverlay') |
+                Where-Object { (Get-Rect $_).Bottom -le $tb.Top } | Select-Object -First 1
+            if ($strip) { Save-Around $strip 'game-strip' 24 } else { Write-Warning 'no game strip' }
+        } finally {
+            Get-Process Notepad -ErrorAction SilentlyContinue |
+                Where-Object StartTime -ge $notepad.StartTime | Stop-Process -Force
+        }
+        Write-Config
+        Send-ConfigChanged
+    }
+
     if ($Light) {
         Write-Host 'Light taskbar'
         Set-LightTaskbar 1
@@ -508,8 +590,8 @@ try {
         $settings = Find-Window $null 'Pulsar Settings'
         Start-Sleep -Seconds 2
         # Navigation rows, by their centre in the sidebar; group headings sit between them.
-        $pages = 'items', 'layout', 'theme', 'popups', 'widget', 'sensors', 'drives', 'general', 'about'
-        $rows = 62, 106, 150, 194, 238, 316, 360, 438, 482
+        $pages = 'items', 'layout', 'theme', 'popups', 'widget', 'sensors', 'drives', 'profiles', 'general', 'about'
+        $rows = 62, 106, 150, 194, 238, 316, 360, 438, 482, 526
         for ($i = 0; $i -lt $pages.Count; $i++) {
             Send-Click $settings 115 $rows[$i]
             $previous = Save-Window $settings "settings-$($pages[$i])"
