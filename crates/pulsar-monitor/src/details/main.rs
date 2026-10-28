@@ -6,6 +6,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod graph;
+#[path = "../language.rs"]
+mod language;
 #[path = "../settings/notify.rs"]
 #[allow(dead_code)]
 mod notify;
@@ -28,7 +30,7 @@ use pulsar_core::history::HistoryStore;
 use pulsar_core::metric::{ItemKind, Snapshot};
 use pulsar_core::sampler::Sampler;
 use pulsar_core::single_instance::SingleInstance;
-use pulsar_core::{crash, ipc, logging, paths, project, sensors};
+use pulsar_core::{crash, ipc, l10n, logging, paths, project, sensors};
 use slint::{ComponentHandle, Model, ModelRc, Timer, TimerMode, VecModel};
 use windows::Win32::System::SystemInformation::GetTickCount64;
 use windows::Win32::UI::Shell::ShellExecuteW;
@@ -214,7 +216,7 @@ impl App {
                     ui.invoke_scroll_to_top();
                     let _ = ui.show();
                 }
-                notify::focus_window(ipc::DETAILS_TITLE);
+                notify::focus_window(ipc::details_title());
             }
         }
         self.refresh();
@@ -297,15 +299,19 @@ type Caption = ((u8, u8, u8), bool);
 fn refresh_caption(ui: &DetailsWindow, applied: &Cell<Option<Caption>>) {
     let bg = ui.get_backdrop().color();
     let wanted = ((bg.red(), bg.green(), bg.blue()), ui.get_dark());
-    if applied.get() != Some(wanted) && titlebar::blend(ipc::DETAILS_TITLE, wanted.0, wanted.1) {
+    if applied.get() != Some(wanted) && titlebar::blend(ipc::details_title(), wanted.0, wanted.1) {
         applied.set(Some(wanted));
     }
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
     let fed = std::env::args().any(|a| a == feed::FEED_ARG);
+    let config = config::default_path()
+        .and_then(|p| config::read(&p).ok())
+        .unwrap_or_default();
+    language::init(&config);
     let Some(_instance) = SingleInstance::acquire(ipc::DETAILS_MUTEX) else {
-        notify::focus_window(ipc::DETAILS_TITLE);
+        notify::focus_window(ipc::details_title());
         return Ok(());
     };
     if let Some(dir) = paths::logs_dir() {
@@ -313,12 +319,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         crash::install_panic_hook(dir, "pulsar-details", env!("CARGO_PKG_VERSION"));
     }
     log::info!("Details {} opened", env!("CARGO_PKG_VERSION"));
-    let config = config::default_path()
-        .map(|p| config::load(&p).config)
-        .unwrap_or_default();
 
     let ui = DetailsWindow::new()?;
-    ui.set_window_title(ipc::DETAILS_TITLE.into());
+    language::apply_to_slint(l10n::current());
+    ui.set_window_title(ipc::details_title().into());
+    ui.set_ui_font(language::ui_font().into());
     let app = App {
         ui: ui.as_weak(),
         models: Models::attach(&ui),

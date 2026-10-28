@@ -8,9 +8,7 @@ pub const HOST_CLASS: &str = "PulsarHost";
 pub const CONFIG_CHANGED: &str = "Pulsar.ConfigChanged";
 pub const APP_MUTEX: &str = r"Local\Pulsar.SingleInstance";
 pub const SETTINGS_MUTEX: &str = r"Local\Pulsar.Settings";
-pub const SETTINGS_TITLE: &str = "Pulsar Settings";
 pub const DETAILS_MUTEX: &str = r"Local\Pulsar.Details";
-pub const DETAILS_TITLE: &str = "Pulsar Details";
 /// Set by a second settings launch to switch the open window to About.
 pub const SHOW_ABOUT_EVENT: &str = r"Local\Pulsar.Settings.ShowAbout";
 pub const APP_EXE: &str = "pulsar.exe";
@@ -18,6 +16,16 @@ pub const SETTINGS_EXE: &str = "pulsar-settings.exe";
 pub const DETAILS_EXE: &str = "pulsar-details.exe";
 /// Opens the settings window on its About tab.
 pub const ABOUT_ARG: &str = "--about";
+
+/// Another process finds the window by this title, in its own language;
+/// the installer lists every translation.
+pub fn settings_title() -> &'static str {
+    crate::tr!("Pulsar Settings")
+}
+
+pub fn details_title() -> &'static str {
+    crate::tr!("Pulsar Details")
+}
 
 /// The executables are installed side by side.
 pub fn sibling(current_exe: &Path, name: &str) -> PathBuf {

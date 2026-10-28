@@ -17,6 +17,7 @@ use pulsar_core::metric::{
 };
 use pulsar_core::sensors::Unavailable;
 use pulsar_core::sources::{ProcessSort, pdh_instance_name, top_by};
+use pulsar_core::{l10n, tr, tr_noop};
 use slint::{Color, Model, ModelRc, SharedString, VecModel};
 
 use crate::graph::{self, Series, series_color};
@@ -55,14 +56,14 @@ impl Page {
 
     pub fn label(self) -> &'static str {
         match self {
-            Page::Overview => "Overview",
-            Page::Cpu => "Processor",
-            Page::Memory => "Memory",
-            Page::Gpu => "Graphics",
-            Page::Storage => "Storage",
-            Page::Network => "Network",
-            Page::System => "System",
-            Page::Sensors => "Sensors",
+            Page::Overview => tr!("Overview"),
+            Page::Cpu => tr!("Processor"),
+            Page::Memory => tr!("Memory"),
+            Page::Gpu => tr!("Graphics"),
+            Page::Storage => tr!("Storage"),
+            Page::Network => tr!("Network"),
+            Page::System => tr!("System"),
+            Page::Sensors => tr!("Sensors"),
         }
     }
 
@@ -191,11 +192,11 @@ impl Data<'_> {
         };
         view.note = match reason {
             Unavailable::NotInstalled => {
-                "Temperatures, power draw and clocks come from the optional Pulsar sensor service, which reads them through PawnIO.".into()
+                tr!("Temperatures, power draw and clocks come from the optional Pulsar sensor service, which reads them through PawnIO.").into()
             }
-            other => format!("{other}. Temperatures, power draw and clocks are unavailable until it is fixed."),
+            other => tr!("{}. Temperatures, power draw and clocks are unavailable until it is fixed.", other),
         };
-        view.note_action = "Learn how".into();
+        view.note_action = tr!("Learn how").into();
     }
 
     fn cpu_cores(&self) -> u32 {
@@ -287,8 +288,8 @@ pub fn uptime(d: Duration) -> String {
     let minutes = d.as_secs() / 60;
     let (days, hours, minutes) = (minutes / 1440, minutes / 60 % 24, minutes % 60);
     match days {
-        0 => format!("{hours} h {minutes} min"),
-        _ => format!("{days} d {hours} h"),
+        0 => tr!("{} h {} min", hours, minutes),
+        _ => tr!("{} d {} h", days, hours),
     }
 }
 
@@ -303,9 +304,9 @@ fn cache_line(caches: &[Cache], level: u8, kind: CacheKind) -> Option<String> {
                 format!("{} KB", c.size_bytes / 1024)
             };
             let ways = if c.ways == 0xFF {
-                "fully associative".to_string()
+                tr!("fully associative").to_string()
             } else {
-                format!("{}-way", c.ways)
+                tr!("{}-way", c.ways)
             };
             if c.count > 1 {
                 format!("{} × {size}, {ways}", c.count)
@@ -323,7 +324,7 @@ fn processes(data: &Data, sort: ProcessSort) -> SpecGroup {
         if let Some(reason) = data.latest.errors.get(&SourceId::Processes) {
             vec![(reason.clone(), String::new())]
         } else if data.latest.processes.is_empty() {
-            vec![("Collecting…".into(), String::new())]
+            vec![(tr!("Collecting…").into(), String::new())]
         } else {
             top.into_iter()
                 .map(|p: ProcessUsage| {
@@ -339,7 +340,7 @@ fn processes(data: &Data, sort: ProcessSort) -> SpecGroup {
     SpecGroup {
         tint: Color::default(),
         icon: "\u{E9F9}".into(),
-        title: "Top processes".into(),
+        title: tr!("Top processes").into(),
         subtitle: SharedString::default(),
         badge: SharedString::default(),
         specs: model(
@@ -414,7 +415,7 @@ pub fn nav(data: &Data) -> Vec<NavEntry> {
                 ),
                 Page::Storage => (
                     data.get(MetricKey::DiskActivePercent)
-                        .map(|_| format!("{} active", data.fmt(MetricKey::DiskActivePercent)))
+                        .map(|_| tr!("{} active", data.fmt(MetricKey::DiskActivePercent)))
                         .unwrap_or_default(),
                     line(MetricKey::DiskActivePercent, ItemKind::Disk),
                 ),
@@ -476,10 +477,10 @@ fn overview(data: &Data) -> View {
     let os = &info.os;
     let mut graphs = Vec::new();
     for (title, key, kind) in [
-        ("Processor", MetricKey::CpuTotal, ItemKind::Cpu),
-        ("Memory", MetricKey::MemUsedPercent, ItemKind::Ram),
-        ("Graphics", MetricKey::GpuUtil, ItemKind::Gpu),
-        ("Storage", MetricKey::DiskActivePercent, ItemKind::Disk),
+        (tr!("Processor"), MetricKey::CpuTotal, ItemKind::Cpu),
+        (tr!("Memory"), MetricKey::MemUsedPercent, ItemKind::Ram),
+        (tr!("Graphics"), MetricKey::GpuUtil, ItemKind::Gpu),
+        (tr!("Storage"), MetricKey::DiskActivePercent, ItemKind::Disk),
     ] {
         if data.has_history(key) {
             graphs.push(data.graph(title, key, kind, String::new()));
@@ -510,13 +511,13 @@ fn overview(data: &Data) -> View {
         (
             "\u{E950}",
             data.color(ItemKind::Cpu),
-            "Processor",
+            tr!("Processor"),
             Some(info.cpu.brand.clone()),
         ),
         (
             "\u{F211}",
             data.color(ItemKind::Gpu),
-            "Graphics",
+            tr!("Graphics"),
             Some(
                 info.gpus
                     .iter()
@@ -525,19 +526,19 @@ fn overview(data: &Data) -> View {
                     .join("\n"),
             ),
         ),
-        ("\u{EEA0}", data.color(ItemKind::Ram), "Memory", memory),
+        ("\u{EEA0}", data.color(ItemKind::Ram), tr!("Memory"), memory),
         (
             "\u{E964}",
             board_tint,
-            "Motherboard",
+            tr!("Motherboard"),
             board.map(|b| join([b.manufacturer.clone(), b.product.clone()])),
         ),
         (
             "\u{EDA2}",
             data.color(ItemKind::Disk),
-            "Storage",
+            tr!("Storage"),
             (storage_total > 0).then(|| {
-                format!(
+                tr!(
                     "{} across {} drives",
                     capacity(storage_total),
                     info.disks.len()
@@ -562,17 +563,17 @@ fn overview(data: &Data) -> View {
     })
     .collect();
     let mut stats = Vec::new();
-    stats.extend(data.stat("CPU temperature", MetricKey::CpuTempC));
-    stats.extend(data.stat("CPU power", MetricKey::CpuPowerW));
-    stats.extend(data.stat("GPU temperature", MetricKey::GpuTempC));
-    stats.extend(data.stat("Ping", MetricKey::PingMs));
-    stats.push(stat("Up time", uptime(data.uptime)));
+    stats.extend(data.stat(tr!("CPU temperature"), MetricKey::CpuTempC));
+    stats.extend(data.stat(tr!("CPU power"), MetricKey::CpuPowerW));
+    stats.extend(data.stat(tr!("GPU temperature"), MetricKey::GpuTempC));
+    stats.extend(data.stat(tr!("Ping"), MetricKey::PingMs));
+    stats.push(stat(tr!("Up time"), uptime(data.uptime)));
     View {
-        heading: "Overview".into(),
+        heading: tr!("Overview").into(),
         subheading: join([
             Some(os.name.clone()),
             os.version.clone(),
-            os.build.as_ref().map(|b| format!("build {b}")),
+            os.build.as_ref().map(|b| tr!("build {}", b)),
         ]),
         graphs,
         stats,
@@ -589,21 +590,21 @@ fn cpu(data: &Data) -> View {
         subheading: join([
             c.microarchitecture.map(str::to_string),
             Some(match (t.performance_cores, t.efficient_cores) {
-                (Some(p), Some(e)) => format!("{} cores ({p}P + {e}E)", t.cores),
-                _ => format!("{} cores", t.cores),
+                (Some(p), Some(e)) => tr!("{} cores ({}P + {}E)", t.cores, p, e),
+                _ => tr!("{} cores", t.cores),
             }),
-            Some(format!("{} threads", t.threads)),
+            Some(tr!("{} threads", t.threads)),
         ]),
         ..View::default()
     };
     data.service_note(&mut view);
     view.graphs.push(
         data.graph(
-            "Utilization",
+            tr!("Utilization"),
             MetricKey::CpuTotal,
             ItemKind::Cpu,
             data.get(MetricKey::CpuClockMhz)
-                .map(|_| format!("Running at {}", data.fmt(MetricKey::CpuClockMhz)))
+                .map(|_| tr!("Running at {}", data.fmt(MetricKey::CpuClockMhz)))
                 .unwrap_or_default(),
         ),
     );
@@ -613,25 +614,25 @@ fn cpu(data: &Data) -> View {
             .reduce(f64::max);
         view.graphs.push(
             data.graph(
-                "Temperature",
+                tr!("Temperature"),
                 MetricKey::CpuTempC,
                 ItemKind::CpuTemp,
                 hottest
-                    .map(|h| format!("Hottest core {}", format_value(h, Unit::Celsius)))
+                    .map(|h| tr!("Hottest core {}", format_value(h, Unit::Celsius)))
                     .unwrap_or_default(),
             ),
         );
     }
     if data.has_history(MetricKey::CpuPowerW) {
         view.graphs.push(data.graph(
-            "Package power",
+            tr!("Package power"),
             MetricKey::CpuPowerW,
             ItemKind::CpuPower,
             String::new(),
         ));
     }
     view.stats
-        .extend(data.stat("Speed", MetricKey::CpuClockMhz));
+        .extend(data.stat(tr!("Speed"), MetricKey::CpuClockMhz));
     let bus_mhz = data
         .info
         .firmware
@@ -642,38 +643,42 @@ fn cpu(data: &Data) -> View {
     if let Some(clock) = data.get(MetricKey::CpuClockMhz) {
         let ratio = (clock / bus_mhz * 10.0).round() / 10.0;
         view.stats
-            .push(stat("Multiplier", format_value(ratio, Unit::Ratio)));
+            .push(stat(tr!("Multiplier"), format_value(ratio, Unit::Ratio)));
     }
     view.stats
-        .extend(data.stat("Ring clock", MetricKey::RingClockMhz));
+        .extend(data.stat(tr!("Ring clock"), MetricKey::RingClockMhz));
     view.stats
-        .extend(data.stat("Temperature", MetricKey::CpuTempC));
+        .extend(data.stat(tr!("Temperature"), MetricKey::CpuTempC));
     view.stats
-        .extend(data.stat("Package power", MetricKey::CpuPowerW));
+        .extend(data.stat(tr!("Package power"), MetricKey::CpuPowerW));
     view.stats
-        .extend(data.stat("Cores power", MetricKey::CpuCoresPowerW));
+        .extend(data.stat(tr!("Cores power"), MetricKey::CpuCoresPowerW));
     view.stats
-        .extend(data.stat("Graphics power", MetricKey::CpuGraphicsPowerW));
+        .extend(data.stat(tr!("Graphics power"), MetricKey::CpuGraphicsPowerW));
     view.stats
-        .extend(data.stat("Memory power", MetricKey::CpuDramPowerW));
+        .extend(data.stat(tr!("Memory power"), MetricKey::CpuDramPowerW));
     if let Some(peak) = core_values(data, MetricKey::CpuCoreVolts)
         .into_iter()
         .reduce(f64::max)
     {
         view.stats
-            .push(stat("Core voltage", format_value(peak, Unit::Volts)));
+            .push(stat(tr!("Core voltage"), format_value(peak, Unit::Volts)));
     }
     if let Some(throttling) = data.get(MetricKey::CpuThrottling) {
         view.stats.push(Stat {
             warn: throttling > 0.0,
             ..stat(
-                "Thermal throttling",
-                if throttling > 0.0 { "Yes" } else { "No" },
+                tr!("Thermal throttling"),
+                if throttling > 0.0 {
+                    tr!("Yes")
+                } else {
+                    tr!("No")
+                },
             )
         });
     }
     view.stats.push(stat(
-        "Cores / threads",
+        tr!("Cores / threads"),
         format!("{} / {}", t.cores, t.threads),
     ));
 
@@ -693,20 +698,26 @@ fn cpu(data: &Data) -> View {
     let firmware_cpu = data.info.firmware.processor.as_ref();
     view.groups.push(group(
         "\u{E950}",
-        "Processor",
+        tr!("Processor"),
         "",
         vec![
-            ("Vendor", Some(c.vendor.clone())),
-            ("Microarchitecture", c.microarchitecture.map(str::to_string)),
+            (tr!("Vendor"), Some(c.vendor.clone())),
             (
-                "Family · model · stepping",
+                tr!("Microarchitecture"),
+                c.microarchitecture.map(str::to_string),
+            ),
+            (
+                tr!("Family · model · stepping"),
                 Some(format!("{:X}h · {:X}h · {}", c.family, c.model, c.stepping)),
             ),
-            ("Socket", firmware_cpu.and_then(|p| p.socket.clone())),
-            ("Base clock", c.base_mhz.map(mhz)),
-            ("Bus clock", firmware_cpu.and_then(|p| p.bus_mhz).map(mhz)),
+            (tr!("Socket"), firmware_cpu.and_then(|p| p.socket.clone())),
+            (tr!("Base clock"), c.base_mhz.map(mhz)),
             (
-                "Multiplier range",
+                tr!("Bus clock"),
+                firmware_cpu.and_then(|p| p.bus_mhz).map(mhz),
+            ),
+            (
+                tr!("Multiplier range"),
                 data.get(MetricKey::CpuMinRatio)
                     .zip(data.get(MetricKey::CpuMaxRatio))
                     .map(|(lo, hi)| {
@@ -718,20 +729,23 @@ fn cpu(data: &Data) -> View {
                     }),
             ),
             ("TDP", data.get(MetricKey::CpuTdpW).map(watts)),
-            ("Power limits", power_limits(data)),
-            ("Microcode", c.microcode.map(|m| format!("0x{m:X}"))),
-            ("Packages", (t.packages > 1).then(|| t.packages.to_string())),
-            ("Instructions", Some(c.features.join(", "))),
+            (tr!("Power limits"), power_limits(data)),
+            (tr!("Microcode"), c.microcode.map(|m| format!("0x{m:X}"))),
+            (
+                tr!("Packages"),
+                (t.packages > 1).then(|| t.packages.to_string()),
+            ),
+            (tr!("Instructions"), Some(c.features.join(", "))),
         ],
     ));
     view.groups.push(group(
         "\u{E8F1}",
-        "Caches",
+        tr!("Caches"),
         "",
         vec![
-            ("L1 data", cache_line(&c.caches, 1, CacheKind::Data)),
+            (tr!("L1 data"), cache_line(&c.caches, 1, CacheKind::Data)),
             (
-                "L1 instruction",
+                tr!("L1 instruction"),
                 cache_line(&c.caches, 1, CacheKind::Instruction),
             ),
             ("L2", cache_line(&c.caches, 2, CacheKind::Unified)),
@@ -822,8 +836,8 @@ fn cores(data: &Data) -> Option<(Cores, Vec<Core>, Vec<f32>)> {
         .map_or(-1, |p| p as i32);
     let note = match (ranges.iter().any(|r| r.len() > 1), hybrid) {
         (false, _) => "",
-        (true, true) => "P-cores show both threads' load",
-        (true, false) => "Each core shows both threads' load",
+        (true, true) => tr!("P-cores show both threads' load"),
+        (true, false) => tr!("Each core shows both threads' load"),
     };
     let fastest = clocks.iter().copied().reduce(f64::max);
     let hottest = temps.iter().copied().reduce(f64::max);
@@ -839,13 +853,13 @@ fn cores(data: &Data) -> Option<(Cores, Vec<Core>, Vec<f32>)> {
         load_color: data.color(ItemKind::Cpu),
         clock_color: data.color(ItemKind::CpuPower),
         note: note.into(),
-        load_caption: format!("{} threads", loads.len()).into(),
+        load_caption: tr!("{} threads", loads.len()).into(),
         clock_caption: fastest
-            .map(|c| format!("fastest {:.1} GHz", c / 1000.0))
+            .map(|c| tr!("fastest {} GHz", format!("{:.1}", c / 1000.0)))
             .unwrap_or_default()
             .into(),
         temp_caption: hottest
-            .map(|t| format!("hottest {}", format_value(t, Unit::Celsius)))
+            .map(|t| tr!("hottest {}", format_value(t, Unit::Celsius)))
             .unwrap_or_default()
             .into(),
     };
@@ -874,19 +888,19 @@ fn memory(data: &Data) -> View {
     let mut view = View {
         heading: join([Some(total_text), kind.map(str::to_string)]).replace(" · ", " "),
         subheading: join([
-            (array.slots > 0).then(|| format!("{used_slots} of {} slots used", array.slots)),
+            (array.slots > 0).then(|| tr!("{} of {} slots used", used_slots, array.slots)),
             speed.map(|s| format!("{s} MT/s")),
             array
                 .max_bytes
-                .map(|m| format!("Up to {:.0} GB", m as f64 / GB)),
+                .map(|m| tr!("Up to {} GB", format!("{:.0}", m as f64 / GB))),
         ]),
         ..View::default()
     };
     view.feature_graph = data.graph(
-        "Memory in use",
+        tr!("Memory in use"),
         MetricKey::MemUsedPercent,
         ItemKind::Ram,
-        format!(
+        tr!(
             "{} of {}",
             data.fmt(MetricKey::MemUsedBytes),
             data.fmt(MetricKey::MemTotalBytes)
@@ -894,15 +908,15 @@ fn memory(data: &Data) -> View {
     );
     view.mem_usage = mem_usage(data);
     view.stats
-        .extend(data.stat("In use", MetricKey::MemUsedBytes));
+        .extend(data.stat(tr!("In use"), MetricKey::MemUsedBytes));
     view.stats
-        .extend(data.stat("Available", MetricKey::MemAvailableBytes));
+        .extend(data.stat(tr!("Available"), MetricKey::MemAvailableBytes));
     view.stats
-        .extend(data.stat("Committed", MetricKey::CommitBytes));
+        .extend(data.stat(tr!("Committed"), MetricKey::CommitBytes));
     view.stats
-        .extend(data.stat("Commit limit", MetricKey::CommitLimitBytes));
+        .extend(data.stat(tr!("Commit limit"), MetricKey::CommitLimitBytes));
     if let Some(s) = speed {
-        view.stats.push(stat("Speed", format!("{s} MT/s")));
+        view.stats.push(stat(tr!("Speed"), format!("{s} MT/s")));
     }
     if let Some(timings) = timings(data) {
         view.groups.push(timings);
@@ -910,31 +924,31 @@ fn memory(data: &Data) -> View {
     for m in array.modules.iter().filter(|m| m.installed()) {
         let mut g = group(
             "\u{EEA0}",
-            m.slot.as_deref().unwrap_or("Module"),
+            m.slot.as_deref().unwrap_or(tr!("Module")),
             m.part_number.as_deref().unwrap_or(""),
             vec![
-                ("Manufacturer", m.manufacturer.clone()),
+                (tr!("Manufacturer"), m.manufacturer.clone()),
                 (
-                    "Type",
+                    tr!("Type"),
                     Some(
                         join([m.kind.map(str::to_string), m.form.map(str::to_string)])
                             .replace(" · ", " "),
                     ),
                 ),
                 (
-                    "Speed",
+                    tr!("Speed"),
                     match (m.configured_mts, m.rated_mts) {
-                        (Some(c), Some(r)) if c != r => Some(format!("{c} MT/s (rated {r})")),
+                        (Some(c), Some(r)) if c != r => Some(tr!("{} MT/s (rated {})", c, r)),
                         (c, r) => c.or(r).map(|s| format!("{s} MT/s")),
                     },
                 ),
-                ("Ranks", m.ranks.map(|r| r.to_string())),
+                (tr!("Ranks"), m.ranks.map(|r| r.to_string())),
                 (
-                    "Voltage",
+                    tr!("Voltage"),
                     m.configured_mv
                         .map(|mv| format!("{:.2} V", f64::from(mv) / 1000.0)),
                 ),
-                ("Bank", m.bank.clone()),
+                (tr!("Bank"), m.bank.clone()),
             ],
         );
         g.badge = format!("{:.0} GB", m.size_bytes as f64 / GB).into();
@@ -958,7 +972,7 @@ fn power_limits(data: &Data) -> Option<String> {
             // The largest value the register holds means no limit.
             let w = w?;
             Some(if w >= 4095.0 {
-                format!("{name} unlimited")
+                tr!("{} unlimited", name)
             } else {
                 format!("{name} {}", watts(w))
             })
@@ -978,12 +992,16 @@ fn timings(data: &Data) -> Option<SpecGroup> {
     let clock = data.get(MetricKey::MemClockMhz);
     let controller = data.get(MetricKey::MemControllerClockMhz);
     let rows = vec![
-        ("Memory clock", clock.map(|c| format!("{c:.0} MHz"))),
+        (tr!("Memory clock"), clock.map(|c| format!("{c:.0} MHz"))),
         (
-            "Controller clock",
+            tr!("Controller clock"),
             controller.map(|mc| match clock {
                 Some(c) if mc > 0.0 && (c / mc).round() >= 1.0 => {
-                    format!("{mc:.0} MHz (gear {:.0})", (c / mc).round())
+                    tr!(
+                        "{} MHz (gear {})",
+                        format!("{mc:.0}"),
+                        format!("{:.0}", (c / mc).round())
+                    )
                 }
                 _ => format!("{mc:.0} MHz"),
             }),
@@ -991,14 +1009,14 @@ fn timings(data: &Data) -> Option<SpecGroup> {
         ("CL-tRCD-tRP-tRAS", primary),
         ("tRC", cycles(Timing::Rc)),
         (
-            "Command rate",
+            tr!("Command rate"),
             data.get(MetricKey::MemTiming(Timing::CommandRate))
                 .map(|cr| format!("{cr:.0}T")),
         ),
     ];
     rows.iter()
         .any(|(_, v)| v.is_some())
-        .then(|| group("\u{E916}", "Timings", "", rows))
+        .then(|| group("\u{E916}", tr!("Timings"), "", rows))
 }
 
 /// `PCIe 4.0 ×16`.
@@ -1009,14 +1027,14 @@ fn pcie(generation: u32, width: u32) -> String {
 fn link_rows(link: Link) -> [(&'static str, Option<String>); 2] {
     [
         (
-            "Link",
+            tr!("Link"),
             Some(match pci::transfer_rate(link.generation) {
                 Some(rate) => format!("{} ({rate})", pcie(link.generation, link.width)),
                 None => pcie(link.generation, link.width),
             }),
         ),
         (
-            "Max link",
+            tr!("Max link"),
             (link.max_generation > 0).then(|| pcie(link.max_generation, link.max_width)),
         ),
     ]
@@ -1062,25 +1080,26 @@ fn mix(a: Color, b: Color, k: f32) -> Color {
     )
 }
 
+/// Translated where shown.
 const ENGINES: [(GpuEngineKind, &str); 5] = [
-    (GpuEngineKind::ThreeD, "3D"),
-    (GpuEngineKind::Compute, "Compute"),
-    (GpuEngineKind::VideoDecode, "Video decode"),
-    (GpuEngineKind::VideoEncode, "Video encode"),
-    (GpuEngineKind::Copy, "Copy"),
+    (GpuEngineKind::ThreeD, tr_noop!("3D")),
+    (GpuEngineKind::Compute, tr_noop!("Compute")),
+    (GpuEngineKind::VideoDecode, tr_noop!("Video decode")),
+    (GpuEngineKind::VideoEncode, tr_noop!("Video encode")),
+    (GpuEngineKind::Copy, tr_noop!("Copy")),
 ];
 
 fn gpu(data: &Data) -> View {
     let gpus = &data.info.gpus;
     let main = gpus.first();
     let mut view = View {
-        heading: main.map_or("Graphics".into(), |g| g.name.clone()),
+        heading: main.map_or(tr!("Graphics").into(), |g| g.name.clone()),
         subheading: main
             .map(|g| {
                 join([
                     g.vendor.map(str::to_string),
-                    (!g.integrated()).then(|| format!("{} dedicated", bytes(g.dedicated_bytes))),
-                    g.driver.as_ref().map(|d| format!("Driver {d}")),
+                    (!g.integrated()).then(|| tr!("{} dedicated", bytes(g.dedicated_bytes))),
+                    g.driver.as_ref().map(|d| tr!("Driver {}", d)),
                 ])
             })
             .unwrap_or_default(),
@@ -1088,40 +1107,40 @@ fn gpu(data: &Data) -> View {
     };
     view.graphs.push(
         data.graph(
-            "Utilization",
+            tr!("Utilization"),
             MetricKey::GpuUtil,
             ItemKind::Gpu,
             data.get(MetricKey::GpuDedicatedBytes)
-                .map(|v| format!("{} dedicated memory in use", format_value(v, Unit::Bytes)))
+                .map(|v| tr!("{} dedicated memory in use", format_value(v, Unit::Bytes)))
                 .unwrap_or_default(),
         ),
     );
     if data.has_history(MetricKey::GpuTempC) {
         let caption = data
             .get(MetricKey::GpuHotSpotC)
-            .map(|v| format!("Hot spot {}", format_value(v, Unit::Celsius)))
+            .map(|v| tr!("Hot spot {}", format_value(v, Unit::Celsius)))
             .unwrap_or_default();
         view.graphs.push(data.graph(
-            "Temperature",
+            tr!("Temperature"),
             MetricKey::GpuTempC,
             ItemKind::GpuTemp,
             caption,
         ));
     }
     view.stats
-        .extend(data.stat("Temperature", MetricKey::GpuTempC));
+        .extend(data.stat(tr!("Temperature"), MetricKey::GpuTempC));
     view.stats
-        .extend(data.stat("Hot spot", MetricKey::GpuHotSpotC));
+        .extend(data.stat(tr!("Hot spot"), MetricKey::GpuHotSpotC));
     view.stats
-        .extend(data.stat("Memory temperature", MetricKey::GpuMemTempC));
+        .extend(data.stat(tr!("Memory temperature"), MetricKey::GpuMemTempC));
     view.stats.extend(
-        data.stat("Fan", MetricKey::GpuFanRpm)
+        data.stat(tr!("Fan"), MetricKey::GpuFanRpm)
             .filter(|_| data.get(MetricKey::GpuFanRpm).is_some_and(|v| v > 0.0)),
     );
     view.stats
-        .extend(data.stat("Power", MetricKey::GpuPowerPercent));
+        .extend(data.stat(tr!("Power"), MetricKey::GpuPowerPercent));
     view.stats.extend(
-        data.stat("Memory clock", MetricKey::GpuMemClockMhz)
+        data.stat(tr!("Memory clock"), MetricKey::GpuMemClockMhz)
             .map(|mut s| {
                 s.value = format!(
                     "{:.0} MHz",
@@ -1131,26 +1150,30 @@ fn gpu(data: &Data) -> View {
                 s
             }),
     );
-    let mut engines = group("\u{E9D9}", "Engines", "", Vec::new());
+    let mut engines = group("\u{E9D9}", tr!("Engines"), "", Vec::new());
     engines.meters = model(
         ENGINES
             .iter()
             .filter_map(|&(kind, label)| {
                 let v = data.get(MetricKey::GpuEngine(kind))?;
-                Some(meter(label, v / 100.0, format_value(v, Unit::Percent)))
+                Some(meter(
+                    l10n::translate(label),
+                    v / 100.0,
+                    format_value(v, Unit::Percent),
+                ))
             })
             .collect(),
     );
-    let mut memory = group("\u{EEA0}", "Graphics memory", "", Vec::new());
+    let mut memory = group("\u{EEA0}", tr!("Graphics memory"), "", Vec::new());
     let dedicated_total = main.map(|g| g.dedicated_bytes).filter(|&b| b > 0);
     let shared_total = main.map(|g| g.shared_bytes).filter(|&b| b > 0);
     let mut meters = Vec::new();
     if let Some(used) = data.get(MetricKey::GpuDedicatedBytes) {
         let total = dedicated_total.map_or(f64::NAN, |t| t as f64);
         meters.push(meter(
-            "Dedicated",
+            tr!("Dedicated"),
             used / total,
-            format!(
+            tr!(
                 "{} of {}",
                 format_value(used, Unit::Bytes),
                 format_value(total, Unit::Bytes)
@@ -1160,9 +1183,9 @@ fn gpu(data: &Data) -> View {
     if let Some(used) = data.get(MetricKey::GpuSharedBytes) {
         let total = shared_total.map_or(f64::NAN, |t| t as f64);
         meters.push(meter(
-            "Shared",
+            tr!("Shared"),
             used / total,
-            format!(
+            tr!(
                 "{} of {}",
                 format_value(used, Unit::Bytes),
                 format_value(total, Unit::Bytes)
@@ -1178,14 +1201,14 @@ fn gpu(data: &Data) -> View {
         });
         let mut rows = vec![
             (
-                "Board maker",
+                tr!("Board maker"),
                 device
                     .and_then(|d| pci::board_maker(d.ids.subsystem_vendor))
                     .filter(|maker| Some(*maker) != g.vendor)
                     .map(str::to_string),
             ),
             (
-                "Revision",
+                tr!("Revision"),
                 device.map(|d| format!("{:02X}", d.ids.revision)),
             ),
         ];
@@ -1196,16 +1219,16 @@ fn gpu(data: &Data) -> View {
             g.vendor.unwrap_or(""),
             vec![
                 (
-                    "Dedicated memory",
+                    tr!("Dedicated memory"),
                     (g.dedicated_bytes > 0).then(|| bytes(g.dedicated_bytes)),
                 ),
                 (
-                    "Shared memory",
+                    tr!("Shared memory"),
                     (g.shared_bytes > 0).then(|| bytes(g.shared_bytes)),
                 ),
-                ("Driver", g.driver.clone()),
+                (tr!("Driver"), g.driver.clone()),
                 (
-                    "Device ID",
+                    tr!("Device ID"),
                     Some(format!("{:04X}:{:04X}", g.vendor_id, g.device_id)),
                 ),
             ]
@@ -1214,9 +1237,9 @@ fn gpu(data: &Data) -> View {
             .collect(),
         );
         card.badge = if g.integrated() {
-            "Integrated"
+            tr!("Integrated")
         } else {
-            "Discrete"
+            tr!("Discrete")
         }
         .into();
         view.groups.push(card);
@@ -1228,18 +1251,18 @@ fn gpu(data: &Data) -> View {
 fn network_graph(data: &Data) -> Graph {
     graph::graph(
         data.history,
-        "Network",
+        tr!("Network"),
         format!("↓ {}", data.fmt(MetricKey::NetDownBps)),
         String::new(),
         Series {
             key: MetricKey::NetDownBps,
             color: series_color(data.config, data.accent, ItemKind::Network, CellPart::Down),
-            legend: &format!("Download {}", data.fmt(MetricKey::NetDownBps)),
+            legend: &tr!("Download {}", data.fmt(MetricKey::NetDownBps)),
         },
         Some(Series {
             key: MetricKey::NetUpBps,
             color: series_color(data.config, data.accent, ItemKind::Network, CellPart::Up),
-            legend: &format!("Upload {}", data.fmt(MetricKey::NetUpBps)),
+            legend: &tr!("Upload {}", data.fmt(MetricKey::NetUpBps)),
         }),
     )
 }
@@ -1254,19 +1277,25 @@ fn disk_card(data: &Data, d: &DiskInfo) -> SpecGroup {
             (d.size_bytes > 0).then(|| capacity(d.size_bytes)),
         ]),
         vec![
-            ("Interface", d.bus.map(str::to_string)),
-            ("Firmware", d.firmware.clone()),
-            ("Temperature", temp.map(|t| format_value(t, Unit::Celsius))),
+            (tr!("Interface"), d.bus.map(str::to_string)),
+            (tr!("Firmware"), d.firmware.clone()),
             (
-                "Temperature limits",
+                tr!("Temperature"),
+                temp.map(|t| format_value(t, Unit::Celsius)),
+            ),
+            (
+                tr!("Temperature limits"),
                 match (d.warning_c, d.critical_c) {
-                    (Some(w), Some(c)) => Some(format!("Warning {w}°C · critical {c}°C")),
-                    (Some(w), None) => Some(format!("Warning {w}°C")),
-                    (None, Some(c)) => Some(format!("Critical {c}°C")),
+                    (Some(w), Some(c)) => Some(tr!("Warning {}°C · critical {}°C", w, c)),
+                    (Some(w), None) => Some(tr!("Warning {}°C", w)),
+                    (None, Some(c)) => Some(tr!("Critical {}°C", c)),
                     (None, None) => None,
                 },
             ),
-            ("Removable", d.removable.then(|| "Yes".to_string())),
+            (
+                tr!("Removable"),
+                d.removable.then(|| tr!("Yes").to_string()),
+            ),
         ],
     );
     card.badge = d
@@ -1285,15 +1314,18 @@ fn disk_card(data: &Data, d: &DiskInfo) -> SpecGroup {
                 let total = data.get(MetricKey::VolumeTotalBytes(letter))?;
                 let active = data
                     .get(MetricKey::DriveActivePercent(letter))
-                    .map(|a| format!(" · {} active", format_value(a, Unit::Percent)))
+                    .map(|a| format!(" · {}", tr!("{} active", format_value(a, Unit::Percent))))
                     .unwrap_or_default();
                 Some(meter(
                     format!("{}:", letter as char),
                     1.0 - free / total.max(1.0),
                     format!(
-                        "{} free of {}{active}",
-                        format_value(free, Unit::Bytes),
-                        format_value(total, Unit::Bytes)
+                        "{}{active}",
+                        tr!(
+                            "{} free of {}",
+                            format_value(free, Unit::Bytes),
+                            format_value(total, Unit::Bytes)
+                        )
                     ),
                 ))
             })
@@ -1306,19 +1338,19 @@ fn storage(data: &Data) -> View {
     let disks = &data.info.disks;
     let total: u64 = disks.iter().map(|d| d.size_bytes).sum();
     let mut view = View {
-        heading: "Storage".into(),
+        heading: tr!("Storage").into(),
         subheading: join([
-            Some(format!(
-                "{} drive{}",
-                disks.len(),
-                if disks.len() == 1 { "" } else { "s" }
-            )),
-            (total > 0).then(|| format!("{} in total", capacity(total))),
+            Some(if disks.len() == 1 {
+                tr!("1 drive").to_string()
+            } else {
+                tr!("{} drives", disks.len())
+            }),
+            (total > 0).then(|| tr!("{} in total", capacity(total))),
         ]),
         ..View::default()
     };
     view.graphs.push(data.graph(
-        "Activity",
+        tr!("Activity"),
         MetricKey::DiskActivePercent,
         ItemKind::Disk,
         String::new(),
@@ -1326,7 +1358,7 @@ fn storage(data: &Data) -> View {
     let color = data.color(ItemKind::Disk);
     view.graphs.push(graph::graph(
         data.history,
-        "Transfer rate",
+        tr!("Transfer rate"),
         format_value(
             data.get(MetricKey::DiskReadBps).unwrap_or(0.0)
                 + data.get(MetricKey::DiskWriteBps).unwrap_or(0.0),
@@ -1336,26 +1368,29 @@ fn storage(data: &Data) -> View {
         Series {
             key: MetricKey::DiskReadBps,
             color,
-            legend: &format!("Read {}", data.fmt(MetricKey::DiskReadBps)),
+            legend: &tr!("Read {}", data.fmt(MetricKey::DiskReadBps)),
         },
         Some(Series {
             key: MetricKey::DiskWriteBps,
             color: color.brighter(0.6),
-            legend: &format!("Write {}", data.fmt(MetricKey::DiskWriteBps)),
+            legend: &tr!("Write {}", data.fmt(MetricKey::DiskWriteBps)),
         }),
     ));
     view.stats
-        .extend(data.stat("Active", MetricKey::DiskActivePercent));
-    view.stats.extend(data.stat("Read", MetricKey::DiskReadBps));
+        .extend(data.stat(tr!("Active"), MetricKey::DiskActivePercent));
     view.stats
-        .extend(data.stat("Write", MetricKey::DiskWriteBps));
+        .extend(data.stat(tr!("Read"), MetricKey::DiskReadBps));
+    view.stats
+        .extend(data.stat(tr!("Write"), MetricKey::DiskWriteBps));
     if let Some(hottest) = disks
         .iter()
         .filter_map(|d| data.get(MetricKey::DiskTempC(d.number as u8)))
         .reduce(f64::max)
     {
-        view.stats
-            .push(stat("Hottest drive", format_value(hottest, Unit::Celsius)));
+        view.stats.push(stat(
+            tr!("Hottest drive"),
+            format_value(hottest, Unit::Celsius),
+        ));
     }
     view.groups = disks.iter().map(|d| disk_card(data, d)).collect();
     view
@@ -1365,7 +1400,7 @@ fn network(data: &Data) -> View {
     let adapters = &data.info.network;
     let main = adapters.first();
     let mut view = View {
-        heading: main.map_or("Network".into(), |a| a.name.clone()),
+        heading: main.map_or(tr!("Network").into(), |a| a.name.clone()),
         subheading: main
             .map(|a| join([Some(a.description.clone()), a.link_bps.map(link_speed)]))
             .unwrap_or_default(),
@@ -1374,10 +1409,10 @@ fn network(data: &Data) -> View {
     view.graphs.push(network_graph(data));
     if data.has_history(MetricKey::PingMs) {
         view.graphs.push(data.graph(
-            "Latency",
+            tr!("Latency"),
             MetricKey::PingMs,
             ItemKind::Ping,
-            format!(
+            tr!(
                 "{} · {} loss",
                 data.config.ping.host,
                 data.fmt(MetricKey::PingLossPercent)
@@ -1385,11 +1420,12 @@ fn network(data: &Data) -> View {
         ));
     }
     view.stats
-        .extend(data.stat("Download", MetricKey::NetDownBps));
-    view.stats.extend(data.stat("Upload", MetricKey::NetUpBps));
-    view.stats.extend(data.stat("Ping", MetricKey::PingMs));
+        .extend(data.stat(tr!("Download"), MetricKey::NetDownBps));
     view.stats
-        .extend(data.stat("Packet loss", MetricKey::PingLossPercent));
+        .extend(data.stat(tr!("Upload"), MetricKey::NetUpBps));
+    view.stats.extend(data.stat(tr!("Ping"), MetricKey::PingMs));
+    view.stats
+        .extend(data.stat(tr!("Packet loss"), MetricKey::PingLossPercent));
     for a in adapters {
         let rate = data
             .latest
@@ -1408,7 +1444,7 @@ fn network(data: &Data) -> View {
             &a.description,
             vec![
                 (
-                    "Traffic",
+                    tr!("Traffic"),
                     rate.map(|r| {
                         format!(
                             "↓ {}  ↑ {}",
@@ -1417,7 +1453,7 @@ fn network(data: &Data) -> View {
                         )
                     }),
                 ),
-                ("Link speed", a.link_bps.map(link_speed)),
+                (tr!("Link speed"), a.link_bps.map(link_speed)),
                 (
                     "IPv4",
                     Some(
@@ -1429,11 +1465,16 @@ fn network(data: &Data) -> View {
                     ),
                 ),
                 ("IPv6", Some(ipv6.join("\n"))),
-                ("Gateway", a.gateway.map(|g| g.to_string())),
-                ("MAC address", a.mac.clone()),
+                (tr!("Gateway"), a.gateway.map(|g| g.to_string())),
+                (tr!("MAC address"), a.mac.clone()),
             ],
         );
-        card.badge = if a.wireless { "Wi-Fi" } else { "Ethernet" }.into();
+        card.badge = if a.wireless {
+            tr!("Wi-Fi")
+        } else {
+            tr!("Ethernet")
+        }
+        .into();
         view.groups.push(card);
     }
     view
@@ -1447,24 +1488,24 @@ fn system(data: &Data) -> View {
     let bios = fw.bios.clone().unwrap_or_default();
     let mut groups = vec![group(
         "\u{E964}",
-        "Motherboard",
+        tr!("Motherboard"),
         "",
         vec![
-            ("Manufacturer", board.manufacturer.clone()),
-            ("Model", board.product.clone()),
-            ("Revision", board.version),
-            ("Chipset", pci::chipset(&data.info.pci)),
+            (tr!("Manufacturer"), board.manufacturer.clone()),
+            (tr!("Model"), board.product.clone()),
+            (tr!("Revision"), board.version),
+            (tr!("Chipset"), pci::chipset(&data.info.pci)),
             (
-                "Chipset temperature",
+                tr!("Chipset temperature"),
                 data.get(MetricKey::ChipsetTempC)
                     .map(|t| format_value(t, Unit::Celsius)),
             ),
             (
-                "CPU socket",
+                tr!("CPU socket"),
                 fw.processor.as_ref().and_then(|p| p.socket.clone()),
             ),
             (
-                "Memory slots",
+                tr!("Memory slots"),
                 (fw.memory.slots > 0).then(|| fw.memory.slots.to_string()),
             ),
         ],
@@ -1474,21 +1515,21 @@ fn system(data: &Data) -> View {
         "BIOS",
         "",
         vec![
-            ("Vendor", bios.vendor),
-            ("Version", bios.version),
-            ("Release date", bios.date),
+            (tr!("Vendor"), bios.vendor),
+            (tr!("Version"), bios.version),
+            (tr!("Release date"), bios.date),
         ],
     ));
     // Prebuilt PCs name the model here; self-built ones repeat the board.
     if product.product.is_some() && product.product != board.product {
         groups.push(group(
             "\u{E7F8}",
-            "System",
+            tr!("System"),
             "",
             vec![
-                ("Manufacturer", product.manufacturer),
-                ("Model", product.product),
-                ("Version", product.version),
+                (tr!("Manufacturer"), product.manufacturer),
+                (tr!("Model"), product.product),
+                (tr!("Version"), product.version),
             ],
         ));
     }
@@ -1497,14 +1538,17 @@ fn system(data: &Data) -> View {
         "Windows",
         "",
         vec![
-            ("Edition", Some(os.name.clone())),
-            ("Version", os.version.clone()),
-            ("Build", os.build.clone()),
-            ("Up time", Some(uptime(data.uptime))),
+            (tr!("Edition"), Some(os.name.clone())),
+            (tr!("Version"), os.version.clone()),
+            (tr!("Build"), os.build.clone()),
+            (tr!("Up time"), Some(uptime(data.uptime))),
         ],
     ));
     View {
-        heading: board.product.clone().unwrap_or_else(|| "System".into()),
+        heading: board
+            .product
+            .clone()
+            .unwrap_or_else(|| tr!("System").into()),
         subheading: board.manufacturer.unwrap_or_default(),
         groups,
         ..View::default()
@@ -1592,7 +1636,7 @@ impl<'d> Tree<'d> {
                     depth: 1,
                     id: id.into(),
                     open,
-                    label: kind.into(),
+                    label: l10n::translate(kind).into(),
                     ..SensorRow::default()
                 });
                 if open {
@@ -1606,9 +1650,11 @@ impl<'d> Tree<'d> {
 
 fn sensors(data: &Data) -> View {
     let mut view = View {
-        heading: "Sensors".into(),
-        subheading:
-            "Every reading, with the lowest and highest seen while this window has been open".into(),
+        heading: tr!("Sensors").into(),
+        subheading: tr!(
+            "Every reading, with the lowest and highest seen while this window has been open"
+        )
+        .into(),
         ..View::default()
     };
     data.service_note(&mut view);
@@ -1631,10 +1677,14 @@ fn sensors(data: &Data) -> View {
         data.color(ItemKind::ChipsetTemp),
         board
             .and_then(|b| b.product.as_deref())
-            .unwrap_or("Motherboard"),
+            .unwrap_or(tr!("Motherboard")),
         summary(&[MetricKey::ChipsetTempC]),
     );
-    tree.add("Temperatures", "Chipset", MetricKey::ChipsetTempC);
+    tree.add(
+        tr_noop!("Temperatures"),
+        tr!("Chipset"),
+        MetricKey::ChipsetTempC,
+    );
     tree.hardware(
         "cpu".into(),
         Page::Cpu.icon(),
@@ -1643,39 +1693,51 @@ fn sensors(data: &Data) -> View {
         summary(&[MetricKey::CpuTotal, MetricKey::CpuTempC]),
     );
     let cores = data.cpu_cores().max(1) as u16;
-    let core = |i: u16| format!("Core {}", core_label(data, i as usize));
-    tree.add("Load", "Total", MetricKey::CpuTotal);
+    let core = |i: u16| tr!("Core {}", core_label(data, i as usize));
+    tree.add(tr_noop!("Load"), tr!("Total"), MetricKey::CpuTotal);
     for i in 0u16.. {
         if data.get(MetricKey::CpuCore(i)).is_none() {
             break;
         }
-        tree.add("Load", format!("CPU {i}"), MetricKey::CpuCore(i));
+        tree.add(tr_noop!("Load"), format!("CPU {i}"), MetricKey::CpuCore(i));
     }
-    tree.add("Clocks", "Average", MetricKey::CpuClockMhz);
-    tree.add("Clocks", "Ring", MetricKey::RingClockMhz);
+    tree.add(tr_noop!("Clocks"), tr!("Average"), MetricKey::CpuClockMhz);
+    tree.add(tr_noop!("Clocks"), tr!("Ring"), MetricKey::RingClockMhz);
     for i in 0..cores {
-        tree.add("Clocks", core(i), MetricKey::CpuCoreClockMhz(i));
+        tree.add(tr_noop!("Clocks"), core(i), MetricKey::CpuCoreClockMhz(i));
     }
-    tree.add("Temperatures", "Package", MetricKey::CpuTempC);
+    tree.add(
+        tr_noop!("Temperatures"),
+        tr!("Package"),
+        MetricKey::CpuTempC,
+    );
     for i in 0..cores {
-        tree.add("Temperatures", core(i), MetricKey::CpuCoreTempC(i));
+        tree.add(
+            tr_noop!("Temperatures"),
+            core(i),
+            MetricKey::CpuCoreTempC(i),
+        );
     }
     for i in 0..cores {
-        tree.add("Voltages", core(i), MetricKey::CpuCoreVolts(i));
+        tree.add(tr_noop!("Voltages"), core(i), MetricKey::CpuCoreVolts(i));
     }
-    tree.add("Powers", "Package", MetricKey::CpuPowerW);
-    tree.add("Powers", "Cores", MetricKey::CpuCoresPowerW);
-    tree.add("Powers", "Graphics", MetricKey::CpuGraphicsPowerW);
-    tree.add("Powers", "Memory", MetricKey::CpuDramPowerW);
+    tree.add(tr_noop!("Powers"), tr!("Package"), MetricKey::CpuPowerW);
+    tree.add(tr_noop!("Powers"), tr!("Cores"), MetricKey::CpuCoresPowerW);
+    tree.add(
+        tr_noop!("Powers"),
+        tr!("Graphics"),
+        MetricKey::CpuGraphicsPowerW,
+    );
+    tree.add(tr_noop!("Powers"), tr!("Memory"), MetricKey::CpuDramPowerW);
     for i in 0..cores {
-        tree.add("Powers", core(i), MetricKey::CpuCorePowerW(i));
+        tree.add(tr_noop!("Powers"), core(i), MetricKey::CpuCorePowerW(i));
     }
 
     let gpu_name = data
         .info
         .gpus
         .first()
-        .map_or("Graphics", |g| g.name.as_str());
+        .map_or(tr!("Graphics"), |g| g.name.as_str());
     tree.hardware(
         "gpu".into(),
         Page::Gpu.icon(),
@@ -1683,30 +1745,54 @@ fn sensors(data: &Data) -> View {
         gpu_name,
         summary(&[MetricKey::GpuUtil, MetricKey::GpuTempC]),
     );
-    tree.add("Load", "Core", MetricKey::GpuUtil);
+    tree.add(tr_noop!("Load"), tr!("Core"), MetricKey::GpuUtil);
     for (kind, label) in ENGINES {
-        tree.add("Load", label, MetricKey::GpuEngine(kind));
+        tree.add(
+            tr_noop!("Load"),
+            l10n::translate(label),
+            MetricKey::GpuEngine(kind),
+        );
     }
-    tree.add("Temperatures", "Core", MetricKey::GpuTempC);
-    tree.add("Temperatures", "Hot spot", MetricKey::GpuHotSpotC);
-    tree.add("Temperatures", "Memory", MetricKey::GpuMemTempC);
-    tree.add("Clocks", "Memory", MetricKey::GpuMemClockMhz);
-    tree.add("Fans", "Fan", MetricKey::GpuFanRpm);
-    tree.add("Powers", "Power", MetricKey::GpuPowerPercent);
-    tree.add("Data", "Dedicated memory", MetricKey::GpuDedicatedBytes);
-    tree.add("Data", "Shared memory", MetricKey::GpuSharedBytes);
+    tree.add(tr_noop!("Temperatures"), tr!("Core"), MetricKey::GpuTempC);
+    tree.add(
+        tr_noop!("Temperatures"),
+        tr!("Hot spot"),
+        MetricKey::GpuHotSpotC,
+    );
+    tree.add(
+        tr_noop!("Temperatures"),
+        tr!("Memory"),
+        MetricKey::GpuMemTempC,
+    );
+    tree.add(tr_noop!("Clocks"), tr!("Memory"), MetricKey::GpuMemClockMhz);
+    tree.add(tr_noop!("Fans"), tr!("Fan"), MetricKey::GpuFanRpm);
+    tree.add(tr_noop!("Powers"), tr!("Power"), MetricKey::GpuPowerPercent);
+    tree.add(
+        tr_noop!("Data"),
+        tr!("Dedicated memory"),
+        MetricKey::GpuDedicatedBytes,
+    );
+    tree.add(
+        tr_noop!("Data"),
+        tr!("Shared memory"),
+        MetricKey::GpuSharedBytes,
+    );
 
     tree.hardware(
         "memory".into(),
         Page::Memory.icon(),
         data.color(ItemKind::Ram),
-        "Memory",
+        tr!("Memory"),
         summary(&[MetricKey::MemUsedPercent]),
     );
-    tree.add("Load", "Physical", MetricKey::MemUsedPercent);
-    tree.add("Data", "In use", MetricKey::MemUsedBytes);
-    tree.add("Data", "Available", MetricKey::MemAvailableBytes);
-    tree.add("Data", "Committed", MetricKey::CommitBytes);
+    tree.add(tr_noop!("Load"), tr!("Physical"), MetricKey::MemUsedPercent);
+    tree.add(tr_noop!("Data"), tr!("In use"), MetricKey::MemUsedBytes);
+    tree.add(
+        tr_noop!("Data"),
+        tr!("Available"),
+        MetricKey::MemAvailableBytes,
+    );
+    tree.add(tr_noop!("Data"), tr!("Committed"), MetricKey::CommitBytes);
 
     for d in &data.info.disks {
         let temp = MetricKey::DiskTempC(d.number as u8);
@@ -1726,17 +1812,17 @@ fn sensors(data: &Data) -> View {
                     .collect::<Vec<_>>(),
             ),
         );
-        tree.add("Temperatures", "Drive", temp);
+        tree.add(tr_noop!("Temperatures"), tr!("Drive"), temp);
         for &letter in &d.letters {
             let letter = letter as u8;
             tree.add(
-                "Load",
-                format!("{}: activity", letter as char),
+                tr_noop!("Load"),
+                tr!("{}: activity", letter as char),
                 MetricKey::DriveActivePercent(letter),
             );
             tree.add(
-                "Load",
-                format!("{}: used space", letter as char),
+                tr_noop!("Load"),
+                tr!("{}: used space", letter as char),
                 MetricKey::DriveUsedPercent(letter),
             );
         }
@@ -1745,26 +1831,42 @@ fn sensors(data: &Data) -> View {
         "drives".into(),
         Page::Storage.icon(),
         data.color(ItemKind::Disk),
-        "All drives",
+        tr!("All drives"),
         summary(&[MetricKey::DiskActivePercent]),
     );
-    tree.add("Load", "Activity", MetricKey::DiskActivePercent);
-    tree.add("Throughput", "Read", MetricKey::DiskReadBps);
-    tree.add("Throughput", "Write", MetricKey::DiskWriteBps);
+    tree.add(
+        tr_noop!("Load"),
+        tr!("Activity"),
+        MetricKey::DiskActivePercent,
+    );
+    tree.add(tr_noop!("Throughput"), tr!("Read"), MetricKey::DiskReadBps);
+    tree.add(
+        tr_noop!("Throughput"),
+        tr!("Write"),
+        MetricKey::DiskWriteBps,
+    );
 
     tree.hardware(
         "network".into(),
         Page::Network.icon(),
         series_color(data.config, data.accent, ItemKind::Network, CellPart::Down),
-        "Network",
+        tr!("Network"),
         data.get(MetricKey::NetDownBps)
             .map(|_| format!("↓ {}", data.fmt(MetricKey::NetDownBps)))
             .unwrap_or_default(),
     );
-    tree.add("Throughput", "Download", MetricKey::NetDownBps);
-    tree.add("Throughput", "Upload", MetricKey::NetUpBps);
-    tree.add("Latency", "Ping", MetricKey::PingMs);
-    tree.add("Latency", "Packet loss", MetricKey::PingLossPercent);
+    tree.add(
+        tr_noop!("Throughput"),
+        tr!("Download"),
+        MetricKey::NetDownBps,
+    );
+    tree.add(tr_noop!("Throughput"), tr!("Upload"), MetricKey::NetUpBps);
+    tree.add(tr_noop!("Latency"), tr!("Ping"), MetricKey::PingMs);
+    tree.add(
+        tr_noop!("Latency"),
+        tr!("Packet loss"),
+        MetricKey::PingLossPercent,
+    );
 
     view.sensors = tree.rows(&data.prefs.closed);
     view

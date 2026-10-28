@@ -335,12 +335,12 @@ component ColorField inherits HorizontalLayout {
                     value: hsv(root.hue, root.saturation, root.value);
                 }
                 Text {
-                    text: root.text == "" ? "Default" : root.text;
+                    text: root.text == "" ? @tr("Default") : root.text;
                     vertical-alignment: center;
                     horizontal-stretch: 1;
                 }
                 Button {
-                    text: "Use default";
+                    text: @tr("Use default");
                     enabled: root.text != "";
                     clicked => {
                         root.set("");
@@ -378,7 +378,9 @@ export component SettingsWindow inherits Window {
     // Read by the app to colour the native title bar to match.
     out property <brush> backdrop: Palette.background;
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    default-font-family: "Segoe UI Variable Text";
+    // Set per language by the app.
+    in property <string> ui-font: "Segoe UI Variable Text";
+    default-font-family: root.ui-font;
 
     in-out property <int> tab;
     in-out property <bool> autostart;
@@ -428,6 +430,8 @@ export component SettingsWindow inherits Window {
     in-out property <bool> font-bold;
     in property <[string]> presets;
     in-out property <int> preset-index;
+    in property <[string]> languages;
+    in-out property <int> language-index;
     in property <[string]> adapters;
     in-out property <int> adapter-index;
     in-out property <[DriveRow]> drive-rows;
@@ -459,25 +463,25 @@ export component SettingsWindow inherits Window {
             spacing: 4px;
             NavItem {
                 icon: Icons.settings;
-                label: "General";
+                label: @tr("General");
                 selected: root.tab == 0;
                 clicked => { root.tab = 0; }
             }
             NavItem {
                 icon: Icons.display;
-                label: "Display";
+                label: @tr("Display");
                 selected: root.tab == 1;
                 clicked => { root.tab = 1; }
             }
             NavItem {
                 icon: Icons.list;
-                label: "Items";
+                label: @tr("Items");
                 selected: root.tab == 2;
                 clicked => { root.tab = 2; }
             }
             NavItem {
                 icon: Icons.info;
-                label: "About";
+                label: @tr("About");
                 selected: root.tab == 3;
                 clicked => { root.tab = 3; }
             }
@@ -491,11 +495,22 @@ export component SettingsWindow inherits Window {
             width: scroll.visible-width;
             alignment: start;
             if root.tab == 0: Page {
-                title: "General";
+                title: @tr("General");
                 Card {
                     SettingRow {
-                        title: "Start with Windows";
-                        description: "Launch Pulsar when you sign in.";
+                        title: @tr("Language");
+                        description: @tr("For Pulsar's windows, menus and labels.");
+                        ComboBox {
+                            width: 200px;
+                            model: root.languages;
+                            current-index <=> root.language-index;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Start with Windows");
+                        description: @tr("Launch Pulsar when you sign in.");
                         Switch {
                             checked <=> root.autostart;
                             toggled => { root.changed(); }
@@ -503,8 +518,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Check for updates";
-                        description: "Look for a new release once a day. Nothing is downloaded automatically.";
+                        title: @tr("Check for updates");
+                        description: @tr("Look for a new release once a day. Nothing is downloaded automatically.");
                         Switch {
                             checked <=> root.update-check;
                             toggled => { root.changed(); }
@@ -512,19 +527,19 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Tray icon";
-                        description: "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings.";
+                        title: @tr("Tray icon");
+                        description: @tr("Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings.");
                         Switch {
                             checked <=> root.tray-icon;
                             toggled => { root.changed(); }
                         }
                     }
                 }
-                SectionTitle { text: "Sampling"; }
+                SectionTitle { text: @tr("Sampling"); }
                 Card {
                     SettingRow {
-                        title: "Update interval";
-                        description: "Milliseconds between readings.";
+                        title: @tr("Update interval");
+                        description: @tr("Milliseconds between readings.");
                         SpinBox {
                             width: 140px;
                             minimum: 500;
@@ -536,8 +551,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "History length";
-                        description: "Readings kept for the graphs.";
+                        title: @tr("History length");
+                        description: @tr("Readings kept for the graphs.");
                         SpinBox {
                             width: 140px;
                             minimum: 10;
@@ -548,17 +563,17 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
-                SectionTitle { text: "Reset"; }
+                SectionTitle { text: @tr("Reset"); }
                 Card {
                     SettingRow {
-                        title: "Reset all settings";
-                        description: root.confirm-reset ? "Everything except Start with Windows goes back to its default." : "Start over with the default look and items.";
+                        title: @tr("Reset all settings");
+                        description: root.confirm-reset ? @tr("Everything except Start with Windows and the language goes back to its default.") : @tr("Start over with the default look and items.");
                         if !root.confirm-reset: Button {
-                            text: "Reset…";
+                            text: @tr("Reset…");
                             clicked => { root.confirm-reset = true; }
                         }
                         if root.confirm-reset: Button {
-                            text: "Reset";
+                            text: @tr("Reset");
                             primary: true;
                             clicked => {
                                 root.confirm-reset = false;
@@ -566,7 +581,7 @@ export component SettingsWindow inherits Window {
                             }
                         }
                         if root.confirm-reset: Button {
-                            text: "Cancel";
+                            text: @tr("Cancel");
                             clicked => { root.confirm-reset = false; }
                         }
                     }
@@ -574,22 +589,22 @@ export component SettingsWindow inherits Window {
             }
 
             if root.tab == 1: Page {
-                title: "Display";
+                title: @tr("Display");
                 Card {
                     SettingRow {
-                        title: "Mode";
-                        description: "Graphs, or compact text only.";
+                        title: @tr("Mode");
+                        description: @tr("Graphs, or compact text only.");
                         ComboBox {
                             width: 200px;
-                            model: ["Graphs", "Text only"];
+                            model: [@tr("Graphs"), @tr("Text only")];
                             current-index <=> root.mode;
                             selected => { root.changed(); }
                         }
                     }
                     if root.mode == 0: Divider { }
                     if root.mode == 0: SettingRow {
-                        title: "Single-line graphs";
-                        description: "Put the icon, label and value on one line, for short taskbars.";
+                        title: @tr("Single-line graphs");
+                        description: @tr("Put the icon, label and value on one line, for short taskbars.");
                         Switch {
                             checked <=> root.graph-inline;
                             toggled => { root.changed(); }
@@ -597,8 +612,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Details on hover";
-                        description: "Show a graph and details when the mouse rests on an item.";
+                        title: @tr("Details on hover");
+                        description: @tr("Show a graph and details when the mouse rests on an item.");
                         Switch {
                             checked <=> root.hover-popup;
                             toggled => { root.changed(); }
@@ -606,11 +621,11 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Labels";
-                        description: "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone.";
+                        title: @tr("Labels");
+                        description: @tr("Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone.");
                         ComboBox {
                             width: 200px;
-                            model: ["Full", "Short", "None (icons only)"];
+                            model: [@tr("Full"), @tr("Short"), @tr("None (icons only)")];
                             current-index <=> root.labels;
                             selected => {
                                 if (root.labels == 2) {
@@ -622,8 +637,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Icons";
-                        description: "An icon before each label, or on its own.";
+                        title: @tr("Icons");
+                        description: @tr("An icon before each label, or on its own.");
                         Switch {
                             checked <=> root.icons;
                             toggled => {
@@ -636,19 +651,19 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Hide in fullscreen";
-                        description: "Fade out while a fullscreen game or video is in front.";
+                        title: @tr("Hide in fullscreen");
+                        description: @tr("Fade out while a fullscreen game or video is in front.");
                         Switch {
                             checked <=> root.hide-in-fullscreen;
                             toggled => { root.changed(); }
                         }
                     }
                 }
-                SectionTitle { text: "Text"; }
+                SectionTitle { text: @tr("Text"); }
                 Card {
                     SettingRow {
-                        title: "Font";
-                        description: "Fonts without fixed-width digits may shift slightly as values change.";
+                        title: @tr("Font");
+                        description: @tr("Fonts without fixed-width digits may shift slightly as values change.");
                         ComboBox {
                             width: 220px;
                             model: root.fonts;
@@ -658,7 +673,7 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Bold";
+                        title: @tr("Bold");
                         Switch {
                             checked <=> root.font-bold;
                             toggled => { root.changed(); }
@@ -666,8 +681,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Font size";
-                        description: "Points.";
+                        title: @tr("Font size");
+                        description: @tr("Points.");
                         SpinBox {
                             width: 140px;
                             minimum: 6;
@@ -678,33 +693,33 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Accent colour graphs";
-                        description: "Draw graphs in your Windows accent colour.";
+                        title: @tr("Accent colour graphs");
+                        description: @tr("Draw graphs in your Windows accent colour.");
                         Switch {
                             checked <=> root.accent-graphs;
                             toggled => { root.changed(); }
                         }
                     }
                 }
-                SectionTitle { text: "Colours"; }
+                SectionTitle { text: @tr("Colours"); }
                 Card {
                     SettingRow {
-                        title: "Theme preset";
-                        description: "Sets item, label, value, tile and panel colours at once.";
+                        title: @tr("Theme preset");
+                        description: @tr("Sets item, label, value, tile and panel colours at once.");
                         ComboBox {
                             width: 180px;
                             model: root.presets;
                             current-index <=> root.preset-index;
                         }
                         Button {
-                            text: "Apply";
+                            text: @tr("Apply");
                             clicked => { root.apply-preset(root.preset-index); }
                         }
                     }
                     Divider { }
                     SettingRow {
-                        title: "Label colour";
-                        description: "Empty uses the theme.";
+                        title: @tr("Label colour");
+                        description: @tr("Empty uses the theme.");
                         ColorField {
                             text <=> root.label-color;
                             swatch: root.label-swatch;
@@ -714,8 +729,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Value colour";
-                        description: "Empty uses the theme.";
+                        title: @tr("Value colour");
+                        description: @tr("Empty uses the theme.");
                         ColorField {
                             text <=> root.value-color;
                             swatch: root.value-swatch;
@@ -725,32 +740,32 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Colour labels by item";
-                        description: "Draw each label in its item's colour.";
+                        title: @tr("Colour labels by item");
+                        description: @tr("Draw each label in its item's colour.");
                         Switch {
                             checked <=> root.color-labels;
                             toggled => { root.changed(); }
                         }
                     }
                 }
-                SectionTitle { text: "Position"; }
+                SectionTitle { text: @tr("Position"); }
                 Card {
                     SettingRow {
-                        title: "Placement";
-                        description: "Where the overlay sits on the taskbar.";
+                        title: @tr("Placement");
+                        description: @tr("Where the overlay sits on the taskbar.");
                         ComboBox {
                             width: 200px;
-                            model: ["Next to the tray", "Left edge", "Floating"];
+                            model: [@tr("Next to the tray"), @tr("Left edge"), @tr("Floating")];
                             current-index <=> root.position;
                             selected => { root.changed(); }
                         }
                     }
                     if root.position == 2: Divider { }
                     if root.position == 2: SettingRow {
-                        title: "Lock position";
-                        description: "Drag the overlay to move it. Add a panel background so it stays readable over any window.";
+                        title: @tr("Lock position");
+                        description: @tr("Drag the overlay to move it. Add a panel background so it stays readable over any window.");
                         Button {
-                            text: "Reset position";
+                            text: @tr("Reset position");
                             clicked => { root.reset-position(); }
                         }
                         Switch {
@@ -760,8 +775,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Offset";
-                        description: "Extra space in pixels, moving away from the anchor.";
+                        title: @tr("Offset");
+                        description: @tr("Extra space in pixels, moving away from the anchor.");
                         SpinBox {
                             width: 140px;
                             minimum: -2000;
@@ -773,8 +788,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Tray fallback margin";
-                        description: "Used when the tray position cannot be read.";
+                        title: @tr("Tray fallback margin");
+                        description: @tr("Used when the tray position cannot be read.");
                         SpinBox {
                             width: 140px;
                             minimum: 0;
@@ -786,19 +801,19 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Every taskbar";
-                        description: "Also show on the taskbars of other monitors.";
+                        title: @tr("Every taskbar");
+                        description: @tr("Also show on the taskbars of other monitors.");
                         Switch {
                             checked <=> root.show-on-all-taskbars;
                             toggled => { root.changed(); }
                         }
                     }
                 }
-                SectionTitle { text: "Background"; }
+                SectionTitle { text: @tr("Background"); }
                 Card {
                     SettingRow {
-                        title: "Tile colour";
-                        description: "Empty uses the theme tint.";
+                        title: @tr("Tile colour");
+                        description: @tr("Empty uses the theme tint.");
                         ColorField {
                             text <=> root.tile-color;
                             swatch: root.tile-swatch;
@@ -808,8 +823,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Custom tile opacity";
-                        description: root.tile-opacity-custom ? "\{Math.round(root.tile-opacity)}% — 0% removes the tiles." : "Using the theme default.";
+                        title: @tr("Custom tile opacity");
+                        description: root.tile-opacity-custom ? @tr("{}% — 0% removes the tiles.", Math.round(root.tile-opacity)) : @tr("Using the theme default.");
                         Slider {
                             width: 160px;
                             enabled: root.tile-opacity-custom;
@@ -825,8 +840,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Panel colour";
-                        description: "A panel behind the whole overlay. Empty uses the theme.";
+                        title: @tr("Panel colour");
+                        description: @tr("A panel behind the whole overlay. Empty uses the theme.");
                         ColorField {
                             text <=> root.panel-color;
                             swatch: root.panel-swatch;
@@ -836,8 +851,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Panel opacity";
-                        description: root.panel-opacity > 0 ? "\{Math.round(root.panel-opacity)}%" : "Off";
+                        title: @tr("Panel opacity");
+                        description: root.panel-opacity > 0 ? "\{Math.round(root.panel-opacity)}%" : @tr("Off");
                         Slider {
                             width: 200px;
                             minimum: 0;
@@ -850,9 +865,9 @@ export component SettingsWindow inherits Window {
             }
 
             if root.tab == 2: Page {
-                title: "Items";
+                title: @tr("Items");
                 Text {
-                    text: "Choose what the overlay shows, its order, and each item's colour (empty uses the default). In graph mode, clear Graph to show an item as text only.";
+                    text: @tr("Choose what the overlay shows, its order, and each item's colour (empty uses the default). In graph mode, clear Graph to show an item as text only.");
                     color: Palette.foreground.transparentize(0.35);
                     wrap: word-wrap;
                 }
@@ -862,7 +877,7 @@ export component SettingsWindow inherits Window {
                         SettingRow {
                             title: row.name;
                             if root.mode == 0: CheckBox {
-                                text: "Graph";
+                                text: @tr("Graph");
                                 checked: row.graph;
                                 toggled => { root.item-graph(i, self.checked); }
                             }
@@ -870,7 +885,7 @@ export component SettingsWindow inherits Window {
                                 text: row.color;
                                 swatch: row.swatch;
                                 fallback: row.swatch;
-                                placeholder: "Default";
+                                placeholder: @tr("Default");
                                 field-width: 120px;
                                 edited(text) => { root.item-color(i, text); }
                             }
@@ -891,35 +906,35 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
-                SectionTitle { text: "Temperatures and power"; }
+                SectionTitle { text: @tr("Temperatures and power"); }
                 Card {
                     SettingRow {
-                        title: "Sensor service";
-                        description: "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only.";
+                        title: @tr("Sensor service");
+                        description: @tr("CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only.");
                         Button {
-                            text: "About PawnIO";
+                            text: @tr("About PawnIO");
                             clicked => { root.open-link("https://pawnio.eu"); }
                         }
                     }
                 }
-                SectionTitle { text: "Disk"; }
+                SectionTitle { text: @tr("Disk"); }
                 Card {
                     SettingRow {
-                        title: "Disks";
-                        description: "One combined cell, or a cell per drive.";
+                        title: @tr("Disks");
+                        description: @tr("One combined cell, or a cell per drive.");
                         ComboBox {
                             width: 200px;
-                            model: ["All disks combined", "Each drive"];
+                            model: [@tr("All disks combined"), @tr("Each drive")];
                             current-index: root.per-drive ? 1 : 0;
-                            selected(value) => {
-                                root.per-drive = value == "Each drive";
+                            selected => {
+                                root.per-drive = self.current-index == 1;
                                 root.per-drive-selected();
                             }
                         }
                     }
                     if root.per-drive: Divider { }
                     if root.per-drive: SettingRow {
-                        title: "Drives";
+                        title: @tr("Drives");
                         for drive[i] in root.drive-rows: CheckBox {
                             text: drive.letter + ":";
                             checked: drive.checked;
@@ -928,23 +943,23 @@ export component SettingsWindow inherits Window {
                     }
                     if root.per-drive: Divider { }
                     if root.per-drive: SettingRow {
-                        title: "Drive value";
+                        title: @tr("Drive value");
                         ComboBox {
                             width: 200px;
-                            model: ["Activity", "Used space"];
+                            model: [@tr("Activity"), @tr("Used space")];
                             current-index: root.drive-used ? 1 : 0;
-                            selected(value) => {
-                                root.drive-used = value == "Used space";
+                            selected => {
+                                root.drive-used = self.current-index == 1;
                                 root.changed();
                             }
                         }
                     }
                 }
-                SectionTitle { text: "Network"; }
+                SectionTitle { text: @tr("Network"); }
                 Card {
                     SettingRow {
-                        title: "Adapter";
-                        description: "Count one adapter, or every physical one.";
+                        title: @tr("Adapter");
+                        description: @tr("Count one adapter, or every physical one.");
                         ComboBox {
                             width: 260px;
                             model: root.adapters;
@@ -953,11 +968,11 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
-                SectionTitle { text: "Ping"; }
+                SectionTitle { text: @tr("Ping"); }
                 Card {
                     SettingRow {
-                        title: "Host";
-                        description: "An IPv4 address or a name.";
+                        title: @tr("Host");
+                        description: @tr("An IPv4 address or a name.");
                         LineEdit {
                             width: 200px;
                             text <=> root.ping-host;
@@ -966,8 +981,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: "Interval";
-                        description: "Milliseconds between pings.";
+                        title: @tr("Interval");
+                        description: @tr("Milliseconds between pings.");
                         SpinBox {
                             width: 140px;
                             minimum: 1000;
@@ -981,7 +996,7 @@ export component SettingsWindow inherits Window {
             }
 
             if root.tab == 3: Page {
-                title: "About";
+                title: @tr("About");
                 Card {
                     HorizontalLayout {
                         padding: 20px;
@@ -995,12 +1010,12 @@ export component SettingsWindow inherits Window {
                             alignment: center;
                             spacing: 4px;
                             Text {
-                                text: "Pulsar \{root.version}";
+                                text: @tr("Pulsar {}", root.version);
                                 font-size: 20px;
                                 font-weight: 600;
                             }
                             Text {
-                                text: "A Windows 11 taskbar system monitor.";
+                                text: @tr("A Windows 11 taskbar system monitor.");
                                 color: Palette.foreground.transparentize(0.35);
                             }
                         }
@@ -1008,43 +1023,43 @@ export component SettingsWindow inherits Window {
                 }
                 Card {
                     SettingRow {
-                        title: "License";
-                        description: "GNU General Public License v3.0 or later. Built with Slint.";
+                        title: @tr("License");
+                        description: @tr("GNU General Public License v3.0 or later. Built with Slint.");
                     }
                     Divider { }
                     SettingRow {
-                        title: "Settings file";
+                        title: @tr("Settings file");
                         description: root.config-path;
                         Button {
-                            text: "Open folder";
+                            text: @tr("Open folder");
                             clicked => { root.open-config-folder(); }
                         }
                     }
                     Divider { }
                     SettingRow {
-                        title: "Logs";
+                        title: @tr("Logs");
                         description: root.logs-path;
                         Button {
-                            text: "Open folder";
+                            text: @tr("Open folder");
                             clicked => { root.open-logs-folder(); }
                         }
                     }
                 }
                 Card {
                     SettingRow {
-                        title: "Source code";
+                        title: @tr("Source code");
                         description: root.repo-url;
                         Button {
-                            text: "Open on GitHub";
+                            text: @tr("Open on GitHub");
                             clicked => { root.open-link(root.repo-url); }
                         }
                     }
                     Divider { }
                     SettingRow {
-                        title: "Report a problem";
-                        description: "Attach pulsar.log, and any crash report, from the logs folder.";
+                        title: @tr("Report a problem");
+                        description: @tr("Attach pulsar.log, and any crash report, from the logs folder.");
                         Button {
-                            text: "Report an issue";
+                            text: @tr("Report an issue");
                             clicked => { root.open-link(root.issues-url); }
                         }
                     }

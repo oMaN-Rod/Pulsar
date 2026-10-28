@@ -7,6 +7,7 @@ pub mod format;
 pub mod hardware;
 pub mod history;
 pub mod ipc;
+pub mod l10n;
 pub mod layout;
 pub mod logging;
 pub mod metric;

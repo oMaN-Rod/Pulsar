@@ -1,5 +1,42 @@
+use std::path::Path;
+
+/// Lists `locales/<code>/LC_MESSAGES/pulsar-monitor.po` for `language.rs`;
+/// Slint bundles the same catalogs for the `.slint` files.
+fn write_catalog_list() {
+    let package = std::env::var("CARGO_PKG_NAME").expect("set by cargo");
+    let root = std::env::var("CARGO_MANIFEST_DIR").expect("set by cargo");
+    println!("cargo:rerun-if-changed=locales");
+    let mut catalogs: Vec<(String, String)> = std::fs::read_dir(Path::new(&root).join("locales"))
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let po = entry
+                .path()
+                .join("LC_MESSAGES")
+                .join(format!("{package}.po"));
+            po.is_file().then(|| {
+                let code = entry.file_name().to_string_lossy().into_owned();
+                (code, po.display().to_string())
+            })
+        })
+        .collect();
+    catalogs.sort();
+    let mut out = String::from("&[\n");
+    for (code, path) in catalogs {
+        out.push_str(&format!("    ({code:?}, include_str!({path:?})),\n"));
+    }
+    out.push_str("]\n");
+    let dest = Path::new(&std::env::var("OUT_DIR").expect("set by cargo")).join("catalogs.rs");
+    std::fs::write(dest, out).expect("write the catalog list");
+}
+
 fn main() {
-    let config = slint_build::CompilerConfiguration::new().with_style("fluent".into());
+    write_catalog_list();
+    let config = slint_build::CompilerConfiguration::new()
+        .with_style("fluent".into())
+        .with_bundled_translations("locales")
+        .with_default_translation_context(slint_build::DefaultTranslationContext::None);
     slint_build::compile_with_config("ui/settings.slint", config.clone())
         .expect("compile settings.slint");
     let out = std::path::PathBuf::from(std::env::var("OUT_DIR").expect("set by cargo"));

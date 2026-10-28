@@ -5,6 +5,7 @@ mod details;
 mod drag;
 mod fade;
 mod hover;
+mod language;
 mod launcher;
 mod menu;
 mod messages;

@@ -1,3 +1,4 @@
+use pulsar_core::l10n;
 use pulsar_core::layout::TextMeasure;
 use windows::Win32::Graphics::DirectWrite::{
     DWRITE_FACTORY_TYPE_SHARED, DWRITE_FONT_FEATURE, DWRITE_FONT_FEATURE_TAG_TABULAR_FIGURES,
@@ -6,7 +7,7 @@ use windows::Win32::Graphics::DirectWrite::{
     DWRITE_WORD_WRAPPING_NO_WRAP, DWriteCreateFactory, IDWriteFactory, IDWriteFontCollection,
     IDWriteTextFormat, IDWriteTextLayout, IDWriteTypography,
 };
-use windows::core::{BOOL, HSTRING, Result, w};
+use windows::core::{BOOL, HSTRING, Result};
 
 const FAMILIES: [&str; 2] = ["Segoe UI Variable Text", "Segoe UI"];
 const ICON_FAMILIES: [&str; 2] = ["Segoe Fluent Icons", "Segoe MDL2 Assets"];
@@ -84,7 +85,8 @@ impl Text {
                 DWRITE_FONT_STYLE_NORMAL,
                 DWRITE_FONT_STRETCH_NORMAL,
                 font_px.max(1.0),
-                w!("en-us"),
+                // Picks font fallback for the language's script, e.g. Chinese forms of Han.
+                &HSTRING::from(l10n::current().code),
             )?;
             format.SetWordWrapping(DWRITE_WORD_WRAPPING_NO_WRAP)?;
             Ok(format)

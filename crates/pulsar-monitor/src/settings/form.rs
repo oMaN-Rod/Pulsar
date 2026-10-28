@@ -4,6 +4,7 @@ use pulsar_core::colors::{Rgb, default_rgb};
 use pulsar_core::config::{Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, Position};
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
+use pulsar_core::tr;
 
 /// Shown in the opacity slider when the theme default is in use.
 pub const THEME_TILE_OPACITY: i32 = 8;
@@ -62,6 +63,8 @@ pub struct Form {
     pub drive_used: bool,
     /// Empty sums every hardware adapter.
     pub adapter: String,
+    /// A language code, or empty to follow Windows.
+    pub language: String,
 }
 
 /// `#RRGGBB` → `(r, g, b)`, for the colour swatches; anything else is `None`.
@@ -82,18 +85,18 @@ pub fn item_rgb(kind: ItemKind, hex: &str) -> Rgb {
 
 pub fn item_name(kind: ItemKind) -> &'static str {
     match kind {
-        ItemKind::Cpu => "CPU",
-        ItemKind::Ram => "Memory",
-        ItemKind::Gpu => "GPU",
-        ItemKind::Disk => "Disk",
-        ItemKind::Network => "Network",
-        ItemKind::Ping => "Ping",
-        ItemKind::GpuTemp => "GPU temperature",
-        ItemKind::CpuTemp => "CPU temperature",
-        ItemKind::CpuPower => "CPU power",
-        ItemKind::CpuClock => "CPU clock",
-        ItemKind::DiskTemp => "Drive temperature",
-        ItemKind::ChipsetTemp => "Chipset temperature",
+        ItemKind::Cpu => tr!("CPU"),
+        ItemKind::Ram => tr!("Memory"),
+        ItemKind::Gpu => tr!("GPU"),
+        ItemKind::Disk => tr!("Disk"),
+        ItemKind::Network => tr!("Network"),
+        ItemKind::Ping => tr!("Ping"),
+        ItemKind::GpuTemp => tr!("GPU temperature"),
+        ItemKind::CpuTemp => tr!("CPU temperature"),
+        ItemKind::CpuPower => tr!("CPU power"),
+        ItemKind::CpuClock => tr!("CPU clock"),
+        ItemKind::DiskTemp => tr!("Drive temperature"),
+        ItemKind::ChipsetTemp => tr!("Chipset temperature"),
     }
 }
 
@@ -151,14 +154,16 @@ pub fn to_form(c: &Config) -> Form {
         drives: c.disk.drives.clone(),
         drive_used: c.disk.value == DriveValue::Used,
         adapter: c.network.adapter.clone().unwrap_or_default(),
+        language: c.general.language.clone().unwrap_or_default(),
     }
 }
 
 /// Every setting back to its default, except autostart, which mirrors the
-/// registry and is changed only by its own switch.
+/// registry and is changed only by its own switch, and the language.
 pub fn reset(current: &Form) -> Form {
     Form {
         autostart: current.autostart,
+        language: current.language.clone(),
         ..to_form(&Config::default())
     }
 }
@@ -235,6 +240,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         DriveValue::Activity
     };
     c.network.adapter = non_empty(&f.adapter);
+    c.general.language = non_empty(&f.language);
     c.sanitize()
 }
 
@@ -409,20 +415,23 @@ mod tests {
         c.disk.drives = vec!["C".into(), "D".into()];
         c.disk.value = DriveValue::Used;
         c.network.adapter = Some("eth".into());
+        c.general.language = Some("es".into());
         c.items[0].graph = false;
         let c = c.sanitize();
         assert_eq!(to_config(&to_form(&c), &c), c);
     }
 
     #[test]
-    fn reset_keeps_autostart_and_nothing_else() {
+    fn reset_keeps_autostart_and_language_only() {
         let mut f = to_form(&Config::default());
         f.autostart = true;
+        f.language = "es".into();
         f.labels = 1;
         f.icons = true;
         f.font_family = "Arial".into();
         let r = reset(&f);
         assert!(r.autostart);
+        assert_eq!(r.language, "es");
         assert_eq!(r.labels, 0);
         assert!(!r.icons);
         assert_eq!(r.font_family, "");

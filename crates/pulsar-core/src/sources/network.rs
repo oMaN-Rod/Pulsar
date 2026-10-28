@@ -51,8 +51,9 @@ impl Source for NetworkSource {
         self.query.collect()?;
         let all = merge_adapters(self.received.array()?, self.sent.array()?);
         let adapters = match &self.adapter {
-            Some(name) => select_adapter(all, name)
-                .ok_or_else(|| SourceError::Unavailable(format!("Adapter \"{name}\" not found")))?,
+            Some(name) => select_adapter(all, name).ok_or_else(|| {
+                SourceError::Unavailable(crate::tr!("Adapter \"{}\" not found", name))
+            })?,
             None => select_hardware(all, &self.hardware),
         };
         out.set(

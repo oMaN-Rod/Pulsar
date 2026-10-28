@@ -5,6 +5,7 @@ use pulsar_core::history::HistoryStore;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::{GpuEngineKind, ItemKind, MetricKey, Snapshot, SourceId, Unit};
 use pulsar_core::sources::{ProcessSort, top_by};
+use pulsar_core::tr;
 
 use pulsar_core::display::cell_value;
 
@@ -44,7 +45,7 @@ fn fmt(snapshot: &Snapshot, key: MetricKey) -> String {
 }
 
 fn of(snapshot: &Snapshot, used: MetricKey, total: MetricKey) -> String {
-    format!("{} of {}", fmt(snapshot, used), fmt(snapshot, total))
+    tr!("{} of {}", fmt(snapshot, used), fmt(snapshot, total))
 }
 
 fn processes(snapshot: &Snapshot, sort: ProcessSort) -> Block {
@@ -53,9 +54,9 @@ fn processes(snapshot: &Snapshot, sort: ProcessSort) -> Block {
     let rows = if let Some(reason) = snapshot.errors.get(&SourceId::Processes) {
         note(reason)
     } else if snapshot.processes.is_empty() {
-        note("Collecting…")
+        note(tr!("Collecting…"))
     } else if top.is_empty() {
-        note("No activity")
+        note(tr!("No activity"))
     } else {
         top.into_iter()
             .map(|p| {
@@ -69,7 +70,7 @@ fn processes(snapshot: &Snapshot, sort: ProcessSort) -> Block {
             .collect()
     };
     Block::Rows {
-        heading: Some("Top processes"),
+        heading: Some(tr!("Top processes")),
         rows,
     }
 }
@@ -87,7 +88,7 @@ fn volumes(snapshot: &Snapshot) -> Vec<(String, String)> {
             let total = snapshot.get(MetricKey::VolumeTotalBytes(letter))?;
             Some((
                 format!("{}:", letter as char),
-                format!(
+                tr!(
                     "{} free of {}",
                     format_value(free, Unit::Bytes),
                     format_value(total, Unit::Bytes)
@@ -99,11 +100,11 @@ fn volumes(snapshot: &Snapshot) -> Vec<(String, String)> {
 
 fn engines(snapshot: &Snapshot) -> Vec<(String, String)> {
     [
-        (GpuEngineKind::ThreeD, "3D"),
-        (GpuEngineKind::Compute, "Compute"),
-        (GpuEngineKind::VideoDecode, "Video decode"),
-        (GpuEngineKind::VideoEncode, "Video encode"),
-        (GpuEngineKind::Copy, "Copy"),
+        (GpuEngineKind::ThreeD, tr!("3D")),
+        (GpuEngineKind::Compute, tr!("Compute")),
+        (GpuEngineKind::VideoDecode, tr!("Video decode")),
+        (GpuEngineKind::VideoEncode, tr!("Video encode")),
+        (GpuEngineKind::Copy, tr!("Copy")),
     ]
     .into_iter()
     .filter_map(|(kind, label)| {
@@ -128,17 +129,20 @@ fn ping_stats(history: &HistoryStore) -> String {
 
 fn sensors(snapshot: &Snapshot) -> Vec<(String, String)> {
     let mut rows = vec![
-        ("Fan".into(), fmt(snapshot, MetricKey::GpuFanRpm)),
-        ("Power".into(), fmt(snapshot, MetricKey::GpuPowerPercent)),
+        (tr!("Fan").into(), fmt(snapshot, MetricKey::GpuFanRpm)),
         (
-            "Memory clock".into(),
+            tr!("Power").into(),
+            fmt(snapshot, MetricKey::GpuPowerPercent),
+        ),
+        (
+            tr!("Memory clock").into(),
             fmt(snapshot, MetricKey::GpuMemClockMhz),
         ),
     ];
     // Only the sensor service reports these, and only for some cards.
     for (label, key) in [
-        ("Hot spot", MetricKey::GpuHotSpotC),
-        ("Memory temperature", MetricKey::GpuMemTempC),
+        (tr!("Hot spot"), MetricKey::GpuHotSpotC),
+        (tr!("Memory temperature"), MetricKey::GpuMemTempC),
     ] {
         if let Some(value) = snapshot.get(key) {
             rows.push((label.into(), format_value(value, key.unit())));
@@ -161,14 +165,21 @@ fn cpu_sensors(snapshot: &Snapshot) -> Vec<(String, String)> {
             rows.push((label.to_string(), format_value(value, key.unit())));
         }
     };
-    row("Temperature", MetricKey::CpuTempC);
-    row("Power", MetricKey::CpuPowerW);
+    row(tr!("Temperature"), MetricKey::CpuTempC);
+    row(tr!("Power"), MetricKey::CpuPowerW);
     if let Some(hottest) = core_temps(snapshot).into_iter().reduce(f64::max) {
-        rows.push(("Hottest core".into(), format_value(hottest, Unit::Celsius)));
+        rows.push((
+            tr!("Hottest core").into(),
+            format_value(hottest, Unit::Celsius),
+        ));
     }
     if let Some(throttling) = snapshot.get(MetricKey::CpuThrottling) {
-        let text = if throttling > 0.0 { "Yes" } else { "No" };
-        rows.push(("Thermal throttling".into(), text.into()));
+        let text = if throttling > 0.0 {
+            tr!("Yes")
+        } else {
+            tr!("No")
+        };
+        rows.push((tr!("Thermal throttling").into(), text.into()));
     }
     rows
 }
@@ -193,7 +204,7 @@ fn drive_temps(snapshot: &Snapshot) -> Vec<(String, String)> {
     (0..=u8::MAX)
         .filter_map(|n| {
             let temp = snapshot.get(MetricKey::DiskTempC(n))?;
-            Some((format!("Disk {n}"), format_value(temp, Unit::Celsius)))
+            Some((tr!("Disk {}", n), format_value(temp, Unit::Celsius)))
         })
         .collect()
 }
@@ -206,7 +217,7 @@ fn drive_rows(snapshot: &Snapshot, drives: &[u8]) -> Vec<(String, String)> {
             let used = snapshot.get(MetricKey::DriveUsedPercent(d));
             let value = match (active, used) {
                 (None, None) => "—".to_string(),
-                (a, u) => format!(
+                (a, u) => tr!(
                     "{} active · {} used",
                     format_value(a.unwrap_or(f64::NAN), Unit::Percent),
                     format_value(u.unwrap_or(f64::NAN), Unit::Percent)
@@ -228,26 +239,26 @@ pub fn build(
     let error = snapshot.errors.get(&kind.source()).cloned();
     let (title, value, series, mut blocks) = match kind {
         ItemKind::Cpu => (
-            "CPU",
+            tr!("CPU"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
             vec![
                 Block::Rows {
                     heading: None,
-                    rows: [("Speed".into(), fmt(snapshot, MetricKey::CpuClockMhz))]
+                    rows: [(tr!("Speed").into(), fmt(snapshot, MetricKey::CpuClockMhz))]
                         .into_iter()
                         .chain(cpu_sensors(snapshot))
                         .collect(),
                 },
                 Block::Bars {
-                    heading: "Cores",
+                    heading: tr!("Cores"),
                     values: cores(snapshot),
                 },
                 processes(snapshot, ProcessSort::Cpu),
             ],
         ),
         ItemKind::Ram => (
-            "Memory",
+            tr!("Memory"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
             vec![
@@ -255,15 +266,15 @@ pub fn build(
                     heading: None,
                     rows: vec![
                         (
-                            "In use".into(),
+                            tr!("In use").into(),
                             of(snapshot, MetricKey::MemUsedBytes, MetricKey::MemTotalBytes),
                         ),
                         (
-                            "Available".into(),
+                            tr!("Available").into(),
                             fmt(snapshot, MetricKey::MemAvailableBytes),
                         ),
                         (
-                            "Committed".into(),
+                            tr!("Committed").into(),
                             of(
                                 snapshot,
                                 MetricKey::CommitBytes,
@@ -276,23 +287,23 @@ pub fn build(
             ],
         ),
         ItemKind::Disk => (
-            "Disk",
+            tr!("Disk"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
             vec![
                 Block::Rows {
                     heading: None,
                     rows: vec![
-                        ("Read".into(), fmt(snapshot, MetricKey::DiskReadBps)),
-                        ("Write".into(), fmt(snapshot, MetricKey::DiskWriteBps)),
+                        (tr!("Read").into(), fmt(snapshot, MetricKey::DiskReadBps)),
+                        (tr!("Write").into(), fmt(snapshot, MetricKey::DiskWriteBps)),
                     ],
                 },
                 Block::Rows {
-                    heading: Some("Drives"),
+                    heading: Some(tr!("Drives")),
                     rows: drive_rows(snapshot, drives),
                 },
                 Block::Rows {
-                    heading: Some("Free space"),
+                    heading: Some(tr!("Free space")),
                     rows: match snapshot.errors.get(&SourceId::DiskSpace) {
                         Some(reason) => vec![(reason.clone(), String::new())],
                         None => volumes(snapshot),
@@ -316,7 +327,7 @@ pub fn build(
                 })
                 .collect();
             (
-                "Network",
+                tr!("Network"),
                 format!(
                     "↓ {}  ↑ {}",
                     cell_value(kind, CellPart::Down, snapshot),
@@ -324,9 +335,9 @@ pub fn build(
                 ),
                 vec![CellPart::Down, CellPart::Up],
                 vec![Block::Rows {
-                    heading: Some("Adapters"),
+                    heading: Some(tr!("Adapters")),
                     rows: if adapters.is_empty() {
-                        vec![("No traffic".into(), String::new())]
+                        vec![(tr!("No traffic").into(), String::new())]
                     } else {
                         adapters
                     },
@@ -334,19 +345,19 @@ pub fn build(
             )
         }
         ItemKind::Gpu => (
-            "GPU",
+            tr!("GPU"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
             vec![
                 Block::Rows {
-                    heading: Some("Engines"),
+                    heading: Some(tr!("Engines")),
                     rows: engines(snapshot),
                 },
                 Block::Rows {
-                    heading: Some("Sensors"),
+                    heading: Some(tr!("Sensors")),
                     rows: match snapshot.get(MetricKey::GpuTempC) {
                         Some(_) => std::iter::once((
-                            "Temperature".to_string(),
+                            tr!("Temperature").to_string(),
                             fmt(snapshot, MetricKey::GpuTempC),
                         ))
                         .chain(sensors(snapshot))
@@ -355,20 +366,23 @@ pub fn build(
                     },
                 },
                 Block::Rows {
-                    heading: Some("Memory"),
+                    heading: Some(tr!("Memory")),
                     rows: vec![
                         (
-                            "Dedicated".into(),
+                            tr!("Dedicated").into(),
                             fmt(snapshot, MetricKey::GpuDedicatedBytes),
                         ),
-                        ("Shared".into(), fmt(snapshot, MetricKey::GpuSharedBytes)),
+                        (
+                            tr!("Shared").into(),
+                            fmt(snapshot, MetricKey::GpuSharedBytes),
+                        ),
                     ],
                 },
                 processes(snapshot, ProcessSort::Gpu),
             ],
         ),
         ItemKind::GpuTemp => (
-            "GPU temperature",
+            tr!("GPU temperature"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
             vec![Block::Rows {
@@ -378,9 +392,9 @@ pub fn build(
         ),
         ItemKind::CpuTemp | ItemKind::CpuPower => (
             if kind == ItemKind::CpuTemp {
-                "CPU temperature"
+                tr!("CPU temperature")
             } else {
-                "CPU power"
+                tr!("CPU power")
             },
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
@@ -390,19 +404,22 @@ pub fn build(
                     rows: cpu_sensors(snapshot),
                 },
                 Block::Bars {
-                    heading: "Core temperatures",
+                    heading: tr!("Core temperatures"),
                     values: core_temps(snapshot),
                 },
             ],
         ),
         ItemKind::CpuClock => {
             let clocks = core_clocks(snapshot);
-            let mut rows = vec![("Average".to_string(), fmt(snapshot, MetricKey::CpuClockMhz))];
+            let mut rows = vec![(
+                tr!("Average").to_string(),
+                fmt(snapshot, MetricKey::CpuClockMhz),
+            )];
             if let Some(fastest) = clocks.iter().copied().reduce(f64::max) {
-                rows.push(("Fastest core".into(), format_value(fastest, Unit::MHz)));
+                rows.push((tr!("Fastest core").into(), format_value(fastest, Unit::MHz)));
             }
             (
-                "CPU clock",
+                tr!("CPU clock"),
                 cell_value(kind, CellPart::Main, snapshot),
                 vec![CellPart::Main],
                 vec![
@@ -411,14 +428,14 @@ pub fn build(
                         rows,
                     },
                     Block::Bars {
-                        heading: "Core clocks",
+                        heading: tr!("Core clocks"),
                         values: clock_bars(&clocks),
                     },
                 ],
             )
         }
         ItemKind::DiskTemp => (
-            "Drive temperature",
+            tr!("Drive temperature"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
             vec![Block::Rows {
@@ -427,16 +444,16 @@ pub fn build(
             }],
         ),
         ItemKind::ChipsetTemp => (
-            "Chipset temperature",
+            tr!("Chipset temperature"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
             vec![Block::Rows {
                 heading: None,
                 rows: [
-                    ("Chipset", MetricKey::ChipsetTempC),
-                    ("CPU", MetricKey::CpuTempC),
-                    ("GPU", MetricKey::GpuTempC),
-                    ("Hottest drive", MetricKey::DiskTempMaxC),
+                    (tr!("Chipset"), MetricKey::ChipsetTempC),
+                    (tr!("CPU"), MetricKey::CpuTempC),
+                    (tr!("GPU"), MetricKey::GpuTempC),
+                    (tr!("Hottest drive"), MetricKey::DiskTempMaxC),
                 ]
                 .into_iter()
                 .filter_map(|(label, key)| {
@@ -447,16 +464,16 @@ pub fn build(
             }],
         ),
         ItemKind::Ping => (
-            "Ping",
+            tr!("Ping"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
             vec![Block::Rows {
                 heading: None,
                 rows: vec![
-                    ("Host".into(), ping_host.to_string()),
-                    ("Min / avg / max".into(), ping_stats(history)),
+                    (tr!("Host").into(), ping_host.to_string()),
+                    (tr!("Min / avg / max").into(), ping_stats(history)),
                     (
-                        "Packet loss".into(),
+                        tr!("Packet loss").into(),
                         fmt(snapshot, MetricKey::PingLossPercent),
                     ),
                 ],
@@ -465,7 +482,8 @@ pub fn build(
     };
     // Optional sections vanish rather than showing a bare heading.
     blocks.retain(|b| {
-        !matches!(b, Block::Rows { heading: Some("Drives" | "Sensors"), rows } if rows.is_empty())
+        !matches!(b, Block::Rows { heading: Some(h), rows }
+            if rows.is_empty() && [tr!("Drives"), tr!("Sensors")].contains(h))
     });
     PopupContent {
         kind,

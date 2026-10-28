@@ -135,17 +135,17 @@ pub enum Status {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Unavailable {
-    #[error("The Pulsar sensor service is not installed")]
+    #[error("{}", crate::tr!("The Pulsar sensor service is not installed"))]
     NotInstalled,
-    #[error("The Pulsar sensor service is not running")]
+    #[error("{}", crate::tr!("The Pulsar sensor service is not running"))]
     NotRunning,
-    #[error("The Pulsar sensor service needs updating")]
+    #[error("{}", crate::tr!("The Pulsar sensor service needs updating"))]
     WrongVersion,
-    #[error("PawnIO is not installed")]
+    #[error("{}", crate::tr!("PawnIO is not installed"))]
     NoDriver,
-    #[error("This CPU is not supported yet")]
+    #[error("{}", crate::tr!("This CPU is not supported yet"))]
     UnsupportedCpu,
-    #[error("The CPU sensors could not be read")]
+    #[error("{}", crate::tr!("The CPU sensors could not be read"))]
     ReadFailed,
 }
 

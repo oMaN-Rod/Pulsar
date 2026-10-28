@@ -1,0 +1,153 @@
+# Spanish translations for Pulsar.
+msgid ""
+msgstr ""
+"Project-Id-Version: Pulsar\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/config.rs
+msgid "Could not read {}: {}"
+msgstr "No se pudo leer {}: {}"
+
+#: src/config.rs
+msgid "Settings file was invalid and defaults were used."
+msgstr "El archivo de configuración no era válido y se usaron los valores predeterminados."
+
+#: src/config.rs
+msgid "It was saved as {}."
+msgstr "Se guardó como {}."
+
+#: src/config.rs
+msgid "the file is not UTF-8 text"
+msgstr "el archivo no es texto UTF-8"
+
+#: src/hardware/cpu.rs
+msgid "L{} data"
+msgstr "L{} datos"
+
+#: src/hardware/cpu.rs
+msgid "L{} instruction"
+msgstr "L{} instrucciones"
+
+#: src/hardware/storage.rs
+msgid "Drive"
+msgstr "Unidad"
+
+#: src/hardware/storage.rs
+msgid "Virtual"
+msgstr "Virtual"
+
+#: src/hardware/storage.rs
+msgid "Storage Spaces"
+msgstr "Espacios de almacenamiento"
+
+#: src/hardware/storage.rs
+msgid "No drive reports a temperature"
+msgstr "Ninguna unidad informa su temperatura"
+
+#: src/ipc.rs
+msgid "Pulsar Settings"
+msgstr "Configuración de Pulsar"
+
+#: src/ipc.rs
+msgid "Pulsar Details"
+msgstr "Detalles de Pulsar"
+
+#: src/metric.rs
+msgid "CPU"
+msgstr "CPU"
+
+#: src/metric.rs
+msgid "RAM"
+msgstr "RAM"
+
+#: src/metric.rs
+msgid "DSK"
+msgstr "DSC"
+
+#: src/metric.rs
+msgid "NET"
+msgstr "RED"
+
+#: src/metric.rs
+msgid "GPU"
+msgstr "GPU"
+
+#: src/metric.rs
+msgid "PING"
+msgstr "PING"
+
+#: src/metric.rs
+msgid "TEMP"
+msgstr "TEMP"
+
+#: src/metric.rs
+msgid "CPU°"
+msgstr "CPU°"
+
+#: src/metric.rs
+msgid "PWR"
+msgstr "POT"
+
+#: src/metric.rs
+msgid "CLK"
+msgstr "FRC"
+
+#: src/metric.rs
+msgid "DSK°"
+msgstr "DSC°"
+
+#: src/metric.rs
+msgid "PCH°"
+msgstr "PCH°"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service is not installed"
+msgstr "El servicio de sensores de Pulsar no está instalado"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service is not running"
+msgstr "El servicio de sensores de Pulsar no se está ejecutando"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service needs updating"
+msgstr "El servicio de sensores de Pulsar necesita actualizarse"
+
+#: src/sensors.rs
+msgid "PawnIO is not installed"
+msgstr "PawnIO no está instalado"
+
+#: src/sensors.rs
+msgid "This CPU is not supported yet"
+msgstr "Esta CPU aún no es compatible"
+
+#: src/sensors.rs
+msgid "The CPU sensors could not be read"
+msgstr "No se pudieron leer los sensores de la CPU"
+
+#: src/sources/gpu.rs
+msgid "GPU counters unavailable"
+msgstr "Contadores de la GPU no disponibles"
+
+#: src/sources/gpu_sensors.rs
+msgid "GPU temperature unavailable"
+msgstr "Temperatura de la GPU no disponible"
+
+#: src/sources/network.rs
+msgid "Adapter \"{}\" not found"
+msgstr "No se encontró el adaptador «{}»"
+
+#: src/sources/ping.rs
+msgid "Waiting for first reply"
+msgstr "Esperando la primera respuesta"
+
+#: src/sources/ping.rs
+msgid "ICMP unavailable: {}"
+msgstr "ICMP no disponible: {}"
+
+#: src/sources/ping.rs
+msgid "Cannot resolve {} (IPv4)"
+msgstr "No se puede resolver {} (IPv4)"

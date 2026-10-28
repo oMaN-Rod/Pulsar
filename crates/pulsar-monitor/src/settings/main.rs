@@ -3,6 +3,8 @@
 mod autostart;
 mod fonts;
 mod form;
+#[path = "../language.rs"]
+mod language;
 mod notify;
 mod presets;
 mod titlebar;
@@ -19,7 +21,7 @@ use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::single_instance::SingleInstance;
 use pulsar_core::sources::{fixed_drives, hardware_adapters};
-use pulsar_core::{crash, ipc, logging, paths, project, system_theme};
+use pulsar_core::{crash, ipc, l10n, logging, paths, project, system_theme, tr};
 use slint::{Color, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
@@ -102,7 +104,7 @@ type Caption = ((u8, u8, u8), bool);
 fn refresh_caption(ui: &SettingsWindow, applied: &Cell<Option<Caption>>) {
     let bg = ui.get_backdrop().color();
     let wanted = ((bg.red(), bg.green(), bg.blue()), ui.get_dark());
-    if applied.get() != Some(wanted) && titlebar::blend(ipc::SETTINGS_TITLE, wanted.0, wanted.1) {
+    if applied.get() != Some(wanted) && titlebar::blend(ipc::settings_title(), wanted.0, wanted.1) {
         applied.set(Some(wanted));
     }
 }
@@ -150,15 +152,26 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_value_color(f.value_color.as_str().into());
     ui.set_color_labels(f.color_labels);
     ui.set_font_bold(f.font_bold);
-    let (names, values, index) = picker("Default", &choices.fonts, &f.font_family, "not installed");
+    ui.set_language_index(
+        l10n::LANGUAGES
+            .iter()
+            .position(|l| l.code == f.language)
+            .map_or(0, |i| i as i32 + 1),
+    );
+    let (names, values, index) = picker(
+        tr!("Default"),
+        &choices.fonts,
+        &f.font_family,
+        tr!("not installed"),
+    );
     ui.set_fonts(strings(names));
     ui.set_font_index(index);
     choices.font_values = values;
     let (names, values, index) = picker(
-        "All hardware adapters",
+        tr!("All hardware adapters"),
         &choices.adapters,
         &f.adapter,
-        "not connected",
+        tr!("not connected"),
     );
     ui.set_adapters(strings(names));
     ui.set_adapter_index(index);
@@ -270,10 +283,47 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         },
         drive_used: ui.get_drive_used(),
         adapter: chosen(&choices.adapter_values, ui.get_adapter_index()),
+        language: (ui.get_language_index() - 1)
+            .try_into()
+            .ok()
+            .and_then(|i: usize| l10n::LANGUAGES.get(i))
+            .map(|l| l.code.to_string())
+            .unwrap_or_default(),
     }
 }
 
+/// The text the window gets from here rather than from its `.slint` file.
+fn localize(ui: &SettingsWindow) {
+    ui.set_window_title(ipc::settings_title().into());
+    ui.set_ui_font(language::ui_font().into());
+    ui.set_presets(strings(
+        presets::PRESETS
+            .iter()
+            .map(|p| l10n::translate(p.name).into())
+            .collect(),
+    ));
+    let default = tr!("Windows default ({})", l10n::system_default().name);
+    ui.set_languages(strings(
+        std::iter::once(default.into())
+            .chain(l10n::LANGUAGES.iter().map(|l| l.name.into()))
+            .collect(),
+    ));
+}
+
+/// Switches the window to the config's language if that changed.
+fn follow_language(ui: &SettingsWindow, config: &Config) -> bool {
+    let before = l10n::current();
+    let now = language::apply(config);
+    if std::ptr::eq(before, now) {
+        return false;
+    }
+    language::apply_to_slint(now);
+    localize(ui);
+    true
+}
+
 fn show(ui: &SettingsWindow, state: &mut State, config: Config) {
+    follow_language(ui, &config);
     state.kinds = config.items.iter().map(|i| i.kind).collect();
     push(ui, &form::to_form(&config), &mut state.choices);
     state.config = config;
@@ -306,6 +356,9 @@ fn sync_autostart(enabled: bool) {
 fn save(ui: &SettingsWindow, state: &mut State) {
     let new = form::to_config(&pull(ui, &state.kinds, &state.choices), &state.config);
     write(state, new);
+    if follow_language(ui, &state.config) {
+        push(ui, &form::to_form(&state.config), &mut state.choices);
+    }
 }
 
 fn write(state: &mut State, new: Config) {
@@ -349,11 +402,17 @@ fn update_row(ui: &SettingsWindow, index: i32, edit: impl FnOnce(&mut ItemRow)) 
 
 fn main() -> Result<(), Box<dyn Error>> {
     let about = std::env::args().any(|a| a == ipc::ABOUT_ARG);
+    // Read without moving a bad file aside; that is the running instance's job.
+    language::init(
+        &config::default_path()
+            .and_then(|p| config::read(&p).ok())
+            .unwrap_or_default(),
+    );
     let Some(_instance) = SingleInstance::acquire(ipc::SETTINGS_MUTEX) else {
         if about {
             notify::signal(ipc::SHOW_ABOUT_EVENT);
         }
-        notify::focus_window(ipc::SETTINGS_TITLE);
+        notify::focus_window(ipc::settings_title());
         return Ok(());
     };
     if let Some(dir) = paths::logs_dir() {
@@ -365,7 +424,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let path = config::default_path().ok_or("APPDATA is not set")?;
 
     let ui = SettingsWindow::new()?;
-    ui.set_window_title(ipc::SETTINGS_TITLE.into());
+    language::apply_to_slint(l10n::current());
+    localize(&ui);
     ui.set_version(env!("CARGO_PKG_VERSION").into());
     ui.set_config_path(SharedString::from(path.display().to_string()));
     let logs = paths::logs_dir();
@@ -400,9 +460,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             ..Choices::default()
         },
     }));
-    ui.set_presets(strings(
-        presets::PRESETS.iter().map(|p| p.name.into()).collect(),
-    ));
     {
         let mut s = state.borrow_mut();
         let mut loaded = config::load(&s.path).config;

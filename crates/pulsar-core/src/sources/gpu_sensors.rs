@@ -9,8 +9,6 @@ use windows::Wdk::Graphics::Direct3D::{
 
 use crate::metric::{MetricKey, Snapshot, Source, SourceError, SourceId};
 
-const UNAVAILABLE: &str = "GPU temperature unavailable";
-
 /// Raw driver units: tenths of a degree, tenths of a percent.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SensorReading {
@@ -44,7 +42,7 @@ fn publish(r: &SensorReading, out: &mut Snapshot) {
 }
 
 fn unavailable() -> SourceError {
-    SourceError::Unavailable(UNAVAILABLE.into())
+    SourceError::Unavailable(crate::tr!("GPU temperature unavailable").into())
 }
 
 /// Holds the adapter handles open, closing them on drop.

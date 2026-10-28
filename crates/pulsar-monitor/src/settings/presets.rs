@@ -2,6 +2,7 @@
 //! preset itself is stored.
 
 use pulsar_core::metric::ItemKind;
+use pulsar_core::tr_noop;
 
 use crate::form::Form;
 
@@ -22,7 +23,7 @@ use ItemKind::{
 
 pub const PRESETS: [Preset; 8] = [
     Preset {
-        name: "Windows default",
+        name: tr_noop!("Windows default"),
         items: &[],
         label: None,
         value: None,
@@ -31,7 +32,7 @@ pub const PRESETS: [Preset; 8] = [
         panel: None,
     },
     Preset {
-        name: "Aurora",
+        name: tr_noop!("Aurora"),
         items: &[
             (Cpu, "#5EEAD4"),
             (CpuTemp, "#FDA4AF"),
@@ -53,7 +54,7 @@ pub const PRESETS: [Preset; 8] = [
         panel: None,
     },
     Preset {
-        name: "Ember",
+        name: tr_noop!("Ember"),
         items: &[
             (Cpu, "#FB923C"),
             (CpuTemp, "#F87171"),
@@ -75,7 +76,7 @@ pub const PRESETS: [Preset; 8] = [
         panel: Some(("#1C0A04", 70)),
     },
     Preset {
-        name: "Ocean",
+        name: tr_noop!("Ocean"),
         items: &[
             (Cpu, "#38BDF8"),
             (CpuTemp, "#FB7185"),
@@ -97,7 +98,7 @@ pub const PRESETS: [Preset; 8] = [
         panel: None,
     },
     Preset {
-        name: "Forest",
+        name: tr_noop!("Forest"),
         items: &[
             (Cpu, "#86EFAC"),
             (CpuTemp, "#FDBA74"),
@@ -119,7 +120,7 @@ pub const PRESETS: [Preset; 8] = [
         panel: None,
     },
     Preset {
-        name: "Mono",
+        name: tr_noop!("Mono"),
         items: &[
             (Cpu, "#F3F4F6"),
             (CpuTemp, "#D1D5DB"),
@@ -141,7 +142,7 @@ pub const PRESETS: [Preset; 8] = [
         panel: None,
     },
     Preset {
-        name: "Neon",
+        name: tr_noop!("Neon"),
         items: &[
             (Cpu, "#22D3EE"),
             (CpuTemp, "#FF5C8A"),
@@ -163,7 +164,7 @@ pub const PRESETS: [Preset; 8] = [
         panel: Some(("#0B0B12", 75)),
     },
     Preset {
-        name: "Sunset",
+        name: tr_noop!("Sunset"),
         items: &[
             (Cpu, "#F472B6"),
             (CpuTemp, "#FB7185"),

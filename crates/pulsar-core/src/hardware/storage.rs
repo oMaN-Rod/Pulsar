@@ -43,7 +43,7 @@ impl DiskInfo {
             (Some("NVMe"), _) => "NVMe SSD",
             (_, Some(true)) => "SSD",
             (_, Some(false)) => "HDD",
-            _ => "Drive",
+            _ => crate::tr!("Drive"),
         }
     }
 }
@@ -136,8 +136,8 @@ pub fn bus_name(code: u32) -> Option<&'static str> {
         11 => "SATA",
         12 => "SD",
         13 => "MMC",
-        14 | 15 => "Virtual",
-        16 => "Storage Spaces",
+        14 | 15 => crate::tr!("Virtual"),
+        16 => crate::tr!("Storage Spaces"),
         17 => "NVMe",
         19 => "UFS",
         _ => return None,
@@ -258,7 +258,7 @@ impl Source for DriveTempSource {
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
         if self.drives.is_empty() {
             return Err(SourceError::Unavailable(
-                "No drive reports a temperature".into(),
+                crate::tr!("No drive reports a temperature").into(),
             ));
         }
         let mut hottest = None;

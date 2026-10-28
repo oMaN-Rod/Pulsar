@@ -9,7 +9,7 @@ use pulsar_core::history::HistoryStore;
 use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
 use pulsar_core::update::{self as release, Outcome, UpdateState};
-use pulsar_core::{crash, paths, sampler};
+use pulsar_core::{crash, paths, sampler, tr};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -155,14 +155,15 @@ impl App {
             Some(l) => (l.config, l.warning),
             None => (Config::default(), None),
         };
+        crate::language::init(&config);
         let tray = Tray::new(host, config.general.tray_icon);
         if let Some(warning) = warning {
-            tray.warn("Pulsar settings reset", &warning);
+            tray.warn(tr!("Pulsar settings reset"), &warning.to_string());
         }
         if let Some(report) = paths::logs_dir().and_then(|dir| crash::take_pending(&dir)) {
             tray.offer(
-                "Pulsar closed unexpectedly",
-                "Select to open the crash report. Attaching it to a GitHub issue helps get it fixed.",
+                tr!("Pulsar closed unexpectedly"),
+                tr!("Select to open the crash report. Attaching it to a GitHub issue helps get it fixed."),
                 report.display().to_string(),
             );
         }
@@ -587,9 +588,10 @@ impl App {
                 self.sampler.extras.store(true, Ordering::Relaxed);
                 self.sampler.processes.store(true, Ordering::Relaxed);
             }
-            Err(e) => self
-                .tray
-                .warn("Pulsar could not open the details window", &e.to_string()),
+            Err(e) => self.tray.warn(
+                tr!("Pulsar could not open the details window"),
+                &e.to_string(),
+            ),
         }
     }
 
@@ -758,8 +760,8 @@ impl App {
         }
         if let Some(a) = announcement {
             self.tray.offer(
-                &format!("Pulsar {} is available", a.version),
-                "Select to open the release page.",
+                &tr!("Pulsar {} is available", a.version),
+                tr!("Select to open the release page."),
                 a.url,
             );
         }
@@ -788,7 +790,7 @@ impl App {
     fn open_settings(&self, page: Page) {
         if let Err(e) = launcher::open(page) {
             self.tray
-                .warn("Pulsar could not open Settings", &e.to_string());
+                .warn(tr!("Pulsar could not open Settings"), &e.to_string());
         }
     }
 
@@ -812,7 +814,7 @@ impl App {
             && let Err(e) = config::save(path, &new)
         {
             self.tray
-                .warn("Pulsar could not save settings", &e.to_string());
+                .warn(tr!("Pulsar could not save settings"), &e.to_string());
         }
         self.apply_config(new);
     }
@@ -837,6 +839,13 @@ impl App {
             && let Ok(text) = Text::new(new.display.font_family.as_deref(), new.display.font_bold)
         {
             self.text = text;
+            self.overlays
+                .iter_mut()
+                .for_each(Overlay::invalidate_layout);
+        }
+        if new.general.language != self.config.general.language {
+            crate::language::apply(&new);
+            self.close_popup();
             self.overlays
                 .iter_mut()
                 .for_each(Overlay::invalidate_layout);

@@ -66,6 +66,15 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | `cargo install --path crates\pulsar-monitor --root %TEMP%\pulsar-cargo` | `bin\pulsar.exe`, `bin\pulsar-settings.exe` and `bin\pulsar-details.exe` side by side, and they run like the installed copy |
 | `winget validate --manifest dist\winget\oMaN-Rod.Pulsar\<version>` | `Manifest validation succeeded.` |
 
+## Languages
+
+| Check | Expected |
+|---|---|
+| *Language* set to each language in turn, with Pulsar running | The taskbar labels, menu and popups switch at once; Settings switches when the choice saves; Details on its next opening |
+| *Windows default* with the Windows display language set to Spanish, then French | Spanish, then English |
+| Settings open in Spanish, then run the installer | The installer closes the settings window before installing |
+| The installer started on Spanish Windows | Its pages, including *CPU temperature*, are in that language |
+
 ## Footprint
 
 After 5 minutes idle with Settings closed, check that Pulsar uses **< 15 MB** private working set (Task Manager → Details → *Memory (private working set)*) and **< 1%** CPU.

@@ -71,18 +71,18 @@ impl ItemKind {
 
     pub fn label(self) -> &'static str {
         match self {
-            ItemKind::Cpu => "CPU",
-            ItemKind::Ram => "RAM",
-            ItemKind::Disk => "DSK",
-            ItemKind::Network => "NET",
-            ItemKind::Gpu => "GPU",
-            ItemKind::Ping => "PING",
-            ItemKind::GpuTemp => "TEMP",
-            ItemKind::CpuTemp => "CPU°",
-            ItemKind::CpuPower => "PWR",
-            ItemKind::CpuClock => "CLK",
-            ItemKind::DiskTemp => "DSK°",
-            ItemKind::ChipsetTemp => "PCH°",
+            ItemKind::Cpu => crate::tr!("CPU"),
+            ItemKind::Ram => crate::tr!("RAM"),
+            ItemKind::Disk => crate::tr!("DSK"),
+            ItemKind::Network => crate::tr!("NET"),
+            ItemKind::Gpu => crate::tr!("GPU"),
+            ItemKind::Ping => crate::tr!("PING"),
+            ItemKind::GpuTemp => crate::tr!("TEMP"),
+            ItemKind::CpuTemp => crate::tr!("CPU°"),
+            ItemKind::CpuPower => crate::tr!("PWR"),
+            ItemKind::CpuClock => crate::tr!("CLK"),
+            ItemKind::DiskTemp => crate::tr!("DSK°"),
+            ItemKind::ChipsetTemp => crate::tr!("PCH°"),
         }
     }
 

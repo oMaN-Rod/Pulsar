@@ -385,7 +385,7 @@ component CoreMatrix inherits Rectangle {
     Secondary {
         x: 0;
         y: (root.load-height - self.height) / 2;
-        text: "Load";
+        text: @tr("Load");
         font-size: 11px;
     }
     if root.info.has-clock: Secondary {
@@ -526,7 +526,7 @@ component CoreStrips inherits HorizontalLayout {
         min-width: 0px;
         preferred-width: 0px;
         horizontal-stretch: 1;
-        title: "Load by thread";
+        title: @tr("Load by thread");
         caption: load.hovered >= 0
             ? "CPU \{load.hovered} · \{Math.round(root.threads[load.hovered] * 100)}%"
             : root.info.load-caption;
@@ -541,7 +541,7 @@ component CoreStrips inherits HorizontalLayout {
         min-width: 0px;
         preferred-width: 0px;
         horizontal-stretch: 1;
-        title: "Clock by core";
+        title: @tr("Clock by core");
         caption: clock.hovered >= 0
             ? "\{root.cells[clock.hovered].label} · \{root.cells[clock.hovered].clock-text} GHz"
             : root.info.clock-caption;
@@ -565,7 +565,7 @@ component CoreStrips inherits HorizontalLayout {
         min-width: 0px;
         preferred-width: 0px;
         horizontal-stretch: 1;
-        title: "Temperature by core";
+        title: @tr("Temperature by core");
         caption: root.info.temp-caption;
         Rectangle {
             height: 70px;
@@ -750,7 +750,7 @@ component CoresCard inherits Card {
         HorizontalLayout {
             spacing: 10px;
             Text {
-                text: "Cores";
+                text: @tr("Cores");
                 font-size: 13px;
                 font-weight: 600;
                 vertical-alignment: center;
@@ -762,7 +762,7 @@ component CoresCard inherits Card {
                 overflow: elide;
             }
             Segmented {
-                options: ["Matrix", "Strips", "Rings", "Graphs"];
+                options: [@tr("Matrix"), @tr("Strips"), @tr("Rings"), @tr("Graphs")];
                 current: root.info.mode;
                 picked(index) => { root.mode(index); }
             }
@@ -787,13 +787,13 @@ component CoresCard inherits Card {
                 alignment: start;
                 Swatch {
                     color: root.info.load-color;
-                    text: "Outer ring: load";
+                    text: @tr("Outer ring: load");
                 }
                 if root.info.has-temp: Swatch {
                     color: @linear-gradient(90deg, #4cc2ff 0%, #6ccb5f 40%, #f5d04a 70%, #ff5a5f 100%);
-                    text: "Inner ring: temperature";
+                    text: @tr("Inner ring: temperature");
                 }
-                Secondary { text: root.info.has-clock ? "Centre: GHz" : "Centre: load"; }
+                Secondary { text: root.info.has-clock ? @tr("Centre: GHz") : @tr("Centre: load"); }
             }
         }
         if root.info.mode == 3: CoreGraphs {
@@ -811,14 +811,14 @@ component UsageCard inherits Card {
         HorizontalLayout {
             spacing: 8px;
             Text {
-                text: "Usage";
+                text: @tr("Usage");
                 font-size: 13px;
                 font-weight: 600;
                 vertical-alignment: center;
                 horizontal-stretch: 1;
             }
             Segmented {
-                options: ["Rings", "Stick"];
+                options: [@tr("Rings"), @tr("Stick")];
                 current: root.usage.mode;
                 picked(index) => { root.mode(index); }
             }
@@ -866,7 +866,7 @@ component UsageCard inherits Card {
                             horizontal-alignment: center;
                         }
                         Secondary {
-                            text: "\{root.usage.used} used";
+                            text: @tr("{} used", root.usage.used);
                             font-size: 11px;
                             horizontal-alignment: center;
                         }
@@ -877,15 +877,15 @@ component UsageCard inherits Card {
                 spacing-horizontal: 12px;
                 spacing-vertical: 4px;
                 Row {
-                    Swatch { color: root.usage.color; text: "Physical"; }
+                    Swatch { color: root.usage.color; text: @tr("Physical"); }
                     Text { text: root.usage.physical-text; font-size: 12px; horizontal-alignment: right; }
                 }
                 Row {
-                    Swatch { color: root.usage.commit-color; text: "Committed"; }
+                    Swatch { color: root.usage.commit-color; text: @tr("Committed"); }
                     Text { text: root.usage.commit-text; font-size: 12px; horizontal-alignment: right; }
                 }
                 Row {
-                    Swatch { color: Palette.foreground.transparentize(0.75); text: "Available"; }
+                    Swatch { color: Palette.foreground.transparentize(0.75); text: @tr("Available"); }
                     Text { text: root.usage.available; font-size: 12px; horizontal-alignment: right; }
                 }
             }
@@ -931,7 +931,7 @@ component UsageCard inherits Card {
                         font-weight: 600;
                         color: root.usage.color;
                     }
-                    Secondary { text: "in use of \{root.usage.total}"; }
+                    Secondary { text: @tr("in use of {}", root.usage.total); }
                 }
                 VerticalLayout {
                     Text {
@@ -939,7 +939,7 @@ component UsageCard inherits Card {
                         font-size: 13px;
                         font-weight: 600;
                     }
-                    Secondary { text: "available"; }
+                    Secondary { text: @tr("available"); }
                 }
                 VerticalLayout {
                     Text {
@@ -947,7 +947,7 @@ component UsageCard inherits Card {
                         font-size: 13px;
                         font-weight: 600;
                     }
-                    Secondary { text: "committed (white line)"; }
+                    Secondary { text: @tr("committed (white line)"); }
                 }
             }
         }
@@ -1059,7 +1059,7 @@ component FactsCard inherits Card {
         padding-top: 14px;
         spacing: 12px;
         Text {
-            text: "This PC";
+            text: @tr("This PC");
             font-size: 14px;
             font-weight: 600;
         }
@@ -1130,11 +1130,11 @@ component SensorTree inherits Card {
             spacing: 8px;
             alignment: start;
             ToolButton {
-                text: "Expand all";
+                text: @tr("Expand all");
                 clicked => { root.expand-all(); }
             }
             ToolButton {
-                text: "Collapse to hardware";
+                text: @tr("Collapse to hardware");
                 clicked => { root.collapse-all(); }
             }
         }
@@ -1143,10 +1143,10 @@ component SensorTree inherits Card {
             padding-bottom: 6px;
             padding-left: 8px;
             padding-right: 4px;
-            Secondary { text: "Sensor"; horizontal-stretch: 1; }
-            Secondary { text: "Value"; width: 110px; horizontal-alignment: right; }
-            Secondary { text: "Min"; width: 90px; horizontal-alignment: right; }
-            Secondary { text: "Max"; width: 90px; horizontal-alignment: right; }
+            Secondary { text: @tr("Sensor"); horizontal-stretch: 1; }
+            Secondary { text: @tr("Value"); width: 110px; horizontal-alignment: right; }
+            Secondary { text: @tr("Min"); width: 90px; horizontal-alignment: right; }
+            Secondary { text: @tr("Max"); width: 90px; horizontal-alignment: right; }
         }
         Rectangle {
             height: 1px;
@@ -1234,7 +1234,9 @@ export component DetailsWindow inherits Window {
     // Read by the app to colour the native title bar to match.
     out property <brush> backdrop: Palette.background;
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
-    default-font-family: "Segoe UI Variable Text";
+    // Set per language by the app.
+    in property <string> ui-font: "Segoe UI Variable Text";
+    default-font-family: root.ui-font;
 
     in property <[NavEntry]> nav;
     in-out property <int> page;

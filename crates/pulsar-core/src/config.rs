@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -45,6 +46,8 @@ pub struct General {
     /// Off keeps Pulsar out of the notification area except while a
     /// notification is showing.
     pub tray_icon: bool,
+    /// A code from `l10n::LANGUAGES`; `None` follows Windows.
+    pub language: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -180,6 +183,7 @@ impl Default for General {
             sample_interval_ms: 1000,
             history_len: 60,
             tray_icon: true,
+            language: None,
         }
     }
 }
@@ -231,6 +235,11 @@ impl Config {
         let g = &mut self.general;
         g.sample_interval_ms = g.sample_interval_ms.clamp(500, 5000);
         g.history_len = g.history_len.clamp(10, 600);
+        g.language = g
+            .language
+            .as_deref()
+            .and_then(crate::l10n::find)
+            .map(|l| l.code.to_string());
         let d = &mut self.display;
         d.font_size_pt = if d.font_size_pt.is_finite() {
             d.font_size_pt.clamp(6.0, 20.0)
@@ -362,8 +371,46 @@ pub fn default_path() -> Option<PathBuf> {
 #[derive(Debug)]
 pub struct Loaded {
     pub config: Config,
-    /// Set when the file existed but could not be used; it was moved to `.bak`.
-    pub warning: Option<String>,
+    /// Set when the file existed but could not be used.
+    pub warning: Option<LoadWarning>,
+}
+
+/// Why the settings file was not used; formatted when shown, once the
+/// language is known.
+#[derive(Debug)]
+pub enum LoadWarning {
+    Unreadable {
+        path: PathBuf,
+        error: String,
+    },
+    /// The file was moved to `backup`, if that worked.
+    Invalid {
+        backup: Option<PathBuf>,
+        reason: String,
+    },
+}
+
+impl fmt::Display for LoadWarning {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LoadWarning::Unreadable { path, error } => {
+                f.write_str(&crate::tr!("Could not read {}: {}", path.display(), error))
+            }
+            LoadWarning::Invalid { backup, reason } => {
+                f.write_str(crate::tr!(
+                    "Settings file was invalid and defaults were used."
+                ))?;
+                if let Some(backup) = backup {
+                    write!(
+                        f,
+                        " {}",
+                        crate::tr!("It was saved as {}.", backup.display())
+                    )?;
+                }
+                write!(f, "\n{reason}")
+            }
+        }
+    }
 }
 
 /// Reads and sanitises the file without ever moving it; for callers that
@@ -385,12 +432,15 @@ pub fn load(path: &Path) -> Loaded {
             };
         }
         Err(e) if e.kind() == io::ErrorKind::InvalidData => {
-            return back_up_invalid(path, "the file is not UTF-8 text");
+            return back_up_invalid(path, crate::tr!("the file is not UTF-8 text"));
         }
         Err(e) => {
             return Loaded {
                 config: Config::default(),
-                warning: Some(format!("Could not read {}: {e}", path.display())),
+                warning: Some(LoadWarning::Unreadable {
+                    path: path.to_path_buf(),
+                    error: e.to_string(),
+                }),
             };
         }
     };
@@ -406,16 +456,12 @@ pub fn load(path: &Path) -> Loaded {
 fn back_up_invalid(path: &Path, reason: &str) -> Loaded {
     let backup = path.with_extension("toml.bak");
     let moved = fs::rename(path, &backup).is_ok();
-    let where_ = if moved {
-        format!(" It was saved as {}.", backup.display())
-    } else {
-        String::new()
-    };
     Loaded {
         config: Config::default(),
-        warning: Some(format!(
-            "Settings file was invalid and defaults were used.{where_}\n{reason}"
-        )),
+        warning: Some(LoadWarning::Invalid {
+            backup: moved.then_some(backup),
+            reason: reason.to_string(),
+        }),
     }
 }
 
@@ -740,6 +786,16 @@ panel_opacity = 60
         assert_eq!(c.disk.drives, ["C", "D"]);
         assert_eq!(c.drive_letters(), [b'C', b'D']);
         assert_eq!(c.network.adapter, None);
+    }
+
+    #[test]
+    fn sanitize_keeps_only_known_languages() {
+        let mut c = Config::default();
+        c.general.language = Some("ES".into());
+        assert_eq!(c.sanitize().general.language.as_deref(), Some("es"));
+        let mut c = Config::default();
+        c.general.language = Some("tlh".into());
+        assert_eq!(c.sanitize().general.language, None);
     }
 
     #[test]

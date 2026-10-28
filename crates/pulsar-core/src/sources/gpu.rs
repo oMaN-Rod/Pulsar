@@ -8,7 +8,7 @@ pub const ENGINE_COUNTER: &str = r"\GPU Engine(*)\Utilization Percentage";
 /// PDH reports "no data" when the GPU objects exist but have no instances
 /// (VMs, RDP sessions, basic display drivers).
 fn unavailable(_: PdhError) -> SourceError {
-    SourceError::Unavailable("GPU counters unavailable".into())
+    SourceError::Unavailable(crate::tr!("GPU counters unavailable").into())
 }
 
 pub struct GpuSource {

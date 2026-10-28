@@ -1,4 +1,5 @@
 use pulsar_core::config::{Config, Display, DisplayMode, LabelStyle, Position};
+use pulsar_core::tr;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -105,54 +106,84 @@ pub fn show(owner: HWND, x: i32, y: i32, display: &Display) -> Option<Command> {
         };
         let mode = display.mode;
         let floating = display.position == Position::Floating;
-        let _ = AppendMenuW(menu, MF_STRING, ID_DETAILS, w!("System details…"));
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            ID_DETAILS,
+            &HSTRING::from(tr!("System details…")),
+        );
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
         let _ = AppendMenuW(
             menu,
             check(mode == DisplayMode::Graph),
             ID_GRAPHS,
-            w!("Graphs"),
+            &HSTRING::from(tr!("Graphs")),
         );
         let _ = AppendMenuW(
             menu,
             check(mode == DisplayMode::Text),
             ID_TEXT,
-            w!("Text only"),
+            &HSTRING::from(tr!("Text only")),
         );
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
         let _ = AppendMenuW(
             menu,
             check(display.labels == LabelStyle::Short),
             ID_SHORT_LABELS,
-            w!("Short labels"),
+            &HSTRING::from(tr!("Short labels")),
         );
-        let _ = AppendMenuW(menu, check(display.icons), ID_ICONS, w!("Icons"));
+        let _ = AppendMenuW(
+            menu,
+            check(display.icons),
+            ID_ICONS,
+            &HSTRING::from(tr!("Icons")),
+        );
         let _ = AppendMenuW(
             menu,
             check(display.hover_popup),
             ID_HOVER,
-            w!("Details on hover"),
+            &HSTRING::from(tr!("Details on hover")),
         );
         let _ = AppendMenuW(
             menu,
             check(display.hide_in_fullscreen),
             ID_HIDE_FULLSCREEN,
-            w!("Hide in fullscreen"),
+            &HSTRING::from(tr!("Hide in fullscreen")),
         );
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
-        let _ = AppendMenuW(menu, check(floating), ID_FLOATING, w!("Floating"));
+        let _ = AppendMenuW(
+            menu,
+            check(floating),
+            ID_FLOATING,
+            &HSTRING::from(tr!("Floating")),
+        );
         let lock = if floating {
             check(display.lock_position)
         } else {
             check(display.lock_position) | MF_GRAYED
         };
-        let _ = AppendMenuW(menu, lock, ID_LOCK, w!("Lock position"));
+        let _ = AppendMenuW(menu, lock, ID_LOCK, &HSTRING::from(tr!("Lock position")));
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
-        let _ = AppendMenuW(menu, MF_STRING, ID_SETTINGS, w!("Settings…"));
-        let _ = AppendMenuW(menu, MF_STRING, ID_TASK_MANAGER, w!("Open Task Manager"));
-        let _ = AppendMenuW(menu, MF_STRING, ID_ABOUT, w!("About Pulsar"));
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            ID_SETTINGS,
+            &HSTRING::from(tr!("Settings…")),
+        );
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            ID_TASK_MANAGER,
+            &HSTRING::from(tr!("Open Task Manager")),
+        );
+        let _ = AppendMenuW(
+            menu,
+            MF_STRING,
+            ID_ABOUT,
+            &HSTRING::from(tr!("About Pulsar")),
+        );
         let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());
-        let _ = AppendMenuW(menu, MF_STRING, ID_EXIT, w!("Exit Pulsar"));
+        let _ = AppendMenuW(menu, MF_STRING, ID_EXIT, &HSTRING::from(tr!("Exit Pulsar")));
 
         // Without being foreground, the menu would not close on an outside click.
         let _ = SetForegroundWindow(owner);

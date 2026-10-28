@@ -1,0 +1,1421 @@
+# Spanish translations for Pulsar.
+msgid ""
+msgstr ""
+"Project-Id-Version: Pulsar\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: src/app.rs
+msgid "Pulsar settings reset"
+msgstr "Se restableció la configuración de Pulsar"
+
+#: src/app.rs
+msgid "Pulsar closed unexpectedly"
+msgstr "Pulsar se cerró inesperadamente"
+
+#: src/app.rs
+msgid "Select to open the crash report. Attaching it to a GitHub issue helps get it fixed."
+msgstr "Selecciona para abrir el informe de error. Adjuntarlo a un issue de GitHub ayuda a corregirlo."
+
+#: src/app.rs
+msgid "Pulsar could not open the details window"
+msgstr "Pulsar no pudo abrir la ventana de detalles"
+
+#: src/app.rs
+msgid "Pulsar {} is available"
+msgstr "Pulsar {} está disponible"
+
+#: src/app.rs
+msgid "Select to open the release page."
+msgstr "Selecciona para abrir la página de la versión."
+
+#: src/app.rs
+msgid "Pulsar could not open Settings"
+msgstr "Pulsar no pudo abrir la configuración"
+
+#: src/app.rs
+msgid "Pulsar could not save settings"
+msgstr "Pulsar no pudo guardar la configuración"
+
+#: src/details/pages.rs
+msgid "Overview"
+msgstr "Resumen"
+
+#: src/details/pages.rs
+msgid "Processor"
+msgstr "Procesador"
+
+#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+msgid "Memory"
+msgstr "Memoria"
+
+#: src/details/pages.rs
+msgid "Graphics"
+msgstr "Gráficos"
+
+#: src/details/pages.rs
+msgid "Storage"
+msgstr "Almacenamiento"
+
+#: src/details/pages.rs src/popup/content.rs src/settings/form.rs ui/settings.slint
+msgid "Network"
+msgstr "Red"
+
+#: src/details/pages.rs
+msgid "System"
+msgstr "Sistema"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Sensors"
+msgstr "Sensores"
+
+#: src/details/pages.rs
+msgid "Temperatures, power draw and clocks come from the optional Pulsar sensor service, which reads them through PawnIO."
+msgstr "Las temperaturas, el consumo y las frecuencias provienen del servicio de sensores opcional de Pulsar, que las lee mediante PawnIO."
+
+#: src/details/pages.rs
+msgid "{}. Temperatures, power draw and clocks are unavailable until it is fixed."
+msgstr "{}. Las temperaturas, el consumo y las frecuencias no estarán disponibles hasta que se solucione."
+
+#: src/details/pages.rs
+msgid "Learn how"
+msgstr "Más información"
+
+#: src/details/pages.rs
+msgid "{} h {} min"
+msgstr "{} h {} min"
+
+#: src/details/pages.rs
+msgid "{} d {} h"
+msgstr "{} d {} h"
+
+#: src/details/pages.rs
+msgid "fully associative"
+msgstr "totalmente asociativa"
+
+#: src/details/pages.rs
+msgid "{}-way"
+msgstr "{} vías"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Collecting…"
+msgstr "Recopilando…"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Top processes"
+msgstr "Procesos principales"
+
+#: src/details/pages.rs
+msgid "{} active"
+msgstr "{} activo"
+
+#: src/details/pages.rs
+msgid "Motherboard"
+msgstr "Placa base"
+
+#: src/details/pages.rs
+msgid "{} across {} drives"
+msgstr "{} en {} unidades"
+
+#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+msgid "CPU temperature"
+msgstr "Temperatura de la CPU"
+
+#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+msgid "CPU power"
+msgstr "Consumo de la CPU"
+
+#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+msgid "GPU temperature"
+msgstr "Temperatura de la GPU"
+
+#: src/details/pages.rs src/popup/content.rs src/settings/form.rs ui/settings.slint
+msgid "Ping"
+msgstr "Ping"
+
+#: src/details/pages.rs
+msgid "Up time"
+msgstr "Tiempo activo"
+
+#: src/details/pages.rs
+msgid "build {}"
+msgstr "compilación {}"
+
+#: src/details/pages.rs
+msgid "{} cores ({}P + {}E)"
+msgstr "{} núcleos ({}P + {}E)"
+
+#: src/details/pages.rs
+msgid "{} cores"
+msgstr "{} núcleos"
+
+#: src/details/pages.rs
+msgid "{} threads"
+msgstr "{} hilos"
+
+#: src/details/pages.rs
+msgid "Utilization"
+msgstr "Uso"
+
+#: src/details/pages.rs
+msgid "Running at {}"
+msgstr "Funcionando a {}"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Temperature"
+msgstr "Temperatura"
+
+#: src/details/pages.rs
+msgid "Hottest core {}"
+msgstr "Núcleo más caliente {}"
+
+#: src/details/pages.rs
+msgid "Package power"
+msgstr "Consumo del paquete"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Speed"
+msgstr "Velocidad"
+
+#: src/details/pages.rs
+msgid "Multiplier"
+msgstr "Multiplicador"
+
+#: src/details/pages.rs
+msgid "Ring clock"
+msgstr "Frecuencia del anillo"
+
+#: src/details/pages.rs
+msgid "Cores power"
+msgstr "Consumo de los núcleos"
+
+#: src/details/pages.rs
+msgid "Graphics power"
+msgstr "Consumo de gráficos"
+
+#: src/details/pages.rs
+msgid "Memory power"
+msgstr "Consumo de la memoria"
+
+#: src/details/pages.rs
+msgid "Core voltage"
+msgstr "Voltaje del núcleo"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Thermal throttling"
+msgstr "Limitación térmica"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Yes"
+msgstr "Sí"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "No"
+msgstr "No"
+
+#: src/details/pages.rs
+msgid "Cores / threads"
+msgstr "Núcleos / hilos"
+
+#: src/details/pages.rs
+msgid "Vendor"
+msgstr "Fabricante"
+
+#: src/details/pages.rs
+msgid "Microarchitecture"
+msgstr "Microarquitectura"
+
+#: src/details/pages.rs
+msgid "Family · model · stepping"
+msgstr "Familia · modelo · stepping"
+
+#: src/details/pages.rs
+msgid "Socket"
+msgstr "Zócalo"
+
+#: src/details/pages.rs
+msgid "Base clock"
+msgstr "Frecuencia base"
+
+#: src/details/pages.rs
+msgid "Bus clock"
+msgstr "Frecuencia del bus"
+
+#: src/details/pages.rs
+msgid "Multiplier range"
+msgstr "Rango del multiplicador"
+
+#: src/details/pages.rs
+msgid "Power limits"
+msgstr "Límites de potencia"
+
+#: src/details/pages.rs
+msgid "Microcode"
+msgstr "Microcódigo"
+
+#: src/details/pages.rs
+msgid "Packages"
+msgstr "Paquetes"
+
+#: src/details/pages.rs
+msgid "Instructions"
+msgstr "Instrucciones"
+
+#: src/details/pages.rs
+msgid "Caches"
+msgstr "Cachés"
+
+#: src/details/pages.rs
+msgid "L1 data"
+msgstr "L1 datos"
+
+#: src/details/pages.rs
+msgid "L1 instruction"
+msgstr "L1 instrucciones"
+
+#: src/details/pages.rs
+msgid "P-cores show both threads' load"
+msgstr "Los núcleos P muestran la carga de ambos hilos"
+
+#: src/details/pages.rs
+msgid "Each core shows both threads' load"
+msgstr "Cada núcleo muestra la carga de ambos hilos"
+
+#: src/details/pages.rs
+msgid "fastest {} GHz"
+msgstr "máx. {} GHz"
+
+#: src/details/pages.rs
+msgid "hottest {}"
+msgstr "máx. {}"
+
+#: src/details/pages.rs
+msgid "{} of {} slots used"
+msgstr "{} de {} ranuras en uso"
+
+#: src/details/pages.rs
+msgid "Up to {} GB"
+msgstr "Hasta {} GB"
+
+#: src/details/pages.rs
+msgid "Memory in use"
+msgstr "Memoria en uso"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "{} of {}"
+msgstr "{} de {}"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "In use"
+msgstr "En uso"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Available"
+msgstr "Disponible"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Committed"
+msgstr "Confirmada"
+
+#: src/details/pages.rs
+msgid "Commit limit"
+msgstr "Límite de confirmación"
+
+#: src/details/pages.rs
+msgid "Module"
+msgstr "Módulo"
+
+#: src/details/pages.rs
+msgid "Manufacturer"
+msgstr "Fabricante"
+
+#: src/details/pages.rs
+msgid "Type"
+msgstr "Tipo"
+
+#: src/details/pages.rs
+msgid "{} MT/s (rated {})"
+msgstr "{} MT/s (nominal {})"
+
+#: src/details/pages.rs
+msgid "Ranks"
+msgstr "Rangos"
+
+#: src/details/pages.rs
+msgid "Voltage"
+msgstr "Voltaje"
+
+#: src/details/pages.rs
+msgid "Bank"
+msgstr "Banco"
+
+#: src/details/pages.rs
+msgid "{} unlimited"
+msgstr "{} sin límite"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Memory clock"
+msgstr "Frecuencia de memoria"
+
+#: src/details/pages.rs
+msgid "Controller clock"
+msgstr "Frecuencia del controlador"
+
+#: src/details/pages.rs
+msgid "{} MHz (gear {})"
+msgstr "{} MHz (gear {})"
+
+#: src/details/pages.rs
+msgid "Command rate"
+msgstr "Command rate"
+
+#: src/details/pages.rs
+msgid "Timings"
+msgstr "Latencias"
+
+#: src/details/pages.rs
+msgid "Link"
+msgstr "Enlace"
+
+#: src/details/pages.rs
+msgid "Max link"
+msgstr "Enlace máximo"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "3D"
+msgstr "3D"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Compute"
+msgstr "Cómputo"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Video decode"
+msgstr "Decodificación de vídeo"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Video encode"
+msgstr "Codificación de vídeo"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Copy"
+msgstr "Copia"
+
+#: src/details/pages.rs
+msgid "{} dedicated"
+msgstr "{} dedicada"
+
+#: src/details/pages.rs
+msgid "Driver {}"
+msgstr "Controlador {}"
+
+#: src/details/pages.rs
+msgid "{} dedicated memory in use"
+msgstr "{} de memoria dedicada en uso"
+
+#: src/details/pages.rs
+msgid "Hot spot {}"
+msgstr "Punto caliente {}"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Hot spot"
+msgstr "Punto caliente"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Memory temperature"
+msgstr "Temperatura de la memoria"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Fan"
+msgstr "Ventilador"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Power"
+msgstr "Potencia"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Engines"
+msgstr "Motores"
+
+#: src/details/pages.rs
+msgid "Graphics memory"
+msgstr "Memoria de gráficos"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Dedicated"
+msgstr "Dedicada"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Shared"
+msgstr "Compartida"
+
+#: src/details/pages.rs
+msgid "Board maker"
+msgstr "Fabricante de la tarjeta"
+
+#: src/details/pages.rs
+msgid "Revision"
+msgstr "Revisión"
+
+#: src/details/pages.rs
+msgid "Dedicated memory"
+msgstr "Memoria dedicada"
+
+#: src/details/pages.rs
+msgid "Shared memory"
+msgstr "Memoria compartida"
+
+#: src/details/pages.rs
+msgid "Driver"
+msgstr "Controlador"
+
+#: src/details/pages.rs
+msgid "Device ID"
+msgstr "ID de dispositivo"
+
+#: src/details/pages.rs
+msgid "Integrated"
+msgstr "Integrada"
+
+#: src/details/pages.rs
+msgid "Discrete"
+msgstr "Dedicada"
+
+#: src/details/pages.rs
+msgid "Download {}"
+msgstr "Descarga {}"
+
+#: src/details/pages.rs
+msgid "Upload {}"
+msgstr "Subida {}"
+
+#: src/details/pages.rs
+msgid "Interface"
+msgstr "Interfaz"
+
+#: src/details/pages.rs
+msgid "Firmware"
+msgstr "Firmware"
+
+#: src/details/pages.rs
+msgid "Temperature limits"
+msgstr "Límites de temperatura"
+
+#: src/details/pages.rs
+msgid "Warning {}°C · critical {}°C"
+msgstr "Aviso {}°C · crítica {}°C"
+
+#: src/details/pages.rs
+msgid "Warning {}°C"
+msgstr "Aviso {}°C"
+
+#: src/details/pages.rs
+msgid "Critical {}°C"
+msgstr "Crítica {}°C"
+
+#: src/details/pages.rs
+msgid "Removable"
+msgstr "Extraíble"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "{} free of {}"
+msgstr "{} libres de {}"
+
+#: src/details/pages.rs
+msgid "1 drive"
+msgstr "1 unidad"
+
+#: src/details/pages.rs
+msgid "{} drives"
+msgstr "{} unidades"
+
+#: src/details/pages.rs
+msgid "{} in total"
+msgstr "{} en total"
+
+#: src/details/pages.rs ui/settings.slint
+msgid "Activity"
+msgstr "Actividad"
+
+#: src/details/pages.rs
+msgid "Transfer rate"
+msgstr "Velocidad de transferencia"
+
+#: src/details/pages.rs
+msgid "Read {}"
+msgstr "Lectura {}"
+
+#: src/details/pages.rs
+msgid "Write {}"
+msgstr "Escritura {}"
+
+#: src/details/pages.rs
+msgid "Active"
+msgstr "Actividad"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Read"
+msgstr "Lectura"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Write"
+msgstr "Escritura"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Hottest drive"
+msgstr "Unidad más caliente"
+
+#: src/details/pages.rs
+msgid "Latency"
+msgstr "Latencia"
+
+#: src/details/pages.rs
+msgid "{} · {} loss"
+msgstr "{} · {} de pérdida"
+
+#: src/details/pages.rs
+msgid "Download"
+msgstr "Descarga"
+
+#: src/details/pages.rs
+msgid "Upload"
+msgstr "Subida"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Packet loss"
+msgstr "Pérdida de paquetes"
+
+#: src/details/pages.rs
+msgid "Traffic"
+msgstr "Tráfico"
+
+#: src/details/pages.rs
+msgid "Link speed"
+msgstr "Velocidad del enlace"
+
+#: src/details/pages.rs
+msgid "Gateway"
+msgstr "Puerta de enlace"
+
+#: src/details/pages.rs
+msgid "MAC address"
+msgstr "Dirección MAC"
+
+#: src/details/pages.rs
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: src/details/pages.rs
+msgid "Ethernet"
+msgstr "Ethernet"
+
+#: src/details/pages.rs
+msgid "Model"
+msgstr "Modelo"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Chipset"
+msgstr "Chipset"
+
+#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+msgid "Chipset temperature"
+msgstr "Temperatura del chipset"
+
+#: src/details/pages.rs
+msgid "CPU socket"
+msgstr "Zócalo de la CPU"
+
+#: src/details/pages.rs
+msgid "Memory slots"
+msgstr "Ranuras de memoria"
+
+#: src/details/pages.rs
+msgid "Version"
+msgstr "Versión"
+
+#: src/details/pages.rs
+msgid "Release date"
+msgstr "Fecha de publicación"
+
+#: src/details/pages.rs
+msgid "Edition"
+msgstr "Edición"
+
+#: src/details/pages.rs
+msgid "Build"
+msgstr "Compilación"
+
+#: src/details/pages.rs
+msgid "Every reading, with the lowest and highest seen while this window has been open"
+msgstr "Todas las lecturas, con la mínima y la máxima registradas mientras esta ventana ha estado abierta"
+
+#: src/details/pages.rs
+msgid "Temperatures"
+msgstr "Temperaturas"
+
+#: src/details/pages.rs
+msgid "Core {}"
+msgstr "Núcleo {}"
+
+#: src/details/pages.rs ui/details.slint
+msgid "Load"
+msgstr "Carga"
+
+#: src/details/pages.rs
+msgid "Total"
+msgstr "Total"
+
+#: src/details/pages.rs
+msgid "Clocks"
+msgstr "Frecuencias"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Average"
+msgstr "Promedio"
+
+#: src/details/pages.rs
+msgid "Ring"
+msgstr "Anillo"
+
+#: src/details/pages.rs
+msgid "Package"
+msgstr "Paquete"
+
+#: src/details/pages.rs
+msgid "Voltages"
+msgstr "Voltajes"
+
+#: src/details/pages.rs
+msgid "Powers"
+msgstr "Consumos"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Cores"
+msgstr "Núcleos"
+
+#: src/details/pages.rs
+msgid "Core"
+msgstr "Núcleo"
+
+#: src/details/pages.rs
+msgid "Fans"
+msgstr "Ventiladores"
+
+#: src/details/pages.rs
+msgid "Data"
+msgstr "Datos"
+
+#: src/details/pages.rs ui/details.slint
+msgid "Physical"
+msgstr "Física"
+
+#: src/details/pages.rs
+msgid "Drive"
+msgstr "Unidad"
+
+#: src/details/pages.rs
+msgid "{}: activity"
+msgstr "{}: actividad"
+
+#: src/details/pages.rs
+msgid "{}: used space"
+msgstr "{}: espacio usado"
+
+#: src/details/pages.rs
+msgid "All drives"
+msgstr "Todas las unidades"
+
+#: src/details/pages.rs
+msgid "Throughput"
+msgstr "Rendimiento"
+
+#: src/menu.rs
+msgid "System details…"
+msgstr "Detalles del sistema…"
+
+#: src/menu.rs ui/details.slint ui/settings.slint
+msgid "Graphs"
+msgstr "Gráficas"
+
+#: src/menu.rs ui/settings.slint
+msgid "Text only"
+msgstr "Solo texto"
+
+#: src/menu.rs
+msgid "Short labels"
+msgstr "Etiquetas cortas"
+
+#: src/menu.rs ui/settings.slint
+msgid "Icons"
+msgstr "Iconos"
+
+#: src/menu.rs ui/settings.slint
+msgid "Details on hover"
+msgstr "Detalles al pasar el ratón"
+
+#: src/menu.rs ui/settings.slint
+msgid "Hide in fullscreen"
+msgstr "Ocultar en pantalla completa"
+
+#: src/menu.rs ui/settings.slint
+msgid "Floating"
+msgstr "Flotante"
+
+#: src/menu.rs ui/settings.slint
+msgid "Lock position"
+msgstr "Bloquear posición"
+
+#: src/menu.rs
+msgid "Settings…"
+msgstr "Configuración…"
+
+#: src/menu.rs
+msgid "Open Task Manager"
+msgstr "Abrir el Administrador de tareas"
+
+#: src/menu.rs
+msgid "About Pulsar"
+msgstr "Acerca de Pulsar"
+
+#: src/menu.rs
+msgid "Exit Pulsar"
+msgstr "Salir de Pulsar"
+
+#: src/popup/content.rs
+msgid "No activity"
+msgstr "Sin actividad"
+
+#: src/popup/content.rs
+msgid "Hottest core"
+msgstr "Núcleo más caliente"
+
+#: src/popup/content.rs
+msgid "Disk {}"
+msgstr "Disco {}"
+
+#: src/popup/content.rs
+msgid "{} active · {} used"
+msgstr "{} activo · {} usado"
+
+#: src/popup/content.rs src/settings/form.rs
+msgid "CPU"
+msgstr "CPU"
+
+#: src/popup/content.rs src/settings/form.rs ui/settings.slint
+msgid "Disk"
+msgstr "Disco"
+
+#: src/popup/content.rs ui/settings.slint
+msgid "Drives"
+msgstr "Unidades"
+
+#: src/popup/content.rs
+msgid "Free space"
+msgstr "Espacio libre"
+
+#: src/popup/content.rs
+msgid "Adapters"
+msgstr "Adaptadores"
+
+#: src/popup/content.rs
+msgid "No traffic"
+msgstr "Sin tráfico"
+
+#: src/popup/content.rs src/settings/form.rs
+msgid "GPU"
+msgstr "GPU"
+
+#: src/popup/content.rs
+msgid "Core temperatures"
+msgstr "Temperaturas de los núcleos"
+
+#: src/popup/content.rs
+msgid "Fastest core"
+msgstr "Núcleo más rápido"
+
+#: src/popup/content.rs src/settings/form.rs
+msgid "CPU clock"
+msgstr "Frecuencia de la CPU"
+
+#: src/popup/content.rs
+msgid "Core clocks"
+msgstr "Frecuencias de los núcleos"
+
+#: src/popup/content.rs src/settings/form.rs
+msgid "Drive temperature"
+msgstr "Temperatura de las unidades"
+
+#: src/popup/content.rs ui/settings.slint
+msgid "Host"
+msgstr "Host"
+
+#: src/popup/content.rs
+msgid "Min / avg / max"
+msgstr "Mín. / prom. / máx."
+
+#: src/settings/main.rs ui/settings.slint
+msgid "Default"
+msgstr "Predeterminada"
+
+#: src/settings/main.rs
+msgid "not installed"
+msgstr "no instalada"
+
+#: src/settings/main.rs
+msgid "All hardware adapters"
+msgstr "Todos los adaptadores físicos"
+
+#: src/settings/main.rs
+msgid "not connected"
+msgstr "no conectado"
+
+#: src/settings/main.rs
+msgid "Windows default ({})"
+msgstr "Igual que Windows ({})"
+
+#: src/settings/presets.rs
+msgid "Windows default"
+msgstr "Predeterminado de Windows"
+
+#: src/settings/presets.rs
+msgid "Aurora"
+msgstr "Aurora"
+
+#: src/settings/presets.rs
+msgid "Ember"
+msgstr "Brasa"
+
+#: src/settings/presets.rs
+msgid "Ocean"
+msgstr "Océano"
+
+#: src/settings/presets.rs
+msgid "Forest"
+msgstr "Bosque"
+
+#: src/settings/presets.rs
+msgid "Mono"
+msgstr "Mono"
+
+#: src/settings/presets.rs
+msgid "Neon"
+msgstr "Neón"
+
+#: src/settings/presets.rs
+msgid "Sunset"
+msgstr "Atardecer"
+
+#: ui/details.slint
+msgid "Load by thread"
+msgstr "Carga por hilo"
+
+#: ui/details.slint
+msgid "Clock by core"
+msgstr "Frecuencia por núcleo"
+
+#: ui/details.slint
+msgid "Temperature by core"
+msgstr "Temperatura por núcleo"
+
+#: ui/details.slint
+msgid "Matrix"
+msgstr "Matriz"
+
+#: ui/details.slint
+msgid "Strips"
+msgstr "Barras"
+
+#: ui/details.slint
+msgid "Rings"
+msgstr "Anillos"
+
+#: ui/details.slint
+msgid "Outer ring: load"
+msgstr "Anillo exterior: carga"
+
+#: ui/details.slint
+msgid "Inner ring: temperature"
+msgstr "Anillo interior: temperatura"
+
+#: ui/details.slint
+msgid "Centre: GHz"
+msgstr "Centro: GHz"
+
+#: ui/details.slint
+msgid "Centre: load"
+msgstr "Centro: carga"
+
+#: ui/details.slint
+msgid "Usage"
+msgstr "Uso"
+
+#: ui/details.slint
+msgid "Stick"
+msgstr "Barra"
+
+#: ui/details.slint
+msgid "{} used"
+msgstr "{} en uso"
+
+#: ui/details.slint
+msgid "in use of {}"
+msgstr "en uso de {}"
+
+#: ui/details.slint
+msgid "available"
+msgstr "disponible"
+
+#: ui/details.slint
+msgid "committed (white line)"
+msgstr "confirmada (línea blanca)"
+
+#: ui/details.slint
+msgid "This PC"
+msgstr "Este equipo"
+
+#: ui/details.slint
+msgid "Expand all"
+msgstr "Expandir todo"
+
+#: ui/details.slint
+msgid "Collapse to hardware"
+msgstr "Contraer al hardware"
+
+#: ui/details.slint
+msgid "Sensor"
+msgstr "Sensor"
+
+#: ui/details.slint
+msgid "Value"
+msgstr "Valor"
+
+#: ui/details.slint
+msgid "Min"
+msgstr "Mín."
+
+#: ui/details.slint
+msgid "Max"
+msgstr "Máx."
+
+#: ui/settings.slint
+msgid "Use default"
+msgstr "Usar predeterminado"
+
+#: ui/settings.slint
+msgid "General"
+msgstr "General"
+
+#: ui/settings.slint
+msgid "Display"
+msgstr "Visualización"
+
+#: ui/settings.slint
+msgid "Items"
+msgstr "Elementos"
+
+#: ui/settings.slint
+msgid "About"
+msgstr "Acerca de"
+
+#: ui/settings.slint
+msgid "Language"
+msgstr "Idioma"
+
+#: ui/settings.slint
+msgid "For Pulsar's windows, menus and labels."
+msgstr "Para las ventanas, menús y etiquetas de Pulsar."
+
+#: ui/settings.slint
+msgid "Start with Windows"
+msgstr "Iniciar con Windows"
+
+#: ui/settings.slint
+msgid "Launch Pulsar when you sign in."
+msgstr "Abre Pulsar al iniciar sesión."
+
+#: ui/settings.slint
+msgid "Check for updates"
+msgstr "Buscar actualizaciones"
+
+#: ui/settings.slint
+msgid "Look for a new release once a day. Nothing is downloaded automatically."
+msgstr "Busca una nueva versión una vez al día. No se descarga nada automáticamente."
+
+#: ui/settings.slint
+msgid "Tray icon"
+msgstr "Icono en la bandeja"
+
+#: ui/settings.slint
+msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
+msgstr "Muestra Pulsar en el área de notificación. Si está oculto, haz clic derecho en la superposición para ver el menú, o vuelve a iniciar Pulsar para abrir la configuración."
+
+#: ui/settings.slint
+msgid "Sampling"
+msgstr "Muestreo"
+
+#: ui/settings.slint
+msgid "Update interval"
+msgstr "Intervalo de actualización"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings."
+msgstr "Milisegundos entre lecturas."
+
+#: ui/settings.slint
+msgid "History length"
+msgstr "Longitud del historial"
+
+#: ui/settings.slint
+msgid "Readings kept for the graphs."
+msgstr "Lecturas que se guardan para las gráficas."
+
+#: ui/settings.slint
+msgid "Reset"
+msgstr "Restablecer"
+
+#: ui/settings.slint
+msgid "Reset all settings"
+msgstr "Restablecer toda la configuración"
+
+#: ui/settings.slint
+msgid "Everything except Start with Windows and the language goes back to its default."
+msgstr "Todo, excepto Iniciar con Windows y el idioma, vuelve a su valor predeterminado."
+
+#: ui/settings.slint
+msgid "Start over with the default look and items."
+msgstr "Empieza de nuevo con el aspecto y los elementos predeterminados."
+
+#: ui/settings.slint
+msgid "Reset…"
+msgstr "Restablecer…"
+
+#: ui/settings.slint
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: ui/settings.slint
+msgid "Mode"
+msgstr "Modo"
+
+#: ui/settings.slint
+msgid "Graphs, or compact text only."
+msgstr "Gráficas, o solo texto compacto."
+
+#: ui/settings.slint
+msgid "Single-line graphs"
+msgstr "Gráficas en una línea"
+
+#: ui/settings.slint
+msgid "Put the icon, label and value on one line, for short taskbars."
+msgstr "Coloca el icono, la etiqueta y el valor en una línea, para barras de tareas bajas."
+
+#: ui/settings.slint
+msgid "Show a graph and details when the mouse rests on an item."
+msgstr "Muestra una gráfica y detalles al dejar el ratón sobre un elemento."
+
+#: ui/settings.slint
+msgid "Labels"
+msgstr "Etiquetas"
+
+#: ui/settings.slint
+msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
+msgstr "Nombres completos, una letra por elemento (C, H, W, M, G, T, D, P), o ninguna y solo iconos."
+
+#: ui/settings.slint
+msgid "Full"
+msgstr "Completas"
+
+#: ui/settings.slint
+msgid "Short"
+msgstr "Cortas"
+
+#: ui/settings.slint
+msgid "None (icons only)"
+msgstr "Ninguna (solo iconos)"
+
+#: ui/settings.slint
+msgid "An icon before each label, or on its own."
+msgstr "Un icono antes de cada etiqueta, o solo."
+
+#: ui/settings.slint
+msgid "Fade out while a fullscreen game or video is in front."
+msgstr "Se desvanece mientras haya un juego o vídeo a pantalla completa delante."
+
+#: ui/settings.slint
+msgid "Text"
+msgstr "Texto"
+
+#: ui/settings.slint
+msgid "Font"
+msgstr "Fuente"
+
+#: ui/settings.slint
+msgid "Fonts without fixed-width digits may shift slightly as values change."
+msgstr "Las fuentes sin dígitos de ancho fijo pueden moverse un poco al cambiar los valores."
+
+#: ui/settings.slint
+msgid "Bold"
+msgstr "Negrita"
+
+#: ui/settings.slint
+msgid "Font size"
+msgstr "Tamaño de fuente"
+
+#: ui/settings.slint
+msgid "Points."
+msgstr "Puntos."
+
+#: ui/settings.slint
+msgid "Accent colour graphs"
+msgstr "Gráficas en color de énfasis"
+
+#: ui/settings.slint
+msgid "Draw graphs in your Windows accent colour."
+msgstr "Dibuja las gráficas con el color de énfasis de Windows."
+
+#: ui/settings.slint
+msgid "Colours"
+msgstr "Colores"
+
+#: ui/settings.slint
+msgid "Theme preset"
+msgstr "Tema predefinido"
+
+#: ui/settings.slint
+msgid "Sets item, label, value, tile and panel colours at once."
+msgstr "Establece a la vez los colores de elementos, etiquetas, valores, mosaicos y panel."
+
+#: ui/settings.slint
+msgid "Apply"
+msgstr "Aplicar"
+
+#: ui/settings.slint
+msgid "Label colour"
+msgstr "Color de las etiquetas"
+
+#: ui/settings.slint
+msgid "Empty uses the theme."
+msgstr "Vacío usa el tema."
+
+#: ui/settings.slint
+msgid "Value colour"
+msgstr "Color de los valores"
+
+#: ui/settings.slint
+msgid "Colour labels by item"
+msgstr "Colorear etiquetas por elemento"
+
+#: ui/settings.slint
+msgid "Draw each label in its item's colour."
+msgstr "Dibuja cada etiqueta con el color de su elemento."
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "Posición"
+
+#: ui/settings.slint
+msgid "Placement"
+msgstr "Ubicación"
+
+#: ui/settings.slint
+msgid "Where the overlay sits on the taskbar."
+msgstr "Dónde se coloca la superposición en la barra de tareas."
+
+#: ui/settings.slint
+msgid "Next to the tray"
+msgstr "Junto a la bandeja"
+
+#: ui/settings.slint
+msgid "Left edge"
+msgstr "Borde izquierdo"
+
+#: ui/settings.slint
+msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
+msgstr "Arrastra la superposición para moverla. Añade un fondo de panel para que se lea bien sobre cualquier ventana."
+
+#: ui/settings.slint
+msgid "Reset position"
+msgstr "Restablecer posición"
+
+#: ui/settings.slint
+msgid "Offset"
+msgstr "Desplazamiento"
+
+#: ui/settings.slint
+msgid "Extra space in pixels, moving away from the anchor."
+msgstr "Espacio adicional en píxeles, alejándose del anclaje."
+
+#: ui/settings.slint
+msgid "Tray fallback margin"
+msgstr "Margen de respaldo de la bandeja"
+
+#: ui/settings.slint
+msgid "Used when the tray position cannot be read."
+msgstr "Se usa cuando no se puede leer la posición de la bandeja."
+
+#: ui/settings.slint
+msgid "Every taskbar"
+msgstr "Todas las barras de tareas"
+
+#: ui/settings.slint
+msgid "Also show on the taskbars of other monitors."
+msgstr "Mostrar también en las barras de tareas de otros monitores."
+
+#: ui/settings.slint
+msgid "Background"
+msgstr "Fondo"
+
+#: ui/settings.slint
+msgid "Tile colour"
+msgstr "Color de los mosaicos"
+
+#: ui/settings.slint
+msgid "Empty uses the theme tint."
+msgstr "Vacío usa el tono del tema."
+
+#: ui/settings.slint
+msgid "Custom tile opacity"
+msgstr "Opacidad personalizada de los mosaicos"
+
+#: ui/settings.slint
+msgid "{}% — 0% removes the tiles."
+msgstr "{}% — 0% quita los mosaicos."
+
+#: ui/settings.slint
+msgid "Using the theme default."
+msgstr "Se usa el valor del tema."
+
+#: ui/settings.slint
+msgid "Panel colour"
+msgstr "Color del panel"
+
+#: ui/settings.slint
+msgid "A panel behind the whole overlay. Empty uses the theme."
+msgstr "Un panel detrás de toda la superposición. Vacío usa el tema."
+
+#: ui/settings.slint
+msgid "Panel opacity"
+msgstr "Opacidad del panel"
+
+#: ui/settings.slint
+msgid "Off"
+msgstr "Desactivado"
+
+#: ui/settings.slint
+msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). In graph mode, clear Graph to show an item as text only."
+msgstr "Elige qué muestra la superposición, en qué orden y el color de cada elemento (vacío usa el predeterminado). En el modo de gráficas, desmarca Gráfica para mostrar un elemento solo como texto."
+
+#: ui/settings.slint
+msgid "Graph"
+msgstr "Gráfica"
+
+#: ui/settings.slint
+msgid "Temperatures and power"
+msgstr "Temperaturas y consumo"
+
+#: ui/settings.slint
+msgid "Sensor service"
+msgstr "Servicio de sensores"
+
+#: ui/settings.slint
+msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
+msgstr "La temperatura y el consumo de la CPU y la temperatura del chipset requieren el servicio de sensores opcional de Pulsar y el controlador PawnIO, que necesitan permisos de administrador. Vuelve a ejecutar el instalador de Pulsar para añadirlos. CPU Intel y AMD Ryzen desde Zen; temperatura del chipset solo en Intel."
+
+#: ui/settings.slint
+msgid "About PawnIO"
+msgstr "Acerca de PawnIO"
+
+#: ui/settings.slint
+msgid "Disks"
+msgstr "Discos"
+
+#: ui/settings.slint
+msgid "One combined cell, or a cell per drive."
+msgstr "Una celda combinada, o una celda por unidad."
+
+#: ui/settings.slint
+msgid "All disks combined"
+msgstr "Todos los discos juntos"
+
+#: ui/settings.slint
+msgid "Each drive"
+msgstr "Cada unidad"
+
+#: ui/settings.slint
+msgid "Drive value"
+msgstr "Valor de la unidad"
+
+#: ui/settings.slint
+msgid "Used space"
+msgstr "Espacio usado"
+
+#: ui/settings.slint
+msgid "Adapter"
+msgstr "Adaptador"
+
+#: ui/settings.slint
+msgid "Count one adapter, or every physical one."
+msgstr "Cuenta un adaptador, o todos los físicos."
+
+#: ui/settings.slint
+msgid "An IPv4 address or a name."
+msgstr "Una dirección IPv4 o un nombre."
+
+#: ui/settings.slint
+msgid "Interval"
+msgstr "Intervalo"
+
+#: ui/settings.slint
+msgid "Milliseconds between pings."
+msgstr "Milisegundos entre pings."
+
+#: ui/settings.slint
+msgid "Pulsar {}"
+msgstr "Pulsar {}"
+
+#: ui/settings.slint
+msgid "A Windows 11 taskbar system monitor."
+msgstr "Un monitor del sistema para la barra de tareas de Windows 11."
+
+#: ui/settings.slint
+msgid "License"
+msgstr "Licencia"
+
+#: ui/settings.slint
+msgid "GNU General Public License v3.0 or later. Built with Slint."
+msgstr "Licencia Pública General de GNU v3.0 o posterior. Hecho con Slint."
+
+#: ui/settings.slint
+msgid "Settings file"
+msgstr "Archivo de configuración"
+
+#: ui/settings.slint
+msgid "Open folder"
+msgstr "Abrir carpeta"
+
+#: ui/settings.slint
+msgid "Logs"
+msgstr "Registros"
+
+#: ui/settings.slint
+msgid "Source code"
+msgstr "Código fuente"
+
+#: ui/settings.slint
+msgid "Open on GitHub"
+msgstr "Abrir en GitHub"
+
+#: ui/settings.slint
+msgid "Report a problem"
+msgstr "Informar de un problema"
+
+#: ui/settings.slint
+msgid "Attach pulsar.log, and any crash report, from the logs folder."
+msgstr "Adjunta pulsar.log, y cualquier informe de error, de la carpeta de registros."
+
+#: ui/settings.slint
+msgid "Report an issue"
+msgstr "Informar de un problema"
