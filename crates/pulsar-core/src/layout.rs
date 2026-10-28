@@ -76,6 +76,7 @@ pub struct LayoutInput {
     pub labels: LabelStyle,
     pub icons: bool,
     pub graph_inline: bool,
+    pub upload_on_top: bool,
 }
 
 /// An enabled item and the cells it draws.
@@ -108,6 +109,7 @@ pub fn primary_metric(kind: ItemKind) -> MetricKey {
         ItemKind::CpuClock => MetricKey::CpuClockMhz,
         ItemKind::DiskTemp => MetricKey::DiskTempMaxC,
         ItemKind::ChipsetTemp => MetricKey::ChipsetTempC,
+        ItemKind::Battery => MetricKey::BatteryPercent,
     }
 }
 
@@ -153,6 +155,7 @@ pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
         (ItemKind::Disk, _) => "\u{EDA2}",
         (ItemKind::Network, _) => "\u{E968}",
         (ItemKind::Ping, _) => "\u{EC05}",
+        (ItemKind::Battery, _) => "\u{E83F}",
     }
 }
 
@@ -200,6 +203,15 @@ pub fn default_parts(kind: ItemKind) -> Vec<CellPart> {
     }
 }
 
+/// The network's two directions in the order they are shown.
+pub fn network_parts(upload_on_top: bool) -> [CellPart; 2] {
+    if upload_on_top {
+        [CellPart::Up, CellPart::Down]
+    } else {
+        [CellPart::Down, CellPart::Up]
+    }
+}
+
 /// The enabled items in order, each with the cells it draws.
 pub fn item_specs(config: &Config) -> Vec<ItemSpec> {
     let drives = config.drive_letters();
@@ -215,6 +227,8 @@ pub fn item_specs(config: &Config) -> Vec<ItemSpec> {
                         DriveValue::Used => CellPart::DriveUsed(d),
                     })
                     .collect()
+            } else if kind == ItemKind::Network {
+                network_parts(config.display.upload_on_top).to_vec()
             } else {
                 default_parts(kind)
             };
@@ -241,9 +255,7 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
     };
     match input.mode {
         DisplayMode::Text => text_layout(items, height, scale, font_px, labels, m),
-        DisplayMode::Graph => {
-            graph_layout(items, height, scale, font_px, labels, input.graph_inline, m)
-        }
+        DisplayMode::Graph => graph_layout(items, height, scale, font_px, labels, input, m),
     }
 }
 
@@ -341,19 +353,27 @@ pub struct InlineSlot {
     pub value_x: f32,
 }
 
+/// How a tile's text is labelled.
+#[derive(Clone, Copy, Debug)]
+pub struct TileText {
+    pub labels: LabelStyle,
+    pub icons: bool,
+    pub upload_on_top: bool,
+}
+
 /// Where an inline graph tile draws each of its parts, and the width of the
 /// whole line. `font_px` is the size the text is drawn at.
 pub fn inline_slots(
     kind: ItemKind,
     part: CellPart,
-    labels: LabelStyle,
-    icons: bool,
+    text: TileText,
     font_px: f32,
     scale: f32,
     m: &dyn TextMeasure,
 ) -> (Vec<InlineSlot>, f32) {
+    let TileText { labels, icons, .. } = text;
     let parts = match kind {
-        ItemKind::Network => vec![CellPart::Down, CellPart::Up],
+        ItemKind::Network => network_parts(text.upload_on_top).to_vec(),
         _ => vec![part],
     };
     let gap = LABEL_GAP_DIP * scale;
@@ -380,9 +400,10 @@ fn graph_layout(
     scale: f32,
     font_px: f32,
     labels: Labels,
-    inline: bool,
+    input: LayoutInput,
     m: &dyn TextMeasure,
 ) -> Layout {
+    let inline = input.graph_inline;
     let padding = PADDING_DIP * scale;
     let tile_h = (height - 2.0 * padding).max(1.0);
     let mut cells = Vec::with_capacity(items.len());
@@ -397,16 +418,12 @@ fn graph_layout(
         for part in tiles {
             let text_w = if inline {
                 let text_px = font_px * GRAPH_FONT_SCALE;
-                inline_slots(
-                    spec.kind,
-                    part,
-                    labels.style,
-                    labels.icons,
-                    text_px,
-                    scale,
-                    m,
-                )
-                .1
+                let text = TileText {
+                    labels: labels.style,
+                    icons: labels.icons,
+                    upload_on_top: input.upload_on_top,
+                };
+                inline_slots(spec.kind, part, text, text_px, scale, m).1
             } else {
                 graph_text_width(spec.kind, part, labels, font_px, m)
             };
@@ -462,6 +479,7 @@ mod tests {
             labels: LabelStyle::Full,
             icons: false,
             graph_inline: false,
+            upload_on_top: false,
         }
     }
 
@@ -475,7 +493,7 @@ mod tests {
             .collect()
     }
 
-    const ALL: [ItemKind; 12] = ItemKind::ALL;
+    const ALL: [ItemKind; 13] = ItemKind::ALL;
 
     fn assert_no_overlap(layout: &Layout) {
         for (i, a) in layout.cells.iter().enumerate() {
@@ -641,8 +659,12 @@ mod tests {
 
     #[test]
     fn inline_slots_follow_each_other_without_overlap() {
-        let slots =
-            |kind, part| inline_slots(kind, part, LabelStyle::Full, true, 10.0, 1.0, &Fixed);
+        let text = TileText {
+            labels: LabelStyle::Full,
+            icons: true,
+            upload_on_top: false,
+        };
+        let slots = |kind, part| inline_slots(kind, part, text, 10.0, 1.0, &Fixed);
         let (cpu, cpu_w) = slots(ItemKind::Cpu, CellPart::Main);
         assert_eq!(cpu.len(), 1);
         // Icon 10px + icon gap 3px + "CPU" 15px, then a 4px gap.
@@ -655,6 +677,31 @@ mod tests {
         // "99.9 MB/s" is 45px wide; the second part starts 8px after it.
         assert_eq!(net[1].label_x, net[0].value_x + 45.0 + 8.0);
         assert_eq!(net_w, net[1].value_x + 45.0);
+
+        let up_first = TileText {
+            upload_on_top: true,
+            ..text
+        };
+        let (net, _) = inline_slots(
+            ItemKind::Network,
+            CellPart::Main,
+            up_first,
+            10.0,
+            1.0,
+            &Fixed,
+        );
+        assert_eq!(net[0].part, CellPart::Up);
+    }
+
+    #[test]
+    fn upload_on_top_puts_the_upload_cell_on_top() {
+        let mut c = Config::default();
+        c.display.upload_on_top = true;
+        let net = item_specs(&c)
+            .into_iter()
+            .find(|s| s.kind == ItemKind::Network)
+            .unwrap();
+        assert_eq!(net.parts, [CellPart::Up, CellPart::Down]);
     }
 
     #[test]

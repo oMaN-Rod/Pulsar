@@ -332,6 +332,7 @@ fn processes(data: &Data, sort: ProcessSort) -> SpecGroup {
                         ProcessSort::Cpu => format_value(p.cpu_percent, Unit::Percent),
                         ProcessSort::Memory => format_value(p.private_bytes, Unit::Bytes),
                         ProcessSort::Gpu => format_value(p.gpu_percent, Unit::Percent),
+                        ProcessSort::Io => format_value(p.io_bps, Unit::BytesPerSec),
                     };
                     (p.name, value)
                 })
@@ -1448,8 +1449,8 @@ fn network(data: &Data) -> View {
                     rate.map(|r| {
                         format!(
                             "↓ {}  ↑ {}",
-                            format_value(r.down_bps, Unit::BytesPerSec),
-                            format_value(r.up_bps, Unit::BytesPerSec)
+                            format_value(r.down_bps, Unit::NetworkRate),
+                            format_value(r.up_bps, Unit::NetworkRate)
                         )
                     }),
                 ),

@@ -1,6 +1,7 @@
 pub mod colors;
 pub mod config;
 pub mod crash;
+pub mod diag;
 pub mod display;
 pub mod feed;
 pub mod format;

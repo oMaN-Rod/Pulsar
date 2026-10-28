@@ -1,3 +1,4 @@
+mod battery;
 mod cpu;
 mod disk_io;
 mod disk_space;
@@ -9,6 +10,7 @@ mod ping;
 mod processes;
 mod sensor_service;
 
+pub use battery::{BatteryDetails, BatterySource, PowerStatus};
 pub use cpu::CpuSource;
 pub use disk_io::{DiskIoSource, drive_letter};
 pub use disk_space::{DiskSpaceSource, fixed_drives, used_percent};

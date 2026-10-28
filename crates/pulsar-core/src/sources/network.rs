@@ -15,6 +15,26 @@ pub struct NetworkSource {
     hardware: HashSet<String>,
     hardware_refreshed: Option<Instant>,
     adapter: Option<String>,
+    totals: Totals,
+}
+
+/// Bytes moved since the first sample, summed from the rates.
+#[derive(Default)]
+struct Totals {
+    last: Option<Instant>,
+    down: f64,
+    up: f64,
+}
+
+impl Totals {
+    fn add(&mut self, now: Instant, down_bps: f64, up_bps: f64) {
+        if let Some(last) = self.last {
+            let seconds = now.duration_since(last).as_secs_f64();
+            self.down += down_bps * seconds;
+            self.up += up_bps * seconds;
+        }
+        self.last = Some(now);
+    }
 }
 
 impl NetworkSource {
@@ -31,6 +51,7 @@ impl NetworkSource {
             hardware: HashSet::new(),
             hardware_refreshed: None,
             adapter,
+            totals: Totals::default(),
         })
     }
 }
@@ -56,11 +77,13 @@ impl Source for NetworkSource {
             })?,
             None => select_hardware(all, &self.hardware),
         };
-        out.set(
-            MetricKey::NetDownBps,
-            adapters.iter().map(|a| a.down_bps).sum(),
-        );
-        out.set(MetricKey::NetUpBps, adapters.iter().map(|a| a.up_bps).sum());
+        let down: f64 = adapters.iter().map(|a| a.down_bps).sum();
+        let up: f64 = adapters.iter().map(|a| a.up_bps).sum();
+        out.set(MetricKey::NetDownBps, down);
+        out.set(MetricKey::NetUpBps, up);
+        self.totals.add(Instant::now(), down, up);
+        out.set(MetricKey::NetDownTotalBytes, self.totals.down);
+        out.set(MetricKey::NetUpTotalBytes, self.totals.up);
         out.adapters = adapters
             .into_iter()
             .filter(|a| a.down_bps + a.up_bps > 0.0)
@@ -168,6 +191,20 @@ fn hardware_instance_names() -> HashSet<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn totals_add_up_the_rates_over_time() {
+        let mut totals = Totals::default();
+        let start = Instant::now();
+        totals.add(start, 1000.0, 10.0);
+        assert_eq!(
+            (totals.down, totals.up),
+            (0.0, 0.0),
+            "nothing before a second sample"
+        );
+        totals.add(start + Duration::from_secs(2), 500.0, 50.0);
+        assert_eq!((totals.down, totals.up), (1000.0, 100.0));
+    }
 
     #[test]
     fn merges_by_name_and_sorts_by_traffic() {

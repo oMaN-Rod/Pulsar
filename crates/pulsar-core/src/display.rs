@@ -23,9 +23,15 @@ pub fn graph_max(unit: Unit, histories: &[&History]) -> f64 {
         Unit::Rpm => 1000.0,
         Unit::Watts => 50.0,
         Unit::Volts => 1.5,
-        Unit::BytesPerSec => 16.0 * 1024.0,
+        Unit::BytesPerSec | Unit::NetworkRate => 16.0 * 1024.0,
         Unit::Millis => 100.0,
-        Unit::Bytes | Unit::MHz | Unit::Ratio | Unit::Cycles => 1.0,
+        Unit::Bytes
+        | Unit::MHz
+        | Unit::Ratio
+        | Unit::Cycles
+        | Unit::WattHours
+        | Unit::Seconds
+        | Unit::Count => 1.0,
     };
     let peak = histories.iter().filter_map(|h| h.max()).fold(0.0, f64::max);
     (peak * 1.1).max(floor)
@@ -56,10 +62,98 @@ pub fn area_points(history: &History, rect: Rect, max: f64) -> Vec<(f32, f32)> {
     points
 }
 
+/// A bar per recent sample, newest at the right edge, each at least `min_w`
+/// wide with `gap` between; older samples that do not fit are left out.
+/// Missing samples draw no bar. Returns each bar and its value.
+pub fn bar_rects(
+    history: &History,
+    rect: Rect,
+    max: f64,
+    min_w: f32,
+    gap: f32,
+) -> Vec<(Rect, f64)> {
+    if history.is_empty() || max <= 0.0 || rect.w <= 0.0 {
+        return Vec::new();
+    }
+    let slots = ((rect.w + gap) / (min_w + gap)).floor().max(1.0) as usize;
+    let slots = slots.min(history.capacity().max(1));
+    let width = (rect.w + gap) / slots as f32 - gap;
+    let values: Vec<f64> = history.iter().collect();
+    let shown = &values[values.len().saturating_sub(slots)..];
+    let bottom = rect.y + rect.h;
+    shown
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| !v.is_nan())
+        .map(|(i, &v)| {
+            let from_right = (shown.len() - 1 - i) as f32;
+            let x = rect.x + rect.w - width - from_right * (width + gap);
+            let h = (v / max).clamp(0.0, 1.0) as f32 * rect.h;
+            (
+                Rect {
+                    x,
+                    y: bottom - h,
+                    w: width,
+                    h,
+                },
+                v,
+            )
+        })
+        .collect()
+}
+
+/// How full a level meter is for `value` against `max`, 0–1.
+pub fn meter_fraction(value: f64, max: f64) -> f32 {
+    if max <= 0.0 || !value.is_finite() {
+        return 0.0;
+    }
+    (value / max).clamp(0.0, 1.0) as f32
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::metric::{MetricKey, SourceId};
+
+    #[test]
+    fn bars_fit_the_newest_samples_at_the_right_edge() {
+        let h = history(&[10.0, 20.0, 30.0, 40.0, 100.0], 60);
+        let rect = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 11.0,
+            h: 10.0,
+        };
+        // 3 px bars with 1 px gaps: (11 + 1) / 4 = 3 bars.
+        let bars = bar_rects(&h, rect, 100.0, 3.0, 1.0);
+        let values: Vec<f64> = bars.iter().map(|(_, v)| *v).collect();
+        assert_eq!(values, [30.0, 40.0, 100.0]);
+        let last = bars[2].0;
+        assert_eq!((last.x + last.w, last.y, last.h), (11.0, 0.0, 10.0));
+        assert_eq!(bars[0].0.x, 0.0);
+        assert_eq!(bars[1].0.h, 4.0);
+    }
+
+    #[test]
+    fn bars_skip_missing_samples_and_empty_histories() {
+        let h = history(&[f64::NAN, 50.0], 10);
+        let rect = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 100.0,
+            h: 10.0,
+        };
+        assert_eq!(bar_rects(&h, rect, 100.0, 2.0, 1.0).len(), 1);
+        assert!(bar_rects(&History::new(5), rect, 100.0, 2.0, 1.0).is_empty());
+    }
+
+    #[test]
+    fn meter_fraction_is_clamped() {
+        assert_eq!(meter_fraction(50.0, 100.0), 0.5);
+        assert_eq!(meter_fraction(500.0, 100.0), 1.0);
+        assert_eq!(meter_fraction(f64::NAN, 100.0), 0.0);
+        assert_eq!(meter_fraction(5.0, 0.0), 0.0);
+    }
 
     fn history(values: &[f64], capacity: usize) -> History {
         let mut h = History::new(capacity);

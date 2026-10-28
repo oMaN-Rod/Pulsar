@@ -1,10 +1,13 @@
 //! The values shown in the settings window, and their mapping to `Config`.
 
 use pulsar_core::colors::{Rgb, default_rgb};
-use pulsar_core::config::{Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, Position};
+use pulsar_core::config::{
+    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, Position, RateUnit, TemperatureUnit,
+};
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
-use pulsar_core::tr;
+
+use crate::names::{COLOR_MODES, DETAILS, STYLES};
 
 /// Shown in the opacity slider when the theme default is in use.
 pub const THEME_TILE_OPACITY: i32 = 8;
@@ -15,7 +18,13 @@ pub struct ItemRow {
     pub enabled: bool,
     /// `#RRGGBB`, or empty for the default colour.
     pub color: String,
-    pub graph: bool,
+    /// An index into `names::STYLES`.
+    pub style: i32,
+    /// An index into `names::COLOR_MODES`.
+    pub color_mode: i32,
+    /// 0 follows the popup setting; otherwise one more than an index into
+    /// `names::DETAILS`.
+    pub popup: i32,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -38,6 +47,9 @@ pub struct Form {
     /// Empty for the theme colour.
     pub label_color: String,
     pub value_color: String,
+    /// Empty uses the colours above on a light taskbar too.
+    pub label_color_light: String,
+    pub value_color_light: String,
     pub color_labels: bool,
     /// Empty for the default font.
     pub font_family: String,
@@ -65,6 +77,13 @@ pub struct Form {
     pub adapter: String,
     /// A language code, or empty to follow Windows.
     pub language: String,
+    pub fahrenheit: bool,
+    pub network_bits: bool,
+    pub upload_on_top: bool,
+    /// An index into `names::DETAILS`.
+    pub popup_detail: i32,
+    pub popup_graph: bool,
+    pub popup_processes: i32,
 }
 
 /// `#RRGGBB` → `(r, g, b)`, for the colour swatches; anything else is `None`.
@@ -83,21 +102,12 @@ pub fn item_rgb(kind: ItemKind, hex: &str) -> Rgb {
     parse_hex(hex).unwrap_or_else(|| default_rgb(kind, CellPart::Main))
 }
 
-pub fn item_name(kind: ItemKind) -> &'static str {
-    match kind {
-        ItemKind::Cpu => tr!("CPU"),
-        ItemKind::Ram => tr!("Memory"),
-        ItemKind::Gpu => tr!("GPU"),
-        ItemKind::Disk => tr!("Disk"),
-        ItemKind::Network => tr!("Network"),
-        ItemKind::Ping => tr!("Ping"),
-        ItemKind::GpuTemp => tr!("GPU temperature"),
-        ItemKind::CpuTemp => tr!("CPU temperature"),
-        ItemKind::CpuPower => tr!("CPU power"),
-        ItemKind::CpuClock => tr!("CPU clock"),
-        ItemKind::DiskTemp => tr!("Drive temperature"),
-        ItemKind::ChipsetTemp => tr!("Chipset temperature"),
-    }
+fn index_of<T: PartialEq>(all: &[T], value: &T) -> i32 {
+    all.iter().position(|v| v == value).unwrap_or(0) as i32
+}
+
+fn at<T: Copy>(all: &[T], index: i32) -> Option<T> {
+    all.get(usize::try_from(index).ok()?).copied()
 }
 
 pub fn to_form(c: &Config) -> Form {
@@ -126,6 +136,8 @@ pub fn to_form(c: &Config) -> Form {
         icons: d.icons,
         label_color: d.label_color.clone().unwrap_or_default(),
         value_color: d.value_color.clone().unwrap_or_default(),
+        label_color_light: d.label_color_light.clone().unwrap_or_default(),
+        value_color_light: d.value_color_light.clone().unwrap_or_default(),
         color_labels: d.color_labels,
         font_family: d.font_family.clone().unwrap_or_default(),
         font_bold: d.font_bold,
@@ -146,7 +158,9 @@ pub fn to_form(c: &Config) -> Form {
                 kind: i.kind,
                 enabled: i.enabled,
                 color: i.color.clone().unwrap_or_default(),
-                graph: i.graph,
+                style: index_of(&STYLES, &i.graph.then_some(i.style)),
+                color_mode: index_of(&COLOR_MODES, &i.color_mode),
+                popup: i.popup.map_or(0, |p| index_of(&DETAILS, &p) + 1),
             })
             .collect(),
         ping_host: c.ping.host.clone(),
@@ -155,6 +169,12 @@ pub fn to_form(c: &Config) -> Form {
         drive_used: c.disk.value == DriveValue::Used,
         adapter: c.network.adapter.clone().unwrap_or_default(),
         language: c.general.language.clone().unwrap_or_default(),
+        fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
+        network_bits: c.units.network == RateUnit::Bits,
+        upload_on_top: d.upload_on_top,
+        popup_detail: index_of(&DETAILS, &c.popup.detail),
+        popup_graph: c.popup.graph,
+        popup_processes: i32::from(c.popup.processes),
     }
 }
 
@@ -209,6 +229,9 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     d.icons = f.icons;
     d.label_color = non_empty(&f.label_color);
     d.value_color = non_empty(&f.value_color);
+    d.label_color_light = non_empty(&f.label_color_light);
+    d.value_color_light = non_empty(&f.value_color_light);
+    d.upload_on_top = f.upload_on_top;
     d.color_labels = f.color_labels;
     d.font_family = non_empty(&f.font_family);
     d.font_bold = f.font_bold;
@@ -224,11 +247,18 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     c.items = f
         .items
         .iter()
-        .map(|r| ItemConfig {
-            kind: r.kind,
-            enabled: r.enabled,
-            color: non_empty(&r.color),
-            graph: r.graph,
+        .map(|r| {
+            let style = at(&STYLES, r.style).unwrap_or(STYLES[0]);
+            ItemConfig {
+                color: non_empty(&r.color),
+                graph: style.is_some(),
+                // Text only keeps the graph style it had, for when the graph returns.
+                style: style
+                    .unwrap_or_else(|| base.item(r.kind).map(|i| i.style).unwrap_or_default()),
+                color_mode: at(&COLOR_MODES, r.color_mode).unwrap_or_default(),
+                popup: at(&DETAILS, r.popup - 1),
+                ..ItemConfig::new(r.kind, r.enabled)
+            }
         })
         .collect();
     c.ping.host = f.ping_host.trim().to_string();
@@ -241,6 +271,19 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     };
     c.network.adapter = non_empty(&f.adapter);
     c.general.language = non_empty(&f.language);
+    c.units.temperature = if f.fahrenheit {
+        TemperatureUnit::Fahrenheit
+    } else {
+        TemperatureUnit::Celsius
+    };
+    c.units.network = if f.network_bits {
+        RateUnit::Bits
+    } else {
+        RateUnit::Bytes
+    };
+    c.popup.detail = at(&DETAILS, f.popup_detail).unwrap_or_default();
+    c.popup.graph = f.popup_graph;
+    c.popup.processes = f.popup_processes.clamp(0, 255) as u8;
     c.sanitize()
 }
 
@@ -390,10 +433,57 @@ mod tests {
     }
 
     #[test]
-    fn every_item_has_a_display_name() {
-        for kind in ItemKind::ALL {
-            assert!(!item_name(kind).is_empty());
-        }
+    fn item_styles_colours_and_popups_map_both_ways() {
+        use pulsar_core::config::{ColorMode, GraphStyle, PopupDetail};
+        let c = Config::default();
+        let mut f = to_form(&c);
+        assert_eq!(
+            (f.items[0].style, f.items[0].color_mode, f.items[0].popup),
+            (0, 0, 0)
+        );
+        f.items[0].style = 2;
+        f.items[0].color_mode = 2;
+        f.items[0].popup = 3;
+        f.items[1].style = 4;
+        let out = to_config(&f, &c);
+        let first = &out.items[0];
+        assert_eq!(
+            (first.graph, first.style, first.color_mode, first.popup),
+            (
+                true,
+                GraphStyle::Bars,
+                ColorMode::Load,
+                Some(PopupDetail::Detailed)
+            )
+        );
+        assert!(!out.items[1].graph, "the last style is text only");
+        assert_eq!(to_form(&out).items[1].style, 4);
+    }
+
+    #[test]
+    fn text_only_keeps_the_graph_style_for_later() {
+        use pulsar_core::config::GraphStyle;
+        let mut c = Config::default();
+        c.items[0].style = GraphStyle::Meter;
+        let mut f = to_form(&c);
+        f.items[0].style = 4;
+        let out = to_config(&f, &c);
+        assert!(!out.items[0].graph);
+        assert_eq!(out.items[0].style, GraphStyle::Meter);
+    }
+
+    #[test]
+    fn units_and_popup_settings_round_trip() {
+        let mut c = Config::default();
+        c.units.temperature = TemperatureUnit::Fahrenheit;
+        c.units.network = RateUnit::Bits;
+        c.display.upload_on_top = true;
+        c.display.value_color_light = Some("#101010".into());
+        c.popup.detail = pulsar_core::config::PopupDetail::Simple;
+        c.popup.graph = false;
+        c.popup.processes = 10;
+        let c = c.sanitize();
+        assert_eq!(to_config(&to_form(&c), &c), c);
     }
 
     #[test]
@@ -417,6 +507,7 @@ mod tests {
         c.network.adapter = Some("eth".into());
         c.general.language = Some("es".into());
         c.items[0].graph = false;
+        c.items[1].popup = Some(pulsar_core::config::PopupDetail::Simple);
         let c = c.sanitize();
         assert_eq!(to_config(&to_form(&c), &c), c);
     }

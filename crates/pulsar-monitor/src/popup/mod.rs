@@ -189,32 +189,34 @@ fn draw(
     r.text_at(text, &title, &content.value, right - value_w, y, accent)?;
     y += m.title_h + m.block_gap;
 
-    let graph = Rect {
-        x: m.pad,
-        y,
-        w: w - 2.0 * m.pad,
-        h: m.graph_h,
-    };
-    r.fill_rounded(graph, 4.0 * m.scale, p.popup_border)?;
-    let histories: Vec<&History> = content
-        .series
-        .iter()
-        .filter_map(|&part| style.history.get(metric_for(content.kind, part)))
-        .collect();
-    let unit = metric_for(content.kind, content.series[0]).unit();
-    let max = graph_max(unit, &histories);
-    for (i, &part) in content.series.iter().enumerate() {
-        if let Some(history) = style.history.get(metric_for(content.kind, part)) {
-            let color = p.graph(content.kind, part);
-            r.series(
-                &area_points(history, graph, max),
-                color,
-                i == 0,
-                1.5 * m.scale,
-            )?;
+    if content.graph {
+        let graph = Rect {
+            x: m.pad,
+            y,
+            w: w - 2.0 * m.pad,
+            h: m.graph_h,
+        };
+        r.fill_rounded(graph, 4.0 * m.scale, p.popup_border)?;
+        let histories: Vec<&History> = content
+            .series
+            .iter()
+            .filter_map(|&part| style.history.get(metric_for(content.kind, part)))
+            .collect();
+        let unit = metric_for(content.kind, content.series[0]).unit();
+        let max = graph_max(unit, &histories);
+        for (i, &part) in content.series.iter().enumerate() {
+            if let Some(history) = style.history.get(metric_for(content.kind, part)) {
+                let color = p.graph(content.kind, part);
+                r.series(
+                    &area_points(history, graph, max),
+                    color,
+                    i == 0,
+                    1.5 * m.scale,
+                )?;
+            }
         }
+        y += m.graph_h + m.block_gap;
     }
-    y += m.graph_h + m.block_gap;
 
     if let Some(error) = &content.error {
         r.text_at(text, &body, error, m.pad, y, p.warning)?;
@@ -265,10 +267,65 @@ fn draw(
                 }
                 y += m.bars_h;
             }
+            Block::Composition { heading, parts } => {
+                r.text_at(text, &body, heading, m.pad, y, p.popup_label)?;
+                y += m.line_h;
+                let whole: f64 = parts.iter().map(|(_, v, _)| v.max(0.0)).sum();
+                let colors: Vec<Color> = (0..parts.len())
+                    .map(|i| share_color(accent, p.popup_border, i, parts.len()))
+                    .collect();
+                let track = Rect {
+                    x: m.pad,
+                    y,
+                    w: w - 2.0 * m.pad,
+                    h: m.stack_h,
+                };
+                r.fill_rounded(track, m.stack_h / 2.0, p.popup_border)?;
+                let mut x = track.x;
+                for ((_, value, _), &color) in parts.iter().zip(&colors) {
+                    if whole <= 0.0 {
+                        break;
+                    }
+                    let seg_w = track.w * (value.max(0.0) / whole) as f32;
+                    let seg = Rect {
+                        x,
+                        w: seg_w,
+                        ..track
+                    };
+                    r.fill_rounded(seg, 1.5 * m.scale, color)?;
+                    x += seg_w;
+                }
+                y += m.stack_h + m.block_gap / 2.0;
+                let dot = (m.font_px * 0.6).round();
+                for ((label, _, shown), &color) in parts.iter().zip(&colors) {
+                    let swatch = Rect {
+                        x: m.pad,
+                        y: y + (m.line_h - dot) / 2.0,
+                        w: dot,
+                        h: dot,
+                    };
+                    r.fill_rounded(swatch, dot / 4.0, color)?;
+                    let value_w = text.width(shown, m.font_px);
+                    r.text_at(text, &body, shown, right - value_w, y, p.popup_text)?;
+                    let label_x = m.pad + dot + 6.0 * m.scale;
+                    r.text_at(text, &body, label, label_x, y, p.popup_text)?;
+                    y += m.line_h;
+                }
+            }
         }
         y += m.block_gap;
     }
     Ok(())
+}
+
+/// The accent fading out part by part; the last part, what is left over,
+/// takes the track colour.
+fn share_color(accent: Color, track: Color, index: usize, count: usize) -> Color {
+    if index + 1 == count && count > 1 {
+        return track.with_alpha((track.a * 2.5).min(1.0));
+    }
+    let steps = count.saturating_sub(2).max(1) as f32;
+    accent.with_alpha(1.0 - 0.6 * index as f32 / steps)
 }
 
 #[cfg(test)]

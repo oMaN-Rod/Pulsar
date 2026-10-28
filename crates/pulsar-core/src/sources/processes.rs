@@ -9,6 +9,7 @@ pub struct ProcessesSource {
     cpu: Counter,
     private: Counter,
     ids: Counter,
+    io: Counter,
     /// GPU columns are zero when this is `None` or has no instances.
     gpu: Option<Counter>,
     cpu_count: usize,
@@ -24,6 +25,7 @@ impl ProcessesSource {
         let cpu = query.add(r"\Process(*)\% Processor Time")?;
         let private = query.add(r"\Process(*)\Working Set - Private")?;
         let ids = query.add(r"\Process(*)\ID Process")?;
+        let io = query.add(r"\Process(*)\IO Data Bytes/sec")?;
         let gpu = query.add(gpu_path).ok();
         query.collect()?;
         let cpu_count = std::thread::available_parallelism().map_or(1, |n| n.get());
@@ -32,6 +34,7 @@ impl ProcessesSource {
             cpu,
             private,
             ids,
+            io,
             gpu,
             cpu_count,
         })
@@ -52,9 +55,12 @@ impl Source for ProcessesSource {
             .map(|samples| aggregate_engines(&samples).per_pid)
             .unwrap_or_default();
         out.processes = group_processes(
-            &self.cpu.array()?,
-            &self.private.array()?,
-            &self.ids.array()?,
+            &Columns {
+                cpu: &self.cpu.array()?,
+                private: &self.private.array()?,
+                ids: &self.ids.array()?,
+                io: &self.io.array()?,
+            },
             &gpu_per_pid,
             self.cpu_count,
         );
@@ -80,31 +86,43 @@ fn group<'m, 's>(
         cpu_percent: 0.0,
         private_bytes: 0.0,
         gpu_percent: 0.0,
+        io_bps: 0.0,
     }))
+}
+
+/// PDH `Process` counter arrays, one value per instance.
+pub struct Columns<'a> {
+    pub cpu: &'a [(String, f64)],
+    pub private: &'a [(String, f64)],
+    pub ids: &'a [(String, f64)],
+    pub io: &'a [(String, f64)],
 }
 
 /// Groups PDH `Process` instances by executable name (as Task Manager does),
 /// normalising CPU to a share of all logical processors.
 pub fn group_processes(
-    cpu: &[(String, f64)],
-    private: &[(String, f64)],
-    ids: &[(String, f64)],
+    columns: &Columns,
     gpu_per_pid: &HashMap<u32, f64>,
     cpu_count: usize,
 ) -> Vec<ProcessUsage> {
     let mut groups: HashMap<&str, ProcessUsage> = HashMap::new();
     let cpu_count = cpu_count.max(1) as f64;
-    for (instance, value) in cpu {
+    for (instance, value) in columns.cpu {
         if let Some(p) = group(&mut groups, instance) {
             p.cpu_percent += value.max(0.0) / cpu_count;
         }
     }
-    for (instance, value) in private {
+    for (instance, value) in columns.private {
         if let Some(p) = group(&mut groups, instance) {
             p.private_bytes += value.max(0.0);
         }
     }
-    for (instance, pid) in ids {
+    for (instance, value) in columns.io {
+        if let Some(p) = group(&mut groups, instance) {
+            p.io_bps += value.max(0.0);
+        }
+    }
+    for (instance, pid) in columns.ids {
         let gpu = gpu_per_pid.get(&(*pid as u32)).copied().unwrap_or(0.0);
         if let Some(p) = group(&mut groups, instance) {
             p.gpu_percent = (p.gpu_percent + gpu).min(100.0);
@@ -122,6 +140,7 @@ pub enum ProcessSort {
     Cpu,
     Memory,
     Gpu,
+    Io,
 }
 
 /// The `n` heaviest processes by `sort`, excluding those at zero.
@@ -130,6 +149,7 @@ pub fn top_by(processes: &[ProcessUsage], sort: ProcessSort, n: usize) -> Vec<Pr
         ProcessSort::Cpu => p.cpu_percent,
         ProcessSort::Memory => p.private_bytes,
         ProcessSort::Gpu => p.gpu_percent,
+        ProcessSort::Io => p.io_bps,
     };
     let mut sorted: Vec<ProcessUsage> =
         processes.iter().filter(|p| key(p) > 0.0).cloned().collect();
@@ -153,14 +173,17 @@ mod tests {
     #[test]
     fn groups_instances_by_name_and_skips_totals() {
         let ps = group_processes(
-            &v(&[
-                ("chrome", 40.0),
-                ("chrome#1", 40.0),
-                ("_Total", 800.0),
-                ("Idle", 700.0),
-            ]),
-            &v(&[("chrome", 100.0), ("chrome#1", 50.0)]),
-            &v(&[("chrome", 10.0), ("chrome#1", 11.0)]),
+            &Columns {
+                cpu: &v(&[
+                    ("chrome", 40.0),
+                    ("chrome#1", 40.0),
+                    ("_Total", 800.0),
+                    ("Idle", 700.0),
+                ]),
+                private: &v(&[("chrome", 100.0), ("chrome#1", 50.0)]),
+                ids: &v(&[("chrome", 10.0), ("chrome#1", 11.0)]),
+                io: &v(&[("chrome", 2048.0), ("chrome#1", 1024.0), ("_Total", 1e9)]),
+            },
             &HashMap::from([(10, 5.0), (11, 7.0)]),
             8,
         );
@@ -169,6 +192,7 @@ mod tests {
         assert_eq!(chrome.cpu_percent, 10.0, "80% of one core over 8 cores");
         assert_eq!(chrome.private_bytes, 150.0);
         assert_eq!(chrome.gpu_percent, 12.0);
+        assert_eq!(chrome.io_bps, 3072.0);
     }
 
     #[test]
@@ -187,7 +211,13 @@ mod tests {
 
     #[test]
     fn zero_cpu_count_does_not_divide_by_zero() {
-        let ps = group_processes(&v(&[("a", 50.0)]), &[], &[], &HashMap::new(), 0);
+        let columns = Columns {
+            cpu: &v(&[("a", 50.0)]),
+            private: &[],
+            ids: &[],
+            io: &[],
+        };
+        let ps = group_processes(&columns, &HashMap::new(), 0);
         assert_eq!(find(&ps, "a").cpu_percent, 50.0);
     }
 
@@ -198,6 +228,7 @@ mod tests {
             cpu_percent: cpu,
             private_bytes: mem,
             gpu_percent: 0.0,
+            io_bps: mem / 10.0,
         };
         let all = vec![
             p("a", 1.0, 300.0),
@@ -215,5 +246,6 @@ mod tests {
             top_by(&all, ProcessSort::Gpu, 5).is_empty(),
             "all zero → nothing to show"
         );
+        assert_eq!(names(top_by(&all, ProcessSort::Io, 1)), ["a"]);
     }
 }

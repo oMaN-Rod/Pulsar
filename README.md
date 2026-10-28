@@ -30,26 +30,29 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 
 ## Features
 
-- **Graphs or text.** Graph tiles with scrolling history, or a dense text layout that stays readable on a standard 48 px taskbar. On a shorter taskbar, graph tiles can put the icon, label and value on one line. Turn off the graph on any item, such as network, to show just its text.
+- **Graphs or text.** Graph tiles with scrolling history, or a dense text layout that stays readable on a standard 48 px taskbar. On a shorter taskbar, graph tiles can put the icon, label and value on one line.
+- **A style per item.** Each item can draw an area graph, a line, bars, a level meter, or just its text, in its own colour, your Windows accent, or a colour that goes from green to red as its load rises.
 - **Labels your way.** Full labels (`CPU`), one-letter labels (`C`), icons, or icons alone.
-- **Hover details.** Each item opens a popup:
-  - **CPU:** per-core bars, clock speed and top processes
+- **Hover details.** Each item opens a popup, Simple (the value and its graph), Standard or Detailed, set for all items or per item:
+  - **CPU:** per-core bars, clock speed and top processes; Detailed adds process, thread and handle counts and up time
   - **CPU clock:** average and fastest core, with per-core bars
-  - **Memory:** commit charge
-  - **Disk:** free space per drive
-  - **Network:** traffic per adapter
+  - **Memory:** commit charge and top processes; Detailed adds a breakdown into in use, modified, standby and free, and the kernel pools
+  - **Disk:** free space per drive and the processes doing the most I/O
+  - **Network:** traffic per adapter; Detailed adds the totals since Pulsar started
   - **GPU:** engine breakdown, VRAM, and temperature, fan and power
   - **Drive temperature:** each drive that reports one
-  - **Ping:** min/avg/max and packet loss
+  - **Ping:** min/avg/max and packet loss; Detailed adds jitter
+  - **Battery:** charge, state and time remaining; Detailed adds charge rate, capacity, wear and cycles
 - **A full system details window.** Ctrl+click the overlay for a CPU-Z-style view of the whole machine: processor (microarchitecture, cores, caches, instruction sets), memory modules, graphics cards with their PCIe link, drives with their temperatures, network adapters, motherboard, chipset and BIOS, plus every live sensor with its low and high. The hover graphs are there too, with their full history.
 - **CPU and chipset temperature and CPU power, if you opt in.** Windows gives unelevated programs no real CPU temperature or power draw, so these need the optional [sensor service](#sensor-service), which also adds a few extra CPU, memory and GPU readings.
 - **GPU monitoring for any vendor.** Utilisation matches Task Manager. Temperature is read the same way Task Manager does, with no drivers or vendor SDKs.
 - **Per-drive disks and adapter choice.** Show each drive's activity or used space, and count one network adapter or all physical ones.
+- **Your units.** Temperatures in °C or °F, network rates in bytes or bits per second, and upload shown above download if you prefer.
 - **Stays put.** Survives Explorer restarts, taskbar moves, auto-hide, DPI changes and multiple monitors, and fades out while a fullscreen game or video is in front.
 - **Floating mode.** Detach it from the taskbar, drag it anywhere, and lock it in place.
 - **Looks right on your taskbar.**
   - theme presets
-  - custom label, value and item colours
+  - custom label, value and item colours, with separate label and value colours for a light taskbar
   - tile and panel backgrounds, which help with TranslucentTB and similar
   - any installed font, bold optional
 - **Light.** About 10 MB of memory and well under 1% CPU. No admin rights, no drivers and no background services, unless you opt in to the [sensor service](#sensor-service).
@@ -77,11 +80,11 @@ Pulsar needs Windows 11.
 
 ## Use
 
-- **Tray icon:** left-click opens Settings; right-click opens the menu (system details, graphs or text, labels, icons, hover details, hide in fullscreen, floating, Task Manager, exit).
+- **Tray icon:** left-click opens Settings; right-click opens the menu (system details, graphs or text, which items to show, popup detail, units, update interval, labels, icons, hide in fullscreen, floating, Task Manager, exit).
 - **Overlay:**
   - left-click opens Task Manager
   - Ctrl+click opens the system details window on the clicked item's page
-  - right-click opens the same menu
+  - right-click opens the same menu, with the clicked item's own options at the top: its graph style, colour, popup detail and position, or hide it
   - rest the mouse on an item for details
   - in floating mode, drag it to move it
 - Launching Pulsar again while it runs opens Settings.
@@ -187,7 +190,9 @@ There is no telemetry.
 
 If something looks wrong, open *Settings → About → Logs* and look at `pulsar.log`. If Pulsar crashes, it writes a `crash-*.txt` report there and offers to open it the next time it starts.
 
-Please [open an issue](https://github.com/oMaN-Rod/Pulsar/issues/new/choose) with the log and any crash report attached.
+If a reading is missing or wrong, *Settings → About → Diagnostics → Save report* (or `pulsar --diag [file]`) writes every reading Pulsar can take to `diagnostics.txt` in the logs folder. It includes process and network adapter names, so read it before sharing.
+
+Please [open an issue](https://github.com/oMaN-Rod/Pulsar/issues/new/choose) with the log and any crash report or diagnostics report attached.
 
 ## Build from source
 

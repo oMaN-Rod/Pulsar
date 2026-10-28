@@ -49,7 +49,7 @@ msgstr "概览"
 msgid "Processor"
 msgstr "处理器"
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "Memory"
 msgstr "内存"
 
@@ -61,11 +61,11 @@ msgstr "显卡"
 msgid "Storage"
 msgstr "存储"
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs ui/settings.slint
+#: src/details/pages.rs src/names.rs src/popup/content.rs ui/settings.slint
 msgid "Network"
 msgstr "网络"
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "System"
 msgstr "系统"
 
@@ -105,7 +105,7 @@ msgstr "{} 路"
 msgid "Collecting…"
 msgstr "正在收集…"
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/menu.rs src/popup/content.rs ui/settings.slint
 msgid "Top processes"
 msgstr "占用最高的进程"
 
@@ -121,23 +121,23 @@ msgstr "主板"
 msgid "{} across {} drives"
 msgstr "{}，共 {} 个驱动器"
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "CPU temperature"
 msgstr "CPU 温度"
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "CPU power"
 msgstr "CPU 功耗"
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "GPU temperature"
 msgstr "GPU 温度"
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs ui/settings.slint
+#: src/details/pages.rs src/names.rs src/popup/content.rs ui/settings.slint
 msgid "Ping"
 msgstr "延迟"
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "Up time"
 msgstr "运行时间"
 
@@ -165,7 +165,7 @@ msgstr "利用率"
 msgid "Running at {}"
 msgstr "当前频率 {}"
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
 msgid "Temperature"
 msgstr "温度"
 
@@ -345,7 +345,7 @@ msgstr "{} MT/s（额定 {}）"
 msgid "Ranks"
 msgstr "Rank 数"
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "Voltage"
 msgstr "电压"
 
@@ -621,7 +621,7 @@ msgstr "型号"
 msgid "Chipset"
 msgstr "芯片组"
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "Chipset temperature"
 msgstr "芯片组温度"
 
@@ -734,6 +734,62 @@ msgid "Throughput"
 msgstr "吞吐量"
 
 #: src/menu.rs
+msgid "Same as other items ({})"
+msgstr "与其他监控项相同（{}）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Popup detail"
+msgstr "弹出窗口详细程度"
+
+#: src/menu.rs
+msgid "Swap with item on the left"
+msgstr "与左侧监控项交换"
+
+#: src/menu.rs
+msgid "Swap with item on the right"
+msgstr "与右侧监控项交换"
+
+#: src/menu.rs
+msgid "Hide"
+msgstr "隐藏"
+
+#: src/menu.rs ui/settings.slint
+msgid "Graph"
+msgstr "图表"
+
+#: src/menu.rs
+msgid "None"
+msgstr "无"
+
+#: src/menu.rs ui/settings.slint
+msgid "Details on hover"
+msgstr "悬停显示详情"
+
+#: src/menu.rs ui/settings.slint
+msgid "Celsius (°C)"
+msgstr "摄氏度（°C）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Fahrenheit (°F)"
+msgstr "华氏度（°F）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Bytes per second (MB/s)"
+msgstr "字节每秒（MB/s）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Bits per second (Mbps)"
+msgstr "比特每秒（Mbps）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Upload on top"
+msgstr "上传显示在上方"
+
+#: src/menu.rs
+msgid "{} s"
+msgstr "{} 秒"
+
+#: src/menu.rs
 msgid "System details…"
 msgstr "系统详细信息…"
 
@@ -741,9 +797,25 @@ msgstr "系统详细信息…"
 msgid "Graphs"
 msgstr "图表"
 
-#: src/menu.rs ui/settings.slint
+#: src/menu.rs src/names.rs ui/settings.slint
 msgid "Text only"
 msgstr "仅文本"
+
+#: src/menu.rs ui/settings.slint
+msgid "Items"
+msgstr "监控项"
+
+#: src/menu.rs ui/settings.slint
+msgid "Popups"
+msgstr "弹出窗口"
+
+#: src/menu.rs ui/settings.slint
+msgid "Units"
+msgstr "单位"
+
+#: src/menu.rs ui/settings.slint
+msgid "Update interval"
+msgstr "刷新间隔"
 
 #: src/menu.rs
 msgid "Short labels"
@@ -752,10 +824,6 @@ msgstr "简短标签"
 #: src/menu.rs ui/settings.slint
 msgid "Icons"
 msgstr "图标"
-
-#: src/menu.rs ui/settings.slint
-msgid "Details on hover"
-msgstr "悬停显示详情"
 
 #: src/menu.rs ui/settings.slint
 msgid "Hide in fullscreen"
@@ -785,9 +853,185 @@ msgstr "关于 Pulsar"
 msgid "Exit Pulsar"
 msgstr "退出 Pulsar"
 
+#: src/names.rs src/popup/content.rs
+msgid "CPU"
+msgstr "CPU"
+
+#: src/names.rs src/popup/content.rs
+msgid "GPU"
+msgstr "GPU"
+
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Disk"
+msgstr "磁盘"
+
+#: src/names.rs src/popup/content.rs
+msgid "CPU clock"
+msgstr "CPU 频率"
+
+#: src/names.rs src/popup/content.rs
+msgid "Drive temperature"
+msgstr "驱动器温度"
+
+#: src/names.rs src/popup/content.rs
+msgid "Battery"
+msgstr "电池"
+
+#: src/names.rs
+msgid "Area graph"
+msgstr "面积图"
+
+#: src/names.rs
+msgid "Line graph"
+msgstr "折线图"
+
+#: src/names.rs
+msgid "Bar graph"
+msgstr "柱状图"
+
+#: src/names.rs
+msgid "Level meter"
+msgstr "电平条"
+
+#: src/names.rs
+msgid "Item colour"
+msgstr "监控项颜色"
+
+#: src/names.rs
+msgid "Windows accent"
+msgstr "Windows 主题色"
+
+#: src/names.rs
+msgid "Colour by load"
+msgstr "按负载着色"
+
+#: src/names.rs
+msgid "Simple"
+msgstr "简洁"
+
+#: src/names.rs
+msgid "Standard"
+msgstr "标准"
+
+#: src/names.rs
+msgid "Detailed"
+msgstr "详细"
+
 #: src/popup/content.rs
 msgid "No activity"
 msgstr "无活动"
+
+#: src/popup/content.rs
+msgid "Top processes (I/O)"
+msgstr "占用最高的进程（I/O）"
+
+#: src/popup/content.rs
+msgid "Breakdown"
+msgstr "构成"
+
+#: src/popup/content.rs
+msgid "Modified"
+msgstr "已修改"
+
+#: src/popup/content.rs
+msgid "Standby"
+msgstr "备用"
+
+#: src/popup/content.rs
+msgid "Free"
+msgstr "可用"
+
+#: src/popup/content.rs
+msgid "Charging"
+msgstr "正在充电"
+
+#: src/popup/content.rs
+msgid "On AC power"
+msgstr "使用交流电源"
+
+#: src/popup/content.rs
+msgid "On battery"
+msgstr "使用电池"
+
+#: src/popup/content.rs
+msgid "State"
+msgstr "状态"
+
+#: src/popup/content.rs
+msgid "Time to full"
+msgstr "充满所需时间"
+
+#: src/popup/content.rs
+msgid "Remaining"
+msgstr "剩余"
+
+#: src/popup/content.rs
+msgid "Charge rate"
+msgstr "充电功率"
+
+#: src/popup/content.rs
+msgid "Discharge rate"
+msgstr "放电功率"
+
+#: src/popup/content.rs
+msgid "Energy"
+msgstr "电量"
+
+#: src/popup/content.rs
+msgid "Capacity when new"
+msgstr "出厂容量"
+
+#: src/popup/content.rs
+msgid "Health"
+msgstr "健康度"
+
+#: src/popup/content.rs
+msgid "Charge cycles"
+msgstr "充电循环次数"
+
+#: src/popup/content.rs
+msgid "Processes"
+msgstr "进程"
+
+#: src/popup/content.rs
+msgid "Threads"
+msgstr "线程"
+
+#: src/popup/content.rs
+msgid "Handles"
+msgstr "句柄"
+
+#: src/popup/content.rs
+msgid "Kernel"
+msgstr "内核"
+
+#: src/popup/content.rs
+msgid "Paged pool"
+msgstr "分页缓冲池"
+
+#: src/popup/content.rs
+msgid "Non-paged pool"
+msgstr "非分页缓冲池"
+
+#: src/popup/content.rs
+msgid "Reserved by hardware"
+msgstr "硬件保留"
+
+#: src/popup/content.rs
+msgid "Since Pulsar started"
+msgstr "自 Pulsar 启动以来"
+
+#: src/popup/content.rs
+msgid "Received"
+msgstr "已接收"
+
+#: src/popup/content.rs
+msgid "Sent"
+msgstr "已发送"
+
+#: src/popup/content.rs
+msgid "Jitter"
+msgstr "抖动"
 
 #: src/popup/content.rs
 msgid "Hottest core"
@@ -800,14 +1044,6 @@ msgstr "磁盘 {}"
 #: src/popup/content.rs
 msgid "{} active · {} used"
 msgstr "活动 {} · 已用 {}"
-
-#: src/popup/content.rs src/settings/form.rs
-msgid "CPU"
-msgstr "CPU"
-
-#: src/popup/content.rs src/settings/form.rs ui/settings.slint
-msgid "Disk"
-msgstr "磁盘"
 
 #: src/popup/content.rs ui/settings.slint
 msgid "Drives"
@@ -825,10 +1061,6 @@ msgstr "网卡"
 msgid "No traffic"
 msgstr "无流量"
 
-#: src/popup/content.rs src/settings/form.rs
-msgid "GPU"
-msgstr "GPU"
-
 #: src/popup/content.rs
 msgid "Core temperatures"
 msgstr "各核心温度"
@@ -837,17 +1069,9 @@ msgstr "各核心温度"
 msgid "Fastest core"
 msgstr "最快核心"
 
-#: src/popup/content.rs src/settings/form.rs
-msgid "CPU clock"
-msgstr "CPU 频率"
-
 #: src/popup/content.rs
 msgid "Core clocks"
 msgstr "各核心频率"
-
-#: src/popup/content.rs src/settings/form.rs
-msgid "Drive temperature"
-msgstr "驱动器温度"
 
 #: src/popup/content.rs ui/settings.slint
 msgid "Host"
@@ -874,8 +1098,24 @@ msgid "not connected"
 msgstr "未连接"
 
 #: src/settings/main.rs
+msgid "Same as other items"
+msgstr "与其他监控项相同"
+
+#: src/settings/main.rs
 msgid "Windows default ({})"
 msgstr "跟随 Windows（{}）"
+
+#: src/settings/main.rs
+msgid "Reading every source…"
+msgstr "正在读取所有数据源…"
+
+#: src/settings/main.rs
+msgid "Saved to {}"
+msgstr "已保存到 {}"
+
+#: src/settings/main.rs
+msgid "Could not save the report: {}"
+msgstr "无法保存报告：{}"
 
 #: src/settings/presets.rs
 msgid "Windows default"
@@ -1014,10 +1254,6 @@ msgid "Display"
 msgstr "显示"
 
 #: ui/settings.slint
-msgid "Items"
-msgstr "监控项"
-
-#: ui/settings.slint
 msgid "About"
 msgstr "关于"
 
@@ -1056,10 +1292,6 @@ msgstr "在通知区域显示 Pulsar 图标。隐藏后，可右键单击任务�
 #: ui/settings.slint
 msgid "Sampling"
 msgstr "采样"
-
-#: ui/settings.slint
-msgid "Update interval"
-msgstr "刷新间隔"
 
 #: ui/settings.slint
 msgid "Milliseconds between readings."
@@ -1112,10 +1344,6 @@ msgstr "单行图表"
 #: ui/settings.slint
 msgid "Put the icon, label and value on one line, for short taskbars."
 msgstr "图标、标签和数值放在同一行，适合较矮的任务栏。"
-
-#: ui/settings.slint
-msgid "Show a graph and details when the mouse rests on an item."
-msgstr "鼠标停留在某一项上时，显示图表和详细信息。"
 
 #: ui/settings.slint
 msgid "Labels"
@@ -1206,12 +1434,60 @@ msgid "Value colour"
 msgstr "数值颜色"
 
 #: ui/settings.slint
+msgid "Label colour on a light taskbar"
+msgstr "浅色任务栏上的标签颜色"
+
+#: ui/settings.slint
+msgid "Empty uses the label colour above."
+msgstr "留空则使用上方的标签颜色。"
+
+#: ui/settings.slint
+msgid "Value colour on a light taskbar"
+msgstr "浅色任务栏上的数值颜色"
+
+#: ui/settings.slint
+msgid "Empty uses the value colour above."
+msgstr "留空则使用上方的数值颜色。"
+
+#: ui/settings.slint
 msgid "Colour labels by item"
 msgstr "标签按监控项着色"
 
 #: ui/settings.slint
 msgid "Draw each label in its item's colour."
 msgstr "每个标签使用其监控项的颜色。"
+
+#: ui/settings.slint
+msgid "Show a graph and details when the mouse rests on an item."
+msgstr "鼠标停留在某一项上时，显示图表和详细信息。"
+
+#: ui/settings.slint
+msgid "Detail"
+msgstr "详细程度"
+
+#: ui/settings.slint
+msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
+msgstr "简洁只显示数值和图表；详细会加入 Pulsar 读取的全部信息。每个监控项可在“监控项”页面单独设置。"
+
+#: ui/settings.slint
+msgid "The recent history at the top of each popup."
+msgstr "每个弹出窗口顶部的近期历史。"
+
+#: ui/settings.slint
+msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
+msgstr "CPU、内存、GPU 和磁盘列出的进程数；0 表示隐藏列表。"
+
+#: ui/settings.slint
+msgid "Network rates"
+msgstr "网络速率"
+
+#: ui/settings.slint
+msgid "Disk speeds stay in bytes."
+msgstr "磁盘速率仍以字节显示。"
+
+#: ui/settings.slint
+msgid "Show the upload rate above the download rate."
+msgstr "将上传速率显示在下载速率上方。"
 
 #: ui/settings.slint
 msgid "Position"
@@ -1306,12 +1582,20 @@ msgid "Off"
 msgstr "关闭"
 
 #: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). In graph mode, clear Graph to show an item as text only."
-msgstr "选择监控条显示哪些项目、显示顺序以及每项的颜色（留空则使用默认颜色）。在图表模式下，取消勾选“图表”可让该项仅显示文本。"
+msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgstr "选择叠加层显示的内容、顺序以及每项的颜色（留空则使用默认颜色）。打开某一项的选项可设置其图表样式、着色方式和弹出窗口。在任务栏上右键单击某一项也可使用相同选项。"
 
 #: ui/settings.slint
-msgid "Graph"
-msgstr "图表"
+msgid "Graph style"
+msgstr "图表样式"
+
+#: ui/settings.slint
+msgid "Colour"
+msgstr "颜色"
+
+#: ui/settings.slint
+msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgstr "按负载着色会随数值升高将监控项显示为绿色、黄色、橙色或红色：分界为 50、75 和 90 %，70、80 和 90 °C，延迟为 50、100 和 200 ms。其他数值保持监控项颜色。"
 
 #: ui/settings.slint
 msgid "Temperatures and power"
@@ -1400,6 +1684,18 @@ msgstr "打开文件夹"
 #: ui/settings.slint
 msgid "Logs"
 msgstr "日志"
+
+#: ui/settings.slint
+msgid "Diagnostics"
+msgstr "诊断"
+
+#: ui/settings.slint
+msgid "Save every reading Pulsar can take to a text file in the logs folder, to attach to an issue. It lists process and network adapter names; read it before sharing."
+msgstr "将 Pulsar 能读取的全部数据保存为日志文件夹中的文本文件，以便附加到 issue。其中包含进程和网络适配器名称；分享前请先查看。"
+
+#: ui/settings.slint
+msgid "Save report"
+msgstr "保存报告"
 
 #: ui/settings.slint
 msgid "Source code"

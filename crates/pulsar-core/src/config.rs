@@ -16,6 +16,77 @@ pub enum DisplayMode {
     Text,
 }
 
+/// How an item's history is drawn behind its text in graph mode.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GraphStyle {
+    #[default]
+    Area,
+    Line,
+    Bars,
+    /// A level meter for the latest value instead of the history.
+    Meter,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColorMode {
+    /// The item's own colour, or the accent with `accent_graphs`.
+    #[default]
+    Item,
+    Accent,
+    /// Green, yellow, orange or red by how high the value is.
+    Load,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PopupDetail {
+    /// The value and its graph.
+    Simple,
+    #[default]
+    Standard,
+    /// Everything Pulsar reads for the item.
+    Detailed,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TemperatureUnit {
+    #[default]
+    Celsius,
+    Fahrenheit,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RateUnit {
+    /// Bytes per second, scaled by 1024.
+    #[default]
+    Bytes,
+    /// Bits per second, scaled by 1000.
+    Bits,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Units {
+    pub temperature: TemperatureUnit,
+    /// Network rates only; disk rates stay in bytes.
+    pub network: RateUnit,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PopupConfig {
+    pub detail: PopupDetail,
+    pub graph: bool,
+    /// Rows in top-process lists; 0 leaves the lists out.
+    pub processes: u8,
+}
+
+pub const MAX_POPUP_PROCESSES: u8 = 15;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Position {
@@ -34,6 +105,8 @@ pub struct Config {
     pub ping: PingConfig,
     pub disk: DiskConfig,
     pub network: NetworkConfig,
+    pub units: Units,
+    pub popup: PopupConfig,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -77,6 +150,11 @@ pub struct Display {
     /// `#RRGGBB` overrides for label and value text; `None` follows the theme.
     pub label_color: Option<String>,
     pub value_color: Option<String>,
+    /// Overrides for a light taskbar; `None` uses the colours above.
+    pub label_color_light: Option<String>,
+    pub value_color_light: Option<String>,
+    /// Network shows the upload rate before the download rate.
+    pub upload_on_top: bool,
     /// Draw each label in its item's colour.
     pub color_labels: bool,
     /// None uses Segoe UI Variable.
@@ -133,6 +211,27 @@ pub struct ItemConfig {
     /// Graph mode: draw the history graph behind the text; off shows text only.
     #[serde(default = "enabled_default")]
     pub graph: bool,
+    #[serde(default)]
+    pub style: GraphStyle,
+    #[serde(default)]
+    pub color_mode: ColorMode,
+    /// `None` uses `PopupConfig::detail`.
+    #[serde(default)]
+    pub popup: Option<PopupDetail>,
+}
+
+impl ItemConfig {
+    pub fn new(kind: ItemKind, enabled: bool) -> Self {
+        Self {
+            kind,
+            enabled,
+            color: None,
+            graph: true,
+            style: GraphStyle::Area,
+            color_mode: ColorMode::Item,
+            popup: None,
+        }
+    }
 }
 
 fn enabled_default() -> bool {
@@ -154,23 +253,23 @@ impl Default for Config {
             display: Display::default(),
             items: ItemKind::ALL
                 .iter()
-                .map(|&kind| ItemConfig {
-                    kind,
-                    enabled: matches!(
+                .map(|&kind| {
+                    let enabled = matches!(
                         kind,
                         ItemKind::Cpu
                             | ItemKind::Ram
                             | ItemKind::Gpu
                             | ItemKind::Disk
                             | ItemKind::Network
-                    ),
-                    color: None,
-                    graph: true,
+                    );
+                    ItemConfig::new(kind, enabled)
                 })
                 .collect(),
             ping: PingConfig::default(),
             disk: DiskConfig::default(),
             network: NetworkConfig::default(),
+            units: Units::default(),
+            popup: PopupConfig::default(),
         }
     }
 }
@@ -208,12 +307,25 @@ impl Default for Display {
             icons: false,
             label_color: None,
             value_color: None,
+            label_color_light: None,
+            value_color_light: None,
+            upload_on_top: false,
             color_labels: false,
             font_family: None,
             font_bold: false,
             hide_in_fullscreen: true,
             float_position: None,
             lock_position: false,
+        }
+    }
+}
+
+impl Default for PopupConfig {
+    fn default() -> Self {
+        Self {
+            detail: PopupDetail::Standard,
+            graph: true,
+            processes: 5,
         }
     }
 }
@@ -255,6 +367,8 @@ impl Config {
             &mut d.panel_color,
             &mut d.label_color,
             &mut d.value_color,
+            &mut d.label_color_light,
+            &mut d.value_color_light,
         ] {
             if color.as_deref().is_some_and(|c| !is_hex_color(c)) {
                 *color = None;
@@ -290,6 +404,7 @@ impl Config {
             self.network.adapter = None;
         }
         self.ping.interval_ms = self.ping.interval_ms.clamp(1000, 60_000);
+        self.popup.processes = self.popup.processes.min(MAX_POPUP_PROCESSES);
         if self.ping.host.trim().is_empty() {
             self.ping.host = PingConfig::default().host;
         }
@@ -302,12 +417,7 @@ impl Config {
         });
         for kind in ItemKind::ALL {
             if !seen.contains(&kind) {
-                self.items.push(ItemConfig {
-                    kind,
-                    enabled: false,
-                    color: None,
-                    graph: true,
-                });
+                self.items.push(ItemConfig::new(kind, false));
             }
         }
         for item in &mut self.items {
@@ -341,6 +451,41 @@ impl Config {
             .filter(|i| !i.graph)
             .map(|i| i.kind)
             .collect()
+    }
+
+    pub fn item(&self, kind: ItemKind) -> Option<&ItemConfig> {
+        self.items.iter().find(|i| i.kind == kind)
+    }
+
+    pub fn item_mut(&mut self, kind: ItemKind) -> Option<&mut ItemConfig> {
+        self.items.iter_mut().find(|i| i.kind == kind)
+    }
+
+    /// Moves `kind` past the nearest enabled item before or after it, so the
+    /// move shows on the overlay; does nothing at either end.
+    pub fn move_item(&mut self, kind: ItemKind, earlier: bool) {
+        let Some(from) = self.items.iter().position(|i| i.kind == kind) else {
+            return;
+        };
+        let to = if earlier {
+            self.items[..from].iter().rposition(|i| i.enabled)
+        } else {
+            self.items[from + 1..]
+                .iter()
+                .position(|i| i.enabled)
+                .map(|p| from + 1 + p)
+        };
+        if let Some(to) = to {
+            let item = self.items.remove(from);
+            self.items.insert(to, item);
+        }
+    }
+
+    /// How much the popup for `kind` shows.
+    pub fn popup_detail(&self, kind: ItemKind) -> PopupDetail {
+        self.item(kind)
+            .and_then(|i| i.popup)
+            .unwrap_or(self.popup.detail)
     }
 }
 
@@ -588,22 +733,13 @@ sample_interval_ms = 1
         let c = Config {
             items: vec![
                 ItemConfig {
-                    kind: ItemKind::Gpu,
-                    enabled: true,
                     color: Some("#00FF00".into()),
-                    graph: true,
+                    ..ItemConfig::new(ItemKind::Gpu, true)
                 },
+                ItemConfig::new(ItemKind::Gpu, false),
                 ItemConfig {
-                    kind: ItemKind::Gpu,
-                    enabled: false,
-                    color: None,
-                    graph: true,
-                },
-                ItemConfig {
-                    kind: ItemKind::Cpu,
-                    enabled: true,
                     color: Some("red".into()),
-                    graph: true,
+                    ..ItemConfig::new(ItemKind::Cpu, true)
                 },
             ],
             ..Config::default()
@@ -635,7 +771,8 @@ sample_interval_ms = 1
                 ItemKind::Disk,
                 ItemKind::DiskTemp,
                 ItemKind::Network,
-                ItemKind::Ping
+                ItemKind::Ping,
+                ItemKind::Battery
             ]
         );
     }
@@ -733,7 +870,8 @@ panel_opacity = 60
         assert!(!c.is_enabled(ItemKind::CpuClock));
         assert!(!c.is_enabled(ItemKind::DiskTemp));
         assert!(!c.is_enabled(ItemKind::ChipsetTemp));
-        assert_eq!(c.items.len(), 12);
+        assert!(!c.is_enabled(ItemKind::Battery));
+        assert_eq!(c.items.len(), 13);
         let d = &c.display;
         assert_eq!(d.labels, LabelStyle::Full);
         assert!(!d.icons && !d.color_labels && !d.font_bold && !d.lock_position);
@@ -870,6 +1008,82 @@ kind = \"cpu\"
         let c = load(&path).config;
         assert_eq!(c.text_only_items(), [ItemKind::Network]);
         assert!(c.items[1].graph, "missing field keeps the graph");
+    }
+
+    #[test]
+    fn styles_units_and_popups_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        let mut c = Config::default();
+        c.units.temperature = TemperatureUnit::Fahrenheit;
+        c.units.network = RateUnit::Bits;
+        c.display.upload_on_top = true;
+        c.display.label_color_light = Some("#202020".into());
+        c.popup = PopupConfig {
+            detail: PopupDetail::Detailed,
+            graph: false,
+            processes: 8,
+        };
+        let cpu = c.item_mut(ItemKind::Cpu).unwrap();
+        cpu.style = GraphStyle::Bars;
+        cpu.color_mode = ColorMode::Load;
+        cpu.popup = Some(PopupDetail::Simple);
+        save(&path, &c).unwrap();
+        let loaded = load(&path).config;
+        assert_eq!(loaded, c);
+        assert_eq!(loaded.popup_detail(ItemKind::Cpu), PopupDetail::Simple);
+        assert_eq!(loaded.popup_detail(ItemKind::Ram), PopupDetail::Detailed);
+    }
+
+    #[test]
+    fn moving_an_item_skips_hidden_ones() {
+        let mut c = Config::default();
+        let enabled = |c: &Config| -> Vec<ItemKind> { c.enabled_items() };
+        assert_eq!(
+            enabled(&c)[..2],
+            [ItemKind::Cpu, ItemKind::Ram],
+            "temperature, power and clock sit hidden between them"
+        );
+        c.move_item(ItemKind::Ram, true);
+        assert_eq!(enabled(&c)[..2], [ItemKind::Ram, ItemKind::Cpu]);
+        c.move_item(ItemKind::Ram, true);
+        assert_eq!(
+            enabled(&c)[..2],
+            [ItemKind::Ram, ItemKind::Cpu],
+            "already first"
+        );
+        c.move_item(ItemKind::Ram, false);
+        assert_eq!(enabled(&c)[..2], [ItemKind::Cpu, ItemKind::Ram]);
+        let last = *enabled(&c).last().unwrap();
+        c.move_item(last, false);
+        assert_eq!(*enabled(&c).last().unwrap(), last, "already last");
+        assert_eq!(c.items.len(), ItemKind::ALL.len());
+    }
+
+    #[test]
+    fn an_old_item_gets_the_default_style_and_popup() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "[[items]]\nkind = \"cpu\"\ngraph = false\n").unwrap();
+        let c = load(&path).config;
+        let cpu = c.item(ItemKind::Cpu).unwrap();
+        assert!(!cpu.graph);
+        assert_eq!(
+            (cpu.style, cpu.color_mode, cpu.popup),
+            (GraphStyle::Area, ColorMode::Item, None)
+        );
+        assert_eq!(c.units, Units::default());
+        assert_eq!(c.popup, PopupConfig::default());
+    }
+
+    #[test]
+    fn sanitize_caps_popup_processes_and_drops_bad_light_colours() {
+        let mut c = Config::default();
+        c.popup.processes = 200;
+        c.display.value_color_light = Some("white".into());
+        let c = c.sanitize();
+        assert_eq!(c.popup.processes, MAX_POPUP_PROCESSES);
+        assert_eq!(c.display.value_color_light, None);
     }
 
     #[test]

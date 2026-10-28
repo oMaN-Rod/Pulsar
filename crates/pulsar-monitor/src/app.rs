@@ -38,10 +38,10 @@ use crate::messages::{
     WM_APP_APPBAR, WM_APP_FOREGROUND, WM_APP_SNAPSHOT, WM_APP_TASKBAR, WM_APP_TRAY, WM_APP_UPDATE,
 };
 use crate::overlay::{self, Overlay};
-use crate::popup::content::needs_processes;
+use crate::popup::content::{Options as PopupOptions, needs_processes};
 use crate::popup::layout::item_screen_rect;
 use crate::popup::{self, Anchor, Popup, Style as PopupStyle};
-use crate::render::{Frame, Renderer};
+use crate::render::{Frame, Renderer, graph_styles};
 use crate::sampler_thread::SamplerThread;
 use crate::taskbar::hooks::{self, Hooks};
 use crate::taskbar::placement::{
@@ -156,6 +156,7 @@ impl App {
             None => (Config::default(), None),
         };
         crate::language::init(&config);
+        pulsar_core::format::set_units(config.units);
         let tray = Tray::new(host, config.general.tray_icon);
         if let Some(warning) = warning {
             tray.warn(tr!("Pulsar settings reset"), &warning.to_string());
@@ -408,18 +409,22 @@ impl App {
         let alpha = o.alpha;
         let layout = o.layout.clone();
         let surface = o.surface()?;
-        let text_only = self.config.text_only_items();
+        let styles = graph_styles(&self.config);
+        let d = &self.config.display;
         let frame = Frame {
             layout: &layout,
-            mode: self.config.display.mode,
+            mode: d.mode,
             palette: &self.palette,
             snapshot: &self.latest,
             history: &self.history,
             dpi,
-            labels: self.config.display.labels,
-            icons: self.config.display.icons,
-            graph_inline: self.config.display.graph_inline,
-            text_only: &text_only,
+            text: pulsar_core::layout::TileText {
+                labels: d.labels,
+                icons: d.icons,
+                upload_on_top: d.upload_on_top,
+            },
+            graph_inline: d.graph_inline,
+            styles: &styles,
         };
         self.renderer.draw(surface, &frame, &self.text)?;
         self.renderer.present_alpha(hwnd, surface, x, y, alpha)?;
@@ -601,8 +606,12 @@ impl App {
         let popup_lists = self
             .popup
             .open
-            .is_some_and(|(kind, _)| needs_processes(kind));
+            .is_some_and(|(kind, _)| self.popup_lists_processes(kind));
         self.sampler.processes.store(popup_lists, Ordering::Relaxed);
+    }
+
+    fn popup_lists_processes(&self, kind: ItemKind) -> bool {
+        needs_processes(kind, &PopupOptions::new(&self.config, kind))
     }
 
     fn open_popup(&mut self, overlay: HWND, kind: ItemKind) {
@@ -639,7 +648,7 @@ impl App {
             },
         };
         self.sampler.processes.store(
-            needs_processes(kind) || self.details.is_some(),
+            self.popup_lists_processes(kind) || self.details.is_some(),
             Ordering::Relaxed,
         );
         self.popup_owner = Some(overlay);
@@ -647,12 +656,11 @@ impl App {
     }
 
     fn show_popup(&mut self, kind: ItemKind, anchor: Anchor) {
-        let content = popup::content::build(
+        let content = popup::content::build_with(
             kind,
             &self.latest,
             &self.history,
-            &self.config.ping.host,
-            &self.config.drive_letters(),
+            &PopupOptions::new(&self.config, kind),
         );
         let style = PopupStyle {
             palette: &self.palette,
@@ -843,6 +851,9 @@ impl App {
                 .iter_mut()
                 .for_each(Overlay::invalidate_layout);
         }
+        if new.units != self.config.units {
+            pulsar_core::format::set_units(new.units);
+        }
         if new.general.language != self.config.general.language {
             crate::language::apply(&new);
             self.close_popup();
@@ -864,6 +875,7 @@ impl App {
         match command {
             Command::Mode(mode) => self.change_config(|c| c.display.mode = mode),
             Command::Toggle(toggle) => self.change_config(|c| menu::apply_toggle(c, toggle)),
+            Command::Edit(edit) => self.change_config(|c| menu::apply_edit(c, edit)),
             Command::Settings => self.open_settings(Page::General),
             Command::Details => self.open_details(None),
             Command::About => self.open_settings(Page::About),
@@ -881,14 +893,16 @@ impl Drop for App {
     }
 }
 
-fn context_menu(x: i32, y: i32) {
-    let Some((host, display)) = with_app(|a| {
+/// `item` is the overlay item that was right-clicked, if any.
+fn context_menu(x: i32, y: i32, item: Option<(HWND, i32, i32)>) {
+    let Some((host, config, kind)) = with_app(|a| {
         a.close_popup();
-        (a.host, a.config.display.clone())
+        let kind = item.and_then(|(overlay, x, y)| a.hit(overlay, x, y));
+        (a.host, a.config.clone(), kind)
     }) else {
         return;
     };
-    if let Some(command) = menu::show(host, x, y, &display) {
+    if let Some(command) = menu::show(host, x, y, &config, kind) {
         with_app(|a| a.apply(command));
     }
 }
@@ -973,7 +987,7 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
             let event = low_word(lp.0 as usize);
             if tray_opens_menu(event) {
                 let (x, y) = signed_words(wp.0);
-                context_menu(x, y);
+                context_menu(x, y, None);
             } else if tray_opens_settings(event) {
                 with_app(|a| a.apply(Command::Settings));
             } else if tray_balloon_clicked(event) {
@@ -1044,7 +1058,8 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
             unsafe {
                 let _ = GetCursorPos(&mut pt);
             }
-            context_menu(pt.x, pt.y);
+            let (x, y) = signed_words(lp.0 as usize);
+            context_menu(pt.x, pt.y, Some((hwnd, x, y)));
             LRESULT(0)
         }
         _ => unsafe { DefWindowProcW(hwnd, msg, wp, lp) },

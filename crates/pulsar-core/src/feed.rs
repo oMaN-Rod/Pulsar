@@ -122,6 +122,7 @@ mod tests {
             cpu_percent: 0.1,
             private_bytes: 4e6,
             gpu_percent: 0.0,
+            io_bps: 0.0,
         });
         let line = Message::snapshot(&s).encode();
         assert_eq!(line.matches('\n').count(), 1);

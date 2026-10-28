@@ -7,8 +7,8 @@ use crate::config::Config;
 use crate::hardware::DriveTempSource;
 use crate::metric::{ItemKind, Snapshot, Source, SourceError, SourceId};
 use crate::sources::{
-    CpuSource, DiskIoSource, DiskSpaceSource, GpuSensorsSource, GpuSource, MemorySource,
-    NetworkSource, PingSource, ProcessesSource, SensorServiceSource,
+    BatterySource, CpuSource, DiskIoSource, DiskSpaceSource, GpuSensorsSource, GpuSource,
+    MemorySource, NetworkSource, PingSource, ProcessesSource, SensorServiceSource,
 };
 
 pub type ProcessesFactory = Box<dyn Fn() -> Box<dyn Source> + Send>;
@@ -173,7 +173,7 @@ impl Sampler {
 fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
     match kind {
         ItemKind::Cpu => vec![or_failed(SourceId::Cpu, CpuSource::new())],
-        ItemKind::Ram => vec![Box::new(MemorySource)],
+        ItemKind::Ram => vec![Box::new(MemorySource::new())],
         ItemKind::Disk => vec![
             or_failed(SourceId::DiskIo, DiskIoSource::new()),
             Box::new(DiskSpaceSource::default()),
@@ -188,6 +188,7 @@ fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
             Duration::from_millis(config.ping.interval_ms.into()),
         ))],
         ItemKind::DiskTemp => vec![Box::new(DriveTempSource::new())],
+        ItemKind::Battery => vec![Box::new(BatterySource::default())],
         ItemKind::GpuTemp
         | ItemKind::CpuTemp
         | ItemKind::CpuPower
@@ -296,6 +297,7 @@ mod tests {
                 cpu_percent: 1.0,
                 private_bytes: 0.0,
                 gpu_percent: 0.0,
+                io_bps: 0.0,
             }];
             Ok(())
         }

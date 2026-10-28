@@ -5,7 +5,11 @@ export struct ItemRow {
     enabled: bool,
     color: string,
     swatch: color,
-    graph: bool,
+    // Indexes into the styles, colour-modes and item-popup-details lists.
+    style: int,
+    color-mode: int,
+    popup: int,
+    expanded: bool,
 }
 
 export struct DriveRow {
@@ -23,6 +27,7 @@ global Icons {
     out property <string> down: "\u{E70D}";
     out property <string> folder: "\u{E8B7}";
     out property <string> chart: "\u{E9D9}";
+    out property <string> options: "\u{E713}";
 }
 
 component Icon inherits Text {
@@ -424,7 +429,22 @@ export component SettingsWindow inherits Window {
     in-out property <string> value-color;
     in property <color> value-swatch;
     in property <color> value-default;
+    in-out property <string> label-color-light;
+    in property <color> label-light-swatch;
+    in-out property <string> value-color-light;
+    in property <color> value-light-swatch;
     in-out property <bool> color-labels;
+    in-out property <int> temperature-unit;
+    in-out property <int> network-unit;
+    in-out property <bool> upload-on-top;
+    in-out property <int> popup-detail;
+    in-out property <bool> popup-graph;
+    in-out property <int> popup-processes;
+    in property <[string]> styles;
+    in property <[string]> color-modes;
+    in property <[string]> popup-details;
+    in property <[string]> item-popup-details;
+    in property <string> diagnostics-status;
     in property <[string]> fonts;
     in-out property <int> font-index;
     in-out property <bool> font-bold;
@@ -443,8 +463,11 @@ export component SettingsWindow inherits Window {
     callback changed();
     callback item-enabled(int, bool);
     callback item-color(int, string);
-    callback item-graph(int, bool);
+    // Row, field (0 style, 1 colour mode, 2 popup) and the chosen index.
+    callback item-choice(int, int, int);
+    callback item-expanded(int, bool);
     callback move-item(int, bool);
+    callback save-diagnostics();
     callback open-config-folder();
     callback open-logs-folder();
     callback open-link(string);
@@ -612,15 +635,6 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Details on hover");
-                        description: @tr("Show a graph and details when the mouse rests on an item.");
-                        Switch {
-                            checked <=> root.hover-popup;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
                         title: @tr("Labels");
                         description: @tr("Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone.");
                         ComboBox {
@@ -740,10 +754,107 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
+                        title: @tr("Label colour on a light taskbar");
+                        description: @tr("Empty uses the label colour above.");
+                        ColorField {
+                            text <=> root.label-color-light;
+                            swatch: root.label-light-swatch;
+                            fallback: root.label-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Value colour on a light taskbar");
+                        description: @tr("Empty uses the value colour above.");
+                        ColorField {
+                            text <=> root.value-color-light;
+                            swatch: root.value-light-swatch;
+                            fallback: root.value-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
                         title: @tr("Colour labels by item");
                         description: @tr("Draw each label in its item's colour.");
                         Switch {
                             checked <=> root.color-labels;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Popups"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Details on hover");
+                        description: @tr("Show a graph and details when the mouse rests on an item.");
+                        Switch {
+                            checked <=> root.hover-popup;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Detail");
+                        description: @tr("Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page.");
+                        ComboBox {
+                            width: 200px;
+                            model: root.popup-details;
+                            current-index <=> root.popup-detail;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Graph");
+                        description: @tr("The recent history at the top of each popup.");
+                        Switch {
+                            checked <=> root.popup-graph;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Top processes");
+                        description: @tr("Processes listed for CPU, memory, GPU and disk; 0 hides the lists.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 15;
+                            value <=> root.popup-processes;
+                            edited => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Units"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Temperature");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Celsius (°C)"), @tr("Fahrenheit (°F)")];
+                            current-index <=> root.temperature-unit;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Network rates");
+                        description: @tr("Disk speeds stay in bytes.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Bytes per second (MB/s)"), @tr("Bits per second (Mbps)")];
+                            current-index <=> root.network-unit;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Upload on top");
+                        description: @tr("Show the upload rate above the download rate.");
+                        Switch {
+                            checked <=> root.upload-on-top;
                             toggled => { root.changed(); }
                         }
                     }
@@ -867,7 +978,7 @@ export component SettingsWindow inherits Window {
             if root.tab == 2: Page {
                 title: @tr("Items");
                 Text {
-                    text: @tr("Choose what the overlay shows, its order, and each item's colour (empty uses the default). In graph mode, clear Graph to show an item as text only.");
+                    text: @tr("Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options.");
                     color: Palette.foreground.transparentize(0.35);
                     wrap: word-wrap;
                 }
@@ -876,10 +987,9 @@ export component SettingsWindow inherits Window {
                         if i > 0: Divider { }
                         SettingRow {
                             title: row.name;
-                            if root.mode == 0: CheckBox {
-                                text: @tr("Graph");
-                                checked: row.graph;
-                                toggled => { root.item-graph(i, self.checked); }
+                            IconButton {
+                                icon: Icons.options;
+                                clicked => { root.item-expanded(i, !row.expanded); }
                             }
                             ColorField {
                                 text: row.color;
@@ -904,7 +1014,49 @@ export component SettingsWindow inherits Window {
                                 toggled => { root.item-enabled(i, self.checked); }
                             }
                         }
+                        if row.expanded: VerticalLayout {
+                            padding-left: 24px;
+                            padding-bottom: 4px;
+                            if root.mode == 0: SettingRow {
+                                title: @tr("Graph style");
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                ComboBox {
+                                    width: 200px;
+                                    model: root.styles;
+                                    current-index: row.style;
+                                    selected => { root.item-choice(i, 0, self.current-index); }
+                                }
+                            }
+                            SettingRow {
+                                title: @tr("Colour");
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                ComboBox {
+                                    width: 200px;
+                                    model: root.color-modes;
+                                    current-index: row.color-mode;
+                                    selected => { root.item-choice(i, 1, self.current-index); }
+                                }
+                            }
+                            SettingRow {
+                                title: @tr("Popup detail");
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                ComboBox {
+                                    width: 200px;
+                                    model: root.item-popup-details;
+                                    current-index: row.popup;
+                                    selected => { root.item-choice(i, 2, self.current-index); }
+                                }
+                            }
+                        }
                     }
+                }
+                Text {
+                    text: @tr("Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour.");
+                    color: Palette.foreground.transparentize(0.35);
+                    wrap: word-wrap;
                 }
                 SectionTitle { text: @tr("Temperatures and power"); }
                 Card {
@@ -1042,6 +1194,15 @@ export component SettingsWindow inherits Window {
                         Button {
                             text: @tr("Open folder");
                             clicked => { root.open-logs-folder(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Diagnostics");
+                        description: root.diagnostics-status != "" ? root.diagnostics-status : @tr("Save every reading Pulsar can take to a text file in the logs folder, to attach to an issue. It lists process and network adapter names; read it before sharing.");
+                        Button {
+                            text: @tr("Save report");
+                            clicked => { root.save-diagnostics(); }
                         }
                     }
                 }

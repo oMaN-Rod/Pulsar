@@ -18,7 +18,8 @@ pub struct Preset {
 }
 
 use ItemKind::{
-    ChipsetTemp, Cpu, CpuClock, CpuPower, CpuTemp, Disk, DiskTemp, Gpu, GpuTemp, Network, Ping, Ram,
+    Battery, ChipsetTemp, Cpu, CpuClock, CpuPower, CpuTemp, Disk, DiskTemp, Gpu, GpuTemp, Network,
+    Ping, Ram,
 };
 
 pub const PRESETS: [Preset; 8] = [
@@ -46,6 +47,7 @@ pub const PRESETS: [Preset; 8] = [
             (DiskTemp, "#BEF264"),
             (Network, "#FDE68A"),
             (Ping, "#99F6E4"),
+            (Battery, "#86EFAC"),
         ],
         label: Some("#94A3B8"),
         value: Some("#F8FAFC"),
@@ -68,6 +70,7 @@ pub const PRESETS: [Preset; 8] = [
             (DiskTemp, "#FED7AA"),
             (Network, "#FCD34D"),
             (Ping, "#FCA5A5"),
+            (Battery, "#FDE047"),
         ],
         label: Some("#D6A28B"),
         value: Some("#FFF7ED"),
@@ -90,6 +93,7 @@ pub const PRESETS: [Preset; 8] = [
             (DiskTemp, "#93C5FD"),
             (Network, "#2DD4BF"),
             (Ping, "#A5B4FC"),
+            (Battery, "#67E8F9"),
         ],
         label: Some("#7DD3FC"),
         value: Some("#E0F2FE"),
@@ -112,6 +116,7 @@ pub const PRESETS: [Preset; 8] = [
             (DiskTemp, "#ECFCCB"),
             (Network, "#6EE7B7"),
             (Ping, "#D9F99D"),
+            (Battery, "#4ADE80"),
         ],
         label: Some("#A3B899"),
         value: Some("#F0FDF4"),
@@ -134,6 +139,7 @@ pub const PRESETS: [Preset; 8] = [
             (DiskTemp, "#CBD5E1"),
             (Network, "#F9FAFB"),
             (Ping, "#A1A1AA"),
+            (Battery, "#D4D4D8"),
         ],
         label: Some("#9CA3AF"),
         value: Some("#FFFFFF"),
@@ -156,6 +162,7 @@ pub const PRESETS: [Preset; 8] = [
             (DiskTemp, "#4ADE80"),
             (Network, "#2DD4BF"),
             (Ping, "#818CF8"),
+            (Battery, "#A3E635"),
         ],
         label: Some("#A1A1AA"),
         value: Some("#FFFFFF"),
@@ -178,6 +185,7 @@ pub const PRESETS: [Preset; 8] = [
             (DiskTemp, "#FED7AA"),
             (Network, "#FCD34D"),
             (Ping, "#C084FC"),
+            (Battery, "#FB7185"),
         ],
         label: Some("#FDBA74"),
         value: Some("#FFF1F2"),
@@ -197,6 +205,8 @@ pub fn apply(f: &mut Form, preset: &Preset) {
             .unwrap_or_default();
     }
     f.label_color = preset.label.unwrap_or_default().to_string();
+    f.label_color_light.clear();
+    f.value_color_light.clear();
     f.value_color = preset.value.unwrap_or_default().to_string();
     f.color_labels = preset.color_labels;
     match preset.tile {

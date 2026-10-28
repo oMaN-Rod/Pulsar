@@ -17,6 +17,7 @@ pub enum SourceId {
     GpuSensors,
     SensorService,
     DriveTemps,
+    Battery,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -34,11 +35,12 @@ pub enum ItemKind {
     CpuClock,
     DiskTemp,
     ChipsetTemp,
+    Battery,
 }
 
 impl ItemKind {
     /// Default display order; adjacent pairs share a text-mode column.
-    pub const ALL: [ItemKind; 12] = [
+    pub const ALL: [ItemKind; 13] = [
         ItemKind::Cpu,
         ItemKind::CpuTemp,
         ItemKind::CpuPower,
@@ -51,6 +53,7 @@ impl ItemKind {
         ItemKind::DiskTemp,
         ItemKind::Network,
         ItemKind::Ping,
+        ItemKind::Battery,
     ];
 
     pub fn source(self) -> SourceId {
@@ -66,6 +69,7 @@ impl ItemKind {
                 SourceId::SensorService
             }
             ItemKind::DiskTemp => SourceId::DriveTemps,
+            ItemKind::Battery => SourceId::Battery,
         }
     }
 
@@ -83,6 +87,7 @@ impl ItemKind {
             ItemKind::CpuClock => crate::tr!("CLK"),
             ItemKind::DiskTemp => crate::tr!("DSK°"),
             ItemKind::ChipsetTemp => crate::tr!("PCH°"),
+            ItemKind::Battery => crate::tr!("BAT"),
         }
     }
 
@@ -101,6 +106,7 @@ impl ItemKind {
             ItemKind::CpuClock => "F",
             ItemKind::DiskTemp => "S",
             ItemKind::ChipsetTemp => "B",
+            ItemKind::Battery => "E",
         }
     }
 }
@@ -126,6 +132,19 @@ pub enum MetricKey {
     MemTotalBytes,
     CommitBytes,
     CommitLimitBytes,
+    /// Cached pages that are free to reuse.
+    MemStandbyBytes,
+    /// Changed pages waiting to be written to disk.
+    MemModifiedBytes,
+    MemFreeBytes,
+    MemPagedPoolBytes,
+    MemNonPagedPoolBytes,
+    /// Installed memory that Windows cannot use.
+    MemHardwareReservedBytes,
+    ProcessCount,
+    ThreadCount,
+    HandleCount,
+    UptimeSeconds,
     DiskActivePercent,
     DiskReadBps,
     DiskWriteBps,
@@ -136,6 +155,9 @@ pub enum MetricKey {
     DriveUsedPercent(u8),
     NetDownBps,
     NetUpBps,
+    /// Received and sent since sampling started.
+    NetDownTotalBytes,
+    NetUpTotalBytes,
     GpuUtil,
     GpuEngine(GpuEngineKind),
     GpuDedicatedBytes,
@@ -177,6 +199,20 @@ pub enum MetricKey {
     MemTiming(Timing),
     PingMs,
     PingLossPercent,
+    BatteryPercent,
+    /// 1 while on mains power, else 0.
+    BatteryPluggedIn,
+    /// 1 while charging, else 0.
+    BatteryCharging,
+    BatterySecondsLeft,
+    /// Positive while charging, negative while discharging.
+    BatteryRateW,
+    BatteryRemainingWh,
+    BatteryFullWh,
+    BatteryDesignWh,
+    BatteryHealthPercent,
+    BatteryCycles,
+    BatteryVolts,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -197,6 +233,8 @@ pub enum Unit {
     Percent,
     Bytes,
     BytesPerSec,
+    /// Bytes per second, shown in bits when the user asks for them.
+    NetworkRate,
     Millis,
     MHz,
     Celsius,
@@ -205,6 +243,10 @@ pub enum Unit {
     Volts,
     Ratio,
     Cycles,
+    WattHours,
+    Seconds,
+    /// A plain count.
+    Count,
 }
 
 impl MetricKey {
@@ -221,12 +263,32 @@ impl MetricKey {
             | GpuPowerPercent
             | CpuThrottling
             | DriveActivePercent(_)
-            | DriveUsedPercent(_) => Unit::Percent,
-            MemUsedBytes | MemAvailableBytes | MemTotalBytes | CommitBytes | CommitLimitBytes
-            | VolumeFreeBytes(_) | VolumeTotalBytes(_) | GpuDedicatedBytes | GpuSharedBytes => {
-                Unit::Bytes
-            }
-            DiskReadBps | DiskWriteBps | NetDownBps | NetUpBps => Unit::BytesPerSec,
+            | DriveUsedPercent(_)
+            | BatteryPercent
+            | BatteryHealthPercent => Unit::Percent,
+            MemUsedBytes
+            | MemAvailableBytes
+            | MemTotalBytes
+            | CommitBytes
+            | CommitLimitBytes
+            | MemStandbyBytes
+            | MemModifiedBytes
+            | MemFreeBytes
+            | MemPagedPoolBytes
+            | MemNonPagedPoolBytes
+            | MemHardwareReservedBytes
+            | VolumeFreeBytes(_)
+            | VolumeTotalBytes(_)
+            | GpuDedicatedBytes
+            | GpuSharedBytes
+            | NetDownTotalBytes
+            | NetUpTotalBytes => Unit::Bytes,
+            ProcessCount | ThreadCount | HandleCount | BatteryPluggedIn | BatteryCharging
+            | BatteryCycles => Unit::Count,
+            UptimeSeconds | BatterySecondsLeft => Unit::Seconds,
+            BatteryRemainingWh | BatteryFullWh | BatteryDesignWh => Unit::WattHours,
+            DiskReadBps | DiskWriteBps => Unit::BytesPerSec,
+            NetDownBps | NetUpBps => Unit::NetworkRate,
             PingMs => Unit::Millis,
             CpuClockMhz
             | GpuMemClockMhz
@@ -236,12 +298,12 @@ impl MetricKey {
             | MemControllerClockMhz => Unit::MHz,
             CpuMinRatio | CpuMaxRatio => Unit::Ratio,
             MemTiming(_) => Unit::Cycles,
-            CpuCoreVolts(_) => Unit::Volts,
+            CpuCoreVolts(_) | BatteryVolts => Unit::Volts,
             GpuTempC | GpuHotSpotC | GpuMemTempC | CpuTempC | CpuCoreTempC(_) | DiskTempC(_)
             | DiskTempMaxC | ChipsetTempC => Unit::Celsius,
             GpuFanRpm => Unit::Rpm,
             CpuPowerW | CpuCorePowerW(_) | CpuCoresPowerW | CpuGraphicsPowerW | CpuDramPowerW
-            | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W => Unit::Watts,
+            | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W | BatteryRateW => Unit::Watts,
         }
     }
 }
@@ -259,6 +321,8 @@ pub struct ProcessUsage {
     pub cpu_percent: f64,
     pub private_bytes: f64,
     pub gpu_percent: f64,
+    /// File, network and device reads and writes together.
+    pub io_bps: f64,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]

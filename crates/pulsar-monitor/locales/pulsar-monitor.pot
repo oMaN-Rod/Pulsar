@@ -46,7 +46,7 @@ msgstr ""
 msgid "Processor"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "Memory"
 msgstr ""
 
@@ -58,11 +58,11 @@ msgstr ""
 msgid "Storage"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs ui/settings.slint
+#: src/details/pages.rs src/names.rs src/popup/content.rs ui/settings.slint
 msgid "Network"
 msgstr ""
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "System"
 msgstr ""
 
@@ -102,7 +102,7 @@ msgstr ""
 msgid "Collecting…"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/menu.rs src/popup/content.rs ui/settings.slint
 msgid "Top processes"
 msgstr ""
 
@@ -118,23 +118,23 @@ msgstr ""
 msgid "{} across {} drives"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "CPU temperature"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "CPU power"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "GPU temperature"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs ui/settings.slint
+#: src/details/pages.rs src/names.rs src/popup/content.rs ui/settings.slint
 msgid "Ping"
 msgstr ""
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "Up time"
 msgstr ""
 
@@ -162,7 +162,7 @@ msgstr ""
 msgid "Running at {}"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
 msgid "Temperature"
 msgstr ""
 
@@ -342,7 +342,7 @@ msgstr ""
 msgid "Ranks"
 msgstr ""
 
-#: src/details/pages.rs
+#: src/details/pages.rs src/popup/content.rs
 msgid "Voltage"
 msgstr ""
 
@@ -618,7 +618,7 @@ msgstr ""
 msgid "Chipset"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs src/settings/form.rs
+#: src/details/pages.rs src/names.rs src/popup/content.rs
 msgid "Chipset temperature"
 msgstr ""
 
@@ -731,6 +731,62 @@ msgid "Throughput"
 msgstr ""
 
 #: src/menu.rs
+msgid "Same as other items ({})"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Popup detail"
+msgstr ""
+
+#: src/menu.rs
+msgid "Swap with item on the left"
+msgstr ""
+
+#: src/menu.rs
+msgid "Swap with item on the right"
+msgstr ""
+
+#: src/menu.rs
+msgid "Hide"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Graph"
+msgstr ""
+
+#: src/menu.rs
+msgid "None"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Details on hover"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Celsius (°C)"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Fahrenheit (°F)"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Bytes per second (MB/s)"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Bits per second (Mbps)"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Upload on top"
+msgstr ""
+
+#: src/menu.rs
+msgid "{} s"
+msgstr ""
+
+#: src/menu.rs
 msgid "System details…"
 msgstr ""
 
@@ -738,8 +794,24 @@ msgstr ""
 msgid "Graphs"
 msgstr ""
 
-#: src/menu.rs ui/settings.slint
+#: src/menu.rs src/names.rs ui/settings.slint
 msgid "Text only"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Items"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Popups"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Units"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Update interval"
 msgstr ""
 
 #: src/menu.rs
@@ -748,10 +820,6 @@ msgstr ""
 
 #: src/menu.rs ui/settings.slint
 msgid "Icons"
-msgstr ""
-
-#: src/menu.rs ui/settings.slint
-msgid "Details on hover"
 msgstr ""
 
 #: src/menu.rs ui/settings.slint
@@ -782,8 +850,184 @@ msgstr ""
 msgid "Exit Pulsar"
 msgstr ""
 
+#: src/names.rs src/popup/content.rs
+msgid "CPU"
+msgstr ""
+
+#: src/names.rs src/popup/content.rs
+msgid "GPU"
+msgstr ""
+
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Disk"
+msgstr ""
+
+#: src/names.rs src/popup/content.rs
+msgid "CPU clock"
+msgstr ""
+
+#: src/names.rs src/popup/content.rs
+msgid "Drive temperature"
+msgstr ""
+
+#: src/names.rs src/popup/content.rs
+msgid "Battery"
+msgstr ""
+
+#: src/names.rs
+msgid "Area graph"
+msgstr ""
+
+#: src/names.rs
+msgid "Line graph"
+msgstr ""
+
+#: src/names.rs
+msgid "Bar graph"
+msgstr ""
+
+#: src/names.rs
+msgid "Level meter"
+msgstr ""
+
+#: src/names.rs
+msgid "Item colour"
+msgstr ""
+
+#: src/names.rs
+msgid "Windows accent"
+msgstr ""
+
+#: src/names.rs
+msgid "Colour by load"
+msgstr ""
+
+#: src/names.rs
+msgid "Simple"
+msgstr ""
+
+#: src/names.rs
+msgid "Standard"
+msgstr ""
+
+#: src/names.rs
+msgid "Detailed"
+msgstr ""
+
 #: src/popup/content.rs
 msgid "No activity"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Top processes (I/O)"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Breakdown"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Modified"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Standby"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Free"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Charging"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "On AC power"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "On battery"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "State"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Time to full"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Remaining"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Charge rate"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Discharge rate"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Energy"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Capacity when new"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Health"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Charge cycles"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Processes"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Threads"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Handles"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Kernel"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Paged pool"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Non-paged pool"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Reserved by hardware"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Since Pulsar started"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Received"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Sent"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Jitter"
 msgstr ""
 
 #: src/popup/content.rs
@@ -796,14 +1040,6 @@ msgstr ""
 
 #: src/popup/content.rs
 msgid "{} active · {} used"
-msgstr ""
-
-#: src/popup/content.rs src/settings/form.rs
-msgid "CPU"
-msgstr ""
-
-#: src/popup/content.rs src/settings/form.rs ui/settings.slint
-msgid "Disk"
 msgstr ""
 
 #: src/popup/content.rs ui/settings.slint
@@ -822,10 +1058,6 @@ msgstr ""
 msgid "No traffic"
 msgstr ""
 
-#: src/popup/content.rs src/settings/form.rs
-msgid "GPU"
-msgstr ""
-
 #: src/popup/content.rs
 msgid "Core temperatures"
 msgstr ""
@@ -834,16 +1066,8 @@ msgstr ""
 msgid "Fastest core"
 msgstr ""
 
-#: src/popup/content.rs src/settings/form.rs
-msgid "CPU clock"
-msgstr ""
-
 #: src/popup/content.rs
 msgid "Core clocks"
-msgstr ""
-
-#: src/popup/content.rs src/settings/form.rs
-msgid "Drive temperature"
 msgstr ""
 
 #: src/popup/content.rs ui/settings.slint
@@ -871,7 +1095,23 @@ msgid "not connected"
 msgstr ""
 
 #: src/settings/main.rs
+msgid "Same as other items"
+msgstr ""
+
+#: src/settings/main.rs
 msgid "Windows default ({})"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Reading every source…"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Saved to {}"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Could not save the report: {}"
 msgstr ""
 
 #: src/settings/presets.rs
@@ -1011,10 +1251,6 @@ msgid "Display"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Items"
-msgstr ""
-
-#: ui/settings.slint
 msgid "About"
 msgstr ""
 
@@ -1052,10 +1288,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Sampling"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Update interval"
 msgstr ""
 
 #: ui/settings.slint
@@ -1108,10 +1340,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Put the icon, label and value on one line, for short taskbars."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Show a graph and details when the mouse rests on an item."
 msgstr ""
 
 #: ui/settings.slint
@@ -1203,11 +1431,59 @@ msgid "Value colour"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Label colour on a light taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Empty uses the label colour above."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Value colour on a light taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Empty uses the value colour above."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Colour labels by item"
 msgstr ""
 
 #: ui/settings.slint
 msgid "Draw each label in its item's colour."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show a graph and details when the mouse rests on an item."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Detail"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
+msgstr ""
+
+#: ui/settings.slint
+msgid "The recent history at the top of each popup."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Network rates"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Disk speeds stay in bytes."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show the upload rate above the download rate."
 msgstr ""
 
 #: ui/settings.slint
@@ -1303,11 +1579,19 @@ msgid "Off"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). In graph mode, clear Graph to show an item as text only."
+msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Graph"
+msgid "Graph style"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Colour"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
 msgstr ""
 
 #: ui/settings.slint
@@ -1396,6 +1680,18 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Logs"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Diagnostics"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Save every reading Pulsar can take to a text file in the logs folder, to attach to an issue. It lists process and network adapter names; read it before sharing."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Save report"
 msgstr ""
 
 #: ui/settings.slint

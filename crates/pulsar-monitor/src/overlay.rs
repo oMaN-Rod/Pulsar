@@ -1,4 +1,4 @@
-use pulsar_core::config::{Config, DisplayMode, LabelStyle};
+use pulsar_core::config::{Config, DisplayMode, LabelStyle, Units};
 use pulsar_core::layout::{ItemSpec, Layout, LayoutInput, compute_layout, item_specs};
 use windows::Win32::Foundation::{HINSTANCE, HWND};
 use windows::Win32::Graphics::Dwm::{DWMWA_TRANSITIONS_FORCEDISABLED, DwmSetWindowAttribute};
@@ -36,6 +36,9 @@ struct LayoutKey {
     labels: LabelStyle,
     icons: bool,
     graph_inline: bool,
+    upload_on_top: bool,
+    /// Temperatures change width with their unit.
+    units: Units,
 }
 
 /// One always-on-top, non-activating layered window per taskbar. It is a
@@ -109,6 +112,8 @@ impl Overlay {
             labels: config.display.labels,
             icons: config.display.icons,
             graph_inline: config.display.graph_inline,
+            upload_on_top: config.display.upload_on_top,
+            units: config.units,
         };
         if self.key.as_ref() == Some(&key) {
             return;
@@ -123,6 +128,7 @@ impl Overlay {
                 labels: key.labels,
                 icons: key.icons,
                 graph_inline: key.graph_inline,
+                upload_on_top: key.upload_on_top,
             },
             text,
         );

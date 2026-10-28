@@ -56,7 +56,7 @@ fn page_for(item: Option<ItemKind>) -> Page {
         Some(ItemKind::Ram) => Page::Memory,
         Some(ItemKind::Gpu | ItemKind::GpuTemp) => Page::Gpu,
         Some(ItemKind::Disk | ItemKind::DiskTemp) => Page::Storage,
-        Some(ItemKind::ChipsetTemp) => Page::System,
+        Some(ItemKind::ChipsetTemp | ItemKind::Battery) => Page::System,
         Some(ItemKind::Network | ItemKind::Ping) => Page::Network,
     }
 }

@@ -19,6 +19,8 @@ pub struct Metrics {
     pub title_h: f32,
     pub graph_h: f32,
     pub bars_h: f32,
+    /// A composition's stacked bar.
+    pub stack_h: f32,
     pub block_gap: f32,
 }
 
@@ -36,6 +38,7 @@ impl Metrics {
             title_h: line_h * 1.45,
             graph_h: 72.0 * scale,
             bars_h: 28.0 * scale,
+            stack_h: 10.0 * scale,
             block_gap: 10.0 * scale,
         }
     }
@@ -48,6 +51,9 @@ fn block_height(block: &Block, m: &Metrics) -> f32 {
         }
         Block::Bars { values, .. } if values.is_empty() => 0.0,
         Block::Bars { .. } => m.line_h + m.bars_h,
+        Block::Composition { parts, .. } => {
+            m.line_h + m.stack_h + m.block_gap / 2.0 + parts.len() as f32 * m.line_h
+        }
     }
 }
 
@@ -56,6 +62,11 @@ pub fn height(content: &PopupContent, m: &Metrics) -> f32 {
         .error
         .as_ref()
         .map_or(0.0, |_| m.line_h + m.block_gap);
+    let graph = if content.graph {
+        m.graph_h + m.block_gap
+    } else {
+        0.0
+    };
     let blocks: f32 = content
         .blocks
         .iter()
@@ -63,8 +74,7 @@ pub fn height(content: &PopupContent, m: &Metrics) -> f32 {
         .filter(|&h| h > 0.0)
         .map(|h| h + m.block_gap)
         .sum();
-    (2.0 * m.pad + m.title_h + m.block_gap + m.graph_h + m.block_gap + error + blocks - m.block_gap)
-        .ceil()
+    (2.0 * m.pad + m.title_h + m.block_gap + graph + error + blocks - m.block_gap).ceil()
 }
 
 /// Centres the popup over the hovered item, just above the taskbar (below
@@ -162,6 +172,7 @@ mod tests {
             title: "CPU",
             value: "1%".into(),
             series: vec![CellPart::Main],
+            graph: true,
             error: None,
             blocks,
         }
@@ -199,6 +210,7 @@ mod tests {
             labels: pulsar_core::config::LabelStyle::Full,
             icons: false,
             graph_inline: false,
+            upload_on_top: false,
         };
         let specs: Vec<_> = [ItemKind::Cpu, ItemKind::Network]
             .into_iter()
@@ -268,6 +280,33 @@ mod tests {
             &m,
         );
         assert_eq!(with, without);
+    }
+
+    #[test]
+    fn hiding_the_graph_saves_its_height() {
+        let m = Metrics::new(96, 12.0, 16.0);
+        let mut c = content(vec![rows(1)]);
+        let with = height(&c, &m);
+        c.graph = false;
+        assert_eq!(with - height(&c, &m), m.graph_h + m.block_gap);
+    }
+
+    #[test]
+    fn a_composition_takes_its_bar_and_a_line_per_part() {
+        let m = Metrics::new(96, 12.0, 16.0);
+        let without = height(&content(vec![rows(1)]), &m);
+        let parts = vec![(String::new(), 1.0, String::new()); 4];
+        let with = height(
+            &content(vec![
+                rows(1),
+                Block::Composition {
+                    heading: "h",
+                    parts,
+                },
+            ]),
+            &m,
+        );
+        assert_eq!(with - without, m.block_gap + 16.0 + 10.0 + 5.0 + 4.0 * 16.0);
     }
 
     #[test]

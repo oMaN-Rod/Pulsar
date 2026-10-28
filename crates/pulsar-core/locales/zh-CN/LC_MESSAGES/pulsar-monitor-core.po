@@ -105,6 +105,10 @@ msgstr "磁盘°"
 msgid "PCH°"
 msgstr "PCH°"
 
+#: src/metric.rs
+msgid "BAT"
+msgstr "电池"
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr "未安装 Pulsar 传感器服务"
@@ -128,6 +132,10 @@ msgstr "暂不支持此 CPU"
 #: src/sensors.rs
 msgid "The CPU sensors could not be read"
 msgstr "无法读取 CPU 传感器"
+
+#: src/sources/battery.rs
+msgid "This PC has no battery"
+msgstr "此电脑没有电池"
 
 #: src/sources/gpu.rs
 msgid "GPU counters unavailable"

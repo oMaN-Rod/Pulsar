@@ -5,6 +5,8 @@ mod fonts;
 mod form;
 #[path = "../language.rs"]
 mod language;
+#[path = "../names.rs"]
+mod names;
 mod notify;
 mod presets;
 mod titlebar;
@@ -132,6 +134,8 @@ fn refresh_swatches(ui: &SettingsWindow) {
     ui.set_panel_swatch(swatch(&ui.get_panel_color()));
     ui.set_label_swatch(swatch(&ui.get_label_color()));
     ui.set_value_swatch(swatch(&ui.get_value_color()));
+    ui.set_label_light_swatch(swatch(&ui.get_label_color_light()));
+    ui.set_value_light_swatch(swatch(&ui.get_value_color_light()));
 }
 
 fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
@@ -150,7 +154,15 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_icons(f.icons);
     ui.set_label_color(f.label_color.as_str().into());
     ui.set_value_color(f.value_color.as_str().into());
+    ui.set_label_color_light(f.label_color_light.as_str().into());
+    ui.set_value_color_light(f.value_color_light.as_str().into());
     ui.set_color_labels(f.color_labels);
+    ui.set_temperature_unit(i32::from(f.fahrenheit));
+    ui.set_network_unit(i32::from(f.network_bits));
+    ui.set_upload_on_top(f.upload_on_top);
+    ui.set_popup_detail(f.popup_detail);
+    ui.set_popup_graph(f.popup_graph);
+    ui.set_popup_processes(f.popup_processes);
     ui.set_font_bold(f.font_bold);
     ui.set_language_index(
         l10n::LANGUAGES
@@ -206,15 +218,28 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_tile_opacity(f.tile_opacity as f32);
     ui.set_panel_color(f.panel_color.as_str().into());
     ui.set_panel_opacity(f.panel_opacity as f32);
+    // Keep a row open across a reload, such as after moving it.
+    let open: Vec<SharedString> = ui
+        .get_items()
+        .iter()
+        .filter(|r| r.expanded)
+        .map(|r| r.name)
+        .collect();
     let rows: Vec<ItemRow> = f
         .items
         .iter()
-        .map(|r| ItemRow {
-            name: form::item_name(r.kind).into(),
-            enabled: r.enabled,
-            color: r.color.as_str().into(),
-            swatch: rgb(form::item_rgb(r.kind, &r.color)),
-            graph: r.graph,
+        .map(|r| {
+            let name: SharedString = names::item_name(r.kind).into();
+            ItemRow {
+                expanded: open.contains(&name),
+                name,
+                enabled: r.enabled,
+                color: r.color.as_str().into(),
+                swatch: rgb(form::item_rgb(r.kind, &r.color)),
+                style: r.style,
+                color_mode: r.color_mode,
+                popup: r.popup,
+            }
         })
         .collect();
     ui.set_items(ModelRc::new(VecModel::from(rows)));
@@ -246,6 +271,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         icons: ui.get_icons(),
         label_color: ui.get_label_color().to_string(),
         value_color: ui.get_value_color().to_string(),
+        label_color_light: ui.get_label_color_light().to_string(),
+        value_color_light: ui.get_value_color_light().to_string(),
         color_labels: ui.get_color_labels(),
         font_family: chosen(&choices.font_values, ui.get_font_index()),
         font_bold: ui.get_font_bold(),
@@ -267,7 +294,9 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 kind,
                 enabled: r.enabled,
                 color: r.color.to_string(),
-                graph: r.graph,
+                style: r.style,
+                color_mode: r.color_mode,
+                popup: r.popup,
             })
             .collect(),
         ping_host: ui.get_ping_host().to_string(),
@@ -289,6 +318,12 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
             .and_then(|i: usize| l10n::LANGUAGES.get(i))
             .map(|l| l.code.to_string())
             .unwrap_or_default(),
+        fahrenheit: ui.get_temperature_unit() == 1,
+        network_bits: ui.get_network_unit() == 1,
+        upload_on_top: ui.get_upload_on_top(),
+        popup_detail: ui.get_popup_detail(),
+        popup_graph: ui.get_popup_graph(),
+        popup_processes: ui.get_popup_processes(),
     }
 }
 
@@ -300,6 +335,28 @@ fn localize(ui: &SettingsWindow) {
         presets::PRESETS
             .iter()
             .map(|p| l10n::translate(p.name).into())
+            .collect(),
+    ));
+    ui.set_styles(strings(
+        names::STYLES
+            .iter()
+            .map(|&s| names::style_name(s).into())
+            .collect(),
+    ));
+    ui.set_color_modes(strings(
+        names::COLOR_MODES
+            .iter()
+            .map(|&m| names::color_mode_name(m).into())
+            .collect(),
+    ));
+    let details: Vec<SharedString> = names::DETAILS
+        .iter()
+        .map(|&d| names::detail_name(d).into())
+        .collect();
+    ui.set_popup_details(strings(details.clone()));
+    ui.set_item_popup_details(strings(
+        std::iter::once(tr!("Same as other items").into())
+            .chain(details)
             .collect(),
     ));
     let default = tr!("Windows default ({})", l10n::system_default().name);
@@ -444,6 +501,33 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
     ui.on_open_link(|url| open_link(&url));
+    ui.on_save_diagnostics({
+        let weak = ui.as_weak();
+        move || {
+            let Some(ui) = weak.upgrade() else { return };
+            ui.set_diagnostics_status(tr!("Reading every source…").into());
+            let config = config::default_path()
+                .and_then(|p| config::read(&p).ok())
+                .unwrap_or_default();
+            let weak = weak.clone();
+            std::thread::spawn(move || {
+                pulsar_core::format::set_units(config.units);
+                let header = format!("Pulsar {} diagnostics", env!("CARGO_PKG_VERSION"));
+                let saved = pulsar_core::diag::save(&config, &header, None);
+                let _ = slint::invoke_from_event_loop(move || {
+                    let Some(ui) = weak.upgrade() else { return };
+                    let status = match &saved {
+                        Ok(path) => {
+                            open_link(&path.display().to_string());
+                            tr!("Saved to {}", path.display())
+                        }
+                        Err(e) => tr!("Could not save the report: {}", e),
+                    };
+                    ui.set_diagnostics_status(status.into());
+                });
+            });
+        }
+    });
     init_color_pickers(&ui);
     if about {
         ui.set_tab(ABOUT_TAB);
@@ -494,12 +578,24 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     });
-    ui.on_item_graph({
+    ui.on_item_choice({
         let weak = ui.as_weak();
-        move |index, graph| {
+        move |index, field, value| {
             if let Some(ui) = weak.upgrade() {
-                update_row(&ui, index, |r| r.graph = graph);
+                update_row(&ui, index, |r| match field {
+                    0 => r.style = value,
+                    1 => r.color_mode = value,
+                    _ => r.popup = value,
+                });
                 ui.invoke_changed();
+            }
+        }
+    });
+    ui.on_item_expanded({
+        let weak = ui.as_weak();
+        move |index, expanded| {
+            if let Some(ui) = weak.upgrade() {
+                update_row(&ui, index, |r| r.expanded = expanded);
             }
         }
     });

@@ -104,6 +104,10 @@ msgstr "DSC°"
 msgid "PCH°"
 msgstr "PCH°"
 
+#: src/metric.rs
+msgid "BAT"
+msgstr "BAT"
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr "El servicio de sensores de Pulsar no está instalado"
@@ -127,6 +131,10 @@ msgstr "Esta CPU aún no es compatible"
 #: src/sensors.rs
 msgid "The CPU sensors could not be read"
 msgstr "No se pudieron leer los sensores de la CPU"
+
+#: src/sources/battery.rs
+msgid "This PC has no battery"
+msgstr "Este equipo no tiene batería"
 
 #: src/sources/gpu.rs
 msgid "GPU counters unavailable"

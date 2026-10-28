@@ -1,5 +1,6 @@
 use pulsar_core::colors;
-use pulsar_core::config::Config;
+use pulsar_core::config::{ColorMode, Config};
+use pulsar_core::display::metric_for;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 
@@ -55,6 +56,9 @@ pub struct Palette {
     pub popup_border: Color,
     pub warning: Color,
     items: Vec<(ItemKind, CellPart, Color)>,
+    /// Items coloured by how high their value is.
+    by_load: Vec<ItemKind>,
+    light: bool,
     color_labels: bool,
 }
 
@@ -66,8 +70,14 @@ impl Palette {
         let d = &config.display;
         let (popup_text, popup_label) = (text, label);
         let custom = |hex: &Option<String>| hex.as_deref().and_then(Color::parse_hex);
-        let text = custom(&d.value_color).unwrap_or(text);
-        let label = custom(&d.label_color).unwrap_or(label);
+        let themed = |dark: &Option<String>, light: &Option<String>| {
+            light_taskbar
+                .then(|| custom(light))
+                .flatten()
+                .or_else(|| custom(dark))
+        };
+        let text = themed(&d.value_color, &d.value_color_light).unwrap_or(text);
+        let label = themed(&d.label_color, &d.label_color_light).unwrap_or(label);
         let opacity = |percent: u8| f32::from(percent.min(100)) / 100.0;
         let tile = d
             .tile_color
@@ -83,11 +93,14 @@ impl Palette {
                 .with_alpha(opacity(d.panel_opacity))
         });
         let mut items = Vec::new();
+        let mut by_load = Vec::new();
         for kind in ItemKind::ALL {
-            let custom = config
-                .items
-                .iter()
-                .find(|i| i.kind == kind)
+            let item = config.item(kind);
+            let mode = item.map_or(ColorMode::Item, |i| i.color_mode);
+            if mode == ColorMode::Load {
+                by_load.push(kind);
+            }
+            let custom = item
                 .and_then(|i| i.color.as_deref())
                 .and_then(Color::parse_hex);
             let parts: &[CellPart] = if kind == ItemKind::Network {
@@ -96,13 +109,15 @@ impl Palette {
                 &[CellPart::Main]
             };
             for &part in parts {
-                let color = custom
-                    .or(if config.display.accent_graphs {
+                let color = match mode {
+                    ColorMode::Accent => accent.or(custom),
+                    _ => custom.or(if config.display.accent_graphs {
                         accent
                     } else {
                         None
-                    })
-                    .unwrap_or_else(|| default_color(kind, part));
+                    }),
+                }
+                .unwrap_or_else(|| default_color(kind, part));
                 items.push((kind, part, color));
             }
         }
@@ -126,7 +141,30 @@ impl Palette {
             tile,
             hit: Color::rgb(0, 0, 0).with_alpha(1.0 / 255.0),
             items,
+            by_load,
+            light: light_taskbar,
             color_labels: d.color_labels,
+        }
+    }
+
+    /// Value text: the load colour for an item coloured by load, so items
+    /// without a graph show their load too; otherwise the value colour.
+    pub fn value_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
+        let level = value
+            .filter(|_| self.by_load.contains(&kind))
+            .and_then(|v| colors::load_level(metric_for(kind, part).unit(), v));
+        level.map_or(self.text, |level| rgb(colors::load_rgb(level, self.light)))
+    }
+
+    /// The colour for a reading of `value`: its load colour when the item
+    /// is coloured by load and the value has a scale, else `graph`.
+    pub fn graph_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
+        let level = value
+            .filter(|_| self.by_load.contains(&kind))
+            .and_then(|v| colors::load_level(metric_for(kind, part).unit(), v));
+        match level {
+            Some(level) => rgb(colors::load_rgb(level, self.light)),
+            None => self.graph(kind, part),
         }
     }
 
@@ -205,10 +243,8 @@ mod tests {
         let mut config = Config::default();
         config.display.accent_graphs = true;
         config.items = vec![ItemConfig {
-            kind: ItemKind::Cpu,
-            enabled: true,
             color: Some("#102030".into()),
-            graph: true,
+            ..ItemConfig::new(ItemKind::Cpu, true)
         }];
         let p = Palette::new(false, &config, Some(accent));
         assert_eq!(
@@ -290,6 +326,65 @@ mod tests {
         let p = Palette::new(false, &c, None);
         assert_eq!(p.label, Color::rgb(0x11, 0x22, 0x33));
         assert_eq!(p.text, Color::rgb(0x44, 0x55, 0x66));
+    }
+
+    #[test]
+    fn light_taskbar_colours_override_only_on_a_light_taskbar() {
+        let mut c = Config::default();
+        c.display.label_color = Some("#EEEEEE".into());
+        c.display.label_color_light = Some("#111111".into());
+        assert_eq!(
+            Palette::new(false, &c, None).label,
+            Color::rgb(0xEE, 0xEE, 0xEE)
+        );
+        assert_eq!(
+            Palette::new(true, &c, None).label,
+            Color::rgb(0x11, 0x11, 0x11)
+        );
+        c.display.label_color_light = None;
+        assert_eq!(
+            Palette::new(true, &c, None).label,
+            Color::rgb(0xEE, 0xEE, 0xEE),
+            "without a light colour the one colour applies to both"
+        );
+    }
+
+    #[test]
+    fn items_can_follow_the_accent_or_their_load() {
+        let accent = Color::rgb(1, 2, 3);
+        let mut c = Config::default();
+        c.item_mut(ItemKind::Ram).unwrap().color_mode = ColorMode::Accent;
+        c.item_mut(ItemKind::Cpu).unwrap().color_mode = ColorMode::Load;
+        let p = Palette::new(false, &c, Some(accent));
+        assert_eq!(p.graph(ItemKind::Ram, CellPart::Main), accent);
+        assert_eq!(
+            p.graph(ItemKind::Gpu, CellPart::Main),
+            default_color(ItemKind::Gpu, CellPart::Main)
+        );
+        let cpu = |v| p.graph_at(ItemKind::Cpu, CellPart::Main, Some(v));
+        assert_eq!(cpu(10.0), rgb(colors::load_rgb(colors::Load::Low, false)));
+        assert_eq!(
+            cpu(95.0),
+            rgb(colors::load_rgb(colors::Load::Critical, false))
+        );
+        assert_eq!(
+            p.graph_at(ItemKind::Cpu, CellPart::Main, None),
+            p.graph(ItemKind::Cpu, CellPart::Main),
+            "no reading keeps the item colour"
+        );
+        assert_eq!(
+            p.graph_at(ItemKind::Ram, CellPart::Main, Some(95.0)),
+            accent,
+            "only items set to load change colour"
+        );
+        assert_eq!(
+            p.value_at(ItemKind::Cpu, CellPart::Main, Some(95.0)),
+            rgb(colors::load_rgb(colors::Load::Critical, false))
+        );
+        assert_eq!(
+            p.value_at(ItemKind::Ram, CellPart::Main, Some(95.0)),
+            p.text
+        );
     }
 
     #[test]

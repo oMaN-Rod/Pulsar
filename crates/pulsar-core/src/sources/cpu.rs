@@ -1,3 +1,6 @@
+use windows::Win32::System::ProcessStatus::{GetPerformanceInfo, PERFORMANCE_INFORMATION};
+use windows::Win32::System::SystemInformation::GetTickCount64;
+
 use crate::metric::{MetricKey, Snapshot, Source, SourceError, SourceId};
 use crate::pdh::{Counter, Query};
 
@@ -50,8 +53,26 @@ impl Source for CpuSource {
         if let (Ok(perf), Ok(base)) = (self.performance.value(), self.base_mhz.value()) {
             out.set(MetricKey::CpuClockMhz, perf * base / 100.0);
         }
+        system_counts(out);
         Ok(())
     }
+}
+
+/// Processes, threads and handles across the system, and the uptime.
+fn system_counts(out: &mut Snapshot) {
+    let mut info = PERFORMANCE_INFORMATION {
+        cb: size_of::<PERFORMANCE_INFORMATION>() as u32,
+        ..Default::default()
+    };
+    if unsafe { GetPerformanceInfo(&mut info, info.cb) }.is_ok() {
+        out.set(MetricKey::ProcessCount, f64::from(info.ProcessCount));
+        out.set(MetricKey::ThreadCount, f64::from(info.ThreadCount));
+        out.set(MetricKey::HandleCount, f64::from(info.HandleCount));
+    }
+    out.set(
+        MetricKey::UptimeSeconds,
+        unsafe { GetTickCount64() } as f64 / 1000.0,
+    );
 }
 
 /// `"0,3"` → `(0, 3)`; `"_Total"` and `"0,_Total"` → `None`.

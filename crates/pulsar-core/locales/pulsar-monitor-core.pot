@@ -102,6 +102,10 @@ msgstr ""
 msgid "PCH°"
 msgstr ""
 
+#: src/metric.rs
+msgid "BAT"
+msgstr ""
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr ""
@@ -124,6 +128,10 @@ msgstr ""
 
 #: src/sensors.rs
 msgid "The CPU sensors could not be read"
+msgstr ""
+
+#: src/sources/battery.rs
+msgid "This PC has no battery"
 msgstr ""
 
 #: src/sources/gpu.rs

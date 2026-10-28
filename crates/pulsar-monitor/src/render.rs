@@ -1,8 +1,8 @@
-use pulsar_core::config::{DisplayMode, LabelStyle};
+use pulsar_core::config::{DisplayMode, GraphStyle};
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{
-    Cell, CellPart, GRAPH_FONT_SCALE, Layout, Rect, TextMeasure, cell_icon, cell_label, icon_gap,
-    inline_slots, label_width,
+    Cell, CellPart, GRAPH_FONT_SCALE, Layout, Rect, TextMeasure, TileText, cell_icon, cell_label,
+    icon_gap, inline_slots, label_width, network_parts,
 };
 use pulsar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
@@ -29,7 +29,9 @@ use windows_numerics::Vector2;
 
 use crate::text::Text;
 use crate::theme::{Color, Palette};
-use pulsar_core::display::{area_points, cell_value, graph_max, metric_for};
+use pulsar_core::display::{
+    area_points, bar_rects, cell_value, graph_max, meter_fraction, metric_for,
+};
 
 /// A 32-bit premultiplied DIB that Direct2D draws into and
 /// `UpdateLayeredWindow` presents with per-pixel alpha.
@@ -88,11 +90,41 @@ pub struct Frame<'a> {
     pub snapshot: &'a Snapshot,
     pub history: &'a HistoryStore,
     pub dpi: u32,
-    pub labels: LabelStyle,
-    pub icons: bool,
+    pub text: TileText,
     pub graph_inline: bool,
-    /// Graph mode: items drawn without their graph.
-    pub text_only: &'a [ItemKind],
+    /// Graph mode: how each item draws its graph; `None` draws text only.
+    pub styles: &'a [(ItemKind, Option<GraphStyle>)],
+}
+
+impl Frame<'_> {
+    fn style(&self, kind: ItemKind) -> Option<GraphStyle> {
+        self.styles
+            .iter()
+            .find(|(k, _)| *k == kind)
+            .map_or(Some(GraphStyle::Area), |(_, s)| *s)
+    }
+
+    /// A graph already shows the load, so only text without one takes it.
+    fn value_color(&self, kind: ItemKind, part: CellPart, graphed: bool) -> Color {
+        if graphed {
+            return self.palette.text;
+        }
+        let failed = self.snapshot.errors.contains_key(&kind.source());
+        let value = self
+            .snapshot
+            .get(metric_for(kind, part))
+            .filter(|_| !failed);
+        self.palette.value_at(kind, part, value)
+    }
+}
+
+/// Every configured item's graph style, for `Frame::styles`.
+pub fn graph_styles(config: &pulsar_core::config::Config) -> Vec<(ItemKind, Option<GraphStyle>)> {
+    config
+        .items
+        .iter()
+        .map(|i| (i.kind, i.graph.then_some(i.style)))
+        .collect()
 }
 
 pub struct Renderer {
@@ -213,14 +245,14 @@ impl Renderer {
     ) -> Result<()> {
         let color = frame.palette.label_for(kind, part);
         let mut x = x;
-        if frame.icons {
+        if frame.text.icons {
             let glyph = cell_icon(kind, part);
             let format = text.icon_format(font_px)?;
             let dy = text.icon_offset(glyph, font_px);
             self.text_at(text, &format, glyph, x, y + dy, color)?;
             x += text.icon_width(glyph, font_px) + icon_gap(font_px);
         }
-        let label = cell_label(kind, part, frame.labels, frame.icons);
+        let label = cell_label(kind, part, frame.text.labels, frame.text.icons);
         if !label.is_empty() {
             self.text_at(text, &text.format(font_px)?, &label, x, y, color)?;
         }
@@ -241,14 +273,8 @@ impl Renderer {
                 cell.rect.y,
             )?;
             let value = cell_value(cell.kind, cell.part, frame.snapshot);
-            self.text_at(
-                text,
-                &format,
-                &value,
-                cell.value_x,
-                cell.rect.y,
-                frame.palette.text,
-            )?;
+            let color = frame.value_color(cell.kind, cell.part, false);
+            self.text_at(text, &format, &value, cell.value_x, cell.rect.y, color)?;
         }
         Ok(())
     }
@@ -260,9 +286,11 @@ impl Renderer {
         let line_h = small_px * 1.3;
         for cell in &frame.layout.cells {
             self.fill_rounded(cell.rect, 4.0 * scale, frame.palette.tile)?;
-            if !frame.text_only.contains(&cell.kind) {
-                self.draw_series(frame, cell, scale)?;
+            let graphed = frame.style(cell.kind).is_some();
+            if let Some(style) = frame.style(cell.kind) {
+                self.draw_series(frame, cell, style, scale)?;
             }
+            let color = |part| frame.value_color(cell.kind, part, graphed);
             let pad = 4.0 * scale;
             let (top, bottom) = (
                 cell.rect.y + pad * 0.5,
@@ -271,43 +299,38 @@ impl Renderer {
             let x = cell.rect.x + pad;
             if frame.graph_inline {
                 let y = cell.rect.y + (cell.rect.h - text.line_height(small_px)) / 2.0;
-                let (slots, _) = inline_slots(
-                    cell.kind,
-                    cell.part,
-                    frame.labels,
-                    frame.icons,
-                    small_px,
-                    scale,
-                    text,
-                );
+                let (slots, _) =
+                    inline_slots(cell.kind, cell.part, frame.text, small_px, scale, text);
                 for slot in slots {
                     let label_x = x + slot.label_x;
                     self.draw_label(text, frame, small_px, cell.kind, slot.part, label_x, y)?;
                     let value = cell_value(cell.kind, slot.part, frame.snapshot);
                     let value_x = x + slot.value_x;
-                    self.text_at(text, &small, &value, value_x, y, frame.palette.text)?;
+                    self.text_at(text, &small, &value, value_x, y, color(slot.part))?;
                 }
             } else if cell.kind == ItemKind::Network {
-                for (part, y) in [(CellPart::Down, top), (CellPart::Up, bottom)] {
+                let [first, second] = network_parts(frame.text.upload_on_top);
+                for (part, y) in [(first, top), (second, bottom)] {
                     self.draw_label(text, frame, small_px, cell.kind, part, x, y)?;
-                    let label_w =
-                        label_width(cell.kind, part, frame.labels, frame.icons, small_px, text);
+                    let (labels, icons) = (frame.text.labels, frame.text.icons);
+                    let label_w = label_width(cell.kind, part, labels, icons, small_px, text);
                     let value = cell_value(cell.kind, part, frame.snapshot);
                     let value_x = x + label_w + icon_gap(small_px);
-                    self.text_at(text, &small, &value, value_x, y, frame.palette.text)?;
+                    self.text_at(text, &small, &value, value_x, y, color(part))?;
                 }
             } else {
                 self.draw_label(text, frame, small_px, cell.kind, cell.part, x, top)?;
                 let value = cell_value(cell.kind, cell.part, frame.snapshot);
-                self.text_at(text, &small, &value, x, bottom, frame.palette.text)?;
+                self.text_at(text, &small, &value, x, bottom, color(cell.part))?;
             }
         }
         Ok(())
     }
 
-    fn draw_series(&self, frame: &Frame, cell: &Cell, scale: f32) -> Result<()> {
+    fn draw_series(&self, frame: &Frame, cell: &Cell, style: GraphStyle, scale: f32) -> Result<()> {
+        let network = network_parts(frame.text.upload_on_top);
         let parts: &[CellPart] = if cell.kind == ItemKind::Network {
-            &[CellPart::Down, CellPart::Up]
+            &network
         } else {
             std::slice::from_ref(&cell.part)
         };
@@ -327,14 +350,49 @@ impl Renderer {
             w: cell.rect.w - 2.0 * inset,
             h: cell.rect.h - 2.0 * inset,
         };
+        let palette = frame.palette;
+        if style == GraphStyle::Meter {
+            let band_h = area.h / histories.len() as f32;
+            for (i, (part, history)) in histories.iter().enumerate() {
+                let latest = history.latest();
+                let color = palette.graph_at(cell.kind, *part, latest);
+                let fill = meter_fraction(latest.unwrap_or(f64::NAN), max);
+                let band = Rect {
+                    x: area.x,
+                    y: area.y + i as f32 * band_h,
+                    w: area.w * fill,
+                    h: band_h,
+                };
+                self.fill_rounded(band, 2.0 * scale, color.with_alpha(0.35))?;
+                let edge = 2.0 * scale;
+                let bar = Rect {
+                    y: band.y + band.h - edge,
+                    h: edge,
+                    ..band
+                };
+                self.fill_rounded(bar, edge / 2.0, color)?;
+            }
+            return Ok(());
+        }
         for (i, (part, history)) in histories.iter().enumerate() {
-            let color = frame.palette.graph(cell.kind, *part);
-            self.series(
-                &area_points(history, area, max),
-                color,
-                i == 0,
-                1.25 * scale,
-            )?;
+            let color = palette.graph_at(cell.kind, *part, history.latest());
+            if style == GraphStyle::Bars && i == 0 {
+                for (bar, value) in bar_rects(history, area, max, 2.0 * scale, 1.0 * scale) {
+                    let color = palette.graph_at(cell.kind, *part, Some(value));
+                    self.fill_rect(bar, color.with_alpha(0.6))?;
+                }
+                continue;
+            }
+            let fill = style == GraphStyle::Area && i == 0;
+            self.series(&area_points(history, area, max), color, fill, 1.25 * scale)?;
+        }
+        Ok(())
+    }
+
+    fn fill_rect(&self, r: Rect, color: Color) -> Result<()> {
+        unsafe {
+            let brush = self.target.CreateSolidColorBrush(&d2d(color), None)?;
+            self.target.FillRectangle(&rect_f(r), &brush);
         }
         Ok(())
     }
@@ -518,6 +576,7 @@ mod tests {
                 labels: config.display.labels,
                 icons: config.display.icons,
                 graph_inline: config.display.graph_inline,
+                upload_on_top: config.display.upload_on_top,
             },
             &text,
         );
@@ -539,10 +598,13 @@ mod tests {
             snapshot: &snapshot,
             history: &history,
             dpi: 96,
-            labels: config.display.labels,
-            icons: config.display.icons,
+            text: TileText {
+                labels: config.display.labels,
+                icons: config.display.icons,
+                upload_on_top: config.display.upload_on_top,
+            },
             graph_inline: config.display.graph_inline,
-            text_only: &config.text_only_items(),
+            styles: &graph_styles(config),
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)
@@ -666,6 +728,30 @@ mod tests {
         config.items[0].graph = false;
         assert_eq!(config.items[0].kind, ItemKind::Cpu);
         assert_eq!(corner(&config), 1, "only the hit-test fill remains");
+    }
+
+    #[test]
+    fn every_graph_style_draws_ink_where_the_graph_peaks() {
+        use pulsar_core::config::GraphStyle;
+        // A full-height history: every style inks the top right of the tile.
+        for style in [
+            GraphStyle::Area,
+            GraphStyle::Line,
+            GraphStyle::Bars,
+            GraphStyle::Meter,
+        ] {
+            let mut config = Config::default();
+            config.display.tile_opacity = Some(0);
+            config.item_mut(ItemKind::Cpu).unwrap().style = style;
+            let (surface, layout) = render_with(DisplayMode::Graph, &[100.0; 60], &config);
+            let cpu = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Cpu)
+                .unwrap();
+            let alpha = alpha_at(&surface, cpu.rect.right() - 3.0, cpu.rect.y + 1.5);
+            assert!(alpha > 0x40, "{style:?} drew nothing at the peak ({alpha})");
+        }
     }
 
     #[test]

@@ -9,6 +9,7 @@ mod language;
 mod launcher;
 mod menu;
 mod messages;
+mod names;
 mod overlay;
 mod popup;
 mod render;
@@ -34,6 +35,9 @@ fn main() -> windows::core::Result<()> {
     if std::env::args().any(|a| a == pulsar_core::update::CHECK_ARG) {
         std::process::exit(update::helper_main());
     }
+    if let Some(at) = std::env::args().position(|a| a == pulsar_core::diag::ARG) {
+        std::process::exit(diagnostics(std::env::args().nth(at + 1)));
+    }
     unsafe {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;
@@ -51,4 +55,20 @@ fn main() -> windows::core::Result<()> {
     let result = app::run();
     log::info!("Pulsar exited");
     result
+}
+
+/// `pulsar --diag [file]`: writes the diagnostics report and opens it.
+fn diagnostics(path: Option<String>) -> i32 {
+    let config = pulsar_core::config::default_path()
+        .and_then(|p| pulsar_core::config::read(&p).ok())
+        .unwrap_or_default();
+    pulsar_core::format::set_units(config.units);
+    let header = format!("Pulsar {VERSION} diagnostics");
+    match pulsar_core::diag::save(&config, &header, path.as_deref().map(std::path::Path::new)) {
+        Ok(path) => {
+            menu::shell_open(&path.display().to_string());
+            0
+        }
+        Err(_) => 1,
+    }
 }
