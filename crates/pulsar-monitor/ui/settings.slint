@@ -568,6 +568,8 @@ export component SettingsWindow inherits Window {
     in-out property <int> temperature-unit;
     in-out property <int> network-unit;
     in-out property <bool> upload-on-top;
+    in-out property <bool> game-strip;
+    in-out property <bool> game-summary;
     in-out property <int> popup-detail;
     in-out property <bool> popup-graph;
     in-out property <bool> popup-translucent;
@@ -1329,6 +1331,31 @@ export component SettingsWindow inherits Window {
                             current-index <=> root.frame-monitor-index;
                             selected => { root.changed(); }
                         }
+                    }
+                }
+                SectionTitle { text: @tr("Games"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Show the strip in games");
+                        description: @tr("While a game is in front, the frame rate and your taskbar items appear in the top-left corner of its monitor. Borderless and windowed games only.");
+                        Switch {
+                            checked <=> root.game-strip;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Summary when a game closes");
+                        description: @tr("A notification with the time played, frame rate and peak temperatures, also saved to sessions.csv in the logs folder.");
+                        Switch {
+                            checked <=> root.game-summary;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Which apps are games");
+                        description: @tr("The games Windows recognises, as Game Bar does. To change that for an app, bring it to the front, then right-click Pulsar and use Count as a game.");
                     }
                 }
                 SectionTitle { text: @tr("Units"); }

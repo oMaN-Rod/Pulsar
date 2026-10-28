@@ -27,6 +27,8 @@ pub enum Command {
     About,
     TaskManager,
     Exit,
+    /// Flips whether the app last in front counts as a game.
+    ToggleGame,
     Toggle(Toggle),
     Edit(Edit),
 }
@@ -167,6 +169,7 @@ const ID_ICONS: usize = 12;
 const ID_DETAILS: usize = 13;
 const ID_WIDGET: usize = 14;
 const ID_WIDGET_LOCK: usize = 15;
+const ID_GAME: usize = 16;
 /// Plus the index into `DETAILS`.
 const ID_POPUP_DETAIL: usize = 20;
 const ID_POPUP_GRAPH: usize = 25;
@@ -257,6 +260,7 @@ pub fn command_for(id: usize) -> Option<Command> {
         ID_LOCK => Some(Command::Toggle(Toggle::LockPosition)),
         ID_WIDGET => Some(Command::Toggle(Toggle::Widget)),
         ID_WIDGET_LOCK => Some(Command::Toggle(Toggle::WidgetLock)),
+        ID_GAME => Some(Command::ToggleGame),
         ID_ICONS => Some(Command::Toggle(Toggle::Icons)),
         ID_TASK_MANAGER => Some(Command::TaskManager),
         ID_EXIT => Some(Command::Exit),
@@ -523,6 +527,7 @@ fn match_theme(dark: bool) {
 
 /// `dark` draws the menu dark, to match a dark taskbar. `on_widget`: the
 /// item was right-clicked on the widget, so its submenu is the widget's.
+/// `game`: the app last in front and whether it counts as a game.
 #[allow(clippy::too_many_arguments)]
 pub fn show(
     owner: HWND,
@@ -532,6 +537,7 @@ pub fn show(
     item: Option<ItemKind>,
     on_widget: bool,
     dark: bool,
+    game: Option<(String, bool)>,
 ) -> Option<Command> {
     match_theme(dark);
     let menu = Menu::new()?;
@@ -601,6 +607,9 @@ pub fn show(
         config.widget.lock_position,
         config.widget.enabled,
     );
+    if let Some((name, is_game)) = game {
+        menu.item(ID_GAME, &tr!("Count {} as a game", name), is_game, true);
+    }
     menu.separator();
     menu.item(ID_SETTINGS, tr!("Settings…"), false, true);
     menu.item(ID_TASK_MANAGER, tr!("Open Task Manager"), false, true);

@@ -93,6 +93,8 @@ pub struct Form {
     pub fahrenheit: bool,
     pub network_bits: bool,
     pub upload_on_top: bool,
+    pub game_strip: bool,
+    pub game_summary: bool,
     /// An index into `names::DETAILS`.
     pub popup_detail: i32,
     pub popup_graph: bool,
@@ -265,6 +267,8 @@ pub fn to_form(c: &Config) -> Form {
         fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
         network_bits: c.units.network == RateUnit::Bits,
         upload_on_top: d.upload_on_top,
+        game_strip: c.game.strip,
+        game_summary: c.game.summary,
         popup_detail: index_of(&DETAILS, &c.popup.detail),
         popup_graph: c.popup.graph,
         popup_translucent: c.popup.background == PopupBackground::Translucent,
@@ -346,6 +350,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     d.label_color_light = non_empty(&f.label_color_light);
     d.value_color_light = non_empty(&f.value_color_light);
     d.upload_on_top = f.upload_on_top;
+    c.game.strip = f.game_strip;
+    c.game.summary = f.game_summary;
     d.color_labels = f.color_labels;
     d.font_family = non_empty(&f.font_family);
     d.font_bold = f.font_bold;
@@ -713,6 +719,8 @@ mod tests {
         c.popup.graph = false;
         c.popup.background = PopupBackground::Solid;
         c.popup.processes = 10;
+        c.game.strip = false;
+        c.game.games = vec!["game.exe".into()];
         let c = c.sanitize();
         assert_eq!(to_config(&to_form(&c), &c), c);
     }

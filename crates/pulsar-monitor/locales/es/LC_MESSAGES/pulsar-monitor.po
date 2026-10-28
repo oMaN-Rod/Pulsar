@@ -21,6 +21,10 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr "Selecciona para abrir el informe de error. Adjuntarlo a un issue de GitHub ayuda a corregirlo."
 
 #: src/app.rs
+msgid "{} closed"
+msgstr "{} cerrado"
+
+#: src/app.rs
 msgid "Pulsar could not open the details window"
 msgstr "Pulsar no pudo abrir la ventana de detalles"
 
@@ -732,6 +736,22 @@ msgstr "Todas las unidades"
 msgid "Throughput"
 msgstr "Rendimiento"
 
+#: src/game.rs
+msgid "{} average"
+msgstr "{} de media"
+
+#: src/game.rs
+msgid "1% low {}"
+msgstr "1 % más bajo {}"
+
+#: src/game.rs
+msgid "CPU up to {}"
+msgstr "CPU hasta {}"
+
+#: src/game.rs
+msgid "GPU up to {}"
+msgstr "GPU hasta {}"
+
 #: src/menu.rs
 msgid "Same as other items ({})"
 msgstr "Igual que los demás elementos ({})"
@@ -859,6 +879,10 @@ msgstr "Widget de escritorio"
 #: src/menu.rs
 msgid "Lock widget"
 msgstr "Bloquear widget"
+
+#: src/menu.rs
+msgid "Count {} as a game"
+msgstr "Considerar {} un juego"
 
 #: src/menu.rs
 msgid "Settings…"
@@ -1743,6 +1767,34 @@ msgstr "Medir"
 #: ui/settings.slint
 msgid "The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it."
 msgstr "La aplicación en primer plano cuenta los fotogramas que dibuja, esté en el monitor que esté. Un monitor cuenta cuántas veces cambia su imagen, sean cuales sean las aplicaciones que la dibujan."
+
+#: ui/settings.slint
+msgid "Games"
+msgstr "Juegos"
+
+#: ui/settings.slint
+msgid "Show the strip in games"
+msgstr "Mostrar la barra en los juegos"
+
+#: ui/settings.slint
+msgid "While a game is in front, the frame rate and your taskbar items appear in the top-left corner of its monitor. Borderless and windowed games only."
+msgstr "Mientras un juego está en primer plano, la velocidad de fotogramas y los elementos de la barra de tareas aparecen en la esquina superior izquierda de su monitor. Solo juegos sin bordes o en ventana."
+
+#: ui/settings.slint
+msgid "Summary when a game closes"
+msgstr "Resumen al cerrar un juego"
+
+#: ui/settings.slint
+msgid "A notification with the time played, frame rate and peak temperatures, also saved to sessions.csv in the logs folder."
+msgstr "Una notificación con el tiempo jugado, la velocidad de fotogramas y las temperaturas máximas, que también se guarda en sessions.csv en la carpeta de registros."
+
+#: ui/settings.slint
+msgid "Which apps are games"
+msgstr "Qué aplicaciones son juegos"
+
+#: ui/settings.slint
+msgid "The games Windows recognises, as Game Bar does. To change that for an app, bring it to the front, then right-click Pulsar and use Count as a game."
+msgstr "Los juegos que reconoce Windows, igual que Game Bar. Para cambiarlo en una aplicación, tráela al primer plano, haz clic derecho en Pulsar y usa Considerar como juego."
 
 #: ui/settings.slint
 msgid "Disks"

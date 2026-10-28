@@ -37,6 +37,7 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 - **A system details window**: processor, memory modules, graphics, drives, network, motherboard and every live sensor.
 - **GPU monitoring for any vendor**, read the way Task Manager does, with no drivers or vendor SDKs.
 - **CPU temperature and power, if you opt in**, through an optional [sensor service](#sensor-service).
+- **Frame rates and game sessions**: the frame rate of the app in front, a strip on the game's monitor while you play, and a summary when the game closes.
 - **Light**: about 10 MB of memory and well under 1% CPU. No admin rights, no drivers and no background services unless you add the sensor service.
 - **No telemetry.** See [Privacy](#privacy).
 
@@ -107,6 +108,15 @@ CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GP
 Detach Pulsar from the taskbar, drag it anywhere and lock it in place, here with a panel background.
 
 ![Floating mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/floating.gif)
+
+### In games
+
+Two options in *Settings → Sensors*, both off until you turn them on:
+
+- **A strip in games:** while a game is in front, its frame rate and your taskbar items appear in the top-left corner of its monitor. Clicks pass through it to the game. Windows does not let anything draw over exclusive fullscreen, so this works for borderless and windowed games.
+- **A summary when a game closes:** a notification with the time played, average frame rate, 1% low and peak CPU and GPU temperatures. Each session is also added to `sessions.csv` in the logs folder.
+
+The frame rate and temperatures need the [sensor service](#sensor-service). A game is any app Windows recognises as one, as Game Bar does. To change that for an app, bring it to the front, right-click Pulsar and choose *Count … as a game*.
 
 ### Make it yours
 
@@ -331,6 +341,7 @@ Pulsar is available in English, Spanish (Español) and Simplified Chinese (简�
 |---|---|
 | Settings, applied live | `%APPDATA%\Pulsar\config.toml` |
 | Logs, crash reports and diagnostics | `%LOCALAPPDATA%\Pulsar\logs` |
+| Game sessions | `sessions.csv` in the logs folder |
 | A settings file that could not be read | backed up as `config.toml.bak`, and defaults are used |
 
 ## Privacy

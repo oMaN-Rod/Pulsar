@@ -63,7 +63,7 @@ pub fn monitor_near(x: i32, y: i32) -> (Rect32, Rect32) {
     (rect32(info.rcMonitor), rect32(info.rcWork))
 }
 
-fn monitor_of(hwnd: HWND) -> Rect32 {
+pub fn monitor_of(hwnd: HWND) -> Rect32 {
     let mut info = MONITORINFO {
         cbSize: size_of::<MONITORINFO>() as u32,
         ..Default::default()
@@ -171,7 +171,7 @@ pub fn is_shell_host(image_path: &str) -> bool {
     SHELL_HOSTS.contains(&name.as_str())
 }
 
-fn image_path(pid: u32) -> Option<String> {
+pub fn image_path(pid: u32) -> Option<String> {
     unsafe {
         let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
         let mut buf = [0u16; 512];

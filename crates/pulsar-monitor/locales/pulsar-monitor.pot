@@ -19,6 +19,10 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr ""
 
 #: src/app.rs
+msgid "{} closed"
+msgstr ""
+
+#: src/app.rs
 msgid "Pulsar could not open the details window"
 msgstr ""
 
@@ -730,6 +734,22 @@ msgstr ""
 msgid "Throughput"
 msgstr ""
 
+#: src/game.rs
+msgid "{} average"
+msgstr ""
+
+#: src/game.rs
+msgid "1% low {}"
+msgstr ""
+
+#: src/game.rs
+msgid "CPU up to {}"
+msgstr ""
+
+#: src/game.rs
+msgid "GPU up to {}"
+msgstr ""
+
 #: src/menu.rs
 msgid "Same as other items ({})"
 msgstr ""
@@ -856,6 +876,10 @@ msgstr ""
 
 #: src/menu.rs
 msgid "Lock widget"
+msgstr ""
+
+#: src/menu.rs
+msgid "Count {} as a game"
 msgstr ""
 
 #: src/menu.rs
@@ -1740,6 +1764,34 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Games"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show the strip in games"
+msgstr ""
+
+#: ui/settings.slint
+msgid "While a game is in front, the frame rate and your taskbar items appear in the top-left corner of its monitor. Borderless and windowed games only."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Summary when a game closes"
+msgstr ""
+
+#: ui/settings.slint
+msgid "A notification with the time played, frame rate and peak temperatures, also saved to sessions.csv in the logs folder."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Which apps are games"
+msgstr ""
+
+#: ui/settings.slint
+msgid "The games Windows recognises, as Game Bar does. To change that for an app, bring it to the front, then right-click Pulsar and use Count as a game."
 msgstr ""
 
 #: ui/settings.slint

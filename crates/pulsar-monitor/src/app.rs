@@ -1,4 +1,5 @@
 use std::cell::{Cell, RefCell};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::sync::mpsc::Receiver;
@@ -9,7 +10,7 @@ use pulsar_core::history::HistoryStore;
 use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
 use pulsar_core::update::{self as release, Outcome, UpdateState};
-use pulsar_core::{crash, paths, sampler, tr};
+use pulsar_core::{crash, games, paths, sampler, tr};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -32,6 +33,7 @@ use windows::core::{HSTRING, PCWSTR, Result, w};
 use crate::details::Details;
 use crate::drag::Drag;
 use crate::fade::{self, Debounce};
+use crate::game::{self, Game};
 use crate::hover::{HoverArming, popup_orphaned};
 use crate::launcher::{self, Page};
 use crate::menu::{self, Command};
@@ -152,7 +154,62 @@ pub struct App {
     widget: Widget,
     /// The widget being moved with the mouse.
     widget_drag: Option<Drag>,
+    /// Sampled for the game in progress, on top of what the settings ask for.
+    session_items: Vec<ItemKind>,
+    /// The games Windows knows, and when they were read.
+    known_games: HashSet<String>,
+    games_read: Option<Instant>,
+    last_foreground: HWND,
+    /// The app last in front other than Pulsar and the shell, for marking
+    /// as a game.
+    last_app: Option<String>,
+    game: Option<Game>,
 }
+
+/// What drawing an overlay needs besides the overlay.
+struct Paint<'a> {
+    config: &'a Config,
+    renderer: &'a mut Renderer,
+    text: &'a Text,
+    palette: &'a Palette,
+    snapshot: &'a Snapshot,
+    history: &'a HistoryStore,
+}
+
+impl Paint<'_> {
+    fn overlay(&mut self, o: &mut Overlay, x: i32, y: i32) -> Result<()> {
+        let dpi = o.taskbar.dpi;
+        let hwnd = o.hwnd;
+        let alpha = o.alpha;
+        let layout = o.layout.clone();
+        let surface = o.surface()?;
+        let styles = graph_styles(self.config);
+        let d = &self.config.display;
+        let frame = Frame {
+            layout: &layout,
+            mode: d.mode,
+            palette: self.palette,
+            snapshot: self.snapshot,
+            history: self.history,
+            dpi,
+            text: pulsar_core::layout::TileText {
+                labels: d.labels,
+                icons: d.icons,
+                upload_on_top: d.upload_on_top,
+            },
+            graph_inline: d.graph_inline,
+            styles: &styles,
+        };
+        self.renderer.draw(surface, &frame, self.text)?;
+        self.renderer.present_alpha(hwnd, surface, x, y, alpha)?;
+        o.mark_shown(x, y);
+        Ok(())
+    }
+}
+
+/// The Windows game list is read again when older than this.
+const GAMES_REREAD: Duration = Duration::from_secs(60);
+const SESSIONS_FILE: &str = "sessions.csv";
 
 impl App {
     fn new(instance: HINSTANCE, host: HWND) -> Result<Self> {
@@ -204,6 +261,12 @@ impl App {
             disk_names: None,
             widget: Widget::create(instance)?,
             widget_drag: None,
+            session_items: Vec::new(),
+            known_games: HashSet::new(),
+            games_read: None,
+            last_foreground: HWND::default(),
+            last_app: None,
+            game: None,
         })
     }
 
@@ -415,33 +478,15 @@ impl App {
     }
 
     fn draw(&mut self, i: usize, x: i32, y: i32) -> Result<()> {
-        let o = &mut self.overlays[i];
-        let dpi = o.taskbar.dpi;
-        let hwnd = o.hwnd;
-        let alpha = o.alpha;
-        let layout = o.layout.clone();
-        let surface = o.surface()?;
-        let styles = graph_styles(&self.config);
-        let d = &self.config.display;
-        let frame = Frame {
-            layout: &layout,
-            mode: d.mode,
+        let mut paint = Paint {
+            config: &self.config,
+            renderer: &mut self.renderer,
+            text: &self.text,
             palette: &self.palette,
             snapshot: &self.latest,
             history: &self.history,
-            dpi,
-            text: pulsar_core::layout::TileText {
-                labels: d.labels,
-                icons: d.icons,
-                upload_on_top: d.upload_on_top,
-            },
-            graph_inline: d.graph_inline,
-            styles: &styles,
         };
-        self.renderer.draw(surface, &frame, &self.text)?;
-        self.renderer.present_alpha(hwnd, surface, x, y, alpha)?;
-        o.mark_shown(x, y);
-        Ok(())
+        paint.overlay(&mut self.overlays[i], x, y)
     }
 
     fn redraw(&mut self) {
@@ -453,6 +498,192 @@ impl App {
             }
         }
         self.show_widget();
+        let config = game::strip_config(&self.config);
+        let mut paint = Paint {
+            config: &config,
+            renderer: &mut self.renderer,
+            text: &self.text,
+            palette: &self.palette,
+            snapshot: &self.latest,
+            history: &self.history,
+        };
+        if let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut())
+            && let Some((x, y)) = strip.shown_at
+            && paint.overlay(strip, x, y).is_err()
+        {
+            strip.hide();
+        }
+    }
+
+    /// Notices games coming to the front and closing, and keeps the strip
+    /// on the game's monitor while it is in front.
+    fn watch_games(&mut self) {
+        if !self.config.game.watching() {
+            self.end_game(false);
+            return;
+        }
+        let foreground = unsafe { GetForegroundWindow() };
+        if foreground != self.last_foreground {
+            self.last_foreground = foreground;
+            self.foreground_changed(foreground);
+        }
+        if self.game.as_ref().is_some_and(Game::exited) {
+            self.end_game(true);
+        }
+        self.place_strip(foreground);
+    }
+
+    fn foreground_changed(&mut self, foreground: HWND) {
+        let pid = taskbar::process_id(foreground);
+        if pid == 0 || pid == std::process::id() {
+            return;
+        }
+        let Some(path) = taskbar::image_path(pid) else {
+            return;
+        };
+        if taskbar::is_shell_host(&path) || games::exe_name(&path) == "explorer.exe" {
+            return;
+        }
+        self.last_app = Some(path.clone());
+        if self.game.is_none() && self.is_game(&path) {
+            self.start_game(pid, &path);
+        }
+    }
+
+    fn is_game(&mut self, path: &str) -> bool {
+        if self.games_read.is_none_or(|t| t.elapsed() > GAMES_REREAD) {
+            self.known_games = games::windows_games();
+            self.games_read = Some(Instant::now());
+        }
+        games::is_game(path, &self.known_games, &self.config.game)
+    }
+
+    fn start_game(&mut self, pid: u32, path: &str) {
+        let Some(g) = Game::start(pid, games::display_name(path)) else {
+            return;
+        };
+        log::info!("game started: {}", g.session.name);
+        self.game = Some(g);
+        self.set_session_items(game::SESSION_ITEMS.to_vec());
+    }
+
+    /// `closed`: the game exited, rather than being unmarked or the
+    /// feature turned off, so it gets a summary.
+    fn end_game(&mut self, closed: bool) {
+        let Some(g) = self.game.take() else {
+            return;
+        };
+        self.set_session_items(Vec::new());
+        log::info!("game ended: {}", g.session.name);
+        if !closed || !self.config.game.summary || g.played() < games::MIN_SESSION {
+            return;
+        }
+        let summary = g.summary();
+        let Some(file) = paths::logs_dir().map(|dir| dir.join(SESSIONS_FILE)) else {
+            return;
+        };
+        if let Err(e) = games::log_session(&file, &summary) {
+            log::warn!("could not log the session: {e}");
+        }
+        self.tray.offer(
+            &tr!("{} closed", summary.name),
+            &game::summary_text(&summary),
+            file.display().to_string(),
+        );
+    }
+
+    fn place_strip(&mut self, foreground: HWND) {
+        let Some(pid) = self.game.as_ref().map(|g| g.pid) else {
+            return;
+        };
+        if !self.config.game.strip || taskbar::process_id(foreground) != pid {
+            if let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut()) {
+                strip.hide();
+            }
+            return;
+        }
+        let monitor = taskbar::monitor_of(foreground);
+        let stale = self
+            .game
+            .as_ref()
+            .and_then(|g| g.strip.as_ref())
+            .is_none_or(|s| s.taskbar.monitor != monitor);
+        if stale {
+            // The taskbar on the game's monitor sets the strip's size and scale.
+            let tb = taskbar::discover(true)
+                .into_iter()
+                .find(|t| t.monitor == monitor)
+                .or_else(|| {
+                    self.overlays.first().map(|o| Taskbar {
+                        monitor,
+                        ..o.taskbar.clone()
+                    })
+                });
+            let strip = tb.and_then(|tb| Overlay::create(self.instance, tb).ok());
+            if let Some(s) = &strip {
+                game::click_through(s);
+            }
+            if let Some(g) = &mut self.game {
+                g.strip = strip;
+            }
+        }
+        let config = game::strip_config(&self.config);
+        let mut paint = Paint {
+            config: &config,
+            renderer: &mut self.renderer,
+            text: &self.text,
+            palette: &self.palette,
+            snapshot: &self.latest,
+            history: &self.history,
+        };
+        let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut()) else {
+            return;
+        };
+        strip.update_layout(&config, &self.text);
+        let at = game::strip_position(monitor, strip.taskbar.dpi);
+        if strip.shown_at == Some(at) {
+            strip.raise();
+        } else if paint.overlay(strip, at.0, at.1).is_err() {
+            strip.hide();
+        }
+    }
+
+    /// The settings plus what the game in progress needs sampled.
+    fn sampling_config(&self, config: &Config) -> Config {
+        let mut c = config.clone();
+        c.session_items = self.session_items.clone();
+        c
+    }
+
+    fn set_session_items(&mut self, items: Vec<ItemKind>) {
+        let before = self.sampling_config(&self.config);
+        self.session_items = items;
+        let after = self.sampling_config(&self.config);
+        if config::sampling_changed(&before, &after) {
+            self.respawn_sampler(&after);
+        }
+    }
+
+    fn respawn_sampler(&mut self, config: &Config) {
+        self.close_popup();
+        self.sampler = SamplerThread::spawn(config, Some(self.host));
+        let open = self.details.is_some();
+        self.sampler.extras.store(open, Ordering::Relaxed);
+        self.sampler.processes.store(open, Ordering::Relaxed);
+    }
+
+    fn toggle_game(&mut self) {
+        let Some(path) = self.last_app.clone() else {
+            return;
+        };
+        let known = self.known_games.clone();
+        self.change_config(|c| games::toggle(&path, &known, &mut c.game));
+        let name = games::display_name(&path);
+        if !self.is_game(&path) && self.game.as_ref().is_some_and(|g| g.session.name == name) {
+            self.end_game(false);
+        }
+        // Looks at the app in front again, so a newly marked game starts.
+        self.last_foreground = HWND::default();
     }
 
     /// Draws the widget, or hides it when it is off, empty, or covered by a
@@ -563,6 +794,10 @@ impl App {
         let mut received = false;
         while let Ok(snapshot) = self.sampler.snapshots.try_recv() {
             self.history.record(&snapshot);
+            if let Some(g) = &mut self.game {
+                let in_front = taskbar::process_id(unsafe { GetForegroundWindow() }) == g.pid;
+                g.session.record(&snapshot, in_front);
+            }
             for (id, change) in sampler::error_changes(&self.latest.errors, &snapshot.errors) {
                 match change {
                     Some(reason) => log::warn!("{id:?} unavailable: {reason}"),
@@ -823,6 +1058,7 @@ impl App {
         }
         self.widget
             .arrange(self.config.widget.layer, unsafe { GetForegroundWindow() });
+        self.watch_games();
     }
 
     fn on_timer(&mut self, id: usize) {
@@ -955,12 +1191,12 @@ impl App {
             return;
         }
         log::info!("settings changed");
-        if config::sampling_changed(&self.config, &new) {
-            self.close_popup();
-            self.sampler = SamplerThread::spawn(&new, Some(self.host));
-            let open = self.details.is_some();
-            self.sampler.extras.store(open, Ordering::Relaxed);
-            self.sampler.processes.store(open, Ordering::Relaxed);
+        let (before, after) = (
+            self.sampling_config(&self.config),
+            self.sampling_config(&new),
+        );
+        if config::sampling_changed(&before, &after) {
+            self.respawn_sampler(&after);
         }
         if new.general.history_len != self.config.general.history_len {
             self.history = HistoryStore::new(new.general.history_len);
@@ -1010,6 +1246,7 @@ impl App {
             Command::Details => self.open_details(None),
             Command::About => self.open_settings(Page::About),
             Command::TaskManager => menu::open_task_manager(),
+            Command::ToggleGame => self.toggle_game(),
             Command::Exit => unsafe {
                 let _ = DestroyWindow(self.host);
             },
@@ -1041,21 +1278,27 @@ fn translucent_popups(config: &Config) -> bool {
 
 /// `item` is the overlay item that was right-clicked, if any.
 fn context_menu(x: i32, y: i32, item: Option<(HWND, i32, i32)>) {
-    let Some((host, config, kind, on_widget, dark)) = with_app(|a| {
+    let Some((host, config, kind, on_widget, dark, game)) = with_app(|a| {
         a.close_popup();
         let kind = item.and_then(|(overlay, x, y)| a.hit(overlay, x, y));
         let on_widget = item.is_some_and(|(hwnd, ..)| hwnd == a.widget.hwnd);
+        let game = a
+            .last_app
+            .clone()
+            .filter(|_| a.config.game.watching())
+            .map(|path| (games::display_name(&path), a.is_game(&path)));
         (
             a.host,
             a.config.clone(),
             kind,
             on_widget,
             !a.palette.light(),
+            game,
         )
     }) else {
         return;
     };
-    if let Some(command) = menu::show(host, x, y, &config, kind, on_widget, dark) {
+    if let Some(command) = menu::show(host, x, y, &config, kind, on_widget, dark, game) {
         with_app(|a| a.apply(command));
     }
 }

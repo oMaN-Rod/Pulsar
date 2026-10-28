@@ -4,6 +4,7 @@ mod app;
 mod details;
 mod drag;
 mod fade;
+mod game;
 mod hover;
 mod language;
 mod launcher;

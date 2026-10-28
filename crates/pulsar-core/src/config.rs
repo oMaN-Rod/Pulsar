@@ -186,6 +186,29 @@ pub struct Config {
     pub popup: PopupConfig,
     pub widget: WidgetConfig,
     pub frames: FramesConfig,
+    pub game: GameConfig,
+    /// Sampled while a game runs, for its summary, though not shown.
+    #[serde(skip)]
+    pub session_items: Vec<ItemKind>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GameConfig {
+    /// Show the floating strip on a game's monitor while it is in front.
+    pub strip: bool,
+    /// A notification and a line in the sessions file when a game closes.
+    pub summary: bool,
+    /// Executable file names, in lower case, the user marked as games.
+    pub games: Vec<String>,
+    /// And those marked as not games, though Windows lists them.
+    pub not_games: Vec<String>,
+}
+
+impl GameConfig {
+    pub fn watching(&self) -> bool {
+        self.strip || self.summary
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -369,6 +392,8 @@ impl Default for Config {
             popup: PopupConfig::default(),
             widget: WidgetConfig::default(),
             frames: FramesConfig::default(),
+            game: GameConfig::default(),
+            session_items: Vec::new(),
         }
     }
 }
@@ -481,6 +506,14 @@ impl Config {
                 *color = None;
             }
         }
+        for names in [&mut self.game.games, &mut self.game.not_games] {
+            for n in names.iter_mut() {
+                *n = n.trim().to_lowercase();
+            }
+            names.retain(|n| !n.is_empty());
+            names.sort();
+            names.dedup();
+        }
         let w = &mut self.widget;
         w.width = w.width.clamp(*WIDGET_WIDTHS.start(), *WIDGET_WIDTHS.end());
         w.opacity = w.opacity.min(100);
@@ -580,7 +613,11 @@ impl Config {
     /// Items the sampler reads: those on the taskbar or the widget.
     pub fn sampled_items(&self) -> Vec<ItemKind> {
         let mut all = self.enabled_items();
-        for kind in self.widget_items() {
+        for kind in self
+            .widget_items()
+            .into_iter()
+            .chain(self.session_items.iter().copied())
+        {
             if !all.contains(&kind) {
                 all.push(kind);
             }
@@ -589,7 +626,9 @@ impl Config {
     }
 
     pub fn is_sampled(&self, kind: ItemKind) -> bool {
-        self.is_enabled(kind) || self.widget_items().contains(&kind)
+        self.is_enabled(kind)
+            || self.widget_items().contains(&kind)
+            || self.session_items.contains(&kind)
     }
 
     /// Items whose graph tile shows text only.
@@ -1125,6 +1164,20 @@ panel_opacity = 60
         assert_eq!(c.widget_detail(ItemKind::Cpu), PopupDetail::Detailed);
         assert_eq!(c.widget_style(ItemKind::Ram), WidgetStyle::Meters);
         assert_eq!(c.widget_detail(ItemKind::Ram), PopupDetail::Standard);
+    }
+
+    #[test]
+    fn game_marks_are_lower_case_and_unique_and_session_items_are_sampled() {
+        let mut c = Config::default();
+        c.game.games = vec!["Game.EXE".into(), "game.exe".into(), " ".into()];
+        let mut c = c.sanitize();
+        assert_eq!(c.game.games, ["game.exe"]);
+        assert!(!c.game.strip && !c.game.summary);
+        assert!(!c.is_sampled(ItemKind::Fps));
+        c.session_items = vec![ItemKind::Fps];
+        assert!(c.is_sampled(ItemKind::Fps));
+        assert!(c.sampled_items().contains(&ItemKind::Fps));
+        assert!(!toml::to_string(&c).unwrap().contains("session_items"));
     }
 
     #[test]

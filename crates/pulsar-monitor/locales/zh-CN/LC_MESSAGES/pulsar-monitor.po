@@ -22,6 +22,10 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr "点击打开崩溃报告。把它附到 GitHub issue 中有助于修复问题。"
 
 #: src/app.rs
+msgid "{} closed"
+msgstr "{} 已关闭"
+
+#: src/app.rs
 msgid "Pulsar could not open the details window"
 msgstr "Pulsar 无法打开详细信息窗口"
 
@@ -733,6 +737,22 @@ msgstr "所有驱动器"
 msgid "Throughput"
 msgstr "吞吐量"
 
+#: src/game.rs
+msgid "{} average"
+msgstr "平均 {}"
+
+#: src/game.rs
+msgid "1% low {}"
+msgstr "1% 低帧 {}"
+
+#: src/game.rs
+msgid "CPU up to {}"
+msgstr "CPU 最高 {}"
+
+#: src/game.rs
+msgid "GPU up to {}"
+msgstr "GPU 最高 {}"
+
 #: src/menu.rs
 msgid "Same as other items ({})"
 msgstr "与其他监控项相同（{}）"
@@ -860,6 +880,10 @@ msgstr "桌面小组件"
 #: src/menu.rs
 msgid "Lock widget"
 msgstr "锁定小组件"
+
+#: src/menu.rs
+msgid "Count {} as a game"
+msgstr "将 {} 视为游戏"
 
 #: src/menu.rs
 msgid "Settings…"
@@ -1744,6 +1768,34 @@ msgstr "测量对象"
 #: ui/settings.slint
 msgid "The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it."
 msgstr "前台应用：统计它绘制的帧，无论它在哪个显示器上。显示器：统计其画面变化的频率，无论由哪些应用绘制。"
+
+#: ui/settings.slint
+msgid "Games"
+msgstr "游戏"
+
+#: ui/settings.slint
+msgid "Show the strip in games"
+msgstr "在游戏中显示信息条"
+
+#: ui/settings.slint
+msgid "While a game is in front, the frame rate and your taskbar items appear in the top-left corner of its monitor. Borderless and windowed games only."
+msgstr "游戏位于前台时，帧率和任务栏项目会显示在其所在显示器的左上角。仅适用于无边框和窗口化游戏。"
+
+#: ui/settings.slint
+msgid "Summary when a game closes"
+msgstr "游戏关闭时显示总结"
+
+#: ui/settings.slint
+msgid "A notification with the time played, frame rate and peak temperatures, also saved to sessions.csv in the logs folder."
+msgstr "一条通知，包含游戏时长、帧率和最高温度，同时保存到日志文件夹中的 sessions.csv。"
+
+#: ui/settings.slint
+msgid "Which apps are games"
+msgstr "哪些应用是游戏"
+
+#: ui/settings.slint
+msgid "The games Windows recognises, as Game Bar does. To change that for an app, bring it to the front, then right-click Pulsar and use Count as a game."
+msgstr "即 Windows 识别的游戏，与 Game Bar 相同。要更改某个应用，请将其切换到前台，然后右键单击 Pulsar 并使用“视为游戏”。"
 
 #: ui/settings.slint
 msgid "Disks"
