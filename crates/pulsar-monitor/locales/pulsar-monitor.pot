@@ -47,6 +47,14 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr ""
 
 #: src/app.rs
+msgid "Shortcut already in use"
+msgstr ""
+
+#: src/app.rs
+msgid "Another app uses {}. Choose another in Settings."
+msgstr ""
+
+#: src/app.rs
 msgid "{} closed"
 msgstr ""
 
@@ -1367,6 +1375,14 @@ msgid "Max"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Press keys…"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Not set"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Use default"
 msgstr ""
 
@@ -1908,6 +1924,30 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Shortcuts"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Keyboard shortcuts"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Open system details"
 msgstr ""
 
 #: ui/settings.slint

@@ -50,6 +50,14 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr "点击打开崩溃报告。把它附到 GitHub issue 中有助于修复问题。"
 
 #: src/app.rs
+msgid "Shortcut already in use"
+msgstr "快捷键已被占用"
+
+#: src/app.rs
+msgid "Another app uses {}. Choose another in Settings."
+msgstr "其他应用正在使用 {}。请在设置中另选一个。"
+
+#: src/app.rs
 msgid "{} closed"
 msgstr "{} 已关闭"
 
@@ -1370,6 +1378,14 @@ msgid "Max"
 msgstr "最大值"
 
 #: ui/settings.slint
+msgid "Press keys…"
+msgstr "请按下按键…"
+
+#: ui/settings.slint
+msgid "Not set"
+msgstr "未设置"
+
+#: ui/settings.slint
 msgid "Use default"
 msgstr "使用默认"
 
@@ -1912,6 +1928,30 @@ msgstr "托盘图标"
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
 msgstr "在通知区域显示 Pulsar 图标。隐藏后，可右键单击任务栏上的监控条打开菜单，或再次启动 Pulsar 打开设置。"
+
+#: ui/settings.slint
+msgid "Shortcuts"
+msgstr "快捷键"
+
+#: ui/settings.slint
+msgid "Keyboard shortcuts"
+msgstr "键盘快捷键"
+
+#: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr "选中一个框并按下按键，需包含 Ctrl、Alt 或 Win。按 Backspace 清除。它们在 Windows 中随处可用。"
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr "显示或隐藏 Pulsar"
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr "打开或关闭桌面小组件"
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr "打开系统详细信息"
 
 #: ui/settings.slint
 msgid "Alerts"

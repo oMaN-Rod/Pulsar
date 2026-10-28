@@ -49,6 +49,14 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr "Selecciona para abrir el informe de error. Adjuntarlo a un issue de GitHub ayuda a corregirlo."
 
 #: src/app.rs
+msgid "Shortcut already in use"
+msgstr "Atajo ya en uso"
+
+#: src/app.rs
+msgid "Another app uses {}. Choose another in Settings."
+msgstr "Otra aplicación usa {}. Elige otro en Configuración."
+
+#: src/app.rs
 msgid "{} closed"
 msgstr "{} cerrado"
 
@@ -1369,6 +1377,14 @@ msgid "Max"
 msgstr "Máx."
 
 #: ui/settings.slint
+msgid "Press keys…"
+msgstr "Pulsa las teclas…"
+
+#: ui/settings.slint
+msgid "Not set"
+msgstr "Sin definir"
+
+#: ui/settings.slint
 msgid "Use default"
 msgstr "Usar predeterminado"
 
@@ -1911,6 +1927,30 @@ msgstr "Icono en la bandeja"
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
 msgstr "Muestra Pulsar en el área de notificación. Si está oculto, haz clic derecho en la superposición para ver el menú, o vuelve a iniciar Pulsar para abrir la configuración."
+
+#: ui/settings.slint
+msgid "Shortcuts"
+msgstr "Atajos"
+
+#: ui/settings.slint
+msgid "Keyboard shortcuts"
+msgstr "Atajos de teclado"
+
+#: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr "Selecciona un cuadro y pulsa las teclas, con Ctrl, Alt o Win. Retroceso lo borra. Funcionan en cualquier parte de Windows."
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr "Mostrar u ocultar Pulsar"
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr "Activar o desactivar el widget de escritorio"
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr "Abrir los detalles del sistema"
 
 #: ui/settings.slint
 msgid "Alerts"

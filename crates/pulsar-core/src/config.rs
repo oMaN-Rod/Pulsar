@@ -188,6 +188,7 @@ pub struct Config {
     pub frames: FramesConfig,
     pub game: GameConfig,
     pub alerts: AlertsConfig,
+    pub hotkeys: HotkeysConfig,
     /// Sampled while a game runs, for its summary, though not shown.
     #[serde(skip)]
     pub session_items: Vec<ItemKind>,
@@ -204,6 +205,21 @@ pub struct GameConfig {
     pub games: Vec<String>,
     /// And those marked as not games, though Windows lists them.
     pub not_games: Vec<String>,
+}
+
+/// Keyboard shortcuts, as `Hotkey` text; none is set at first.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct HotkeysConfig {
+    pub show_hide: Option<String>,
+    pub widget: Option<String>,
+    pub details: Option<String>,
+}
+
+impl HotkeysConfig {
+    pub fn all(&self) -> [&Option<String>; 3] {
+        [&self.show_hide, &self.widget, &self.details]
+    }
 }
 
 /// An alert and the reading it fires at.
@@ -448,6 +464,7 @@ impl Default for Config {
             frames: FramesConfig::default(),
             game: GameConfig::default(),
             alerts: AlertsConfig::default(),
+            hotkeys: HotkeysConfig::default(),
             session_items: Vec::new(),
         }
     }
@@ -560,6 +577,13 @@ impl Config {
             if color.as_deref().is_some_and(|c| !is_hex_color(c)) {
                 *color = None;
             }
+        }
+        let h = &mut self.hotkeys;
+        for key in [&mut h.show_hide, &mut h.widget, &mut h.details] {
+            *key = key
+                .as_deref()
+                .and_then(crate::hotkey::Hotkey::parse)
+                .map(|k| k.to_string());
         }
         let (a, d) = (&mut self.alerts, AlertsConfig::default());
         for (alarm, default, range) in [
@@ -1277,6 +1301,17 @@ on = true
             }
         );
         assert_eq!(c.alerts.cpu.limit, 90);
+    }
+
+    #[test]
+    fn shortcuts_are_normalised_and_bad_ones_dropped() {
+        let mut c = Config::default();
+        c.hotkeys.widget = Some("alt+ctrl+w".into());
+        c.hotkeys.details = Some("Q".into());
+        let c = c.sanitize();
+        assert_eq!(c.hotkeys.widget.as_deref(), Some("Ctrl+Alt+W"));
+        assert_eq!(c.hotkeys.details, None);
+        assert_eq!(c.hotkeys.show_hide, None);
     }
 
     #[test]

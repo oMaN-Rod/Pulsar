@@ -122,6 +122,10 @@ The frame rate and temperatures need the [sensor service](#sensor-service). A ga
 
 Pulsar can warn you with a notification when the CPU or GPU stays above a temperature for half a minute, when the battery runs low while unplugged, or when a drive is nearly full. Each alert is off until you turn it on in *Settings → General*, and fires again only once its reading has recovered. The CPU temperature alert needs the [sensor service](#sensor-service).
 
+### Shortcuts
+
+Set keyboard shortcuts in *Settings → General* to show or hide Pulsar, turn the desktop widget on or off, and open the system details window. They work anywhere in Windows and are not set until you choose them.
+
 ### Make it yours
 
 - theme presets

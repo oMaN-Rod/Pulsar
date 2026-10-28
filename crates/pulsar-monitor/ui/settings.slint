@@ -23,6 +23,35 @@ export struct ThemeCard {
     items: [color],
 }
 
+// Shows a shortcut, and records the next key pressed while it has focus.
+component HotkeyField inherits Rectangle {
+    in property <string> text;
+    callback pressed(KeyEvent);
+    width: 180px;
+    height: 32px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: keys.has-focus ? Palette.accent-background : Palette.border;
+    background: Palette.control-background;
+    keys := FocusScope {
+        key-pressed(event) => {
+            root.pressed(event);
+            accept
+        }
+    }
+    TouchArea {
+        clicked => { keys.focus(); }
+    }
+    Text {
+        x: 10px;
+        width: parent.width - 20px;
+        vertical-alignment: center;
+        overflow: elide;
+        color: root.text == "" && !keys.has-focus ? Palette.control-foreground.transparentize(45%) : Palette.control-foreground;
+        text: keys.has-focus ? @tr("Press keys…") : root.text == "" ? @tr("Not set") : root.text;
+    }
+}
+
 export struct WidgetItemRow {
     name: string,
     checked: bool,
@@ -555,6 +584,11 @@ export component SettingsWindow inherits Window {
     in-out property <int> alert-drives-limit;
     // The unit the temperature limits were filled in.
     in property <bool> alert-fahrenheit;
+    in property <string> hotkey-show-hide;
+    in property <string> hotkey-widget;
+    in property <string> hotkey-details;
+    // Which shortcut, the key's text, then Ctrl, Alt, Shift and Win.
+    callback hotkey-pressed(int, string, bool, bool, bool, bool);
     in property <string> version;
     in property <string> config-path;
     in property <string> logs-path;
@@ -1520,6 +1554,43 @@ export component SettingsWindow inherits Window {
                         Switch {
                             checked <=> root.tray-icon;
                             toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Shortcuts"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Keyboard shortcuts");
+                        description: @tr("Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows.");
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Show or hide Pulsar");
+                        HotkeyField {
+                            text: root.hotkey-show-hide;
+                            pressed(event) => {
+                                root.hotkey-pressed(0, event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Turn the desktop widget on or off");
+                        HotkeyField {
+                            text: root.hotkey-widget;
+                            pressed(event) => {
+                                root.hotkey-pressed(1, event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Open system details");
+                        HotkeyField {
+                            text: root.hotkey-details;
+                            pressed(event) => {
+                                root.hotkey-pressed(2, event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                            }
                         }
                     }
                 }

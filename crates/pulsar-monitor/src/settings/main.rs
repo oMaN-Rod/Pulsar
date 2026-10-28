@@ -19,6 +19,7 @@ use std::time::{Duration, SystemTime};
 use pulsar_core::colors::{self, default_rgb};
 use pulsar_core::config::{self, Config};
 use pulsar_core::hardware::displays::{self, Display};
+use pulsar_core::hotkey::Hotkey;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::single_instance::SingleInstance;
@@ -364,6 +365,9 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_ping_interval_ms(f.ping_interval_ms);
     ui.set_alert_fahrenheit(f.alert_fahrenheit);
     ui.set_alert_cpu(f.alert_cpu);
+    ui.set_hotkey_show_hide(f.hotkey_show_hide.as_str().into());
+    ui.set_hotkey_widget(f.hotkey_widget.as_str().into());
+    ui.set_hotkey_details(f.hotkey_details.as_str().into());
     ui.set_alert_cpu_limit(f.alert_cpu_limit);
     ui.set_alert_gpu(f.alert_gpu);
     ui.set_alert_gpu_limit(f.alert_gpu_limit);
@@ -445,6 +449,9 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         alert_drives: ui.get_alert_drives(),
         alert_drives_limit: ui.get_alert_drives_limit(),
         alert_fahrenheit: ui.get_alert_fahrenheit(),
+        hotkey_show_hide: ui.get_hotkey_show_hide().to_string(),
+        hotkey_widget: ui.get_hotkey_widget().to_string(),
+        hotkey_details: ui.get_hotkey_details().to_string(),
         drives: if ui.get_per_drive() {
             ui.get_drive_rows()
                 .iter()
@@ -886,6 +893,27 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut new = s.config.clone();
             new.display.float_position = None;
             write(&mut s, new);
+        }
+    });
+    ui.on_hotkey_pressed({
+        let weak = ui.as_weak();
+        move |which, text, ctrl, alt, shift, win| {
+            let Some(ui) = weak.upgrade() else { return };
+            let value = match text.as_str() {
+                // Escape, Backspace and Delete clear the shortcut.
+                "\u{1b}" | "\u{8}" | "\u{7f}" => String::new(),
+                text => match Hotkey::from_press(text, ctrl, alt, shift, win) {
+                    Some(key) => key.to_string(),
+                    None => return,
+                },
+            };
+            let value = SharedString::from(value);
+            match which {
+                0 => ui.set_hotkey_show_hide(value),
+                1 => ui.set_hotkey_widget(value),
+                _ => ui.set_hotkey_details(value),
+            }
+            ui.invoke_changed();
         }
     });
     ui.on_widget_item_choice({

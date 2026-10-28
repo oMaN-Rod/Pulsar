@@ -9,6 +9,7 @@ pub mod format;
 pub mod games;
 pub mod hardware;
 pub mod history;
+pub mod hotkey;
 pub mod ipc;
 pub mod l10n;
 pub mod layout;

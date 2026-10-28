@@ -102,6 +102,10 @@ pub struct Form {
     pub alert_drives: bool,
     pub alert_drives_limit: i32,
     pub alert_fahrenheit: bool,
+    /// Shortcuts as text; empty when not set.
+    pub hotkey_show_hide: String,
+    pub hotkey_widget: String,
+    pub hotkey_details: String,
     pub network_bits: bool,
     pub upload_on_top: bool,
     pub game_strip: bool,
@@ -285,6 +289,9 @@ pub fn to_form(c: &Config) -> Form {
         alert_drives: c.alerts.drives.on,
         alert_drives_limit: c.alerts.drives.limit as i32,
         alert_fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
+        hotkey_show_hide: c.hotkeys.show_hide.clone().unwrap_or_default(),
+        hotkey_widget: c.hotkeys.widget.clone().unwrap_or_default(),
+        hotkey_details: c.hotkeys.details.clone().unwrap_or_default(),
         network_bits: c.units.network == RateUnit::Bits,
         upload_on_top: d.upload_on_top,
         game_strip: c.game.strip,
@@ -365,6 +372,9 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     c.alerts.battery.limit = f.alert_battery_limit.max(0) as u32;
     c.alerts.drives.on = f.alert_drives;
     c.alerts.drives.limit = f.alert_drives_limit.max(0) as u32;
+    c.hotkeys.show_hide = non_empty(&f.hotkey_show_hide);
+    c.hotkeys.widget = non_empty(&f.hotkey_widget);
+    c.hotkeys.details = non_empty(&f.hotkey_details);
     c.general.autostart = f.autostart;
     c.general.update_check = f.update_check;
     c.general.tray_icon = f.tray_icon;
@@ -784,6 +794,7 @@ mod tests {
         c.popup.processes = 10;
         c.game.strip = false;
         c.game.games = vec!["game.exe".into()];
+        c.hotkeys.widget = Some("Ctrl+Alt+W".into());
         let c = c.sanitize();
         assert_eq!(to_config(&to_form(&c), &c), c);
     }

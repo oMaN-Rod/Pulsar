@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 use pulsar_core::alerts::Alerts;
 use pulsar_core::config::{self, Config, Position};
 use pulsar_core::history::HistoryStore;
+use pulsar_core::hotkey::Hotkey;
 use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
 use pulsar_core::update::{self as release, Outcome, UpdateState};
@@ -15,7 +16,8 @@ use pulsar_core::{crash, games, paths, sampler, tr};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    ReleaseCapture, SetCapture, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
+    MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN, RegisterHotKey, ReleaseCapture,
+    SetCapture, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent, UnregisterHotKey,
 };
 use windows::Win32::UI::Shell::{
     ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, NIN_BALLOONTIMEOUT, NIN_BALLOONUSERCLICK,
@@ -25,9 +27,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
     GetForegroundWindow, GetMessageW, GetSystemMetrics, KillTimer, MA_NOACTIVATE, MSG,
     PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SM_CXDRAG, SetTimer, TranslateMessage,
-    WM_CAPTURECHANGED, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETCURSOR, WM_SETTINGCHANGE, WM_TIMER,
-    WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+    WM_CAPTURECHANGED, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN,
+    WM_LBUTTONUP, WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETCURSOR, WM_SETTINGCHANGE,
+    WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
@@ -167,6 +169,10 @@ pub struct App {
     last_app: Option<String>,
     game: Option<Game>,
     alerts: Alerts,
+    /// Hidden with the shortcut until it is pressed again.
+    hidden: bool,
+    /// Shortcuts another app had taken, last time they were registered.
+    hotkeys_taken: Vec<String>,
 }
 
 /// What drawing an overlay needs besides the overlay.
@@ -213,6 +219,8 @@ impl Paint<'_> {
 /// The Windows game list is read again when older than this.
 const GAMES_REREAD: Duration = Duration::from_secs(60);
 const SESSIONS_FILE: &str = "sessions.csv";
+/// The shortcuts' IDs, in the order of `HotkeysConfig::all`.
+const HOTKEY_BASE: i32 = 1;
 
 impl App {
     fn new(instance: HINSTANCE, host: HWND) -> Result<Self> {
@@ -271,6 +279,8 @@ impl App {
             last_app: None,
             game: None,
             alerts: Alerts::default(),
+            hidden: false,
+            hotkeys_taken: Vec::new(),
         })
     }
 
@@ -282,7 +292,60 @@ impl App {
         }
         self.fullscreen = Debounce::new(taskbar::fullscreen_monitor());
         self.register_appbar(ABM_NEW);
+        self.register_hotkeys();
         self.refresh();
+    }
+
+    fn register_hotkeys(&mut self) {
+        let mut taken = Vec::new();
+        for (i, key) in self.config.hotkeys.all().into_iter().enumerate() {
+            let id = HOTKEY_BASE + i as i32;
+            unsafe {
+                let _ = UnregisterHotKey(Some(self.host), id);
+            }
+            let Some(key) = key.as_deref().and_then(Hotkey::parse) else {
+                continue;
+            };
+            let mut modifiers = MOD_NOREPEAT;
+            for (on, flag) in [
+                (key.ctrl, MOD_CONTROL),
+                (key.alt, MOD_ALT),
+                (key.shift, MOD_SHIFT),
+                (key.win, MOD_WIN),
+            ] {
+                if on {
+                    modifiers |= flag;
+                }
+            }
+            let registered =
+                unsafe { RegisterHotKey(Some(self.host), id, modifiers, key.virtual_key()) };
+            if registered.is_err() {
+                taken.push(key.to_string());
+            }
+        }
+        if !taken.is_empty() && taken != self.hotkeys_taken {
+            self.tray.warn(
+                tr!("Shortcut already in use"),
+                &tr!(
+                    "Another app uses {}. Choose another in Settings.",
+                    taken.join(", ")
+                ),
+            );
+        }
+        self.hotkeys_taken = taken;
+    }
+
+    fn on_hotkey(&mut self, id: usize) {
+        match id as i32 - HOTKEY_BASE {
+            0 => {
+                self.hidden = !self.hidden;
+                self.close_popup();
+                self.refresh();
+            }
+            1 => self.change_config(|c| menu::apply_toggle(c, menu::Toggle::Widget)),
+            2 => self.open_details(None),
+            _ => {}
+        }
     }
 
     /// Rediscovers taskbars, reconciles overlays with them and repositions.
@@ -403,8 +466,9 @@ impl App {
             });
             (placement, tb.monitor)
         };
-        let covered =
-            self.config.display.hide_in_fullscreen && *self.fullscreen.current() == Some(monitor);
+        let covered = self.hidden
+            || (self.config.display.hide_in_fullscreen
+                && *self.fullscreen.current() == Some(monitor));
         match placement {
             Placement::At { x, y } if !covered => {
                 let o = &mut self.overlays[i];
@@ -600,7 +664,7 @@ impl App {
         let Some(pid) = self.game.as_ref().map(|g| g.pid) else {
             return;
         };
-        if !self.config.game.strip || taskbar::process_id(foreground) != pid {
+        if self.hidden || !self.config.game.strip || taskbar::process_id(foreground) != pid {
             if let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut()) {
                 strip.hide();
             }
@@ -693,6 +757,10 @@ impl App {
     /// Draws the widget, or hides it when it is off, empty, or covered by a
     /// fullscreen app on its monitor.
     fn show_widget(&mut self) {
+        if self.hidden {
+            self.widget.hide();
+            return;
+        }
         let w = &self.config.widget;
         let items = self.config.widget_items();
         if items.is_empty() {
@@ -1238,7 +1306,11 @@ impl App {
                 .iter_mut()
                 .for_each(Overlay::invalidate_layout);
         }
+        let hotkeys_changed = new.hotkeys != self.config.hotkeys;
         self.config = new;
+        if hotkeys_changed {
+            self.register_hotkeys();
+        }
         self.tray.set_visible(self.config.general.tray_icon);
         self.palette = Palette::current(&self.config);
         if !self.config.display.hover_popup {
@@ -1413,6 +1485,9 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
         }
         WM_DISPLAYCHANGE => {
             with_app(App::refresh);
+        }
+        WM_HOTKEY => {
+            with_app(|a| a.on_hotkey(wp.0));
         }
         WM_DESTROY => unsafe { PostQuitMessage(0) },
         _ => return unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
