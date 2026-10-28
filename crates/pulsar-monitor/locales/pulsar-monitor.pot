@@ -6,6 +6,34 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
+#: src/alerts.rs
+msgid "CPU at {}"
+msgstr ""
+
+#: src/alerts.rs
+msgid "Above your limit of {} for half a minute."
+msgstr ""
+
+#: src/alerts.rs
+msgid "GPU at {}"
+msgstr ""
+
+#: src/alerts.rs
+msgid "Battery at {}"
+msgstr ""
+
+#: src/alerts.rs
+msgid "Plug in soon."
+msgstr ""
+
+#: src/alerts.rs
+msgid "Drive {}: is nearly full"
+msgstr ""
+
+#: src/alerts.rs
+msgid "{} free."
+msgstr ""
+
 #: src/app.rs
 msgid "Pulsar settings reset"
 msgstr ""
@@ -1880,6 +1908,50 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Alerts"
+msgstr ""
+
+#: ui/settings.slint
+msgid "CPU temperature (°F)"
+msgstr ""
+
+#: ui/settings.slint
+msgid "CPU temperature (°C)"
+msgstr ""
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute. Needs the sensor service."
+msgstr ""
+
+#: ui/settings.slint
+msgid "GPU temperature (°F)"
+msgstr ""
+
+#: ui/settings.slint
+msgid "GPU temperature (°C)"
+msgstr ""
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Battery charge (%)"
+msgstr ""
+
+#: ui/settings.slint
+msgid "When it falls to this on battery power."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Drive free space (%)"
+msgstr ""
+
+#: ui/settings.slint
+msgid "When any drive falls to this."
 msgstr ""
 
 #: ui/settings.slint

@@ -8,6 +8,34 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+#: src/alerts.rs
+msgid "CPU at {}"
+msgstr "CPU a {}"
+
+#: src/alerts.rs
+msgid "Above your limit of {} for half a minute."
+msgstr "Por encima de tu límite de {} durante medio minuto."
+
+#: src/alerts.rs
+msgid "GPU at {}"
+msgstr "GPU a {}"
+
+#: src/alerts.rs
+msgid "Battery at {}"
+msgstr "Batería al {}"
+
+#: src/alerts.rs
+msgid "Plug in soon."
+msgstr "Conéctalo pronto."
+
+#: src/alerts.rs
+msgid "Drive {}: is nearly full"
+msgstr "La unidad {}: está casi llena"
+
+#: src/alerts.rs
+msgid "{} free."
+msgstr "{} libres."
+
 #: src/app.rs
 msgid "Pulsar settings reset"
 msgstr "Se restableció la configuración de Pulsar"
@@ -1883,6 +1911,50 @@ msgstr "Icono en la bandeja"
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
 msgstr "Muestra Pulsar en el área de notificación. Si está oculto, haz clic derecho en la superposición para ver el menú, o vuelve a iniciar Pulsar para abrir la configuración."
+
+#: ui/settings.slint
+msgid "Alerts"
+msgstr "Alertas"
+
+#: ui/settings.slint
+msgid "CPU temperature (°F)"
+msgstr "Temperatura de la CPU (°F)"
+
+#: ui/settings.slint
+msgid "CPU temperature (°C)"
+msgstr "Temperatura de la CPU (°C)"
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute. Needs the sensor service."
+msgstr "Cuando se mantiene en este valor o por encima durante medio minuto. Requiere el servicio de sensores."
+
+#: ui/settings.slint
+msgid "GPU temperature (°F)"
+msgstr "Temperatura de la GPU (°F)"
+
+#: ui/settings.slint
+msgid "GPU temperature (°C)"
+msgstr "Temperatura de la GPU (°C)"
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute."
+msgstr "Cuando se mantiene en este valor o por encima durante medio minuto."
+
+#: ui/settings.slint
+msgid "Battery charge (%)"
+msgstr "Carga de la batería (%)"
+
+#: ui/settings.slint
+msgid "When it falls to this on battery power."
+msgstr "Cuando baja a este valor con la batería."
+
+#: ui/settings.slint
+msgid "Drive free space (%)"
+msgstr "Espacio libre en la unidad (%)"
+
+#: ui/settings.slint
+msgid "When any drive falls to this."
+msgstr "Cuando cualquier unidad baja a este valor."
 
 #: ui/settings.slint
 msgid "Sampling"

@@ -1,3 +1,4 @@
+pub mod alerts;
 pub mod colors;
 pub mod config;
 pub mod crash;

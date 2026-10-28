@@ -9,6 +9,34 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
+#: src/alerts.rs
+msgid "CPU at {}"
+msgstr "CPU 已达 {}"
+
+#: src/alerts.rs
+msgid "Above your limit of {} for half a minute."
+msgstr "已持续半分钟高于你设置的 {} 上限。"
+
+#: src/alerts.rs
+msgid "GPU at {}"
+msgstr "GPU 已达 {}"
+
+#: src/alerts.rs
+msgid "Battery at {}"
+msgstr "电池电量 {}"
+
+#: src/alerts.rs
+msgid "Plug in soon."
+msgstr "请尽快接通电源。"
+
+#: src/alerts.rs
+msgid "Drive {}: is nearly full"
+msgstr "驱动器 {}: 快满了"
+
+#: src/alerts.rs
+msgid "{} free."
+msgstr "剩余 {}。"
+
 #: src/app.rs
 msgid "Pulsar settings reset"
 msgstr "Pulsar 设置已重置"
@@ -1884,6 +1912,50 @@ msgstr "托盘图标"
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
 msgstr "在通知区域显示 Pulsar 图标。隐藏后，可右键单击任务栏上的监控条打开菜单，或再次启动 Pulsar 打开设置。"
+
+#: ui/settings.slint
+msgid "Alerts"
+msgstr "警报"
+
+#: ui/settings.slint
+msgid "CPU temperature (°F)"
+msgstr "CPU 温度（°F）"
+
+#: ui/settings.slint
+msgid "CPU temperature (°C)"
+msgstr "CPU 温度（°C）"
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute. Needs the sensor service."
+msgstr "达到或超过此值并持续半分钟时。需要传感器服务。"
+
+#: ui/settings.slint
+msgid "GPU temperature (°F)"
+msgstr "GPU 温度（°F）"
+
+#: ui/settings.slint
+msgid "GPU temperature (°C)"
+msgstr "GPU 温度（°C）"
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute."
+msgstr "达到或超过此值并持续半分钟时。"
+
+#: ui/settings.slint
+msgid "Battery charge (%)"
+msgstr "电池电量（%）"
+
+#: ui/settings.slint
+msgid "When it falls to this on battery power."
+msgstr "使用电池供电且降至此值时。"
+
+#: ui/settings.slint
+msgid "Drive free space (%)"
+msgstr "驱动器可用空间（%）"
+
+#: ui/settings.slint
+msgid "When any drive falls to this."
+msgstr "任一驱动器降至此值时。"
 
 #: ui/settings.slint
 msgid "Sampling"

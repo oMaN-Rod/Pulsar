@@ -362,6 +362,15 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     refresh_swatches(ui);
     ui.set_ping_host(f.ping_host.as_str().into());
     ui.set_ping_interval_ms(f.ping_interval_ms);
+    ui.set_alert_fahrenheit(f.alert_fahrenheit);
+    ui.set_alert_cpu(f.alert_cpu);
+    ui.set_alert_cpu_limit(f.alert_cpu_limit);
+    ui.set_alert_gpu(f.alert_gpu);
+    ui.set_alert_gpu_limit(f.alert_gpu_limit);
+    ui.set_alert_battery(f.alert_battery);
+    ui.set_alert_battery_limit(f.alert_battery_limit);
+    ui.set_alert_drives(f.alert_drives);
+    ui.set_alert_drives_limit(f.alert_drives_limit);
 }
 
 fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
@@ -427,6 +436,15 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
             .collect(),
         ping_host: ui.get_ping_host().to_string(),
         ping_interval_ms: ui.get_ping_interval_ms(),
+        alert_cpu: ui.get_alert_cpu(),
+        alert_cpu_limit: ui.get_alert_cpu_limit(),
+        alert_gpu: ui.get_alert_gpu(),
+        alert_gpu_limit: ui.get_alert_gpu_limit(),
+        alert_battery: ui.get_alert_battery(),
+        alert_battery_limit: ui.get_alert_battery_limit(),
+        alert_drives: ui.get_alert_drives(),
+        alert_drives_limit: ui.get_alert_drives_limit(),
+        alert_fahrenheit: ui.get_alert_fahrenheit(),
         drives: if ui.get_per_drive() {
             ui.get_drive_rows()
                 .iter()

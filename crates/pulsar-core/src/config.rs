@@ -187,6 +187,7 @@ pub struct Config {
     pub widget: WidgetConfig,
     pub frames: FramesConfig,
     pub game: GameConfig,
+    pub alerts: AlertsConfig,
     /// Sampled while a game runs, for its summary, though not shown.
     #[serde(skip)]
     pub session_items: Vec<ItemKind>,
@@ -203,6 +204,59 @@ pub struct GameConfig {
     pub games: Vec<String>,
     /// And those marked as not games, though Windows lists them.
     pub not_games: Vec<String>,
+}
+
+/// An alert and the reading it fires at.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Alarm {
+    pub on: bool,
+    pub limit: u32,
+}
+
+/// Notifications for readings that cross a limit; all off at first.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AlertsConfig {
+    /// °C, held for half a minute.
+    pub cpu: Alarm,
+    pub gpu: Alarm,
+    /// Percent left, on battery power.
+    pub battery: Alarm,
+    /// Percent free on any drive.
+    pub drives: Alarm,
+}
+
+impl Default for AlertsConfig {
+    fn default() -> Self {
+        let off = |limit| Alarm { on: false, limit };
+        Self {
+            cpu: off(90),
+            gpu: off(85),
+            battery: off(15),
+            drives: off(10),
+        }
+    }
+}
+
+pub const CPU_ALERT_C: std::ops::RangeInclusive<u32> = 50..=110;
+pub const GPU_ALERT_C: std::ops::RangeInclusive<u32> = 50..=110;
+pub const BATTERY_ALERT_PERCENT: std::ops::RangeInclusive<u32> = 5..=50;
+pub const DRIVE_ALERT_PERCENT: std::ops::RangeInclusive<u32> = 1..=50;
+
+impl AlertsConfig {
+    /// The items whose readings the alerts that are on watch.
+    pub fn items(&self) -> Vec<ItemKind> {
+        [
+            (self.cpu.on, ItemKind::CpuTemp),
+            (self.gpu.on, ItemKind::GpuTemp),
+            (self.battery.on, ItemKind::Battery),
+            (self.drives.on, ItemKind::Disk),
+        ]
+        .into_iter()
+        .filter_map(|(on, kind)| on.then_some(kind))
+        .collect()
+    }
 }
 
 impl GameConfig {
@@ -393,6 +447,7 @@ impl Default for Config {
             widget: WidgetConfig::default(),
             frames: FramesConfig::default(),
             game: GameConfig::default(),
+            alerts: AlertsConfig::default(),
             session_items: Vec::new(),
         }
     }
@@ -506,6 +561,19 @@ impl Config {
                 *color = None;
             }
         }
+        let (a, d) = (&mut self.alerts, AlertsConfig::default());
+        for (alarm, default, range) in [
+            (&mut a.cpu, d.cpu, CPU_ALERT_C),
+            (&mut a.gpu, d.gpu, GPU_ALERT_C),
+            (&mut a.battery, d.battery, BATTERY_ALERT_PERCENT),
+            (&mut a.drives, d.drives, DRIVE_ALERT_PERCENT),
+        ] {
+            // A limit left out of the file reads as zero.
+            if alarm.limit == 0 {
+                alarm.limit = default.limit;
+            }
+            alarm.limit = alarm.limit.clamp(*range.start(), *range.end());
+        }
         for names in [&mut self.game.games, &mut self.game.not_games] {
             for n in names.iter_mut() {
                 *n = n.trim().to_lowercase();
@@ -617,6 +685,7 @@ impl Config {
             .widget_items()
             .into_iter()
             .chain(self.session_items.iter().copied())
+            .chain(self.alerts.items())
         {
             if !all.contains(&kind) {
                 all.push(kind);
@@ -629,6 +698,7 @@ impl Config {
         self.is_enabled(kind)
             || self.widget_items().contains(&kind)
             || self.session_items.contains(&kind)
+            || self.alerts.items().contains(&kind)
     }
 
     /// Items whose graph tile shows text only.
@@ -1178,6 +1248,35 @@ panel_opacity = 60
         assert!(c.is_sampled(ItemKind::Fps));
         assert!(c.sampled_items().contains(&ItemKind::Fps));
         assert!(!toml::to_string(&c).unwrap().contains("session_items"));
+    }
+
+    #[test]
+    fn alerts_start_off_clamp_their_limits_and_sample_their_items() {
+        let mut c = Config::default();
+        assert!(c.alerts.items().is_empty());
+        c.alerts.cpu = Alarm {
+            on: true,
+            limit: 500,
+        };
+        c.alerts.drives.on = true;
+        let c = c.sanitize();
+        assert_eq!(c.alerts.cpu.limit, 110);
+        assert!(c.is_sampled(ItemKind::CpuTemp) && c.is_sampled(ItemKind::Disk));
+        let c: Config = toml::from_str(
+            "[alerts.battery]
+on = true
+",
+        )
+        .unwrap();
+        let c = c.sanitize();
+        assert_eq!(
+            c.alerts.battery,
+            Alarm {
+                on: true,
+                limit: 15
+            }
+        );
+        assert_eq!(c.alerts.cpu.limit, 90);
     }
 
     #[test]

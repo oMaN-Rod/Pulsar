@@ -118,11 +118,15 @@ Two options in *Settings → Sensors*, both off until you turn them on:
 
 The frame rate and temperatures need the [sensor service](#sensor-service). A game is any app Windows recognises as one, as Game Bar does. To change that for an app, bring it to the front, right-click Pulsar and choose *Count … as a game*.
 
+### Alerts
+
+Pulsar can warn you with a notification when the CPU or GPU stays above a temperature for half a minute, when the battery runs low while unplugged, or when a drive is nearly full. Each alert is off until you turn it on in *Settings → General*, and fires again only once its reading has recovered. The CPU temperature alert needs the [sensor service](#sensor-service).
+
 ### Make it yours
 
 - theme presets
 - label, value and item colours, with separate label and value colours for a light taskbar
-- tile and panel backgrounds, which help on TranslucentTB and similar
+- tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
 - temperatures in °C or °F, network rates in bytes or bits per second, and upload shown above download if you prefer
 - each drive as its own item, showing its activity or used space, and one network adapter or all physical ones

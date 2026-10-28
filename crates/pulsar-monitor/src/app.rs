@@ -5,6 +5,7 @@ use std::sync::atomic::Ordering;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
+use pulsar_core::alerts::Alerts;
 use pulsar_core::config::{self, Config, Position};
 use pulsar_core::history::HistoryStore;
 use pulsar_core::ipc;
@@ -30,6 +31,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
+use crate::alerts;
 use crate::details::Details;
 use crate::drag::Drag;
 use crate::fade::{self, Debounce};
@@ -164,6 +166,7 @@ pub struct App {
     /// as a game.
     last_app: Option<String>,
     game: Option<Game>,
+    alerts: Alerts,
 }
 
 /// What drawing an overlay needs besides the overlay.
@@ -267,6 +270,7 @@ impl App {
             last_foreground: HWND::default(),
             last_app: None,
             game: None,
+            alerts: Alerts::default(),
         })
     }
 
@@ -797,6 +801,13 @@ impl App {
             if let Some(g) = &mut self.game {
                 let in_front = taskbar::process_id(unsafe { GetForegroundWindow() }) == g.pid;
                 g.session.record(&snapshot, in_front);
+            }
+            let due = self
+                .alerts
+                .check(&self.config.alerts, &snapshot, Instant::now());
+            for alert in due {
+                let (title, message) = alerts::text(alert, &snapshot, &self.config.alerts);
+                self.tray.warn(&title, &message);
             }
             for (id, change) in sampler::error_changes(&self.latest.errors, &snapshot.errors) {
                 match change {

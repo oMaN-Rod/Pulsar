@@ -91,6 +91,17 @@ pub struct Form {
     /// A language code, or empty to follow Windows.
     pub language: String,
     pub fahrenheit: bool,
+    /// Alerts and their limits; temperatures in the unit the form was
+    /// filled in, which `alert_fahrenheit` records.
+    pub alert_cpu: bool,
+    pub alert_cpu_limit: i32,
+    pub alert_gpu: bool,
+    pub alert_gpu_limit: i32,
+    pub alert_battery: bool,
+    pub alert_battery_limit: i32,
+    pub alert_drives: bool,
+    pub alert_drives_limit: i32,
+    pub alert_fahrenheit: bool,
     pub network_bits: bool,
     pub upload_on_top: bool,
     pub game_strip: bool,
@@ -265,6 +276,15 @@ pub fn to_form(c: &Config) -> Form {
         frame_monitor: c.frames.monitor.clone().unwrap_or_default(),
         language: c.general.language.clone().unwrap_or_default(),
         fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
+        alert_cpu: c.alerts.cpu.on,
+        alert_cpu_limit: shown_temp(c.alerts.cpu.limit, c),
+        alert_gpu: c.alerts.gpu.on,
+        alert_gpu_limit: shown_temp(c.alerts.gpu.limit, c),
+        alert_battery: c.alerts.battery.on,
+        alert_battery_limit: c.alerts.battery.limit as i32,
+        alert_drives: c.alerts.drives.on,
+        alert_drives_limit: c.alerts.drives.limit as i32,
+        alert_fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
         network_bits: c.units.network == RateUnit::Bits,
         upload_on_top: d.upload_on_top,
         game_strip: c.game.strip,
@@ -317,8 +337,34 @@ fn clamp_u8(v: i32) -> u8 {
 
 /// Builds a sanitised config from the form, keeping anything the form does
 /// not show (such as the file version) from `base`.
+/// A temperature limit in the unit the user reads temperatures in.
+fn shown_temp(celsius: u32, c: &Config) -> i32 {
+    if c.units.temperature == TemperatureUnit::Fahrenheit {
+        (f64::from(celsius) * 9.0 / 5.0 + 32.0).round() as i32
+    } else {
+        celsius as i32
+    }
+}
+
+fn celsius(shown: i32, fahrenheit: bool) -> u32 {
+    let c = if fahrenheit {
+        ((f64::from(shown) - 32.0) * 5.0 / 9.0).round() as i32
+    } else {
+        shown
+    };
+    c.max(0) as u32
+}
+
 pub fn to_config(f: &Form, base: &Config) -> Config {
     let mut c = base.clone();
+    c.alerts.cpu.on = f.alert_cpu;
+    c.alerts.cpu.limit = celsius(f.alert_cpu_limit, f.alert_fahrenheit);
+    c.alerts.gpu.on = f.alert_gpu;
+    c.alerts.gpu.limit = celsius(f.alert_gpu_limit, f.alert_fahrenheit);
+    c.alerts.battery.on = f.alert_battery;
+    c.alerts.battery.limit = f.alert_battery_limit.max(0) as u32;
+    c.alerts.drives.on = f.alert_drives;
+    c.alerts.drives.limit = f.alert_drives_limit.max(0) as u32;
     c.general.autostart = f.autostart;
     c.general.update_check = f.update_check;
     c.general.tray_icon = f.tray_icon;
@@ -706,6 +752,23 @@ mod tests {
         let out = to_config(&f, &c);
         assert!(!out.items[0].graph);
         assert_eq!(out.items[0].style, GraphStyle::Meter);
+    }
+
+    #[test]
+    fn alert_limits_show_in_the_temperature_unit_and_round_trip() {
+        let mut c = Config::default();
+        c.units.temperature = TemperatureUnit::Fahrenheit;
+        c.alerts.cpu.on = true;
+        c.alerts.battery.on = true;
+        let c = c.sanitize();
+        let f = to_form(&c);
+        assert_eq!((f.alert_cpu_limit, f.alert_gpu_limit), (194, 185));
+        assert_eq!(to_config(&f, &c), c);
+        for limit in 50..=110 {
+            let mut c = c.clone();
+            c.alerts.gpu.limit = limit;
+            assert_eq!(to_config(&to_form(&c), &c).alerts.gpu.limit, limit);
+        }
     }
 
     #[test]

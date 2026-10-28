@@ -545,6 +545,16 @@ export component SettingsWindow inherits Window {
     in-out property <[ItemRow]> items;
     in-out property <string> ping-host;
     in-out property <int> ping-interval-ms;
+    in-out property <bool> alert-cpu;
+    in-out property <int> alert-cpu-limit;
+    in-out property <bool> alert-gpu;
+    in-out property <int> alert-gpu-limit;
+    in-out property <bool> alert-battery;
+    in-out property <int> alert-battery-limit;
+    in-out property <bool> alert-drives;
+    in-out property <int> alert-drives-limit;
+    // The unit the temperature limits were filled in.
+    in property <bool> alert-fahrenheit;
     in property <string> version;
     in property <string> config-path;
     in property <string> logs-path;
@@ -1509,6 +1519,76 @@ export component SettingsWindow inherits Window {
                         description: @tr("Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings.");
                         Switch {
                             checked <=> root.tray-icon;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Alerts"); }
+                Card {
+                    SettingRow {
+                        title: root.alert-fahrenheit ? @tr("CPU temperature (°F)") : @tr("CPU temperature (°C)");
+                        description: @tr("When it stays at or above this for half a minute. Needs the sensor service.");
+                        SpinBox {
+                            width: 120px;
+                            enabled: root.alert-cpu;
+                            minimum: root.alert-fahrenheit ? 122 : 50;
+                            maximum: root.alert-fahrenheit ? 230 : 110;
+                            value <=> root.alert-cpu-limit;
+                            edited => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.alert-cpu;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: root.alert-fahrenheit ? @tr("GPU temperature (°F)") : @tr("GPU temperature (°C)");
+                        description: @tr("When it stays at or above this for half a minute.");
+                        SpinBox {
+                            width: 120px;
+                            enabled: root.alert-gpu;
+                            minimum: root.alert-fahrenheit ? 122 : 50;
+                            maximum: root.alert-fahrenheit ? 230 : 110;
+                            value <=> root.alert-gpu-limit;
+                            edited => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.alert-gpu;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Battery charge (%)");
+                        description: @tr("When it falls to this on battery power.");
+                        SpinBox {
+                            width: 120px;
+                            enabled: root.alert-battery;
+                            minimum: 5;
+                            maximum: 50;
+                            value <=> root.alert-battery-limit;
+                            edited => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.alert-battery;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Drive free space (%)");
+                        description: @tr("When any drive falls to this.");
+                        SpinBox {
+                            width: 120px;
+                            enabled: root.alert-drives;
+                            minimum: 1;
+                            maximum: 50;
+                            value <=> root.alert-drives-limit;
+                            edited => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.alert-drives;
                             toggled => { root.changed(); }
                         }
                     }
