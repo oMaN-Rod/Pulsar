@@ -531,7 +531,7 @@ mod tests {
         history.record(&snapshot);
         history.record(&snapshot);
         let config = Config::default();
-        let palette = Palette::new(false, &config, None);
+        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
         let content = content::build(ItemKind::Cpu, &snapshot, &history, "", &[]);
         let style = Style {
             palette: &palette,

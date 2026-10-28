@@ -595,7 +595,7 @@ mod tests {
             s.set(MetricKey::CpuTotal, v);
             history.record(&s);
         }
-        let palette = Palette::new(false, config, None);
+        let palette = Palette::new(false, config, None, &crate::theme::Theme::windows());
         let surface = Surface::new(layout.width.ceil() as i32, layout.height as i32).unwrap();
         let mut renderer = Renderer::new().unwrap();
         let frame = Frame {
@@ -649,7 +649,7 @@ mod tests {
         };
         assert_eq!(gap(&Config::default()), 1, "no panel by default");
         let mut config = Config::default();
-        config.display.panel_opacity = 60;
+        config.display.panel_opacity = Some(60);
         assert!(gap(&config) >= 150, "panel at 60 % opacity");
     }
 

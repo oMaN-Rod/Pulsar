@@ -68,7 +68,7 @@ msgstr "Red"
 msgid "System"
 msgstr "Sistema"
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
 msgid "Sensors"
 msgstr "Sensores"
 
@@ -1136,37 +1136,13 @@ msgstr "Guardado en {}"
 msgid "Could not save the report: {}"
 msgstr "No se pudo guardar el informe: {}"
 
-#: src/settings/presets.rs
-msgid "Windows default"
-msgstr "Predeterminado de Windows"
+#: src/settings/main.rs
+msgid "Saved."
+msgstr "Guardado."
 
-#: src/settings/presets.rs
-msgid "Aurora"
-msgstr "Aurora"
-
-#: src/settings/presets.rs
-msgid "Ember"
-msgstr "Brasa"
-
-#: src/settings/presets.rs
-msgid "Ocean"
-msgstr "Océano"
-
-#: src/settings/presets.rs
-msgid "Forest"
-msgstr "Bosque"
-
-#: src/settings/presets.rs
-msgid "Mono"
-msgstr "Mono"
-
-#: src/settings/presets.rs
-msgid "Neon"
-msgstr "Neón"
-
-#: src/settings/presets.rs
-msgid "Sunset"
-msgstr "Atardecer"
+#: src/settings/main.rs
+msgid "Could not save the theme: {}"
+msgstr "No se pudo guardar el tema: {}"
 
 #: ui/details.slint
 msgid "Load by thread"
@@ -1265,16 +1241,388 @@ msgid "Use default"
 msgstr "Usar predeterminado"
 
 #: ui/settings.slint
+msgid "Overlay"
+msgstr "Superposición"
+
+#: ui/settings.slint
+msgid "Layout"
+msgstr "Diseño"
+
+#: ui/settings.slint
+msgid "Theme"
+msgstr "Tema"
+
+#: ui/settings.slint
+msgid "Readings"
+msgstr "Lecturas"
+
+#: ui/settings.slint
+msgid "Drives and network"
+msgstr "Unidades y red"
+
+#: ui/settings.slint
+msgid "App"
+msgstr "Aplicación"
+
+#: ui/settings.slint
 msgid "General"
 msgstr "General"
 
 #: ui/settings.slint
-msgid "Display"
-msgstr "Visualización"
-
-#: ui/settings.slint
 msgid "About"
 msgstr "Acerca de"
+
+#: ui/settings.slint
+msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgstr "Elige qué muestra la superposición, su orden y el color de cada elemento (vacío usa el predeterminado). Abre las opciones de un elemento para su estilo de gráfica, coloreado y ventana emergente. Haz clic derecho en un elemento de la barra de tareas para ver las mismas opciones."
+
+#: ui/settings.slint
+msgid "Graph style"
+msgstr "Estilo de gráfica"
+
+#: ui/settings.slint
+msgid "Colour"
+msgstr "Color"
+
+#: ui/settings.slint
+msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgstr "Color según la carga pone un elemento en verde, amarillo, naranja o rojo a medida que sube su valor: desde 50, 75 y 90 %, 70, 80 y 90 °C, y 50, 100 y 200 ms para el ping. Los demás valores conservan el color del elemento."
+
+#: ui/settings.slint
+msgid "Mode"
+msgstr "Modo"
+
+#: ui/settings.slint
+msgid "Graphs, or compact text only."
+msgstr "Gráficas, o solo texto compacto."
+
+#: ui/settings.slint
+msgid "Single-line graphs"
+msgstr "Gráficas en una línea"
+
+#: ui/settings.slint
+msgid "Put the icon, label and value on one line, for short taskbars."
+msgstr "Coloca el icono, la etiqueta y el valor en una línea, para barras de tareas bajas."
+
+#: ui/settings.slint
+msgid "Labels"
+msgstr "Etiquetas"
+
+#: ui/settings.slint
+msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
+msgstr "Nombres completos, una letra por elemento (C, H, W, M, G, T, D, P), o ninguna y solo iconos."
+
+#: ui/settings.slint
+msgid "Full"
+msgstr "Completas"
+
+#: ui/settings.slint
+msgid "Short"
+msgstr "Cortas"
+
+#: ui/settings.slint
+msgid "None (icons only)"
+msgstr "Ninguna (solo iconos)"
+
+#: ui/settings.slint
+msgid "An icon before each label, or on its own."
+msgstr "Un icono antes de cada etiqueta, o solo."
+
+#: ui/settings.slint
+msgid "Fade out while a fullscreen game or video is in front."
+msgstr "Se desvanece mientras haya un juego o vídeo a pantalla completa delante."
+
+#: ui/settings.slint
+msgid "Text"
+msgstr "Texto"
+
+#: ui/settings.slint
+msgid "Font"
+msgstr "Fuente"
+
+#: ui/settings.slint
+msgid "Fonts without fixed-width digits may shift slightly as values change."
+msgstr "Las fuentes sin dígitos de ancho fijo pueden moverse un poco al cambiar los valores."
+
+#: ui/settings.slint
+msgid "Bold"
+msgstr "Negrita"
+
+#: ui/settings.slint
+msgid "Font size"
+msgstr "Tamaño de fuente"
+
+#: ui/settings.slint
+msgid "Points."
+msgstr "Puntos."
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "Posición"
+
+#: ui/settings.slint
+msgid "Placement"
+msgstr "Ubicación"
+
+#: ui/settings.slint
+msgid "Where the overlay sits on the taskbar."
+msgstr "Dónde se coloca la superposición en la barra de tareas."
+
+#: ui/settings.slint
+msgid "Next to the tray"
+msgstr "Junto a la bandeja"
+
+#: ui/settings.slint
+msgid "Left edge"
+msgstr "Borde izquierdo"
+
+#: ui/settings.slint
+msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
+msgstr "Arrastra la superposición para moverla. Añade un fondo de panel para que se lea bien sobre cualquier ventana."
+
+#: ui/settings.slint
+msgid "Reset position"
+msgstr "Restablecer posición"
+
+#: ui/settings.slint
+msgid "Offset"
+msgstr "Desplazamiento"
+
+#: ui/settings.slint
+msgid "Extra space in pixels, moving away from the anchor."
+msgstr "Espacio adicional en píxeles, alejándose del anclaje."
+
+#: ui/settings.slint
+msgid "Tray fallback margin"
+msgstr "Margen de respaldo de la bandeja"
+
+#: ui/settings.slint
+msgid "Used when the tray position cannot be read."
+msgstr "Se usa cuando no se puede leer la posición de la bandeja."
+
+#: ui/settings.slint
+msgid "Every taskbar"
+msgstr "Todas las barras de tareas"
+
+#: ui/settings.slint
+msgid "Also show on the taskbars of other monitors."
+msgstr "Mostrar también en las barras de tareas de otros monitores."
+
+#: ui/settings.slint
+msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
+msgstr "Un tema define los colores de elementos, etiquetas, valores, fondos y panel, con una variante para barras de tareas claras. Al elegir uno se borran los colores personalizados de abajo."
+
+#: ui/settings.slint
+msgid "Save as a theme"
+msgstr "Guardar como tema"
+
+#: ui/settings.slint
+msgid "Keeps the current colours as a new theme in the themes folder."
+msgstr "Guarda los colores actuales como un tema nuevo en la carpeta de temas."
+
+#: ui/settings.slint
+msgid "Name"
+msgstr "Nombre"
+
+#: ui/settings.slint
+msgid "Save"
+msgstr "Guardar"
+
+#: ui/settings.slint
+msgid "Themes folder"
+msgstr "Carpeta de temas"
+
+#: ui/settings.slint
+msgid "Theme files to share or edit. Changes show after choosing the theme again."
+msgstr "Archivos de tema para compartir o editar. Los cambios se ven al volver a elegir el tema."
+
+#: ui/settings.slint
+msgid "Open"
+msgstr "Abrir"
+
+#: ui/settings.slint
+msgid "Custom colours"
+msgstr "Colores personalizados"
+
+#: ui/settings.slint
+msgid "Label colour"
+msgstr "Color de las etiquetas"
+
+#: ui/settings.slint
+msgid "Empty uses the theme."
+msgstr "Vacío usa el tema."
+
+#: ui/settings.slint
+msgid "Value colour"
+msgstr "Color de los valores"
+
+#: ui/settings.slint
+msgid "Label colour on a light taskbar"
+msgstr "Color de las etiquetas con barra de tareas clara"
+
+#: ui/settings.slint
+msgid "Empty uses the label colour above."
+msgstr "Vacío usa el color de las etiquetas de arriba."
+
+#: ui/settings.slint
+msgid "Value colour on a light taskbar"
+msgstr "Color de los valores con barra de tareas clara"
+
+#: ui/settings.slint
+msgid "Empty uses the value colour above."
+msgstr "Vacío usa el color de los valores de arriba."
+
+#: ui/settings.slint
+msgid "Colour labels by item"
+msgstr "Colorear etiquetas por elemento"
+
+#: ui/settings.slint
+msgid "Draw each label in its item's colour."
+msgstr "Dibuja cada etiqueta con el color de su elemento."
+
+#: ui/settings.slint
+msgid "Accent colour graphs"
+msgstr "Gráficas en color de énfasis"
+
+#: ui/settings.slint
+msgid "Draw graphs in your Windows accent colour."
+msgstr "Dibuja las gráficas con el color de énfasis de Windows."
+
+#: ui/settings.slint
+msgid "Background"
+msgstr "Fondo"
+
+#: ui/settings.slint
+msgid "Tile colour"
+msgstr "Color de los mosaicos"
+
+#: ui/settings.slint
+msgid "Empty uses the theme tint."
+msgstr "Vacío usa el tono del tema."
+
+#: ui/settings.slint
+msgid "Custom tile opacity"
+msgstr "Opacidad personalizada de los mosaicos"
+
+#: ui/settings.slint
+msgid "{}% — 0% removes the tiles."
+msgstr "{}% — 0% quita los mosaicos."
+
+#: ui/settings.slint
+msgid "Using the theme default."
+msgstr "Se usa el valor del tema."
+
+#: ui/settings.slint
+msgid "Panel colour"
+msgstr "Color del panel"
+
+#: ui/settings.slint
+msgid "A panel behind the whole overlay. Empty uses the theme."
+msgstr "Un panel detrás de toda la superposición. Vacío usa el tema."
+
+#: ui/settings.slint
+msgid "Custom panel opacity"
+msgstr "Opacidad del panel personalizada"
+
+#: ui/settings.slint
+msgid "Off"
+msgstr "Desactivado"
+
+#: ui/settings.slint
+msgid "Show a graph and details when the mouse rests on an item."
+msgstr "Muestra una gráfica y detalles al dejar el ratón sobre un elemento."
+
+#: ui/settings.slint
+msgid "Detail"
+msgstr "Detalle"
+
+#: ui/settings.slint
+msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
+msgstr "Simple muestra el valor y su gráfica; Detallado añade todo lo que lee Pulsar. Cada elemento puede elegir el suyo en la página Elementos."
+
+#: ui/settings.slint
+msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
+msgstr "Desenfoca lo que hay detrás de la ventana emergente. Si Windows no lo permite, las ventanas emergentes siguen siendo opacas."
+
+#: ui/settings.slint
+msgid "The recent history at the top of each popup."
+msgstr "El historial reciente en la parte superior de cada ventana emergente."
+
+#: ui/settings.slint
+msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
+msgstr "Procesos que se muestran para CPU, memoria, GPU y disco; 0 oculta las listas."
+
+#: ui/settings.slint
+msgid "Temperatures and power"
+msgstr "Temperaturas y consumo"
+
+#: ui/settings.slint
+msgid "Sensor service"
+msgstr "Servicio de sensores"
+
+#: ui/settings.slint
+msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
+msgstr "La temperatura y el consumo de la CPU y la temperatura del chipset requieren el servicio de sensores opcional de Pulsar y el controlador PawnIO, que necesitan permisos de administrador. Vuelve a ejecutar el instalador de Pulsar para añadirlos. CPU Intel y AMD Ryzen desde Zen; temperatura del chipset solo en Intel."
+
+#: ui/settings.slint
+msgid "About PawnIO"
+msgstr "Acerca de PawnIO"
+
+#: ui/settings.slint
+msgid "Disks"
+msgstr "Discos"
+
+#: ui/settings.slint
+msgid "One combined cell, or a cell per drive."
+msgstr "Una celda combinada, o una celda por unidad."
+
+#: ui/settings.slint
+msgid "All disks combined"
+msgstr "Todos los discos juntos"
+
+#: ui/settings.slint
+msgid "Each drive"
+msgstr "Cada unidad"
+
+#: ui/settings.slint
+msgid "Drive value"
+msgstr "Valor de la unidad"
+
+#: ui/settings.slint
+msgid "Used space"
+msgstr "Espacio usado"
+
+#: ui/settings.slint
+msgid "Adapter"
+msgstr "Adaptador"
+
+#: ui/settings.slint
+msgid "Count one adapter, or every physical one."
+msgstr "Cuenta un adaptador, o todos los físicos."
+
+#: ui/settings.slint
+msgid "Network rates"
+msgstr "Velocidades de red"
+
+#: ui/settings.slint
+msgid "Disk speeds stay in bytes."
+msgstr "Las velocidades de disco se mantienen en bytes."
+
+#: ui/settings.slint
+msgid "Show the upload rate above the download rate."
+msgstr "Muestra la velocidad de subida encima de la de bajada."
+
+#: ui/settings.slint
+msgid "An IPv4 address or a name."
+msgstr "Una dirección IPv4 o un nombre."
+
+#: ui/settings.slint
+msgid "Interval"
+msgstr "Intervalo"
+
+#: ui/settings.slint
+msgid "Milliseconds between pings."
+msgstr "Milisegundos entre pings."
 
 #: ui/settings.slint
 msgid "Language"
@@ -1347,338 +1695,6 @@ msgstr "Restablecer…"
 #: ui/settings.slint
 msgid "Cancel"
 msgstr "Cancelar"
-
-#: ui/settings.slint
-msgid "Mode"
-msgstr "Modo"
-
-#: ui/settings.slint
-msgid "Graphs, or compact text only."
-msgstr "Gráficas, o solo texto compacto."
-
-#: ui/settings.slint
-msgid "Single-line graphs"
-msgstr "Gráficas en una línea"
-
-#: ui/settings.slint
-msgid "Put the icon, label and value on one line, for short taskbars."
-msgstr "Coloca el icono, la etiqueta y el valor en una línea, para barras de tareas bajas."
-
-#: ui/settings.slint
-msgid "Labels"
-msgstr "Etiquetas"
-
-#: ui/settings.slint
-msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
-msgstr "Nombres completos, una letra por elemento (C, H, W, M, G, T, D, P), o ninguna y solo iconos."
-
-#: ui/settings.slint
-msgid "Full"
-msgstr "Completas"
-
-#: ui/settings.slint
-msgid "Short"
-msgstr "Cortas"
-
-#: ui/settings.slint
-msgid "None (icons only)"
-msgstr "Ninguna (solo iconos)"
-
-#: ui/settings.slint
-msgid "An icon before each label, or on its own."
-msgstr "Un icono antes de cada etiqueta, o solo."
-
-#: ui/settings.slint
-msgid "Fade out while a fullscreen game or video is in front."
-msgstr "Se desvanece mientras haya un juego o vídeo a pantalla completa delante."
-
-#: ui/settings.slint
-msgid "Text"
-msgstr "Texto"
-
-#: ui/settings.slint
-msgid "Font"
-msgstr "Fuente"
-
-#: ui/settings.slint
-msgid "Fonts without fixed-width digits may shift slightly as values change."
-msgstr "Las fuentes sin dígitos de ancho fijo pueden moverse un poco al cambiar los valores."
-
-#: ui/settings.slint
-msgid "Bold"
-msgstr "Negrita"
-
-#: ui/settings.slint
-msgid "Font size"
-msgstr "Tamaño de fuente"
-
-#: ui/settings.slint
-msgid "Points."
-msgstr "Puntos."
-
-#: ui/settings.slint
-msgid "Accent colour graphs"
-msgstr "Gráficas en color de énfasis"
-
-#: ui/settings.slint
-msgid "Draw graphs in your Windows accent colour."
-msgstr "Dibuja las gráficas con el color de énfasis de Windows."
-
-#: ui/settings.slint
-msgid "Colours"
-msgstr "Colores"
-
-#: ui/settings.slint
-msgid "Theme preset"
-msgstr "Tema predefinido"
-
-#: ui/settings.slint
-msgid "Sets item, label, value, tile and panel colours at once."
-msgstr "Establece a la vez los colores de elementos, etiquetas, valores, mosaicos y panel."
-
-#: ui/settings.slint
-msgid "Apply"
-msgstr "Aplicar"
-
-#: ui/settings.slint
-msgid "Label colour"
-msgstr "Color de las etiquetas"
-
-#: ui/settings.slint
-msgid "Empty uses the theme."
-msgstr "Vacío usa el tema."
-
-#: ui/settings.slint
-msgid "Value colour"
-msgstr "Color de los valores"
-
-#: ui/settings.slint
-msgid "Label colour on a light taskbar"
-msgstr "Color de las etiquetas con barra de tareas clara"
-
-#: ui/settings.slint
-msgid "Empty uses the label colour above."
-msgstr "Vacío usa el color de las etiquetas de arriba."
-
-#: ui/settings.slint
-msgid "Value colour on a light taskbar"
-msgstr "Color de los valores con barra de tareas clara"
-
-#: ui/settings.slint
-msgid "Empty uses the value colour above."
-msgstr "Vacío usa el color de los valores de arriba."
-
-#: ui/settings.slint
-msgid "Colour labels by item"
-msgstr "Colorear etiquetas por elemento"
-
-#: ui/settings.slint
-msgid "Draw each label in its item's colour."
-msgstr "Dibuja cada etiqueta con el color de su elemento."
-
-#: ui/settings.slint
-msgid "Show a graph and details when the mouse rests on an item."
-msgstr "Muestra una gráfica y detalles al dejar el ratón sobre un elemento."
-
-#: ui/settings.slint
-msgid "Detail"
-msgstr "Detalle"
-
-#: ui/settings.slint
-msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
-msgstr "Simple muestra el valor y su gráfica; Detallado añade todo lo que lee Pulsar. Cada elemento puede elegir el suyo en la página Elementos."
-
-#: ui/settings.slint
-msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
-msgstr "Desenfoca lo que hay detrás de la ventana emergente. Si Windows no lo permite, las ventanas emergentes siguen siendo opacas."
-
-#: ui/settings.slint
-msgid "The recent history at the top of each popup."
-msgstr "El historial reciente en la parte superior de cada ventana emergente."
-
-#: ui/settings.slint
-msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
-msgstr "Procesos que se muestran para CPU, memoria, GPU y disco; 0 oculta las listas."
-
-#: ui/settings.slint
-msgid "Network rates"
-msgstr "Velocidades de red"
-
-#: ui/settings.slint
-msgid "Disk speeds stay in bytes."
-msgstr "Las velocidades de disco se mantienen en bytes."
-
-#: ui/settings.slint
-msgid "Show the upload rate above the download rate."
-msgstr "Muestra la velocidad de subida encima de la de bajada."
-
-#: ui/settings.slint
-msgid "Position"
-msgstr "Posición"
-
-#: ui/settings.slint
-msgid "Placement"
-msgstr "Ubicación"
-
-#: ui/settings.slint
-msgid "Where the overlay sits on the taskbar."
-msgstr "Dónde se coloca la superposición en la barra de tareas."
-
-#: ui/settings.slint
-msgid "Next to the tray"
-msgstr "Junto a la bandeja"
-
-#: ui/settings.slint
-msgid "Left edge"
-msgstr "Borde izquierdo"
-
-#: ui/settings.slint
-msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
-msgstr "Arrastra la superposición para moverla. Añade un fondo de panel para que se lea bien sobre cualquier ventana."
-
-#: ui/settings.slint
-msgid "Reset position"
-msgstr "Restablecer posición"
-
-#: ui/settings.slint
-msgid "Offset"
-msgstr "Desplazamiento"
-
-#: ui/settings.slint
-msgid "Extra space in pixels, moving away from the anchor."
-msgstr "Espacio adicional en píxeles, alejándose del anclaje."
-
-#: ui/settings.slint
-msgid "Tray fallback margin"
-msgstr "Margen de respaldo de la bandeja"
-
-#: ui/settings.slint
-msgid "Used when the tray position cannot be read."
-msgstr "Se usa cuando no se puede leer la posición de la bandeja."
-
-#: ui/settings.slint
-msgid "Every taskbar"
-msgstr "Todas las barras de tareas"
-
-#: ui/settings.slint
-msgid "Also show on the taskbars of other monitors."
-msgstr "Mostrar también en las barras de tareas de otros monitores."
-
-#: ui/settings.slint
-msgid "Background"
-msgstr "Fondo"
-
-#: ui/settings.slint
-msgid "Tile colour"
-msgstr "Color de los mosaicos"
-
-#: ui/settings.slint
-msgid "Empty uses the theme tint."
-msgstr "Vacío usa el tono del tema."
-
-#: ui/settings.slint
-msgid "Custom tile opacity"
-msgstr "Opacidad personalizada de los mosaicos"
-
-#: ui/settings.slint
-msgid "{}% — 0% removes the tiles."
-msgstr "{}% — 0% quita los mosaicos."
-
-#: ui/settings.slint
-msgid "Using the theme default."
-msgstr "Se usa el valor del tema."
-
-#: ui/settings.slint
-msgid "Panel colour"
-msgstr "Color del panel"
-
-#: ui/settings.slint
-msgid "A panel behind the whole overlay. Empty uses the theme."
-msgstr "Un panel detrás de toda la superposición. Vacío usa el tema."
-
-#: ui/settings.slint
-msgid "Panel opacity"
-msgstr "Opacidad del panel"
-
-#: ui/settings.slint
-msgid "Off"
-msgstr "Desactivado"
-
-#: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
-msgstr "Elige qué muestra la superposición, su orden y el color de cada elemento (vacío usa el predeterminado). Abre las opciones de un elemento para su estilo de gráfica, coloreado y ventana emergente. Haz clic derecho en un elemento de la barra de tareas para ver las mismas opciones."
-
-#: ui/settings.slint
-msgid "Graph style"
-msgstr "Estilo de gráfica"
-
-#: ui/settings.slint
-msgid "Colour"
-msgstr "Color"
-
-#: ui/settings.slint
-msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
-msgstr "Color según la carga pone un elemento en verde, amarillo, naranja o rojo a medida que sube su valor: desde 50, 75 y 90 %, 70, 80 y 90 °C, y 50, 100 y 200 ms para el ping. Los demás valores conservan el color del elemento."
-
-#: ui/settings.slint
-msgid "Temperatures and power"
-msgstr "Temperaturas y consumo"
-
-#: ui/settings.slint
-msgid "Sensor service"
-msgstr "Servicio de sensores"
-
-#: ui/settings.slint
-msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
-msgstr "La temperatura y el consumo de la CPU y la temperatura del chipset requieren el servicio de sensores opcional de Pulsar y el controlador PawnIO, que necesitan permisos de administrador. Vuelve a ejecutar el instalador de Pulsar para añadirlos. CPU Intel y AMD Ryzen desde Zen; temperatura del chipset solo en Intel."
-
-#: ui/settings.slint
-msgid "About PawnIO"
-msgstr "Acerca de PawnIO"
-
-#: ui/settings.slint
-msgid "Disks"
-msgstr "Discos"
-
-#: ui/settings.slint
-msgid "One combined cell, or a cell per drive."
-msgstr "Una celda combinada, o una celda por unidad."
-
-#: ui/settings.slint
-msgid "All disks combined"
-msgstr "Todos los discos juntos"
-
-#: ui/settings.slint
-msgid "Each drive"
-msgstr "Cada unidad"
-
-#: ui/settings.slint
-msgid "Drive value"
-msgstr "Valor de la unidad"
-
-#: ui/settings.slint
-msgid "Used space"
-msgstr "Espacio usado"
-
-#: ui/settings.slint
-msgid "Adapter"
-msgstr "Adaptador"
-
-#: ui/settings.slint
-msgid "Count one adapter, or every physical one."
-msgstr "Cuenta un adaptador, o todos los físicos."
-
-#: ui/settings.slint
-msgid "An IPv4 address or a name."
-msgstr "Una dirección IPv4 o un nombre."
-
-#: ui/settings.slint
-msgid "Interval"
-msgstr "Intervalo"
-
-#: ui/settings.slint
-msgid "Milliseconds between pings."
-msgstr "Milisegundos entre pings."
 
 #: ui/settings.slint
 msgid "Pulsar {}"

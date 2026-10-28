@@ -507,9 +507,11 @@ try {
         $started += Start-Process (Join-Path $bin 'pulsar-settings.exe') -PassThru
         $settings = Find-Window $null 'Pulsar Settings'
         Start-Sleep -Seconds 2
-        $pages = 'general', 'display', 'items', 'about'
+        # Navigation rows, by their centre in the sidebar; group headings sit between them.
+        $pages = 'items', 'layout', 'theme', 'popups', 'sensors', 'drives', 'general', 'about'
+        $rows = 62, 106, 150, 194, 272, 316, 394, 438
         for ($i = 0; $i -lt $pages.Count; $i++) {
-            Send-Click $settings 115 (28 + 44 * $i)
+            Send-Click $settings 115 $rows[$i]
             $previous = Save-Window $settings "settings-$($pages[$i])"
             Write-Host "  settings-$($pages[$i])"
             for ($n = 2; $n -lt 12; $n++) {

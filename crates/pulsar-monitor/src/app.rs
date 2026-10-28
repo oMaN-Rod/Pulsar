@@ -49,7 +49,7 @@ use crate::taskbar::placement::{
 };
 use crate::taskbar::{self, Taskbar};
 use crate::text::Text;
-use crate::theme::{Palette, accent_color, taskbar_is_light};
+use crate::theme::Palette;
 use crate::tray::Tray;
 use crate::update;
 
@@ -174,7 +174,7 @@ impl App {
         Ok(Self {
             instance,
             host,
-            palette: Palette::new(taskbar_is_light(), &config, accent_color()),
+            palette: Palette::current(&config),
             history: HistoryStore::new(config.general.history_len),
             sampler: SamplerThread::spawn(&config, Some(host)),
             text: Text::new(
@@ -795,7 +795,7 @@ impl App {
     }
 
     fn on_settings_changed(&mut self) {
-        self.palette = Palette::new(taskbar_is_light(), &self.config, accent_color());
+        self.palette = Palette::current(&self.config);
         self.redraw();
     }
 
@@ -874,7 +874,7 @@ impl App {
         }
         self.config = new;
         self.tray.set_visible(self.config.general.tray_icon);
-        self.palette = Palette::new(taskbar_is_light(), &self.config, accent_color());
+        self.palette = Palette::current(&self.config);
         if !self.config.display.hover_popup {
             self.close_popup();
         }

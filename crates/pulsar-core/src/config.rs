@@ -147,14 +147,16 @@ pub struct Display {
     pub font_size_pt: f32,
     pub show_on_all_taskbars: bool,
     pub accent_graphs: bool,
+    /// A `theme` id; `None` is Windows default.
+    pub theme: Option<String>,
     /// `#RRGGBB` behind each graph tile; `None` uses the theme tint.
     pub tile_color: Option<String>,
     /// 0–100; `None` uses the theme default, 0 removes the tiles.
     pub tile_opacity: Option<u8>,
     /// `#RRGGBB` for a panel behind the whole overlay; `None` uses the theme.
     pub panel_color: Option<String>,
-    /// 0–100; 0 (the default) draws no panel.
-    pub panel_opacity: u8,
+    /// 0–100; `None` uses the theme, 0 draws no panel.
+    pub panel_opacity: Option<u8>,
     pub labels: LabelStyle,
     /// An icon before each label; with `LabelStyle::None` it is the only label.
     pub icons: bool,
@@ -310,10 +312,11 @@ impl Default for Display {
             font_size_pt: 9.0,
             show_on_all_taskbars: false,
             accent_graphs: false,
+            theme: None,
             tile_color: None,
             tile_opacity: None,
             panel_color: None,
-            panel_opacity: 0,
+            panel_opacity: None,
             labels: LabelStyle::Full,
             icons: false,
             label_color: None,
@@ -373,7 +376,13 @@ impl Config {
         d.fallback_margin_px = d.fallback_margin_px.clamp(0, 2000);
         d.offset_px = d.offset_px.clamp(-2000, 2000);
         d.tile_opacity = d.tile_opacity.map(|o| o.min(100));
-        d.panel_opacity = d.panel_opacity.min(100);
+        d.panel_opacity = d.panel_opacity.map(|o| o.min(100));
+        if d.theme
+            .as_deref()
+            .is_some_and(|t| !crate::theme::valid_id(t))
+        {
+            d.theme = None;
+        }
         for color in [
             &mut d.tile_color,
             &mut d.panel_color,
@@ -795,7 +804,8 @@ sample_interval_ms = 1
         assert_eq!(d.tile_color, None);
         assert_eq!(d.tile_opacity, None);
         assert_eq!(d.panel_color, None);
-        assert_eq!(d.panel_opacity, 0);
+        assert_eq!(d.panel_opacity, None);
+        assert_eq!(d.theme, None);
     }
 
     #[test]
@@ -816,7 +826,7 @@ panel_opacity = 60
         assert_eq!(d.tile_color.as_deref(), Some("#101010"));
         assert_eq!(d.tile_opacity, Some(0));
         assert_eq!(d.panel_color.as_deref(), Some("#202020"));
-        assert_eq!(d.panel_opacity, 60);
+        assert_eq!(d.panel_opacity, Some(60));
     }
 
     #[test]
@@ -825,12 +835,14 @@ panel_opacity = 60
         c.display.tile_color = Some("grey".into());
         c.display.tile_opacity = Some(250);
         c.display.panel_color = Some("#12345".into());
-        c.display.panel_opacity = 101;
+        c.display.panel_opacity = Some(101);
+        c.display.theme = Some("../evil".into());
         let d = c.sanitize().display;
         assert_eq!(d.tile_color, None);
         assert_eq!(d.tile_opacity, Some(100));
         assert_eq!(d.panel_color, None);
-        assert_eq!(d.panel_opacity, 100);
+        assert_eq!(d.panel_opacity, Some(100));
+        assert_eq!(d.theme, None);
     }
 
     #[test]

@@ -8,7 +8,6 @@ mod language;
 #[path = "../names.rs"]
 mod names;
 mod notify;
-mod presets;
 mod titlebar;
 
 use std::cell::{Cell, RefCell};
@@ -23,6 +22,7 @@ use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::single_instance::SingleInstance;
 use pulsar_core::sources::{fixed_drives, hardware_adapters};
+use pulsar_core::theme::{self, Theme};
 use pulsar_core::{crash, ipc, l10n, logging, paths, project, system_theme, tr};
 use slint::{Color, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 use windows::Win32::UI::Shell::ShellExecuteW;
@@ -37,7 +37,7 @@ slint::include_modules!();
 const SAVE_DELAY: Duration = Duration::from_millis(300);
 /// How often to look for changes made by the app (e.g. the tray menu).
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);
-const ABOUT_TAB: i32 = 3;
+const ABOUT_TAB: i32 = 7;
 const CAPTION_RETRY: Duration = Duration::from_millis(15);
 
 struct State {
@@ -57,6 +57,20 @@ struct Choices {
     adapters: Vec<String>,
     font_values: Vec<String>,
     adapter_values: Vec<String>,
+    /// Theme ids in the order of the theme picker.
+    theme_values: Vec<String>,
+    /// The selected theme, for the colour fields' fallbacks.
+    theme: Option<Theme>,
+}
+
+impl Choices {
+    fn theme(&self) -> &theme::Colors {
+        static WINDOWS: std::sync::LazyLock<Theme> = std::sync::LazyLock::new(Theme::windows);
+        self.theme
+            .as_ref()
+            .unwrap_or(&WINDOWS)
+            .colors(system_theme::taskbar_is_light())
+    }
 }
 
 /// A picker with a "none" first entry. A configured value that is no longer
@@ -111,8 +125,7 @@ fn refresh_caption(ui: &SettingsWindow, applied: &Cell<Option<Caption>>) {
     }
 }
 
-/// Sets up the colour pickers: hex formatting, quick swatches, and the
-/// theme colours they start from when a setting is empty.
+/// Sets up the colour pickers: hex formatting and quick swatches.
 fn init_color_pickers(ui: &SettingsWindow) {
     let util = ui.global::<ColorUtil>();
     util.on_hex(|c| form::to_hex((c.red(), c.green(), c.blue())).into());
@@ -122,11 +135,63 @@ fn init_color_pickers(ui: &SettingsWindow) {
         .collect();
     swatches.extend([rgb((0xFF, 0xFF, 0xFF)), rgb((0, 0, 0))]);
     util.set_swatches(ModelRc::new(VecModel::from(swatches)));
-    let theme = colors::theme_rgb(system_theme::taskbar_is_light());
-    ui.set_label_default(rgb(theme.label));
-    ui.set_value_default(rgb(theme.text));
-    ui.set_tile_default(rgb(theme.tile));
-    ui.set_panel_default(rgb(theme.panel));
+}
+
+/// A theme picker card showing `theme` on the current taskbar.
+fn theme_card(name: &str, theme: &Theme, light: bool) -> ThemeCard {
+    let c = theme.colors(light);
+    let alpha = |(r, g, b): colors::Rgb, percent: u8| {
+        Color::from_argb_u8((u16::from(percent.min(100)) * 255 / 100) as u8, r, g, b)
+    };
+    let items: Vec<Color> = [
+        ItemKind::Cpu,
+        ItemKind::Ram,
+        ItemKind::Gpu,
+        ItemKind::Network,
+    ]
+    .into_iter()
+    .map(|k| rgb(c.item(k, CellPart::Main)))
+    .collect();
+    ThemeCard {
+        name: name.into(),
+        taskbar: rgb(theme::Colors::windows(light).panel),
+        panel: alpha(c.panel, c.panel_opacity),
+        // The overlay's faint tiles barely show at this size.
+        tile: alpha(c.tile, c.tile_opacity.saturating_mul(2)),
+        label: rgb(c.label),
+        text: rgb(c.text),
+        items: ModelRc::new(VecModel::from(items)),
+    }
+}
+
+/// Fills the theme picker and the colours empty fields fall back to.
+fn push_theme(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
+    let dir = theme::themes_dir();
+    let entries = theme::list(dir.as_deref());
+    let light = system_theme::taskbar_is_light();
+    let cards: Vec<ThemeCard> = entries
+        .iter()
+        .map(|e| {
+            theme_card(
+                &e.display_name(),
+                &theme::load(dir.as_deref(), Some(&e.id)),
+                light,
+            )
+        })
+        .collect();
+    let index = entries.iter().position(|e| e.id == f.theme).unwrap_or(0);
+    choices.theme_values = entries.into_iter().map(|e| e.id).collect();
+    ui.set_themes(ModelRc::new(VecModel::from(cards)));
+    ui.set_theme_index(index as i32);
+    choices.theme = Some(theme::load(
+        dir.as_deref(),
+        Some(&f.theme).filter(|t| !t.is_empty()).map(String::as_str),
+    ));
+    let colors = choices.theme();
+    ui.set_label_default(rgb(colors.label));
+    ui.set_value_default(rgb(colors.text));
+    ui.set_tile_default(rgb(colors.tile));
+    ui.set_panel_default(rgb(colors.panel));
 }
 
 fn refresh_swatches(ui: &SettingsWindow) {
@@ -139,6 +204,7 @@ fn refresh_swatches(ui: &SettingsWindow) {
 }
 
 fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
+    push_theme(ui, f, choices);
     ui.set_autostart(f.autostart);
     ui.set_update_check(f.update_check);
     ui.set_tray_icon(f.tray_icon);
@@ -218,6 +284,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_tile_opacity_custom(f.tile_opacity_custom);
     ui.set_tile_opacity(f.tile_opacity as f32);
     ui.set_panel_color(f.panel_color.as_str().into());
+    ui.set_panel_opacity_custom(f.panel_opacity_custom);
     ui.set_panel_opacity(f.panel_opacity as f32);
     // Keep a row open across a reload, such as after moving it.
     let open: Vec<SharedString> = ui
@@ -236,7 +303,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 name,
                 enabled: r.enabled,
                 color: r.color.as_str().into(),
-                swatch: rgb(form::item_rgb(r.kind, &r.color)),
+                swatch: rgb(form::item_rgb(r.kind, &r.color, choices.theme())),
                 style: r.style,
                 color_mode: r.color_mode,
                 popup: r.popup,
@@ -286,7 +353,14 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         tile_opacity_custom: ui.get_tile_opacity_custom(),
         tile_opacity: ui.get_tile_opacity().round() as i32,
         panel_color: ui.get_panel_color().to_string(),
+        panel_opacity_custom: ui.get_panel_opacity_custom(),
         panel_opacity: ui.get_panel_opacity().round() as i32,
+        theme: choices
+            .theme
+            .as_ref()
+            .map(|t| t.id.clone())
+            .filter(|id| id != theme::DEFAULT_ID)
+            .unwrap_or_default(),
         items: ui
             .get_items()
             .iter()
@@ -333,12 +407,6 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
 fn localize(ui: &SettingsWindow) {
     ui.set_window_title(ipc::settings_title().into());
     ui.set_ui_font(language::ui_font().into());
-    ui.set_presets(strings(
-        presets::PRESETS
-            .iter()
-            .map(|p| l10n::translate(p.name).into())
-            .collect(),
-    ));
     ui.set_styles(strings(
         names::STYLES
             .iter()
@@ -609,7 +677,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 return;
             };
             update_row(&ui, index, |r| {
-                r.swatch = rgb(form::item_rgb(kind, &color));
+                r.swatch = rgb(form::item_rgb(kind, &color, state.borrow().choices.theme()));
                 r.color = color;
             });
             ui.invoke_changed();
@@ -628,20 +696,72 @@ fn main() -> Result<(), Box<dyn Error>> {
             ui.invoke_changed();
         }
     });
-    ui.on_apply_preset({
+    ui.on_apply_theme({
         let (weak, state) = (ui.as_weak(), state.clone());
         move |index| {
             let Some(ui) = weak.upgrade() else { return };
-            let Some(preset) = presets::PRESETS.get(index.max(0) as usize) else {
+            let mut s = state.borrow_mut();
+            let Some(id) = s.choices.theme_values.get(index.max(0) as usize).cloned() else {
                 return;
             };
-            let mut s = state.borrow_mut();
+            let chosen = theme::load(theme::themes_dir().as_deref(), Some(&id));
             let mut f = pull(&ui, &s.kinds, &s.choices);
-            presets::apply(&mut f, preset);
+            form::apply_theme(&mut f, &chosen);
+            f.theme = if id == theme::DEFAULT_ID {
+                String::new()
+            } else {
+                id
+            };
+            s.choices.theme = Some(chosen);
             push(&ui, &f, &mut s.choices);
             drop(s);
             ui.invoke_changed();
         }
+    });
+    ui.on_save_theme({
+        let (weak, state) = (ui.as_weak(), state.clone());
+        move |name| {
+            let Some(ui) = weak.upgrade() else { return };
+            let Some(dir) = theme::themes_dir() else {
+                return;
+            };
+            let mut s = state.borrow_mut();
+            let mut f = pull(&ui, &s.kinds, &s.choices);
+            let base = s.choices.theme.clone().unwrap_or_else(Theme::windows);
+            let new = form::theme_from(&f, &base, &name);
+            if new.name.is_empty() {
+                return;
+            }
+            match theme::save(&dir, &new) {
+                Ok(id) => {
+                    let saved = Theme {
+                        id: id.clone(),
+                        ..new
+                    };
+                    form::apply_theme(&mut f, &saved);
+                    s.choices.theme = Some(saved);
+                    push(&ui, &f, &mut s.choices);
+                    ui.set_theme_status(tr!("Saved.").into());
+                }
+                Err(e) => {
+                    log::warn!("could not save theme: {e}");
+                    ui.set_theme_status(tr!("Could not save the theme: {}", e).into());
+                    return;
+                }
+            }
+            drop(s);
+            ui.invoke_changed();
+        }
+    });
+    ui.on_open_themes_folder(|| {
+        let Some(dir) = theme::themes_dir() else {
+            return;
+        };
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            log::warn!("could not create {}: {e}", dir.display());
+            return;
+        }
+        let _ = std::process::Command::new("explorer").arg(dir).spawn();
     });
     ui.on_reset_all({
         let (weak, state) = (ui.as_weak(), state.clone());

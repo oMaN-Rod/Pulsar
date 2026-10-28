@@ -157,3 +157,35 @@ msgstr ""
 #: src/sources/ping.rs
 msgid "Cannot resolve {} (IPv4)"
 msgstr ""
+
+#: src/theme.rs
+msgid "Windows default"
+msgstr ""
+
+#: src/theme.rs
+msgid "Aurora"
+msgstr ""
+
+#: src/theme.rs
+msgid "Ember"
+msgstr ""
+
+#: src/theme.rs
+msgid "Ocean"
+msgstr ""
+
+#: src/theme.rs
+msgid "Forest"
+msgstr ""
+
+#: src/theme.rs
+msgid "Mono"
+msgstr ""
+
+#: src/theme.rs
+msgid "Neon"
+msgstr ""
+
+#: src/theme.rs
+msgid "Sunset"
+msgstr ""

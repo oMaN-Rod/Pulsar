@@ -1,0 +1,22 @@
+color_labels = true
+
+[dark]
+text = "#FFFFFF"
+label = "#A1A1AA"
+panel = "#0B0B12"
+panel_opacity = 75
+
+[dark.items]
+cpu = "#22D3EE"
+cpu_temp = "#FF5C8A"
+cpu_power = "#FACC15"
+cpu_clock = "#60A5FA"
+ram = "#E879F9"
+chipset_temp = "#F97316"
+gpu = "#A3E635"
+gpu_temp = "#FB7185"
+disk = "#FACC15"
+disk_temp = "#4ADE80"
+network = "#2DD4BF"
+ping = "#818CF8"
+battery = "#A3E635"

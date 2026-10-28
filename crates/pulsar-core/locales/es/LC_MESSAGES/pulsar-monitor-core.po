@@ -159,3 +159,35 @@ msgstr "ICMP no disponible: {}"
 #: src/sources/ping.rs
 msgid "Cannot resolve {} (IPv4)"
 msgstr "No se puede resolver {} (IPv4)"
+
+#: src/theme.rs
+msgid "Windows default"
+msgstr "Predeterminado de Windows"
+
+#: src/theme.rs
+msgid "Aurora"
+msgstr "Aurora"
+
+#: src/theme.rs
+msgid "Ember"
+msgstr "Brasa"
+
+#: src/theme.rs
+msgid "Ocean"
+msgstr "Océano"
+
+#: src/theme.rs
+msgid "Forest"
+msgstr "Bosque"
+
+#: src/theme.rs
+msgid "Mono"
+msgstr "Mono"
+
+#: src/theme.rs
+msgid "Neon"
+msgstr "Neón"
+
+#: src/theme.rs
+msgid "Sunset"
+msgstr "Atardecer"

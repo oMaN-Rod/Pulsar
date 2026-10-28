@@ -66,7 +66,7 @@ msgstr ""
 msgid "System"
 msgstr ""
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
 msgid "Sensors"
 msgstr ""
 
@@ -1134,36 +1134,12 @@ msgstr ""
 msgid "Could not save the report: {}"
 msgstr ""
 
-#: src/settings/presets.rs
-msgid "Windows default"
+#: src/settings/main.rs
+msgid "Saved."
 msgstr ""
 
-#: src/settings/presets.rs
-msgid "Aurora"
-msgstr ""
-
-#: src/settings/presets.rs
-msgid "Ember"
-msgstr ""
-
-#: src/settings/presets.rs
-msgid "Ocean"
-msgstr ""
-
-#: src/settings/presets.rs
-msgid "Forest"
-msgstr ""
-
-#: src/settings/presets.rs
-msgid "Mono"
-msgstr ""
-
-#: src/settings/presets.rs
-msgid "Neon"
-msgstr ""
-
-#: src/settings/presets.rs
-msgid "Sunset"
+#: src/settings/main.rs
+msgid "Could not save the theme: {}"
 msgstr ""
 
 #: ui/details.slint
@@ -1263,15 +1239,387 @@ msgid "Use default"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Overlay"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Layout"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Theme"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Readings"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Drives and network"
+msgstr ""
+
+#: ui/settings.slint
+msgid "App"
+msgstr ""
+
+#: ui/settings.slint
 msgid "General"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Display"
+msgid "About"
 msgstr ""
 
 #: ui/settings.slint
-msgid "About"
+msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Graph style"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Colour"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Mode"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Graphs, or compact text only."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Single-line graphs"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Put the icon, label and value on one line, for short taskbars."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Labels"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Full"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Short"
+msgstr ""
+
+#: ui/settings.slint
+msgid "None (icons only)"
+msgstr ""
+
+#: ui/settings.slint
+msgid "An icon before each label, or on its own."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Fade out while a fullscreen game or video is in front."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Text"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Font"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Fonts without fixed-width digits may shift slightly as values change."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Bold"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Font size"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Points."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Position"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Placement"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Where the overlay sits on the taskbar."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Next to the tray"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Left edge"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Reset position"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Offset"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Extra space in pixels, moving away from the anchor."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Tray fallback margin"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Used when the tray position cannot be read."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Every taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Also show on the taskbars of other monitors."
+msgstr ""
+
+#: ui/settings.slint
+msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Save as a theme"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Keeps the current colours as a new theme in the themes folder."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Name"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Save"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Themes folder"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Theme files to share or edit. Changes show after choosing the theme again."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Open"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Custom colours"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Label colour"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Empty uses the theme."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Value colour"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Label colour on a light taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Empty uses the label colour above."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Value colour on a light taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Empty uses the value colour above."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Colour labels by item"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Draw each label in its item's colour."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Accent colour graphs"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Draw graphs in your Windows accent colour."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Background"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Tile colour"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Empty uses the theme tint."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Custom tile opacity"
+msgstr ""
+
+#: ui/settings.slint
+msgid "{}% — 0% removes the tiles."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Using the theme default."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Panel colour"
+msgstr ""
+
+#: ui/settings.slint
+msgid "A panel behind the whole overlay. Empty uses the theme."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Custom panel opacity"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Off"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show a graph and details when the mouse rests on an item."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Detail"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
+msgstr ""
+
+#: ui/settings.slint
+msgid "The recent history at the top of each popup."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Temperatures and power"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Sensor service"
+msgstr ""
+
+#: ui/settings.slint
+msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
+msgstr ""
+
+#: ui/settings.slint
+msgid "About PawnIO"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Disks"
+msgstr ""
+
+#: ui/settings.slint
+msgid "One combined cell, or a cell per drive."
+msgstr ""
+
+#: ui/settings.slint
+msgid "All disks combined"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Each drive"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Drive value"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Used space"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Adapter"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Count one adapter, or every physical one."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Network rates"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Disk speeds stay in bytes."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show the upload rate above the download rate."
+msgstr ""
+
+#: ui/settings.slint
+msgid "An IPv4 address or a name."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Interval"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Milliseconds between pings."
 msgstr ""
 
 #: ui/settings.slint
@@ -1344,338 +1692,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Cancel"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Mode"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Graphs, or compact text only."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Single-line graphs"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Put the icon, label and value on one line, for short taskbars."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Labels"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Full"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Short"
-msgstr ""
-
-#: ui/settings.slint
-msgid "None (icons only)"
-msgstr ""
-
-#: ui/settings.slint
-msgid "An icon before each label, or on its own."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Fade out while a fullscreen game or video is in front."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Text"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Font"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Fonts without fixed-width digits may shift slightly as values change."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Bold"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Font size"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Points."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Accent colour graphs"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Draw graphs in your Windows accent colour."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Colours"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Theme preset"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Sets item, label, value, tile and panel colours at once."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Apply"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Label colour"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Empty uses the theme."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Value colour"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Label colour on a light taskbar"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Empty uses the label colour above."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Value colour on a light taskbar"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Empty uses the value colour above."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Colour labels by item"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Draw each label in its item's colour."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Show a graph and details when the mouse rests on an item."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Detail"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
-msgstr ""
-
-#: ui/settings.slint
-msgid "The recent history at the top of each popup."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Network rates"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Disk speeds stay in bytes."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Show the upload rate above the download rate."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Position"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Placement"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Where the overlay sits on the taskbar."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Next to the tray"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Left edge"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Reset position"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Offset"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Extra space in pixels, moving away from the anchor."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Tray fallback margin"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Used when the tray position cannot be read."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Every taskbar"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Also show on the taskbars of other monitors."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Background"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Tile colour"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Empty uses the theme tint."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Custom tile opacity"
-msgstr ""
-
-#: ui/settings.slint
-msgid "{}% — 0% removes the tiles."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Using the theme default."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Panel colour"
-msgstr ""
-
-#: ui/settings.slint
-msgid "A panel behind the whole overlay. Empty uses the theme."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Panel opacity"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Off"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Graph style"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Colour"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Temperatures and power"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Sensor service"
-msgstr ""
-
-#: ui/settings.slint
-msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
-msgstr ""
-
-#: ui/settings.slint
-msgid "About PawnIO"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Disks"
-msgstr ""
-
-#: ui/settings.slint
-msgid "One combined cell, or a cell per drive."
-msgstr ""
-
-#: ui/settings.slint
-msgid "All disks combined"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Each drive"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Drive value"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Used space"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Adapter"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Count one adapter, or every physical one."
-msgstr ""
-
-#: ui/settings.slint
-msgid "An IPv4 address or a name."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Interval"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Milliseconds between pings."
 msgstr ""
 
 #: ui/settings.slint

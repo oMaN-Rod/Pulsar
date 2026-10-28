@@ -69,7 +69,7 @@ msgstr "网络"
 msgid "System"
 msgstr "系统"
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
 msgid "Sensors"
 msgstr "传感器"
 
@@ -1137,37 +1137,13 @@ msgstr "已保存到 {}"
 msgid "Could not save the report: {}"
 msgstr "无法保存报告：{}"
 
-#: src/settings/presets.rs
-msgid "Windows default"
-msgstr "Windows 默认"
+#: src/settings/main.rs
+msgid "Saved."
+msgstr "已保存。"
 
-#: src/settings/presets.rs
-msgid "Aurora"
-msgstr "极光"
-
-#: src/settings/presets.rs
-msgid "Ember"
-msgstr "余烬"
-
-#: src/settings/presets.rs
-msgid "Ocean"
-msgstr "海洋"
-
-#: src/settings/presets.rs
-msgid "Forest"
-msgstr "森林"
-
-#: src/settings/presets.rs
-msgid "Mono"
-msgstr "单色"
-
-#: src/settings/presets.rs
-msgid "Neon"
-msgstr "霓虹"
-
-#: src/settings/presets.rs
-msgid "Sunset"
-msgstr "日落"
+#: src/settings/main.rs
+msgid "Could not save the theme: {}"
+msgstr "无法保存主题：{}"
 
 #: ui/details.slint
 msgid "Load by thread"
@@ -1266,16 +1242,388 @@ msgid "Use default"
 msgstr "使用默认"
 
 #: ui/settings.slint
+msgid "Overlay"
+msgstr "叠加层"
+
+#: ui/settings.slint
+msgid "Layout"
+msgstr "布局"
+
+#: ui/settings.slint
+msgid "Theme"
+msgstr "主题"
+
+#: ui/settings.slint
+msgid "Readings"
+msgstr "读数"
+
+#: ui/settings.slint
+msgid "Drives and network"
+msgstr "驱动器和网络"
+
+#: ui/settings.slint
+msgid "App"
+msgstr "应用"
+
+#: ui/settings.slint
 msgid "General"
 msgstr "常规"
 
 #: ui/settings.slint
-msgid "Display"
-msgstr "显示"
-
-#: ui/settings.slint
 msgid "About"
 msgstr "关于"
+
+#: ui/settings.slint
+msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgstr "选择叠加层显示的内容、顺序以及每项的颜色（留空则使用默认颜色）。打开某一项的选项可设置其图表样式、着色方式和弹出窗口。在任务栏上右键单击某一项也可使用相同选项。"
+
+#: ui/settings.slint
+msgid "Graph style"
+msgstr "图表样式"
+
+#: ui/settings.slint
+msgid "Colour"
+msgstr "颜色"
+
+#: ui/settings.slint
+msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgstr "按负载着色会随数值升高将监控项显示为绿色、黄色、橙色或红色：分界为 50、75 和 90 %，70、80 和 90 °C，延迟为 50、100 和 200 ms。其他数值保持监控项颜色。"
+
+#: ui/settings.slint
+msgid "Mode"
+msgstr "模式"
+
+#: ui/settings.slint
+msgid "Graphs, or compact text only."
+msgstr "显示图表，或仅显示紧凑文本。"
+
+#: ui/settings.slint
+msgid "Single-line graphs"
+msgstr "单行图表"
+
+#: ui/settings.slint
+msgid "Put the icon, label and value on one line, for short taskbars."
+msgstr "图标、标签和数值放在同一行，适合较矮的任务栏。"
+
+#: ui/settings.slint
+msgid "Labels"
+msgstr "标签"
+
+#: ui/settings.slint
+msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
+msgstr "完整名称、每项一个字母（C、H、W、M、G、T、D、P），或不显示标签只显示图标。"
+
+#: ui/settings.slint
+msgid "Full"
+msgstr "完整"
+
+#: ui/settings.slint
+msgid "Short"
+msgstr "简短"
+
+#: ui/settings.slint
+msgid "None (icons only)"
+msgstr "无（仅图标）"
+
+#: ui/settings.slint
+msgid "An icon before each label, or on its own."
+msgstr "在每个标签前显示图标，或单独显示图标。"
+
+#: ui/settings.slint
+msgid "Fade out while a fullscreen game or video is in front."
+msgstr "全屏游戏或视频处于前台时淡出隐藏。"
+
+#: ui/settings.slint
+msgid "Text"
+msgstr "文字"
+
+#: ui/settings.slint
+msgid "Font"
+msgstr "字体"
+
+#: ui/settings.slint
+msgid "Fonts without fixed-width digits may shift slightly as values change."
+msgstr "数字非等宽的字体在数值变化时可能会轻微跳动。"
+
+#: ui/settings.slint
+msgid "Bold"
+msgstr "粗体"
+
+#: ui/settings.slint
+msgid "Font size"
+msgstr "字号"
+
+#: ui/settings.slint
+msgid "Points."
+msgstr "单位：磅。"
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "位置"
+
+#: ui/settings.slint
+msgid "Placement"
+msgstr "放置位置"
+
+#: ui/settings.slint
+msgid "Where the overlay sits on the taskbar."
+msgstr "监控条在任务栏上的位置。"
+
+#: ui/settings.slint
+msgid "Next to the tray"
+msgstr "托盘旁边"
+
+#: ui/settings.slint
+msgid "Left edge"
+msgstr "左侧边缘"
+
+#: ui/settings.slint
+msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
+msgstr "拖动监控条即可移动。建议加上面板背景，这样在任何窗口上方都清晰可读。"
+
+#: ui/settings.slint
+msgid "Reset position"
+msgstr "重置位置"
+
+#: ui/settings.slint
+msgid "Offset"
+msgstr "偏移"
+
+#: ui/settings.slint
+msgid "Extra space in pixels, moving away from the anchor."
+msgstr "离开锚点方向的额外间距（像素）。"
+
+#: ui/settings.slint
+msgid "Tray fallback margin"
+msgstr "托盘备用边距"
+
+#: ui/settings.slint
+msgid "Used when the tray position cannot be read."
+msgstr "无法读取托盘位置时使用。"
+
+#: ui/settings.slint
+msgid "Every taskbar"
+msgstr "所有任务栏"
+
+#: ui/settings.slint
+msgid "Also show on the taskbars of other monitors."
+msgstr "同时显示在其他显示器的任务栏上。"
+
+#: ui/settings.slint
+msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
+msgstr "主题设置项目、标签、数值、底块和面板的颜色，并带有适用于浅色任务栏的版本。选择主题会清除下方的自定义颜色。"
+
+#: ui/settings.slint
+msgid "Save as a theme"
+msgstr "另存为主题"
+
+#: ui/settings.slint
+msgid "Keeps the current colours as a new theme in the themes folder."
+msgstr "将当前颜色保存为主题文件夹中的新主题。"
+
+#: ui/settings.slint
+msgid "Name"
+msgstr "名称"
+
+#: ui/settings.slint
+msgid "Save"
+msgstr "保存"
+
+#: ui/settings.slint
+msgid "Themes folder"
+msgstr "主题文件夹"
+
+#: ui/settings.slint
+msgid "Theme files to share or edit. Changes show after choosing the theme again."
+msgstr "可共享或编辑的主题文件。重新选择主题后更改才会显示。"
+
+#: ui/settings.slint
+msgid "Open"
+msgstr "打开"
+
+#: ui/settings.slint
+msgid "Custom colours"
+msgstr "自定义颜色"
+
+#: ui/settings.slint
+msgid "Label colour"
+msgstr "标签颜色"
+
+#: ui/settings.slint
+msgid "Empty uses the theme."
+msgstr "留空则使用主题颜色。"
+
+#: ui/settings.slint
+msgid "Value colour"
+msgstr "数值颜色"
+
+#: ui/settings.slint
+msgid "Label colour on a light taskbar"
+msgstr "浅色任务栏上的标签颜色"
+
+#: ui/settings.slint
+msgid "Empty uses the label colour above."
+msgstr "留空则使用上方的标签颜色。"
+
+#: ui/settings.slint
+msgid "Value colour on a light taskbar"
+msgstr "浅色任务栏上的数值颜色"
+
+#: ui/settings.slint
+msgid "Empty uses the value colour above."
+msgstr "留空则使用上方的数值颜色。"
+
+#: ui/settings.slint
+msgid "Colour labels by item"
+msgstr "标签按监控项着色"
+
+#: ui/settings.slint
+msgid "Draw each label in its item's colour."
+msgstr "每个标签使用其监控项的颜色。"
+
+#: ui/settings.slint
+msgid "Accent colour graphs"
+msgstr "使用强调色绘制图表"
+
+#: ui/settings.slint
+msgid "Draw graphs in your Windows accent colour."
+msgstr "用 Windows 强调色绘制图表。"
+
+#: ui/settings.slint
+msgid "Background"
+msgstr "背景"
+
+#: ui/settings.slint
+msgid "Tile colour"
+msgstr "底块颜色"
+
+#: ui/settings.slint
+msgid "Empty uses the theme tint."
+msgstr "留空则使用主题色调。"
+
+#: ui/settings.slint
+msgid "Custom tile opacity"
+msgstr "自定义底块不透明度"
+
+#: ui/settings.slint
+msgid "{}% — 0% removes the tiles."
+msgstr "{}% — 0% 表示不显示底块。"
+
+#: ui/settings.slint
+msgid "Using the theme default."
+msgstr "使用主题默认值。"
+
+#: ui/settings.slint
+msgid "Panel colour"
+msgstr "面板颜色"
+
+#: ui/settings.slint
+msgid "A panel behind the whole overlay. Empty uses the theme."
+msgstr "整个监控条后方的面板。留空则使用主题颜色。"
+
+#: ui/settings.slint
+msgid "Custom panel opacity"
+msgstr "自定义面板不透明度"
+
+#: ui/settings.slint
+msgid "Off"
+msgstr "关闭"
+
+#: ui/settings.slint
+msgid "Show a graph and details when the mouse rests on an item."
+msgstr "鼠标停留在某一项上时，显示图表和详细信息。"
+
+#: ui/settings.slint
+msgid "Detail"
+msgstr "详细程度"
+
+#: ui/settings.slint
+msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
+msgstr "简洁只显示数值和图表；详细会加入 Pulsar 读取的全部信息。每个监控项可在“监控项”页面单独设置。"
+
+#: ui/settings.slint
+msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
+msgstr "模糊弹出窗口后面的内容。如果 Windows 不允许，弹出窗口保持不透明。"
+
+#: ui/settings.slint
+msgid "The recent history at the top of each popup."
+msgstr "每个弹出窗口顶部的近期历史。"
+
+#: ui/settings.slint
+msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
+msgstr "CPU、内存、GPU 和磁盘列出的进程数；0 表示隐藏列表。"
+
+#: ui/settings.slint
+msgid "Temperatures and power"
+msgstr "温度和功耗"
+
+#: ui/settings.slint
+msgid "Sensor service"
+msgstr "传感器服务"
+
+#: ui/settings.slint
+msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
+msgstr "CPU 温度、CPU 功耗和芯片组温度需要可选的 Pulsar 传感器服务和 PawnIO 驱动，两者都需要管理员权限。重新运行 Pulsar 安装程序即可添加。支持 Intel CPU，以及 Zen 及之后的 AMD Ryzen；芯片组温度仅支持 Intel。"
+
+#: ui/settings.slint
+msgid "About PawnIO"
+msgstr "关于 PawnIO"
+
+#: ui/settings.slint
+msgid "Disks"
+msgstr "磁盘"
+
+#: ui/settings.slint
+msgid "One combined cell, or a cell per drive."
+msgstr "合并为一格，或每个驱动器一格。"
+
+#: ui/settings.slint
+msgid "All disks combined"
+msgstr "所有磁盘合并显示"
+
+#: ui/settings.slint
+msgid "Each drive"
+msgstr "每个驱动器单独显示"
+
+#: ui/settings.slint
+msgid "Drive value"
+msgstr "驱动器数值"
+
+#: ui/settings.slint
+msgid "Used space"
+msgstr "已用空间"
+
+#: ui/settings.slint
+msgid "Adapter"
+msgstr "网卡"
+
+#: ui/settings.slint
+msgid "Count one adapter, or every physical one."
+msgstr "只统计一个网卡，或统计所有物理网卡。"
+
+#: ui/settings.slint
+msgid "Network rates"
+msgstr "网络速率"
+
+#: ui/settings.slint
+msgid "Disk speeds stay in bytes."
+msgstr "磁盘速率仍以字节显示。"
+
+#: ui/settings.slint
+msgid "Show the upload rate above the download rate."
+msgstr "将上传速率显示在下载速率上方。"
+
+#: ui/settings.slint
+msgid "An IPv4 address or a name."
+msgstr "IPv4 地址或主机名。"
+
+#: ui/settings.slint
+msgid "Interval"
+msgstr "间隔"
+
+#: ui/settings.slint
+msgid "Milliseconds between pings."
+msgstr "两次 Ping 之间的间隔（毫秒）。"
 
 #: ui/settings.slint
 msgid "Language"
@@ -1348,338 +1696,6 @@ msgstr "重置…"
 #: ui/settings.slint
 msgid "Cancel"
 msgstr "取消"
-
-#: ui/settings.slint
-msgid "Mode"
-msgstr "模式"
-
-#: ui/settings.slint
-msgid "Graphs, or compact text only."
-msgstr "显示图表，或仅显示紧凑文本。"
-
-#: ui/settings.slint
-msgid "Single-line graphs"
-msgstr "单行图表"
-
-#: ui/settings.slint
-msgid "Put the icon, label and value on one line, for short taskbars."
-msgstr "图标、标签和数值放在同一行，适合较矮的任务栏。"
-
-#: ui/settings.slint
-msgid "Labels"
-msgstr "标签"
-
-#: ui/settings.slint
-msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
-msgstr "完整名称、每项一个字母（C、H、W、M、G、T、D、P），或不显示标签只显示图标。"
-
-#: ui/settings.slint
-msgid "Full"
-msgstr "完整"
-
-#: ui/settings.slint
-msgid "Short"
-msgstr "简短"
-
-#: ui/settings.slint
-msgid "None (icons only)"
-msgstr "无（仅图标）"
-
-#: ui/settings.slint
-msgid "An icon before each label, or on its own."
-msgstr "在每个标签前显示图标，或单独显示图标。"
-
-#: ui/settings.slint
-msgid "Fade out while a fullscreen game or video is in front."
-msgstr "全屏游戏或视频处于前台时淡出隐藏。"
-
-#: ui/settings.slint
-msgid "Text"
-msgstr "文字"
-
-#: ui/settings.slint
-msgid "Font"
-msgstr "字体"
-
-#: ui/settings.slint
-msgid "Fonts without fixed-width digits may shift slightly as values change."
-msgstr "数字非等宽的字体在数值变化时可能会轻微跳动。"
-
-#: ui/settings.slint
-msgid "Bold"
-msgstr "粗体"
-
-#: ui/settings.slint
-msgid "Font size"
-msgstr "字号"
-
-#: ui/settings.slint
-msgid "Points."
-msgstr "单位：磅。"
-
-#: ui/settings.slint
-msgid "Accent colour graphs"
-msgstr "使用强调色绘制图表"
-
-#: ui/settings.slint
-msgid "Draw graphs in your Windows accent colour."
-msgstr "用 Windows 强调色绘制图表。"
-
-#: ui/settings.slint
-msgid "Colours"
-msgstr "颜色"
-
-#: ui/settings.slint
-msgid "Theme preset"
-msgstr "主题预设"
-
-#: ui/settings.slint
-msgid "Sets item, label, value, tile and panel colours at once."
-msgstr "一次性设置监控项、标签、数值、底块和面板的颜色。"
-
-#: ui/settings.slint
-msgid "Apply"
-msgstr "应用"
-
-#: ui/settings.slint
-msgid "Label colour"
-msgstr "标签颜色"
-
-#: ui/settings.slint
-msgid "Empty uses the theme."
-msgstr "留空则使用主题颜色。"
-
-#: ui/settings.slint
-msgid "Value colour"
-msgstr "数值颜色"
-
-#: ui/settings.slint
-msgid "Label colour on a light taskbar"
-msgstr "浅色任务栏上的标签颜色"
-
-#: ui/settings.slint
-msgid "Empty uses the label colour above."
-msgstr "留空则使用上方的标签颜色。"
-
-#: ui/settings.slint
-msgid "Value colour on a light taskbar"
-msgstr "浅色任务栏上的数值颜色"
-
-#: ui/settings.slint
-msgid "Empty uses the value colour above."
-msgstr "留空则使用上方的数值颜色。"
-
-#: ui/settings.slint
-msgid "Colour labels by item"
-msgstr "标签按监控项着色"
-
-#: ui/settings.slint
-msgid "Draw each label in its item's colour."
-msgstr "每个标签使用其监控项的颜色。"
-
-#: ui/settings.slint
-msgid "Show a graph and details when the mouse rests on an item."
-msgstr "鼠标停留在某一项上时，显示图表和详细信息。"
-
-#: ui/settings.slint
-msgid "Detail"
-msgstr "详细程度"
-
-#: ui/settings.slint
-msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
-msgstr "简洁只显示数值和图表；详细会加入 Pulsar 读取的全部信息。每个监控项可在“监控项”页面单独设置。"
-
-#: ui/settings.slint
-msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
-msgstr "模糊弹出窗口后面的内容。如果 Windows 不允许，弹出窗口保持不透明。"
-
-#: ui/settings.slint
-msgid "The recent history at the top of each popup."
-msgstr "每个弹出窗口顶部的近期历史。"
-
-#: ui/settings.slint
-msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
-msgstr "CPU、内存、GPU 和磁盘列出的进程数；0 表示隐藏列表。"
-
-#: ui/settings.slint
-msgid "Network rates"
-msgstr "网络速率"
-
-#: ui/settings.slint
-msgid "Disk speeds stay in bytes."
-msgstr "磁盘速率仍以字节显示。"
-
-#: ui/settings.slint
-msgid "Show the upload rate above the download rate."
-msgstr "将上传速率显示在下载速率上方。"
-
-#: ui/settings.slint
-msgid "Position"
-msgstr "位置"
-
-#: ui/settings.slint
-msgid "Placement"
-msgstr "放置位置"
-
-#: ui/settings.slint
-msgid "Where the overlay sits on the taskbar."
-msgstr "监控条在任务栏上的位置。"
-
-#: ui/settings.slint
-msgid "Next to the tray"
-msgstr "托盘旁边"
-
-#: ui/settings.slint
-msgid "Left edge"
-msgstr "左侧边缘"
-
-#: ui/settings.slint
-msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
-msgstr "拖动监控条即可移动。建议加上面板背景，这样在任何窗口上方都清晰可读。"
-
-#: ui/settings.slint
-msgid "Reset position"
-msgstr "重置位置"
-
-#: ui/settings.slint
-msgid "Offset"
-msgstr "偏移"
-
-#: ui/settings.slint
-msgid "Extra space in pixels, moving away from the anchor."
-msgstr "离开锚点方向的额外间距（像素）。"
-
-#: ui/settings.slint
-msgid "Tray fallback margin"
-msgstr "托盘备用边距"
-
-#: ui/settings.slint
-msgid "Used when the tray position cannot be read."
-msgstr "无法读取托盘位置时使用。"
-
-#: ui/settings.slint
-msgid "Every taskbar"
-msgstr "所有任务栏"
-
-#: ui/settings.slint
-msgid "Also show on the taskbars of other monitors."
-msgstr "同时显示在其他显示器的任务栏上。"
-
-#: ui/settings.slint
-msgid "Background"
-msgstr "背景"
-
-#: ui/settings.slint
-msgid "Tile colour"
-msgstr "底块颜色"
-
-#: ui/settings.slint
-msgid "Empty uses the theme tint."
-msgstr "留空则使用主题色调。"
-
-#: ui/settings.slint
-msgid "Custom tile opacity"
-msgstr "自定义底块不透明度"
-
-#: ui/settings.slint
-msgid "{}% — 0% removes the tiles."
-msgstr "{}% — 0% 表示不显示底块。"
-
-#: ui/settings.slint
-msgid "Using the theme default."
-msgstr "使用主题默认值。"
-
-#: ui/settings.slint
-msgid "Panel colour"
-msgstr "面板颜色"
-
-#: ui/settings.slint
-msgid "A panel behind the whole overlay. Empty uses the theme."
-msgstr "整个监控条后方的面板。留空则使用主题颜色。"
-
-#: ui/settings.slint
-msgid "Panel opacity"
-msgstr "面板不透明度"
-
-#: ui/settings.slint
-msgid "Off"
-msgstr "关闭"
-
-#: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
-msgstr "选择叠加层显示的内容、顺序以及每项的颜色（留空则使用默认颜色）。打开某一项的选项可设置其图表样式、着色方式和弹出窗口。在任务栏上右键单击某一项也可使用相同选项。"
-
-#: ui/settings.slint
-msgid "Graph style"
-msgstr "图表样式"
-
-#: ui/settings.slint
-msgid "Colour"
-msgstr "颜色"
-
-#: ui/settings.slint
-msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
-msgstr "按负载着色会随数值升高将监控项显示为绿色、黄色、橙色或红色：分界为 50、75 和 90 %，70、80 和 90 °C，延迟为 50、100 和 200 ms。其他数值保持监控项颜色。"
-
-#: ui/settings.slint
-msgid "Temperatures and power"
-msgstr "温度和功耗"
-
-#: ui/settings.slint
-msgid "Sensor service"
-msgstr "传感器服务"
-
-#: ui/settings.slint
-msgid "CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only."
-msgstr "CPU 温度、CPU 功耗和芯片组温度需要可选的 Pulsar 传感器服务和 PawnIO 驱动，两者都需要管理员权限。重新运行 Pulsar 安装程序即可添加。支持 Intel CPU，以及 Zen 及之后的 AMD Ryzen；芯片组温度仅支持 Intel。"
-
-#: ui/settings.slint
-msgid "About PawnIO"
-msgstr "关于 PawnIO"
-
-#: ui/settings.slint
-msgid "Disks"
-msgstr "磁盘"
-
-#: ui/settings.slint
-msgid "One combined cell, or a cell per drive."
-msgstr "合并为一格，或每个驱动器一格。"
-
-#: ui/settings.slint
-msgid "All disks combined"
-msgstr "所有磁盘合并显示"
-
-#: ui/settings.slint
-msgid "Each drive"
-msgstr "每个驱动器单独显示"
-
-#: ui/settings.slint
-msgid "Drive value"
-msgstr "驱动器数值"
-
-#: ui/settings.slint
-msgid "Used space"
-msgstr "已用空间"
-
-#: ui/settings.slint
-msgid "Adapter"
-msgstr "网卡"
-
-#: ui/settings.slint
-msgid "Count one adapter, or every physical one."
-msgstr "只统计一个网卡，或统计所有物理网卡。"
-
-#: ui/settings.slint
-msgid "An IPv4 address or a name."
-msgstr "IPv4 地址或主机名。"
-
-#: ui/settings.slint
-msgid "Interval"
-msgstr "间隔"
-
-#: ui/settings.slint
-msgid "Milliseconds between pings."
-msgstr "两次 Ping 之间的间隔（毫秒）。"
 
 #: ui/settings.slint
 msgid "Pulsar {}"

@@ -1,0 +1,22 @@
+[dark]
+text = "#FFF7ED"
+label = "#D6A28B"
+tile = "#431407"
+tile_opacity = 40
+panel = "#1C0A04"
+panel_opacity = 70
+
+[dark.items]
+cpu = "#FB923C"
+cpu_temp = "#F87171"
+cpu_power = "#FBBF24"
+cpu_clock = "#FDE68A"
+ram = "#F87171"
+chipset_temp = "#FB7185"
+gpu = "#FBBF24"
+gpu_temp = "#EF4444"
+disk = "#FDBA74"
+disk_temp = "#FED7AA"
+network = "#FCD34D"
+ping = "#FCA5A5"
+battery = "#FDE047"

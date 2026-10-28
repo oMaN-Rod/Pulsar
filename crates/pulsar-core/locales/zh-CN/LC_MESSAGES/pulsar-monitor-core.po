@@ -160,3 +160,35 @@ msgstr "ICMP 不可用：{}"
 #: src/sources/ping.rs
 msgid "Cannot resolve {} (IPv4)"
 msgstr "无法解析 {}（IPv4）"
+
+#: src/theme.rs
+msgid "Windows default"
+msgstr "Windows 默认"
+
+#: src/theme.rs
+msgid "Aurora"
+msgstr "极光"
+
+#: src/theme.rs
+msgid "Ember"
+msgstr "余烬"
+
+#: src/theme.rs
+msgid "Ocean"
+msgstr "海洋"
+
+#: src/theme.rs
+msgid "Forest"
+msgstr "森林"
+
+#: src/theme.rs
+msgid "Mono"
+msgstr "单色"
+
+#: src/theme.rs
+msgid "Neon"
+msgstr "霓虹"
+
+#: src/theme.rs
+msgid "Sunset"
+msgstr "日落"

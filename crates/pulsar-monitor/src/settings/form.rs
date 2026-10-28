@@ -1,17 +1,17 @@
 //! The values shown in the settings window, and their mapping to `Config`.
 
-use pulsar_core::colors::{Rgb, default_rgb};
+use pulsar_core::colors::Rgb;
+#[cfg(test)]
+use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, PopupBackground, Position, RateUnit,
     TemperatureUnit,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
+use pulsar_core::theme::{Colors, Theme};
 
 use crate::names::{COLOR_MODES, DETAILS, STYLES};
-
-/// Shown in the opacity slider when the theme default is in use.
-pub const THEME_TILE_OPACITY: i32 = 8;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ItemRow {
@@ -60,6 +60,8 @@ pub struct Form {
     pub font_size_pt: i32,
     pub show_on_all_taskbars: bool,
     pub accent_graphs: bool,
+    /// A theme id; empty for Windows default.
+    pub theme: String,
     /// Empty for the theme tint.
     pub tile_color: String,
     /// Off means the theme's opacity; `tile_opacity` is then ignored.
@@ -67,6 +69,8 @@ pub struct Form {
     pub tile_opacity: i32,
     /// Empty for the theme colour.
     pub panel_color: String,
+    /// Off means the theme's panel; `panel_opacity` is then ignored.
+    pub panel_opacity_custom: bool,
     pub panel_opacity: i32,
     pub items: Vec<ItemRow>,
     pub ping_host: String,
@@ -100,8 +104,62 @@ pub fn to_hex((r, g, b): Rgb) -> String {
 }
 
 /// The colour an item is drawn in: its valid custom colour, else the default.
-pub fn item_rgb(kind: ItemKind, hex: &str) -> Rgb {
-    parse_hex(hex).unwrap_or_else(|| default_rgb(kind, CellPart::Main))
+pub fn item_rgb(kind: ItemKind, hex: &str, theme: &Colors) -> Rgb {
+    parse_hex(hex).unwrap_or_else(|| theme.item(kind, CellPart::Main))
+}
+
+/// Selects `theme` and clears the colours that would hide it.
+pub fn apply_theme(f: &mut Form, theme: &Theme) {
+    f.theme = theme.id.clone();
+    for row in &mut f.items {
+        row.color.clear();
+    }
+    for color in [
+        &mut f.label_color,
+        &mut f.value_color,
+        &mut f.label_color_light,
+        &mut f.value_color_light,
+        &mut f.tile_color,
+        &mut f.panel_color,
+    ] {
+        color.clear();
+    }
+    f.tile_opacity_custom = false;
+    f.panel_opacity_custom = false;
+    f.color_labels = theme.color_labels;
+}
+
+/// `base` with the form's custom colours for a dark taskbar folded in, to
+/// save as a new theme.
+pub fn theme_from(f: &Form, base: &Theme, name: &str) -> Theme {
+    let mut dark = base.dark.clone();
+    let pick = |hex: &str, fallback: Rgb| parse_hex(hex).unwrap_or(fallback);
+    dark.text = pick(&f.value_color, dark.text);
+    dark.label = pick(&f.label_color, dark.label);
+    dark.tile = pick(&f.tile_color, dark.tile);
+    dark.panel = pick(&f.panel_color, dark.panel);
+    if f.tile_opacity_custom {
+        dark.tile_opacity = clamp_u8(f.tile_opacity);
+    }
+    if f.panel_opacity_custom {
+        dark.panel_opacity = clamp_u8(f.panel_opacity);
+    }
+    let mut light = base.light.clone();
+    light.text = pick(&f.value_color_light, light.text);
+    light.label = pick(&f.label_color_light, light.label);
+    for row in &f.items {
+        if let Some(c) = parse_hex(&row.color) {
+            dark.set_item(row.kind, c);
+            light.set_item(row.kind, c);
+        }
+    }
+    Theme {
+        id: String::new(),
+        name: name.trim().to_string(),
+        dark,
+        light,
+        color_labels: f.color_labels,
+    }
 }
 
 fn index_of<T: PartialEq>(all: &[T], value: &T) -> i32 {
@@ -114,6 +172,10 @@ fn at<T: Copy>(all: &[T], index: i32) -> Option<T> {
 
 pub fn to_form(c: &Config) -> Form {
     let d = &c.display;
+    let theme = pulsar_core::theme::load(
+        pulsar_core::theme::themes_dir().as_deref(),
+        d.theme.as_deref(),
+    );
     Form {
         autostart: c.general.autostart,
         update_check: c.general.update_check,
@@ -150,9 +212,11 @@ pub fn to_form(c: &Config) -> Form {
         accent_graphs: d.accent_graphs,
         tile_color: d.tile_color.clone().unwrap_or_default(),
         tile_opacity_custom: d.tile_opacity.is_some(),
-        tile_opacity: d.tile_opacity.map_or(THEME_TILE_OPACITY, i32::from),
+        tile_opacity: i32::from(d.tile_opacity.unwrap_or(theme.dark.tile_opacity)),
+        theme: d.theme.clone().unwrap_or_default(),
         panel_color: d.panel_color.clone().unwrap_or_default(),
-        panel_opacity: i32::from(d.panel_opacity),
+        panel_opacity_custom: d.panel_opacity.is_some(),
+        panel_opacity: i32::from(d.panel_opacity.unwrap_or(theme.dark.panel_opacity)),
         items: c
             .items
             .iter()
@@ -246,7 +310,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     d.tile_color = non_empty(&f.tile_color);
     d.tile_opacity = f.tile_opacity_custom.then(|| clamp_u8(f.tile_opacity));
     d.panel_color = non_empty(&f.panel_color);
-    d.panel_opacity = clamp_u8(f.panel_opacity);
+    d.panel_opacity = f.panel_opacity_custom.then(|| clamp_u8(f.panel_opacity));
+    d.theme = non_empty(&f.theme);
     c.items = f
         .items
         .iter()
@@ -325,7 +390,7 @@ mod tests {
         let c = Config::default();
         let mut f = to_form(&c);
         assert!(!f.tile_opacity_custom);
-        assert_eq!(f.tile_opacity, THEME_TILE_OPACITY);
+        assert_eq!(f.tile_opacity, 8);
         f.tile_opacity = 40;
         assert_eq!(
             to_config(&f, &c).display.tile_opacity,
@@ -358,12 +423,13 @@ mod tests {
         let mut f = to_form(&c);
         f.sample_interval_ms = 10;
         f.history_len = -5;
+        f.panel_opacity_custom = true;
         f.panel_opacity = 250;
         f.font_size_pt = 99;
         let out = to_config(&f, &c);
         assert_eq!(out.general.sample_interval_ms, 500);
         assert_eq!(out.general.history_len, 10);
-        assert_eq!(out.display.panel_opacity, 100);
+        assert_eq!(out.display.panel_opacity, Some(100));
         assert_eq!(out.display.font_size_pt, 20.0);
     }
 
@@ -428,16 +494,51 @@ mod tests {
     }
 
     #[test]
-    fn item_swatch_falls_back_to_the_default_colour() {
-        assert_eq!(item_rgb(ItemKind::Cpu, "#010203"), (1, 2, 3));
+    fn item_swatch_falls_back_to_the_theme_colour() {
+        let windows = Theme::windows();
+        assert_eq!(item_rgb(ItemKind::Cpu, "#010203", &windows.dark), (1, 2, 3));
         assert_eq!(
-            item_rgb(ItemKind::Cpu, ""),
+            item_rgb(ItemKind::Cpu, "", &windows.dark),
             default_rgb(ItemKind::Cpu, CellPart::Main)
         );
+        let ocean = pulsar_core::theme::load(None, Some("ocean"));
         assert_eq!(
-            item_rgb(ItemKind::Cpu, "#01"),
-            default_rgb(ItemKind::Cpu, CellPart::Main)
+            item_rgb(ItemKind::Cpu, "#01", &ocean.dark),
+            ocean.dark.item(ItemKind::Cpu, CellPart::Main)
         );
+    }
+
+    #[test]
+    fn applying_a_theme_selects_it_and_clears_custom_colours() {
+        let c = Config::default();
+        let mut f = to_form(&c);
+        f.items[0].color = "#FF0000".into();
+        f.label_color = "#00FF00".into();
+        f.panel_opacity_custom = true;
+        let neon = pulsar_core::theme::load(None, Some("neon"));
+        apply_theme(&mut f, &neon);
+        let out = to_config(&f, &c);
+        assert_eq!(out.display.theme.as_deref(), Some("neon"));
+        assert!(out.items.iter().all(|i| i.color.is_none()));
+        assert_eq!(out.display.label_color, None);
+        assert_eq!(out.display.panel_opacity, None);
+        assert!(out.display.color_labels);
+    }
+
+    #[test]
+    fn a_saved_theme_keeps_custom_colours() {
+        let mut f = to_form(&Config::default());
+        f.items[0].color = "#010203".into();
+        f.value_color = "#0A0B0C".into();
+        f.panel_opacity_custom = true;
+        f.panel_opacity = 40;
+        let t = theme_from(&f, &Theme::windows(), " Mine ");
+        assert_eq!(t.name, "Mine");
+        assert_eq!(t.dark.item(f.items[0].kind, CellPart::Main), (1, 2, 3));
+        assert_eq!(t.light.item(f.items[0].kind, CellPart::Main), (1, 2, 3));
+        assert_eq!(t.dark.text, (10, 11, 12));
+        assert_eq!(t.dark.panel_opacity, 40);
+        assert_eq!(t.light.text, Theme::windows().light.text);
     }
 
     #[test]

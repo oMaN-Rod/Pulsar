@@ -20,4 +20,5 @@ pub mod sensors;
 pub mod single_instance;
 pub mod sources;
 pub mod system_theme;
+pub mod theme;
 pub mod update;

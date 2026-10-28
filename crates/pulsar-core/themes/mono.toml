@@ -1,0 +1,18 @@
+[dark]
+text = "#FFFFFF"
+label = "#9CA3AF"
+
+[dark.items]
+cpu = "#F3F4F6"
+cpu_temp = "#D1D5DB"
+cpu_power = "#E5E7EB"
+cpu_clock = "#E5E7EB"
+ram = "#D1D5DB"
+chipset_temp = "#D4D4D8"
+gpu = "#E5E7EB"
+gpu_temp = "#9CA3AF"
+disk = "#CBD5E1"
+disk_temp = "#CBD5E1"
+network = "#F9FAFB"
+ping = "#A1A1AA"
+battery = "#D4D4D8"

@@ -3,6 +3,14 @@ use pulsar_core::config::{ColorMode, Config};
 use pulsar_core::display::metric_for;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
+pub use pulsar_core::theme::Theme;
+use windows::Win32::Graphics::Gdi::{
+    COLOR_HIGHLIGHT, COLOR_HOTLIGHT, COLOR_WINDOW, COLOR_WINDOWTEXT, GetSysColor,
+};
+use windows::Win32::UI::Accessibility::{HCF_HIGHCONTRASTON, HIGHCONTRASTW};
+use windows::Win32::UI::WindowsAndMessaging::{
+    SPI_GETHIGHCONTRAST, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SystemParametersInfoW,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Color {
@@ -63,10 +71,70 @@ pub struct Palette {
 }
 
 impl Palette {
-    pub fn new(light_taskbar: bool, config: &Config, accent: Option<Color>) -> Self {
-        let theme = colors::theme_rgb(light_taskbar);
+    /// The palette for the current Windows settings and `config`'s theme.
+    /// High contrast replaces every colour with the system's.
+    pub fn current(config: &Config) -> Self {
+        if let Some(p) = Self::high_contrast() {
+            return p;
+        }
+        let theme = pulsar_core::theme::load(
+            pulsar_core::theme::themes_dir().as_deref(),
+            config.display.theme.as_deref(),
+        );
+        Self::new(taskbar_is_light(), config, accent_color(), &theme)
+    }
+
+    fn high_contrast() -> Option<Self> {
+        let mut hc = HIGHCONTRASTW {
+            cbSize: size_of::<HIGHCONTRASTW>() as u32,
+            ..Default::default()
+        };
+        unsafe {
+            SystemParametersInfoW(
+                SPI_GETHIGHCONTRAST,
+                hc.cbSize,
+                Some((&raw mut hc).cast()),
+                SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0),
+            )
+        }
+        .ok()?;
+        if !hc.dwFlags.contains(HCF_HIGHCONTRASTON) {
+            return None;
+        }
+        let sys = |index| Color::from_abgr(unsafe { GetSysColor(index) });
+        let (text, back, highlight) = (
+            sys(COLOR_WINDOWTEXT),
+            sys(COLOR_WINDOW),
+            sys(COLOR_HIGHLIGHT),
+        );
+        let items = ItemKind::ALL
+            .into_iter()
+            .flat_map(|k| [(k, CellPart::Main), (k, CellPart::Down), (k, CellPart::Up)])
+            .map(|(k, p)| (k, p, highlight))
+            .collect();
+        Some(Self {
+            text,
+            label: text,
+            popup_text: text,
+            popup_label: text,
+            tile: text.with_alpha(0.0),
+            hit: back.with_alpha(1.0 / 255.0),
+            panel: Some(back),
+            popup: back,
+            popup_border: text,
+            warning: sys(COLOR_HOTLIGHT),
+            items,
+            by_load: Vec::new(),
+            light: back.r + back.g + back.b > 1.5,
+            color_labels: false,
+        })
+    }
+
+    pub fn new(light_taskbar: bool, config: &Config, accent: Option<Color>, theme: &Theme) -> Self {
+        let theme = theme.colors(light_taskbar);
         let (text, label, theme_panel) = (rgb(theme.text), rgb(theme.label), rgb(theme.panel));
-        let theme_tile = rgb(theme.tile).with_alpha(if light_taskbar { 0.06 } else { 0.08 });
+        let opacity = |percent: u8| f32::from(percent.min(100)) / 100.0;
+        let theme_tile = rgb(theme.tile).with_alpha(opacity(theme.tile_opacity));
         let d = &config.display;
         let (popup_text, popup_label) = (text, label);
         let custom = |hex: &Option<String>| hex.as_deref().and_then(Color::parse_hex);
@@ -78,19 +146,19 @@ impl Palette {
         };
         let text = themed(&d.value_color, &d.value_color_light).unwrap_or(text);
         let label = themed(&d.label_color, &d.label_color_light).unwrap_or(label);
-        let opacity = |percent: u8| f32::from(percent.min(100)) / 100.0;
         let tile = d
             .tile_color
             .as_deref()
             .and_then(Color::parse_hex)
             .unwrap_or(theme_tile)
             .with_alpha(d.tile_opacity.map_or(theme_tile.a, opacity));
-        let panel = (d.panel_opacity > 0).then(|| {
+        let panel_opacity = d.panel_opacity.unwrap_or(theme.panel_opacity);
+        let panel = (panel_opacity > 0).then(|| {
             d.panel_color
                 .as_deref()
                 .and_then(Color::parse_hex)
                 .unwrap_or(theme_panel)
-                .with_alpha(opacity(d.panel_opacity))
+                .with_alpha(opacity(panel_opacity))
         });
         let mut items = Vec::new();
         let mut by_load = Vec::new();
@@ -117,7 +185,7 @@ impl Palette {
                         None
                     }),
                 }
-                .unwrap_or_else(|| default_color(kind, part));
+                .unwrap_or_else(|| rgb(theme.item(kind, part)));
                 items.push((kind, part, color));
             }
         }
@@ -199,7 +267,8 @@ fn rgb((r, g, b): colors::Rgb) -> Color {
     Color::rgb(r, g, b)
 }
 
-pub fn default_color(kind: ItemKind, part: CellPart) -> Color {
+#[cfg(test)]
+fn default_color(kind: ItemKind, part: CellPart) -> Color {
     rgb(colors::default_rgb(kind, part))
 }
 
@@ -232,11 +301,11 @@ mod tests {
     fn text_contrasts_with_taskbar() {
         let config = Config::default();
         assert_eq!(
-            Palette::new(false, &config, None).text,
+            Palette::new(false, &config, None, &Theme::windows()).text,
             Color::rgb(255, 255, 255)
         );
         assert_eq!(
-            Palette::new(true, &config, None).text,
+            Palette::new(true, &config, None, &Theme::windows()).text,
             Color::rgb(0x1A, 0x1A, 0x1A)
         );
     }
@@ -250,7 +319,7 @@ mod tests {
             color: Some("#102030".into()),
             ..ItemConfig::new(ItemKind::Cpu, true)
         }];
-        let p = Palette::new(false, &config, Some(accent));
+        let p = Palette::new(false, &config, Some(accent), &Theme::windows());
         assert_eq!(
             p.graph(ItemKind::Cpu, CellPart::Main),
             Color::rgb(0x10, 0x20, 0x30)
@@ -258,7 +327,7 @@ mod tests {
         assert_eq!(p.graph(ItemKind::Gpu, CellPart::Main), accent);
 
         config.display.accent_graphs = false;
-        let p = Palette::new(false, &config, Some(accent));
+        let p = Palette::new(false, &config, Some(accent), &Theme::windows());
         assert_eq!(
             p.graph(ItemKind::Gpu, CellPart::Main),
             default_color(ItemKind::Gpu, CellPart::Main)
@@ -267,7 +336,7 @@ mod tests {
 
     #[test]
     fn tile_defaults_to_theme_tint_and_no_panel() {
-        let p = Palette::new(false, &Config::default(), None);
+        let p = Palette::new(false, &Config::default(), None, &Theme::windows());
         assert_eq!(p.tile, Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(0.08));
         assert_eq!(p.panel, None);
     }
@@ -277,27 +346,33 @@ mod tests {
         let mut config = Config::default();
         config.display.tile_color = Some("#102030".into());
         config.display.tile_opacity = Some(50);
-        let p = Palette::new(false, &config, None);
+        let p = Palette::new(false, &config, None, &Theme::windows());
         assert_eq!(p.tile, Color::rgb(0x10, 0x20, 0x30).with_alpha(0.5));
 
         config.display.tile_color = None;
         config.display.tile_opacity = Some(0);
-        assert_eq!(Palette::new(true, &config, None).tile.a, 0.0);
+        assert_eq!(
+            Palette::new(true, &config, None, &Theme::windows()).tile.a,
+            0.0
+        );
     }
 
     #[test]
     fn panel_appears_only_with_opacity() {
         let mut config = Config::default();
         config.display.panel_color = Some("#202020".into());
-        assert_eq!(Palette::new(false, &config, None).panel, None);
-        config.display.panel_opacity = 60;
         assert_eq!(
-            Palette::new(false, &config, None).panel,
+            Palette::new(false, &config, None, &Theme::windows()).panel,
+            None
+        );
+        config.display.panel_opacity = Some(60);
+        assert_eq!(
+            Palette::new(false, &config, None, &Theme::windows()).panel,
             Some(Color::rgb(0x20, 0x20, 0x20).with_alpha(0.6))
         );
         config.display.panel_color = None;
         assert_eq!(
-            Palette::new(true, &config, None).panel,
+            Palette::new(true, &config, None, &Theme::windows()).panel,
             Some(Color::rgb(0xF3, 0xF3, 0xF3).with_alpha(0.6)),
             "theme panel colour on a light taskbar"
         );
@@ -306,16 +381,16 @@ mod tests {
     #[test]
     fn popup_follows_the_theme() {
         let config = Config::default();
-        let dark = Palette::new(false, &config, None);
+        let dark = Palette::new(false, &config, None, &Theme::windows());
         assert_eq!(dark.popup, Color::rgb(0x20, 0x20, 0x20).with_alpha(0.98));
-        let light = Palette::new(true, &config, None);
+        let light = Palette::new(true, &config, None, &Theme::windows());
         assert_eq!(light.popup, Color::rgb(0xF3, 0xF3, 0xF3).with_alpha(0.98));
         assert_ne!(dark.warning, light.warning);
     }
 
     #[test]
     fn network_parts_have_distinct_defaults() {
-        let p = Palette::new(false, &Config::default(), None);
+        let p = Palette::new(false, &Config::default(), None, &Theme::windows());
         assert_ne!(
             p.graph(ItemKind::Network, CellPart::Down),
             p.graph(ItemKind::Network, CellPart::Up)
@@ -327,7 +402,7 @@ mod tests {
         let mut c = Config::default();
         c.display.label_color = Some("#112233".into());
         c.display.value_color = Some("#445566".into());
-        let p = Palette::new(false, &c, None);
+        let p = Palette::new(false, &c, None, &Theme::windows());
         assert_eq!(p.label, Color::rgb(0x11, 0x22, 0x33));
         assert_eq!(p.text, Color::rgb(0x44, 0x55, 0x66));
     }
@@ -338,16 +413,16 @@ mod tests {
         c.display.label_color = Some("#EEEEEE".into());
         c.display.label_color_light = Some("#111111".into());
         assert_eq!(
-            Palette::new(false, &c, None).label,
+            Palette::new(false, &c, None, &Theme::windows()).label,
             Color::rgb(0xEE, 0xEE, 0xEE)
         );
         assert_eq!(
-            Palette::new(true, &c, None).label,
+            Palette::new(true, &c, None, &Theme::windows()).label,
             Color::rgb(0x11, 0x11, 0x11)
         );
         c.display.label_color_light = None;
         assert_eq!(
-            Palette::new(true, &c, None).label,
+            Palette::new(true, &c, None, &Theme::windows()).label,
             Color::rgb(0xEE, 0xEE, 0xEE),
             "without a light colour the one colour applies to both"
         );
@@ -359,7 +434,7 @@ mod tests {
         let mut c = Config::default();
         c.item_mut(ItemKind::Ram).unwrap().color_mode = ColorMode::Accent;
         c.item_mut(ItemKind::Cpu).unwrap().color_mode = ColorMode::Load;
-        let p = Palette::new(false, &c, Some(accent));
+        let p = Palette::new(false, &c, Some(accent), &Theme::windows());
         assert_eq!(p.graph(ItemKind::Ram, CellPart::Main), accent);
         assert_eq!(
             p.graph(ItemKind::Gpu, CellPart::Main),
@@ -394,10 +469,10 @@ mod tests {
     #[test]
     fn labels_can_take_the_item_colour() {
         let mut c = Config::default();
-        let plain = Palette::new(false, &c, None);
+        let plain = Palette::new(false, &c, None, &Theme::windows());
         assert_eq!(plain.label_for(ItemKind::Cpu, CellPart::Main), plain.label);
         c.display.color_labels = true;
-        let coloured = Palette::new(false, &c, None);
+        let coloured = Palette::new(false, &c, None, &Theme::windows());
         assert_eq!(
             coloured.label_for(ItemKind::Cpu, CellPart::Main),
             default_color(ItemKind::Cpu, CellPart::Main)
@@ -406,7 +481,7 @@ mod tests {
 
     #[test]
     fn drive_cells_use_the_disk_colour() {
-        let p = Palette::new(false, &Config::default(), None);
+        let p = Palette::new(false, &Config::default(), None, &Theme::windows());
         assert_eq!(
             p.graph(ItemKind::Disk, CellPart::DriveUsed(b'D')),
             p.graph(ItemKind::Disk, CellPart::Main)
@@ -415,11 +490,11 @@ mod tests {
 
     #[test]
     fn popups_keep_theme_text_whatever_the_overlay_colours() {
-        let plain = Palette::new(true, &Config::default(), None);
+        let plain = Palette::new(true, &Config::default(), None, &Theme::windows());
         let mut c = Config::default();
         c.display.label_color = Some("#F8FAFC".into());
         c.display.value_color = Some("#FFFFFF".into());
-        let custom = Palette::new(true, &c, None);
+        let custom = Palette::new(true, &c, None, &Theme::windows());
         assert_eq!(custom.popup_text, plain.text);
         assert_eq!(custom.popup_label, plain.label);
     }

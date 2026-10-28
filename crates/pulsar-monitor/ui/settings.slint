@@ -12,6 +12,17 @@ export struct ItemRow {
     expanded: bool,
 }
 
+// A theme picker card: its name and the colours its preview is drawn in.
+export struct ThemeCard {
+    name: string,
+    taskbar: color,
+    panel: color,
+    tile: color,
+    label: color,
+    text: color,
+    items: [color],
+}
+
 export struct DriveRow {
     letter: string,
     checked: bool,
@@ -28,6 +39,10 @@ global Icons {
     out property <string> folder: "\u{E8B7}";
     out property <string> chart: "\u{E9D9}";
     out property <string> options: "\u{E713}";
+    out property <string> palette: "\u{E790}";
+    out property <string> popup: "\u{E8BD}";
+    out property <string> sensor: "\u{E950}";
+    out property <string> drive: "\u{EDA2}";
 }
 
 component Icon inherits Text {
@@ -87,6 +102,111 @@ component NavItem inherits Rectangle {
     }
     touch := TouchArea {
         clicked => { root.clicked(); }
+    }
+}
+
+// A heading over a group of navigation items.
+component NavGroup inherits Rectangle {
+    in property <string> text;
+    height: 30px;
+    Text {
+        x: 14px;
+        y: parent.height - self.height - 4px;
+        text: root.text;
+        font-size: 12px;
+        font-weight: 600;
+        color: Palette.foreground.transparentize(0.45);
+    }
+}
+
+// A miniature overlay in the theme's colours: graph tiles with a label line
+// and a value line on a strip of taskbar.
+component ThemeTile inherits Rectangle {
+    in property <ThemeCard> theme;
+    in property <bool> selected;
+    callback clicked();
+    width: 136px;
+    height: 100px;
+    VerticalLayout {
+        spacing: 6px;
+        Rectangle {
+            height: 68px;
+            border-radius: 8px;
+            clip: true;
+            background: root.theme.taskbar;
+            border-width: root.selected ? 2px : 1px;
+            border-color: root.selected ? Palette.accent-background : touch.has-hover ? Palette.border : Palette.border.transparentize(0.5);
+            Rectangle {
+                x: 8px;
+                y: 16px;
+                width: parent.width - 16px;
+                height: 36px;
+                border-radius: 4px;
+                background: root.theme.panel;
+                HorizontalLayout {
+                    padding: 3px;
+                    spacing: 3px;
+                    for c[i] in root.theme.items: Rectangle {
+                        background: root.theme.tile;
+                        border-radius: 3px;
+                        Rectangle {
+                            x: 3px;
+                            y: 3px;
+                            width: parent.width * 0.55;
+                            height: 3px;
+                            border-radius: 1.5px;
+                            background: root.theme.label;
+                        }
+                        Rectangle {
+                            x: 3px;
+                            y: 9px;
+                            width: parent.width * 0.75;
+                            height: 4px;
+                            border-radius: 2px;
+                            background: root.theme.text;
+                        }
+                        Rectangle {
+                            property <float> level: [0.75, 0.45, 0.9, 0.6][i];
+                            x: 0;
+                            width: parent.width;
+                            height: (parent.height - 16px) * self.level;
+                            y: parent.height - self.height;
+                            border-radius: 2px;
+                            background: c.transparentize(0.25);
+                        }
+                    }
+                }
+            }
+        }
+        Text {
+            text: root.theme.name;
+            horizontal-alignment: center;
+            font-size: 12px;
+            font-weight: root.selected ? 600 : 400;
+            overflow: elide;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Theme cards in as many columns as fit.
+component ThemeGrid inherits Rectangle {
+    in property <[ThemeCard]> themes;
+    in property <int> selected;
+    callback clicked(int);
+    property <length> step-x: 136px + 12px;
+    property <length> step-y: 100px + 10px;
+    property <int> columns: Math.max(1, Math.floor((self.width + 12px) / self.step-x));
+    min-height: Math.ceil(self.themes.length / self.columns) * self.step-y;
+    for t[i] in root.themes: ThemeTile {
+        x: Math.mod(i, root.columns) * root.step-x;
+        y: Math.floor(i / root.columns) * root.step-y;
+        theme: t;
+        selected: i == root.selected;
+        clicked => { root.clicked(i); }
     }
 }
 
@@ -410,6 +530,7 @@ export component SettingsWindow inherits Window {
     in-out property <string> panel-color;
     in property <color> panel-swatch;
     in property <color> panel-default;
+    in-out property <bool> panel-opacity-custom;
     in-out property <float> panel-opacity;
     in-out property <[ItemRow]> items;
     in-out property <string> ping-host;
@@ -449,8 +570,10 @@ export component SettingsWindow inherits Window {
     in property <[string]> fonts;
     in-out property <int> font-index;
     in-out property <bool> font-bold;
-    in property <[string]> presets;
-    in-out property <int> preset-index;
+    in property <[ThemeCard]> themes;
+    in-out property <int> theme-index;
+    in property <string> theme-status;
+    in-out property <string> theme-name;
     in property <[string]> languages;
     in-out property <int> language-index;
     in property <[string]> adapters;
@@ -472,7 +595,9 @@ export component SettingsWindow inherits Window {
     callback open-config-folder();
     callback open-logs-folder();
     callback open-link(string);
-    callback apply-preset(int);
+    callback apply-theme(int);
+    callback save-theme(string);
+    callback open-themes-folder();
     callback reset-all();
     callback reset-position();
     callback drive-toggled(int, bool);
@@ -485,29 +610,56 @@ export component SettingsWindow inherits Window {
             padding: 12px;
             padding-top: 8px;
             spacing: 4px;
+            NavGroup { text: @tr("Overlay"); }
             NavItem {
-                icon: Icons.settings;
-                label: @tr("General");
+                icon: Icons.list;
+                label: @tr("Items");
                 selected: root.tab == 0;
                 clicked => { root.tab = 0; scroll.content-y = 0; }
             }
             NavItem {
                 icon: Icons.display;
-                label: @tr("Display");
+                label: @tr("Layout");
                 selected: root.tab == 1;
                 clicked => { root.tab = 1; scroll.content-y = 0; }
             }
             NavItem {
-                icon: Icons.list;
-                label: @tr("Items");
+                icon: Icons.palette;
+                label: @tr("Theme");
                 selected: root.tab == 2;
                 clicked => { root.tab = 2; scroll.content-y = 0; }
             }
             NavItem {
-                icon: Icons.info;
-                label: @tr("About");
+                icon: Icons.popup;
+                label: @tr("Popups");
                 selected: root.tab == 3;
                 clicked => { root.tab = 3; scroll.content-y = 0; }
+            }
+            NavGroup { text: @tr("Readings"); }
+            NavItem {
+                icon: Icons.sensor;
+                label: @tr("Sensors");
+                selected: root.tab == 4;
+                clicked => { root.tab = 4; scroll.content-y = 0; }
+            }
+            NavItem {
+                icon: Icons.drive;
+                label: @tr("Drives and network");
+                selected: root.tab == 5;
+                clicked => { root.tab = 5; scroll.content-y = 0; }
+            }
+            NavGroup { text: @tr("App"); }
+            NavItem {
+                icon: Icons.settings;
+                label: @tr("General");
+                selected: root.tab == 6;
+                clicked => { root.tab = 6; scroll.content-y = 0; }
+            }
+            NavItem {
+                icon: Icons.info;
+                label: @tr("About");
+                selected: root.tab == 7;
+                clicked => { root.tab = 7; scroll.content-y = 0; }
             }
             Rectangle { }
         }
@@ -519,6 +671,595 @@ export component SettingsWindow inherits Window {
             width: scroll.visible-width;
             alignment: start;
             if root.tab == 0: Page {
+                title: @tr("Items");
+                Text {
+                    text: @tr("Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options.");
+                    color: Palette.foreground.transparentize(0.35);
+                    wrap: word-wrap;
+                }
+                Card {
+                    for row[i] in root.items: VerticalLayout {
+                        if i > 0: Divider { }
+                        SettingRow {
+                            title: row.name;
+                            IconButton {
+                                icon: Icons.options;
+                                clicked => { root.item-expanded(i, !row.expanded); }
+                            }
+                            ColorField {
+                                text: row.color;
+                                swatch: row.swatch;
+                                fallback: row.swatch;
+                                placeholder: @tr("Default");
+                                field-width: 120px;
+                                edited(text) => { root.item-color(i, text); }
+                            }
+                            IconButton {
+                                icon: Icons.up;
+                                enabled: i > 0;
+                                clicked => { root.move-item(i, true); }
+                            }
+                            IconButton {
+                                icon: Icons.down;
+                                enabled: i < root.items.length - 1;
+                                clicked => { root.move-item(i, false); }
+                            }
+                            Switch {
+                                checked: row.enabled;
+                                toggled => { root.item-enabled(i, self.checked); }
+                            }
+                        }
+                        if row.expanded: VerticalLayout {
+                            padding-left: 24px;
+                            padding-bottom: 4px;
+                            if root.mode == 0: SettingRow {
+                                title: @tr("Graph style");
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                ComboBox {
+                                    width: 200px;
+                                    model: root.styles;
+                                    current-index: row.style;
+                                    selected => { root.item-choice(i, 0, self.current-index); }
+                                }
+                            }
+                            SettingRow {
+                                title: @tr("Colour");
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                ComboBox {
+                                    width: 200px;
+                                    model: root.color-modes;
+                                    current-index: row.color-mode;
+                                    selected => { root.item-choice(i, 1, self.current-index); }
+                                }
+                            }
+                            SettingRow {
+                                title: @tr("Popup detail");
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                ComboBox {
+                                    width: 200px;
+                                    model: root.item-popup-details;
+                                    current-index: row.popup;
+                                    selected => { root.item-choice(i, 2, self.current-index); }
+                                }
+                            }
+                        }
+                    }
+                }
+                Text {
+                    text: @tr("Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour.");
+                    color: Palette.foreground.transparentize(0.35);
+                    wrap: word-wrap;
+                }
+            }
+
+            if root.tab == 1: Page {
+                title: @tr("Layout");
+                Card {
+                    SettingRow {
+                        title: @tr("Mode");
+                        description: @tr("Graphs, or compact text only.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Graphs"), @tr("Text only")];
+                            current-index <=> root.mode;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.mode == 0: Divider { }
+                    if root.mode == 0: SettingRow {
+                        title: @tr("Single-line graphs");
+                        description: @tr("Put the icon, label and value on one line, for short taskbars.");
+                        Switch {
+                            checked <=> root.graph-inline;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Labels");
+                        description: @tr("Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Full"), @tr("Short"), @tr("None (icons only)")];
+                            current-index <=> root.labels;
+                            selected => {
+                                if (root.labels == 2) {
+                                    root.icons = true;
+                                }
+                                root.changed();
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Icons");
+                        description: @tr("An icon before each label, or on its own.");
+                        Switch {
+                            checked <=> root.icons;
+                            toggled => {
+                                if (!self.checked && root.labels == 2) {
+                                    root.labels = 0;
+                                }
+                                root.changed();
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Hide in fullscreen");
+                        description: @tr("Fade out while a fullscreen game or video is in front.");
+                        Switch {
+                            checked <=> root.hide-in-fullscreen;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Text"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Font");
+                        description: @tr("Fonts without fixed-width digits may shift slightly as values change.");
+                        ComboBox {
+                            width: 220px;
+                            model: root.fonts;
+                            current-index <=> root.font-index;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Bold");
+                        Switch {
+                            checked <=> root.font-bold;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Font size");
+                        description: @tr("Points.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 6;
+                            maximum: 20;
+                            value <=> root.font-size-pt;
+                            edited => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Position"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Placement");
+                        description: @tr("Where the overlay sits on the taskbar.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Next to the tray"), @tr("Left edge"), @tr("Floating")];
+                            current-index <=> root.position;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.position == 2: Divider { }
+                    if root.position == 2: SettingRow {
+                        title: @tr("Lock position");
+                        description: @tr("Drag the overlay to move it. Add a panel background so it stays readable over any window.");
+                        Button {
+                            text: @tr("Reset position");
+                            clicked => { root.reset-position(); }
+                        }
+                        Switch {
+                            checked <=> root.lock-position;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Offset");
+                        description: @tr("Extra space in pixels, moving away from the anchor.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: -2000;
+                            maximum: 2000;
+                            step-size: 4;
+                            value <=> root.offset-px;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Tray fallback margin");
+                        description: @tr("Used when the tray position cannot be read.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 2000;
+                            step-size: 10;
+                            value <=> root.fallback-margin-px;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Every taskbar");
+                        description: @tr("Also show on the taskbars of other monitors.");
+                        Switch {
+                            checked <=> root.show-on-all-taskbars;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 2: Page {
+                title: @tr("Theme");
+                ThemeGrid {
+                    themes: root.themes;
+                    selected: root.theme-index;
+                    clicked(i) => { root.apply-theme(i); }
+                }
+                Text {
+                    text: @tr("A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below.");
+                    color: Palette.foreground.transparentize(0.35);
+                    wrap: word-wrap;
+                }
+                Card {
+                    SettingRow {
+                        title: @tr("Save as a theme");
+                        description: root.theme-status != "" ? root.theme-status : @tr("Keeps the current colours as a new theme in the themes folder.");
+                        LineEdit {
+                            width: 160px;
+                            placeholder-text: @tr("Name");
+                            text <=> root.theme-name;
+                        }
+                        Button {
+                            text: @tr("Save");
+                            enabled: root.theme-name != "";
+                            clicked => {
+                                root.save-theme(root.theme-name);
+                                root.theme-name = "";
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Themes folder");
+                        description: @tr("Theme files to share or edit. Changes show after choosing the theme again.");
+                        Button {
+                            text: @tr("Open");
+                            clicked => { root.open-themes-folder(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Custom colours"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Label colour");
+                        description: @tr("Empty uses the theme.");
+                        ColorField {
+                            text <=> root.label-color;
+                            swatch: root.label-swatch;
+                            fallback: root.label-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Value colour");
+                        description: @tr("Empty uses the theme.");
+                        ColorField {
+                            text <=> root.value-color;
+                            swatch: root.value-swatch;
+                            fallback: root.value-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Label colour on a light taskbar");
+                        description: @tr("Empty uses the label colour above.");
+                        ColorField {
+                            text <=> root.label-color-light;
+                            swatch: root.label-light-swatch;
+                            fallback: root.label-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Value colour on a light taskbar");
+                        description: @tr("Empty uses the value colour above.");
+                        ColorField {
+                            text <=> root.value-color-light;
+                            swatch: root.value-light-swatch;
+                            fallback: root.value-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Colour labels by item");
+                        description: @tr("Draw each label in its item's colour.");
+                        Switch {
+                            checked <=> root.color-labels;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Accent colour graphs");
+                        description: @tr("Draw graphs in your Windows accent colour.");
+                        Switch {
+                            checked <=> root.accent-graphs;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Background"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Tile colour");
+                        description: @tr("Empty uses the theme tint.");
+                        ColorField {
+                            text <=> root.tile-color;
+                            swatch: root.tile-swatch;
+                            fallback: root.tile-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Custom tile opacity");
+                        description: root.tile-opacity-custom ? @tr("{}% — 0% removes the tiles.", Math.round(root.tile-opacity)) : @tr("Using the theme default.");
+                        Slider {
+                            width: 160px;
+                            enabled: root.tile-opacity-custom;
+                            minimum: 0;
+                            maximum: 100;
+                            value <=> root.tile-opacity;
+                            changed => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.tile-opacity-custom;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Panel colour");
+                        description: @tr("A panel behind the whole overlay. Empty uses the theme.");
+                        ColorField {
+                            text <=> root.panel-color;
+                            swatch: root.panel-swatch;
+                            fallback: root.panel-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Custom panel opacity");
+                        description: !root.panel-opacity-custom ? @tr("Using the theme default.") : root.panel-opacity > 0 ? "\{Math.round(root.panel-opacity)}%" : @tr("Off");
+                        Slider {
+                            width: 160px;
+                            enabled: root.panel-opacity-custom;
+                            minimum: 0;
+                            maximum: 100;
+                            value <=> root.panel-opacity;
+                            changed => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.panel-opacity-custom;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 3: Page {
+                title: @tr("Popups");
+                Card {
+                    SettingRow {
+                        title: @tr("Details on hover");
+                        description: @tr("Show a graph and details when the mouse rests on an item.");
+                        Switch {
+                            checked <=> root.hover-popup;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Detail");
+                        description: @tr("Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page.");
+                        ComboBox {
+                            width: 200px;
+                            model: root.popup-details;
+                            current-index <=> root.popup-detail;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Translucent background");
+                        description: @tr("Blur what is behind the popup. If Windows does not allow it, popups stay solid.");
+                        Switch {
+                            checked <=> root.popup-translucent;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Graph");
+                        description: @tr("The recent history at the top of each popup.");
+                        Switch {
+                            checked <=> root.popup-graph;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Top processes");
+                        description: @tr("Processes listed for CPU, memory, GPU and disk; 0 hides the lists.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 15;
+                            value <=> root.popup-processes;
+                            edited => { root.changed(); }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 4: Page {
+                title: @tr("Sensors");
+                SectionTitle { text: @tr("Temperatures and power"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Sensor service");
+                        description: @tr("CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only.");
+                        Button {
+                            text: @tr("About PawnIO");
+                            clicked => { root.open-link("https://pawnio.eu"); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Units"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Temperature");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Celsius (°C)"), @tr("Fahrenheit (°F)")];
+                            current-index <=> root.temperature-unit;
+                            selected => { root.changed(); }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 5: Page {
+                title: @tr("Drives and network");
+                SectionTitle { text: @tr("Disk"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Disks");
+                        description: @tr("One combined cell, or a cell per drive.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("All disks combined"), @tr("Each drive")];
+                            current-index: root.per-drive ? 1 : 0;
+                            selected => {
+                                root.per-drive = self.current-index == 1;
+                                root.per-drive-selected();
+                            }
+                        }
+                    }
+                    if root.per-drive: Divider { }
+                    if root.per-drive: SettingRow {
+                        title: @tr("Drives");
+                        for drive[i] in root.drive-rows: CheckBox {
+                            text: drive.letter + ":";
+                            checked: drive.checked;
+                            toggled => { root.drive-toggled(i, self.checked); }
+                        }
+                    }
+                    if root.per-drive: Divider { }
+                    if root.per-drive: SettingRow {
+                        title: @tr("Drive value");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Activity"), @tr("Used space")];
+                            current-index: root.drive-used ? 1 : 0;
+                            selected => {
+                                root.drive-used = self.current-index == 1;
+                                root.changed();
+                            }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Network"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Adapter");
+                        description: @tr("Count one adapter, or every physical one.");
+                        ComboBox {
+                            width: 260px;
+                            model: root.adapters;
+                            current-index <=> root.adapter-index;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Network rates");
+                        description: @tr("Disk speeds stay in bytes.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Bytes per second (MB/s)"), @tr("Bits per second (Mbps)")];
+                            current-index <=> root.network-unit;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Upload on top");
+                        description: @tr("Show the upload rate above the download rate.");
+                        Switch {
+                            checked <=> root.upload-on-top;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                }
+                SectionTitle { text: @tr("Ping"); }
+                Card {
+                    SettingRow {
+                        title: @tr("Host");
+                        description: @tr("An IPv4 address or a name.");
+                        LineEdit {
+                            width: 200px;
+                            text <=> root.ping-host;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Interval");
+                        description: @tr("Milliseconds between pings.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 1000;
+                            maximum: 60000;
+                            step-size: 500;
+                            value <=> root.ping-interval-ms;
+                            edited => { root.changed(); }
+                        }
+                    }
+                }
+            }
+
+            if root.tab == 6: Page {
                 title: @tr("General");
                 Card {
                     SettingRow {
@@ -612,552 +1353,7 @@ export component SettingsWindow inherits Window {
                 }
             }
 
-            if root.tab == 1: Page {
-                title: @tr("Display");
-                Card {
-                    SettingRow {
-                        title: @tr("Mode");
-                        description: @tr("Graphs, or compact text only.");
-                        ComboBox {
-                            width: 200px;
-                            model: [@tr("Graphs"), @tr("Text only")];
-                            current-index <=> root.mode;
-                            selected => { root.changed(); }
-                        }
-                    }
-                    if root.mode == 0: Divider { }
-                    if root.mode == 0: SettingRow {
-                        title: @tr("Single-line graphs");
-                        description: @tr("Put the icon, label and value on one line, for short taskbars.");
-                        Switch {
-                            checked <=> root.graph-inline;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Labels");
-                        description: @tr("Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone.");
-                        ComboBox {
-                            width: 200px;
-                            model: [@tr("Full"), @tr("Short"), @tr("None (icons only)")];
-                            current-index <=> root.labels;
-                            selected => {
-                                if (root.labels == 2) {
-                                    root.icons = true;
-                                }
-                                root.changed();
-                            }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Icons");
-                        description: @tr("An icon before each label, or on its own.");
-                        Switch {
-                            checked <=> root.icons;
-                            toggled => {
-                                if (!self.checked && root.labels == 2) {
-                                    root.labels = 0;
-                                }
-                                root.changed();
-                            }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Hide in fullscreen");
-                        description: @tr("Fade out while a fullscreen game or video is in front.");
-                        Switch {
-                            checked <=> root.hide-in-fullscreen;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Text"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Font");
-                        description: @tr("Fonts without fixed-width digits may shift slightly as values change.");
-                        ComboBox {
-                            width: 220px;
-                            model: root.fonts;
-                            current-index <=> root.font-index;
-                            selected => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Bold");
-                        Switch {
-                            checked <=> root.font-bold;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Font size");
-                        description: @tr("Points.");
-                        SpinBox {
-                            width: 140px;
-                            minimum: 6;
-                            maximum: 20;
-                            value <=> root.font-size-pt;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Accent colour graphs");
-                        description: @tr("Draw graphs in your Windows accent colour.");
-                        Switch {
-                            checked <=> root.accent-graphs;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Colours"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Theme preset");
-                        description: @tr("Sets item, label, value, tile and panel colours at once.");
-                        ComboBox {
-                            width: 180px;
-                            model: root.presets;
-                            current-index <=> root.preset-index;
-                        }
-                        Button {
-                            text: @tr("Apply");
-                            clicked => { root.apply-preset(root.preset-index); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Label colour");
-                        description: @tr("Empty uses the theme.");
-                        ColorField {
-                            text <=> root.label-color;
-                            swatch: root.label-swatch;
-                            fallback: root.label-default;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Value colour");
-                        description: @tr("Empty uses the theme.");
-                        ColorField {
-                            text <=> root.value-color;
-                            swatch: root.value-swatch;
-                            fallback: root.value-default;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Label colour on a light taskbar");
-                        description: @tr("Empty uses the label colour above.");
-                        ColorField {
-                            text <=> root.label-color-light;
-                            swatch: root.label-light-swatch;
-                            fallback: root.label-default;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Value colour on a light taskbar");
-                        description: @tr("Empty uses the value colour above.");
-                        ColorField {
-                            text <=> root.value-color-light;
-                            swatch: root.value-light-swatch;
-                            fallback: root.value-default;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Colour labels by item");
-                        description: @tr("Draw each label in its item's colour.");
-                        Switch {
-                            checked <=> root.color-labels;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Popups"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Details on hover");
-                        description: @tr("Show a graph and details when the mouse rests on an item.");
-                        Switch {
-                            checked <=> root.hover-popup;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Detail");
-                        description: @tr("Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page.");
-                        ComboBox {
-                            width: 200px;
-                            model: root.popup-details;
-                            current-index <=> root.popup-detail;
-                            selected => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Translucent background");
-                        description: @tr("Blur what is behind the popup. If Windows does not allow it, popups stay solid.");
-                        Switch {
-                            checked <=> root.popup-translucent;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Graph");
-                        description: @tr("The recent history at the top of each popup.");
-                        Switch {
-                            checked <=> root.popup-graph;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Top processes");
-                        description: @tr("Processes listed for CPU, memory, GPU and disk; 0 hides the lists.");
-                        SpinBox {
-                            width: 140px;
-                            minimum: 0;
-                            maximum: 15;
-                            value <=> root.popup-processes;
-                            edited => { root.changed(); }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Units"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Temperature");
-                        ComboBox {
-                            width: 200px;
-                            model: [@tr("Celsius (°C)"), @tr("Fahrenheit (°F)")];
-                            current-index <=> root.temperature-unit;
-                            selected => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Network rates");
-                        description: @tr("Disk speeds stay in bytes.");
-                        ComboBox {
-                            width: 200px;
-                            model: [@tr("Bytes per second (MB/s)"), @tr("Bits per second (Mbps)")];
-                            current-index <=> root.network-unit;
-                            selected => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Upload on top");
-                        description: @tr("Show the upload rate above the download rate.");
-                        Switch {
-                            checked <=> root.upload-on-top;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Position"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Placement");
-                        description: @tr("Where the overlay sits on the taskbar.");
-                        ComboBox {
-                            width: 200px;
-                            model: [@tr("Next to the tray"), @tr("Left edge"), @tr("Floating")];
-                            current-index <=> root.position;
-                            selected => { root.changed(); }
-                        }
-                    }
-                    if root.position == 2: Divider { }
-                    if root.position == 2: SettingRow {
-                        title: @tr("Lock position");
-                        description: @tr("Drag the overlay to move it. Add a panel background so it stays readable over any window.");
-                        Button {
-                            text: @tr("Reset position");
-                            clicked => { root.reset-position(); }
-                        }
-                        Switch {
-                            checked <=> root.lock-position;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Offset");
-                        description: @tr("Extra space in pixels, moving away from the anchor.");
-                        SpinBox {
-                            width: 140px;
-                            minimum: -2000;
-                            maximum: 2000;
-                            step-size: 4;
-                            value <=> root.offset-px;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Tray fallback margin");
-                        description: @tr("Used when the tray position cannot be read.");
-                        SpinBox {
-                            width: 140px;
-                            minimum: 0;
-                            maximum: 2000;
-                            step-size: 10;
-                            value <=> root.fallback-margin-px;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Every taskbar");
-                        description: @tr("Also show on the taskbars of other monitors.");
-                        Switch {
-                            checked <=> root.show-on-all-taskbars;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Background"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Tile colour");
-                        description: @tr("Empty uses the theme tint.");
-                        ColorField {
-                            text <=> root.tile-color;
-                            swatch: root.tile-swatch;
-                            fallback: root.tile-default;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Custom tile opacity");
-                        description: root.tile-opacity-custom ? @tr("{}% — 0% removes the tiles.", Math.round(root.tile-opacity)) : @tr("Using the theme default.");
-                        Slider {
-                            width: 160px;
-                            enabled: root.tile-opacity-custom;
-                            minimum: 0;
-                            maximum: 100;
-                            value <=> root.tile-opacity;
-                            changed => { root.changed(); }
-                        }
-                        Switch {
-                            checked <=> root.tile-opacity-custom;
-                            toggled => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Panel colour");
-                        description: @tr("A panel behind the whole overlay. Empty uses the theme.");
-                        ColorField {
-                            text <=> root.panel-color;
-                            swatch: root.panel-swatch;
-                            fallback: root.panel-default;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Panel opacity");
-                        description: root.panel-opacity > 0 ? "\{Math.round(root.panel-opacity)}%" : @tr("Off");
-                        Slider {
-                            width: 200px;
-                            minimum: 0;
-                            maximum: 100;
-                            value <=> root.panel-opacity;
-                            changed => { root.changed(); }
-                        }
-                    }
-                }
-            }
-
-            if root.tab == 2: Page {
-                title: @tr("Items");
-                Text {
-                    text: @tr("Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options.");
-                    color: Palette.foreground.transparentize(0.35);
-                    wrap: word-wrap;
-                }
-                Card {
-                    for row[i] in root.items: VerticalLayout {
-                        if i > 0: Divider { }
-                        SettingRow {
-                            title: row.name;
-                            IconButton {
-                                icon: Icons.options;
-                                clicked => { root.item-expanded(i, !row.expanded); }
-                            }
-                            ColorField {
-                                text: row.color;
-                                swatch: row.swatch;
-                                fallback: row.swatch;
-                                placeholder: @tr("Default");
-                                field-width: 120px;
-                                edited(text) => { root.item-color(i, text); }
-                            }
-                            IconButton {
-                                icon: Icons.up;
-                                enabled: i > 0;
-                                clicked => { root.move-item(i, true); }
-                            }
-                            IconButton {
-                                icon: Icons.down;
-                                enabled: i < root.items.length - 1;
-                                clicked => { root.move-item(i, false); }
-                            }
-                            Switch {
-                                checked: row.enabled;
-                                toggled => { root.item-enabled(i, self.checked); }
-                            }
-                        }
-                        if row.expanded: VerticalLayout {
-                            padding-left: 24px;
-                            padding-bottom: 4px;
-                            if root.mode == 0: SettingRow {
-                                title: @tr("Graph style");
-                                padding-top: 4px;
-                                padding-bottom: 4px;
-                                ComboBox {
-                                    width: 200px;
-                                    model: root.styles;
-                                    current-index: row.style;
-                                    selected => { root.item-choice(i, 0, self.current-index); }
-                                }
-                            }
-                            SettingRow {
-                                title: @tr("Colour");
-                                padding-top: 4px;
-                                padding-bottom: 4px;
-                                ComboBox {
-                                    width: 200px;
-                                    model: root.color-modes;
-                                    current-index: row.color-mode;
-                                    selected => { root.item-choice(i, 1, self.current-index); }
-                                }
-                            }
-                            SettingRow {
-                                title: @tr("Popup detail");
-                                padding-top: 4px;
-                                padding-bottom: 4px;
-                                ComboBox {
-                                    width: 200px;
-                                    model: root.item-popup-details;
-                                    current-index: row.popup;
-                                    selected => { root.item-choice(i, 2, self.current-index); }
-                                }
-                            }
-                        }
-                    }
-                }
-                Text {
-                    text: @tr("Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour.");
-                    color: Palette.foreground.transparentize(0.35);
-                    wrap: word-wrap;
-                }
-                SectionTitle { text: @tr("Temperatures and power"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Sensor service");
-                        description: @tr("CPU temperature, CPU power and chipset temperature need the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only.");
-                        Button {
-                            text: @tr("About PawnIO");
-                            clicked => { root.open-link("https://pawnio.eu"); }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Disk"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Disks");
-                        description: @tr("One combined cell, or a cell per drive.");
-                        ComboBox {
-                            width: 200px;
-                            model: [@tr("All disks combined"), @tr("Each drive")];
-                            current-index: root.per-drive ? 1 : 0;
-                            selected => {
-                                root.per-drive = self.current-index == 1;
-                                root.per-drive-selected();
-                            }
-                        }
-                    }
-                    if root.per-drive: Divider { }
-                    if root.per-drive: SettingRow {
-                        title: @tr("Drives");
-                        for drive[i] in root.drive-rows: CheckBox {
-                            text: drive.letter + ":";
-                            checked: drive.checked;
-                            toggled => { root.drive-toggled(i, self.checked); }
-                        }
-                    }
-                    if root.per-drive: Divider { }
-                    if root.per-drive: SettingRow {
-                        title: @tr("Drive value");
-                        ComboBox {
-                            width: 200px;
-                            model: [@tr("Activity"), @tr("Used space")];
-                            current-index: root.drive-used ? 1 : 0;
-                            selected => {
-                                root.drive-used = self.current-index == 1;
-                                root.changed();
-                            }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Network"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Adapter");
-                        description: @tr("Count one adapter, or every physical one.");
-                        ComboBox {
-                            width: 260px;
-                            model: root.adapters;
-                            current-index <=> root.adapter-index;
-                            selected => { root.changed(); }
-                        }
-                    }
-                }
-                SectionTitle { text: @tr("Ping"); }
-                Card {
-                    SettingRow {
-                        title: @tr("Host");
-                        description: @tr("An IPv4 address or a name.");
-                        LineEdit {
-                            width: 200px;
-                            text <=> root.ping-host;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Interval");
-                        description: @tr("Milliseconds between pings.");
-                        SpinBox {
-                            width: 140px;
-                            minimum: 1000;
-                            maximum: 60000;
-                            step-size: 500;
-                            value <=> root.ping-interval-ms;
-                            edited => { root.changed(); }
-                        }
-                    }
-                }
-            }
-
-            if root.tab == 3: Page {
+            if root.tab == 7: Page {
                 title: @tr("About");
                 Card {
                     HorizontalLayout {
