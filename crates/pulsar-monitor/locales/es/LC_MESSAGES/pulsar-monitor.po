@@ -756,6 +756,10 @@ msgstr "Ocultar"
 msgid "Graph"
 msgstr "Gráfica"
 
+#: src/menu.rs ui/settings.slint
+msgid "Translucent background"
+msgstr "Fondo translúcido"
+
 #: src/menu.rs
 msgid "None"
 msgstr "Ninguno"
@@ -1467,6 +1471,10 @@ msgstr "Detalle"
 #: ui/settings.slint
 msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
 msgstr "Simple muestra el valor y su gráfica; Detallado añade todo lo que lee Pulsar. Cada elemento puede elegir el suyo en la página Elementos."
+
+#: ui/settings.slint
+msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
+msgstr "Desenfoca lo que hay detrás de la ventana emergente. Si Windows no lo permite, las ventanas emergentes siguen siendo opacas."
 
 #: ui/settings.slint
 msgid "The recent history at the top of each popup."

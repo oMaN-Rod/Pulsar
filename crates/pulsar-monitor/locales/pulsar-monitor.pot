@@ -754,6 +754,10 @@ msgstr ""
 msgid "Graph"
 msgstr ""
 
+#: src/menu.rs ui/settings.slint
+msgid "Translucent background"
+msgstr ""
+
 #: src/menu.rs
 msgid "None"
 msgstr ""
@@ -1464,6 +1468,10 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
 msgstr ""
 
 #: ui/settings.slint

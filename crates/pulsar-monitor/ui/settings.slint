@@ -439,6 +439,7 @@ export component SettingsWindow inherits Window {
     in-out property <bool> upload-on-top;
     in-out property <int> popup-detail;
     in-out property <bool> popup-graph;
+    in-out property <bool> popup-translucent;
     in-out property <int> popup-processes;
     in property <[string]> styles;
     in property <[string]> color-modes;
@@ -803,6 +804,15 @@ export component SettingsWindow inherits Window {
                             model: root.popup-details;
                             current-index <=> root.popup-detail;
                             selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Translucent background");
+                        description: @tr("Blur what is behind the popup. If Windows does not allow it, popups stay solid.");
+                        Switch {
+                            checked <=> root.popup-translucent;
+                            toggled => { root.changed(); }
                         }
                     }
                     Divider { }

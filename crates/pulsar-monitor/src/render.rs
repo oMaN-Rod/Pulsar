@@ -73,6 +73,13 @@ impl Surface {
     }
 }
 
+impl Surface {
+    /// The memory DC the bitmap is selected into, for copying it elsewhere.
+    pub fn dc(&self) -> HDC {
+        self.dc
+    }
+}
+
 impl Drop for Surface {
     fn drop(&mut self) {
         unsafe {

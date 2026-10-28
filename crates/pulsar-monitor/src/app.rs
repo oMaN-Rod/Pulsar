@@ -168,6 +168,7 @@ impl App {
                 report.display().to_string(),
             );
         }
+        let translucent = translucent_popups(&config);
         Ok(Self {
             instance,
             host,
@@ -187,7 +188,7 @@ impl App {
             hooks: None,
             fullscreen: Debounce::new(None),
             retry_step: 0,
-            popup: Popup::create(instance)?,
+            popup: Popup::create(instance, translucent)?,
             popup_owner: None,
             hover: HoverArming::default(),
             drag: None,
@@ -854,6 +855,13 @@ impl App {
         if new.units != self.config.units {
             pulsar_core::format::set_units(new.units);
         }
+        if new.popup.background != self.config.popup.background {
+            self.close_popup();
+            match Popup::create(self.instance, translucent_popups(&new)) {
+                Ok(popup) => self.popup = popup,
+                Err(e) => log::warn!("could not recreate the popup: {e}"),
+            }
+        }
         if new.general.language != self.config.general.language {
             crate::language::apply(&new);
             self.close_popup();
@@ -891,6 +899,10 @@ impl Drop for App {
     fn drop(&mut self) {
         self.register_appbar(ABM_REMOVE);
     }
+}
+
+fn translucent_popups(config: &Config) -> bool {
+    config.popup.background == pulsar_core::config::PopupBackground::Translucent
 }
 
 /// `item` is the overlay item that was right-clicked, if any.

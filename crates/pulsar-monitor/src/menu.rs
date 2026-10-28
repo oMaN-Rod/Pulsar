@@ -1,6 +1,6 @@
 use pulsar_core::config::{
-    ColorMode, Config, DisplayMode, GraphStyle, LabelStyle, MAX_POPUP_PROCESSES, PopupDetail,
-    Position, RateUnit, TemperatureUnit,
+    ColorMode, Config, DisplayMode, GraphStyle, LabelStyle, MAX_POPUP_PROCESSES, PopupBackground,
+    PopupDetail, Position, RateUnit, TemperatureUnit,
 };
 use pulsar_core::metric::ItemKind;
 use pulsar_core::tr;
@@ -44,6 +44,7 @@ pub enum Toggle {
 pub enum Edit {
     PopupDetail(PopupDetail),
     PopupGraph,
+    PopupTranslucent,
     PopupProcesses(u8),
     Temperature(TemperatureUnit),
     Network(RateUnit),
@@ -99,6 +100,12 @@ pub fn apply_edit(c: &mut Config, e: Edit) {
     match e {
         Edit::PopupDetail(detail) => c.popup.detail = detail,
         Edit::PopupGraph => c.popup.graph = !c.popup.graph,
+        Edit::PopupTranslucent => {
+            c.popup.background = match c.popup.background {
+                PopupBackground::Solid => PopupBackground::Translucent,
+                PopupBackground::Translucent => PopupBackground::Solid,
+            }
+        }
         Edit::PopupProcesses(n) => c.popup.processes = n.min(MAX_POPUP_PROCESSES),
         Edit::Temperature(unit) => c.units.temperature = unit,
         Edit::Network(unit) => c.units.network = unit,
@@ -145,6 +152,7 @@ const ID_DETAILS: usize = 13;
 /// Plus the index into `DETAILS`.
 const ID_POPUP_DETAIL: usize = 20;
 const ID_POPUP_GRAPH: usize = 25;
+const ID_POPUP_TRANSLUCENT: usize = 26;
 /// Plus the index into `PROCESS_COUNTS`.
 const ID_PROCESSES: usize = 30;
 const ID_CELSIUS: usize = 40;
@@ -221,6 +229,7 @@ pub fn command_for(id: usize) -> Option<Command> {
         ID_TASK_MANAGER => Some(Command::TaskManager),
         ID_EXIT => Some(Command::Exit),
         ID_POPUP_GRAPH => edit(Edit::PopupGraph),
+        ID_POPUP_TRANSLUCENT => edit(Edit::PopupTranslucent),
         ID_CELSIUS => edit(Edit::Temperature(TemperatureUnit::Celsius)),
         ID_FAHRENHEIT => edit(Edit::Temperature(TemperatureUnit::Fahrenheit)),
         ID_BYTES => edit(Edit::Network(RateUnit::Bytes)),
@@ -356,6 +365,13 @@ fn popup_menu(config: &Config) -> Option<Menu> {
     }
     menu.separator();
     menu.item(ID_POPUP_GRAPH, tr!("Graph"), config.popup.graph, true);
+    let translucent = config.popup.background == PopupBackground::Translucent;
+    menu.item(
+        ID_POPUP_TRANSLUCENT,
+        tr!("Translucent background"),
+        translucent,
+        true,
+    );
     let processes = Menu::new()?;
     for (i, &n) in PROCESS_COUNTS.iter().enumerate() {
         let text = if n == 0 {
@@ -620,6 +636,12 @@ mod tests {
         apply_edit(&mut c, Edit::Temperature(TemperatureUnit::Fahrenheit));
         apply_edit(&mut c, Edit::UploadOnTop);
         apply_edit(&mut c, Edit::PopupProcesses(200));
+        apply_edit(&mut c, Edit::PopupTranslucent);
+        assert_eq!(c.popup.background, PopupBackground::Solid);
+        assert_eq!(
+            command_for(ID_POPUP_TRANSLUCENT),
+            Some(Command::Edit(Edit::PopupTranslucent))
+        );
         assert_eq!(c.units.temperature, TemperatureUnit::Fahrenheit);
         assert!(c.display.upload_on_top);
         assert_eq!(c.popup.processes, MAX_POPUP_PROCESSES);

@@ -2,7 +2,8 @@
 
 use pulsar_core::colors::{Rgb, default_rgb};
 use pulsar_core::config::{
-    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, Position, RateUnit, TemperatureUnit,
+    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, PopupBackground, Position, RateUnit,
+    TemperatureUnit,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -83,6 +84,7 @@ pub struct Form {
     /// An index into `names::DETAILS`.
     pub popup_detail: i32,
     pub popup_graph: bool,
+    pub popup_translucent: bool,
     pub popup_processes: i32,
 }
 
@@ -174,6 +176,7 @@ pub fn to_form(c: &Config) -> Form {
         upload_on_top: d.upload_on_top,
         popup_detail: index_of(&DETAILS, &c.popup.detail),
         popup_graph: c.popup.graph,
+        popup_translucent: c.popup.background == PopupBackground::Translucent,
         popup_processes: i32::from(c.popup.processes),
     }
 }
@@ -283,6 +286,11 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     };
     c.popup.detail = at(&DETAILS, f.popup_detail).unwrap_or_default();
     c.popup.graph = f.popup_graph;
+    c.popup.background = if f.popup_translucent {
+        PopupBackground::Translucent
+    } else {
+        PopupBackground::Solid
+    };
     c.popup.processes = f.popup_processes.clamp(0, 255) as u8;
     c.sanitize()
 }
@@ -481,6 +489,7 @@ mod tests {
         c.display.value_color_light = Some("#101010".into());
         c.popup.detail = pulsar_core::config::PopupDetail::Simple;
         c.popup.graph = false;
+        c.popup.background = PopupBackground::Solid;
         c.popup.processes = 10;
         let c = c.sanitize();
         assert_eq!(to_config(&to_form(&c), &c), c);

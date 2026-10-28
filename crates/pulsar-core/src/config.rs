@@ -50,6 +50,16 @@ pub enum PopupDetail {
     Detailed,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PopupBackground {
+    Solid,
+    /// The blurred system material behind flyouts; solid where Windows
+    /// does not offer it.
+    #[default]
+    Translucent,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TemperatureUnit {
@@ -80,6 +90,7 @@ pub struct Units {
 #[serde(default)]
 pub struct PopupConfig {
     pub detail: PopupDetail,
+    pub background: PopupBackground,
     pub graph: bool,
     /// Rows in top-process lists; 0 leaves the lists out.
     pub processes: u8,
@@ -324,6 +335,7 @@ impl Default for PopupConfig {
     fn default() -> Self {
         Self {
             detail: PopupDetail::Standard,
+            background: PopupBackground::Translucent,
             graph: true,
             processes: 5,
         }
@@ -1021,6 +1033,7 @@ kind = \"cpu\"
         c.display.label_color_light = Some("#202020".into());
         c.popup = PopupConfig {
             detail: PopupDetail::Detailed,
+            background: PopupBackground::Solid,
             graph: false,
             processes: 8,
         };

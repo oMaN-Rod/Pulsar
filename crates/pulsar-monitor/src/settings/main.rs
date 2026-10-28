@@ -162,6 +162,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_upload_on_top(f.upload_on_top);
     ui.set_popup_detail(f.popup_detail);
     ui.set_popup_graph(f.popup_graph);
+    ui.set_popup_translucent(f.popup_translucent);
     ui.set_popup_processes(f.popup_processes);
     ui.set_font_bold(f.font_bold);
     ui.set_language_index(
@@ -323,6 +324,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         upload_on_top: ui.get_upload_on_top(),
         popup_detail: ui.get_popup_detail(),
         popup_graph: ui.get_popup_graph(),
+        popup_translucent: ui.get_popup_translucent(),
         popup_processes: ui.get_popup_processes(),
     }
 }

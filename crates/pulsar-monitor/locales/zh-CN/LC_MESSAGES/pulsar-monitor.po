@@ -757,6 +757,10 @@ msgstr "隐藏"
 msgid "Graph"
 msgstr "图表"
 
+#: src/menu.rs ui/settings.slint
+msgid "Translucent background"
+msgstr "半透明背景"
+
 #: src/menu.rs
 msgid "None"
 msgstr "无"
@@ -1468,6 +1472,10 @@ msgstr "详细程度"
 #: ui/settings.slint
 msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
 msgstr "简洁只显示数值和图表；详细会加入 Pulsar 读取的全部信息。每个监控项可在“监控项”页面单独设置。"
+
+#: ui/settings.slint
+msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
+msgstr "模糊弹出窗口后面的内容。如果 Windows 不允许，弹出窗口保持不透明。"
 
 #: ui/settings.slint
 msgid "The recent history at the top of each popup."

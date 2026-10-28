@@ -54,6 +54,7 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
   - theme presets
   - custom label, value and item colours, with separate label and value colours for a light taskbar
   - tile and panel backgrounds, which help with TranslucentTB and similar
+  - translucent popups that blur what is behind them, or solid ones
   - any installed font, bold optional
 - **Light.** About 10 MB of memory and well under 1% CPU. No admin rights, no drivers and no background services, unless you opt in to the [sensor service](#sensor-service).
 

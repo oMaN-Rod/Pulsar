@@ -156,6 +156,10 @@ impl Palette {
         level.map_or(self.text, |level| rgb(colors::load_rgb(level, self.light)))
     }
 
+    pub fn light(&self) -> bool {
+        self.light
+    }
+
     /// The colour for a reading of `value`: its load colour when the item
     /// is coloured by load and the value has a scale, else `graph`.
     pub fn graph_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
