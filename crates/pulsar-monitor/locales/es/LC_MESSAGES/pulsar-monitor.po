@@ -61,6 +61,10 @@ msgid "{} closed"
 msgstr "{} cerrado"
 
 #: src/app.rs
+msgid "Pulsar could not load the profile"
+msgstr "Pulsar no pudo cargar el perfil"
+
+#: src/app.rs
 msgid "Recording saved"
 msgstr "Grabación guardada"
 
@@ -877,6 +881,14 @@ msgid "Upload on top"
 msgstr "Subida arriba"
 
 #: src/menu.rs
+msgid "No profiles saved"
+msgstr "No hay perfiles guardados"
+
+#: src/menu.rs
+msgid "Manage profiles…"
+msgstr "Administrar perfiles…"
+
+#: src/menu.rs
 msgid "{} s"
 msgstr "{} s"
 
@@ -907,6 +919,10 @@ msgstr "Unidades"
 #: src/menu.rs ui/settings.slint
 msgid "Update interval"
 msgstr "Intervalo de actualización"
+
+#: src/menu.rs ui/settings.slint
+msgid "Profiles"
+msgstr "Perfiles"
 
 #: src/menu.rs
 msgid "Short labels"
@@ -1307,6 +1323,14 @@ msgstr "Guardado."
 #: src/settings/main.rs
 msgid "Could not save the theme: {}"
 msgstr "No se pudo guardar el tema: {}"
+
+#: src/settings/main.rs
+msgid "Could not save the profile: {}"
+msgstr "No se pudo guardar el perfil: {}"
+
+#: src/settings/main.rs
+msgid "Could not read the profile."
+msgstr "No se pudo leer el perfil."
 
 #: ui/details.slint
 msgid "Load by thread"
@@ -2063,6 +2087,42 @@ msgstr "Restablecer…"
 #: ui/settings.slint
 msgid "Cancel"
 msgstr "Cancelar"
+
+#: ui/settings.slint
+msgid "A profile keeps what the overlay and widget show and how they look: items, layout, theme, popups, widget, units, drives and network. Language, startup, update interval, games, alerts and shortcuts stay the same in every profile. Switch profiles here or from the Profiles menu."
+msgstr "Un perfil guarda lo que muestran la superposición y el widget y su aspecto: elementos, diseño, tema, ventanas emergentes, widget, unidades, unidades de disco y red. El idioma, el inicio, el intervalo de actualización, los juegos, las alertas y los atajos son iguales en todos los perfiles. Cambia de perfil aquí o desde el menú Perfiles."
+
+#: ui/settings.slint
+msgid "Save as a profile"
+msgstr "Guardar como perfil"
+
+#: ui/settings.slint
+msgid "Keeps the current settings under a name. Saving with a profile's name again updates it."
+msgstr "Guarda la configuración actual con un nombre. Guardar de nuevo con el nombre de un perfil lo actualiza."
+
+#: ui/settings.slint
+msgid "Profiles folder"
+msgstr "Carpeta de perfiles"
+
+#: ui/settings.slint
+msgid "Profile files to back up or share."
+msgstr "Archivos de perfil para copiar o compartir."
+
+#: ui/settings.slint
+msgid "Saved profiles"
+msgstr "Perfiles guardados"
+
+#: ui/settings.slint
+msgid "Current"
+msgstr "Actual"
+
+#: ui/settings.slint
+msgid "Apply"
+msgstr "Aplicar"
+
+#: ui/settings.slint
+msgid "Delete"
+msgstr "Eliminar"
 
 #: ui/settings.slint
 msgid "Pulsar {}"

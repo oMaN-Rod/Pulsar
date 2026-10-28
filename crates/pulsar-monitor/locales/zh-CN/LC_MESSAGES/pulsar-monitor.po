@@ -62,6 +62,10 @@ msgid "{} closed"
 msgstr "{} 已关闭"
 
 #: src/app.rs
+msgid "Pulsar could not load the profile"
+msgstr "Pulsar 无法加载配置文件"
+
+#: src/app.rs
 msgid "Recording saved"
 msgstr "记录已保存"
 
@@ -878,6 +882,14 @@ msgid "Upload on top"
 msgstr "上传显示在上方"
 
 #: src/menu.rs
+msgid "No profiles saved"
+msgstr "没有已保存的配置文件"
+
+#: src/menu.rs
+msgid "Manage profiles…"
+msgstr "管理配置文件…"
+
+#: src/menu.rs
 msgid "{} s"
 msgstr "{} 秒"
 
@@ -908,6 +920,10 @@ msgstr "单位"
 #: src/menu.rs ui/settings.slint
 msgid "Update interval"
 msgstr "刷新间隔"
+
+#: src/menu.rs ui/settings.slint
+msgid "Profiles"
+msgstr "配置文件"
 
 #: src/menu.rs
 msgid "Short labels"
@@ -1308,6 +1324,14 @@ msgstr "已保存。"
 #: src/settings/main.rs
 msgid "Could not save the theme: {}"
 msgstr "无法保存主题：{}"
+
+#: src/settings/main.rs
+msgid "Could not save the profile: {}"
+msgstr "无法保存配置文件：{}"
+
+#: src/settings/main.rs
+msgid "Could not read the profile."
+msgstr "无法读取配置文件。"
 
 #: ui/details.slint
 msgid "Load by thread"
@@ -2064,6 +2088,42 @@ msgstr "重置…"
 #: ui/settings.slint
 msgid "Cancel"
 msgstr "取消"
+
+#: ui/settings.slint
+msgid "A profile keeps what the overlay and widget show and how they look: items, layout, theme, popups, widget, units, drives and network. Language, startup, update interval, games, alerts and shortcuts stay the same in every profile. Switch profiles here or from the Profiles menu."
+msgstr "配置文件保存叠加层和小组件显示的内容及其外观：项目、布局、主题、弹出窗口、小组件、单位、驱动器和网络。语言、启动、更新间隔、游戏、警报和快捷键在所有配置文件中保持不变。可在此处或“配置文件”菜单中切换。"
+
+#: ui/settings.slint
+msgid "Save as a profile"
+msgstr "另存为配置文件"
+
+#: ui/settings.slint
+msgid "Keeps the current settings under a name. Saving with a profile's name again updates it."
+msgstr "以一个名称保存当前设置。使用已有配置文件的名称再次保存会更新它。"
+
+#: ui/settings.slint
+msgid "Profiles folder"
+msgstr "配置文件文件夹"
+
+#: ui/settings.slint
+msgid "Profile files to back up or share."
+msgstr "用于备份或分享的配置文件。"
+
+#: ui/settings.slint
+msgid "Saved profiles"
+msgstr "已保存的配置文件"
+
+#: ui/settings.slint
+msgid "Current"
+msgstr "当前"
+
+#: ui/settings.slint
+msgid "Apply"
+msgstr "应用"
+
+#: ui/settings.slint
+msgid "Delete"
+msgstr "删除"
 
 #: ui/settings.slint
 msgid "Pulsar {}"

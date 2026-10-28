@@ -333,7 +333,7 @@ pub fn load(dir: Option<&Path>, id: Option<&str>) -> Theme {
 /// Writes `theme` as a new file named after it and returns its id.
 pub fn save(dir: &Path, theme: &Theme) -> io::Result<String> {
     std::fs::create_dir_all(dir)?;
-    let stem = slug(&theme.name);
+    let stem = slug(&theme.name, "theme");
     let id = (1..)
         .map(|n| {
             if n == 1 {
@@ -358,7 +358,7 @@ pub fn valid_id(id: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
 }
 
-fn slug(name: &str) -> String {
+pub(crate) fn slug(name: &str, fallback: &str) -> String {
     let mut out = String::new();
     for c in name.chars().flat_map(char::to_lowercase) {
         if c.is_ascii_alphanumeric() {
@@ -369,7 +369,7 @@ fn slug(name: &str) -> String {
     }
     let out = out.trim_end_matches('-');
     let out: String = out.chars().take(48).collect();
-    if out.is_empty() { "theme".into() } else { out }
+    if out.is_empty() { fallback.into() } else { out }
 }
 
 fn user_files(dir: &Path) -> Vec<(String, PathBuf)> {
@@ -563,7 +563,7 @@ mod tests {
     #[test]
     fn slugs_are_valid_ids() {
         for name in ["Ocean", "  ", "Ünïcode café", "a/b\\c", &"x".repeat(200)] {
-            assert!(valid_id(&slug(name)), "{name:?}");
+            assert!(valid_id(&slug(name, "theme")), "{name:?}");
         }
     }
 }

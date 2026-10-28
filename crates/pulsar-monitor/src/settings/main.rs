@@ -22,6 +22,7 @@ use pulsar_core::hardware::displays::{self, Display};
 use pulsar_core::hotkey::Hotkey;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
+use pulsar_core::profile::{self, Profile};
 use pulsar_core::single_instance::SingleInstance;
 use pulsar_core::sources::{fixed_drives, hardware_adapters};
 use pulsar_core::theme::{self, Theme};
@@ -40,6 +41,7 @@ const SAVE_DELAY: Duration = Duration::from_millis(300);
 /// How often to look for changes made by the app (e.g. the tray menu).
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);
 const ABOUT_TAB: i32 = 8;
+const PROFILES_TAB: i32 = 9;
 const CAPTION_RETRY: Duration = Duration::from_millis(15);
 
 struct State {
@@ -50,6 +52,8 @@ struct State {
     /// Modification time of our last write, to tell our saves from others.
     written: Option<SystemTime>,
     choices: Choices,
+    /// Profile ids in the order of the `profiles` model rows.
+    profile_ids: Vec<String>,
 }
 
 /// What the font and adapter pickers offer, and the value behind each entry.
@@ -566,6 +570,25 @@ fn show(ui: &SettingsWindow, state: &mut State, config: Config) {
     state.kinds = config.items.iter().map(|i| i.kind).collect();
     push(ui, &form::to_form(&config), &mut state.choices);
     state.config = config;
+    push_profiles(ui, state);
+}
+
+/// Lists the saved profiles, marking those the settings match.
+fn push_profiles(ui: &SettingsWindow, state: &mut State) {
+    let dir = profile::profiles_dir();
+    let entries = dir.as_deref().map(profile::list).unwrap_or_default();
+    let rows: Vec<ProfileRow> = entries
+        .iter()
+        .map(|e| ProfileRow {
+            name: e.name.as_str().into(),
+            active: dir
+                .as_deref()
+                .and_then(|d| profile::load(d, &e.id))
+                .is_some_and(|p| p.matches(&state.config)),
+        })
+        .collect();
+    state.profile_ids = entries.into_iter().map(|e| e.id).collect();
+    ui.set_profiles(ModelRc::new(VecModel::from(rows)));
 }
 
 /// Picks up a change made by another process. A file that does not parse
@@ -598,6 +621,7 @@ fn save(ui: &SettingsWindow, state: &mut State) {
     if follow_language(ui, &state.config) {
         push(ui, &form::to_form(&state.config), &mut state.choices);
     }
+    push_profiles(ui, state);
 }
 
 fn write(state: &mut State, new: Config) {
@@ -641,6 +665,7 @@ fn update_row(ui: &SettingsWindow, index: i32, edit: impl FnOnce(&mut ItemRow)) 
 
 fn main() -> Result<(), Box<dyn Error>> {
     let about = std::env::args().any(|a| a == ipc::ABOUT_ARG);
+    let profiles = std::env::args().any(|a| a == ipc::PROFILES_ARG);
     // Read without moving a bad file aside; that is the running instance's job.
     language::init(
         &config::default_path()
@@ -651,6 +676,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         if about {
             notify::signal(ipc::SHOW_ABOUT_EVENT);
         }
+        if profiles {
+            notify::signal(ipc::SHOW_PROFILES_EVENT);
+        }
         notify::focus_window(ipc::settings_title());
         return Ok(());
     };
@@ -660,6 +688,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     log::info!("Settings {} opened", env!("CARGO_PKG_VERSION"));
     let about_requests = notify::Request::create(ipc::SHOW_ABOUT_EVENT);
+    let profile_requests = notify::Request::create(ipc::SHOW_PROFILES_EVENT);
     let path = config::default_path().ok_or("APPDATA is not set")?;
 
     let ui = SettingsWindow::new()?;
@@ -713,6 +742,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     init_color_pickers(&ui);
     if about {
         ui.set_tab(ABOUT_TAB);
+    } else if profiles {
+        ui.set_tab(PROFILES_TAB);
     }
 
     let state = Rc::new(RefCell::new(State {
@@ -720,6 +751,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         config: Config::default(),
         kinds: Vec::new(),
         written: None,
+        profile_ids: Vec::new(),
         choices: Choices {
             fonts: fonts::system_families(),
             adapters: hardware_adapters(),
@@ -876,6 +908,84 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         let _ = std::process::Command::new("explorer").arg(dir).spawn();
     });
+    ui.on_save_profile({
+        let (weak, state, pending) = (ui.as_weak(), state.clone(), save_timer.clone());
+        move |name| {
+            let Some(ui) = weak.upgrade() else { return };
+            let Some(dir) = profile::profiles_dir() else {
+                return;
+            };
+            pending.stop();
+            let mut s = state.borrow_mut();
+            save(&ui, &mut s);
+            let new = Profile::from_config(&name, &s.config);
+            if new.name.is_empty() {
+                return;
+            }
+            let status = match profile::save(&dir, &new) {
+                Ok(_) => tr!("Saved.").to_string(),
+                Err(e) => {
+                    log::warn!("could not save profile: {e}");
+                    tr!("Could not save the profile: {}", e)
+                }
+            };
+            ui.set_profile_status(status.into());
+            push_profiles(&ui, &mut s);
+        }
+    });
+    ui.on_apply_profile({
+        let (weak, state, pending) = (ui.as_weak(), state.clone(), save_timer.clone());
+        move |index| {
+            let Some(ui) = weak.upgrade() else { return };
+            let Some(dir) = profile::profiles_dir() else {
+                return;
+            };
+            pending.stop();
+            let mut s = state.borrow_mut();
+            save(&ui, &mut s);
+            let Some(chosen) = s
+                .profile_ids
+                .get(index.max(0) as usize)
+                .and_then(|id| profile::load(&dir, id))
+            else {
+                ui.set_profile_status(tr!("Could not read the profile.").into());
+                return;
+            };
+            let new = chosen.applied_to(&s.config);
+            write(&mut s, new);
+            let config = s.config.clone();
+            show(&ui, &mut s, config);
+            ui.set_profile_status(SharedString::new());
+        }
+    });
+    ui.on_delete_profile({
+        let (weak, state) = (ui.as_weak(), state.clone());
+        move |index| {
+            let Some(ui) = weak.upgrade() else { return };
+            let Some(dir) = profile::profiles_dir() else {
+                return;
+            };
+            let mut s = state.borrow_mut();
+            let Some(id) = s.profile_ids.get(index.max(0) as usize) else {
+                return;
+            };
+            if let Err(e) = profile::delete(&dir, id) {
+                log::warn!("could not delete profile {id}: {e}");
+            }
+            ui.set_profile_status(SharedString::new());
+            push_profiles(&ui, &mut s);
+        }
+    });
+    ui.on_open_profiles_folder(|| {
+        let Some(dir) = profile::profiles_dir() else {
+            return;
+        };
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            log::warn!("could not create {}: {e}", dir.display());
+            return;
+        }
+        let _ = std::process::Command::new("explorer").arg(dir).spawn();
+    });
     ui.on_reset_all({
         let (weak, state) = (ui.as_weak(), state.clone());
         move || {
@@ -1009,6 +1119,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             refresh_caption(&ui, &caption);
             if about_requests.as_ref().is_some_and(notify::Request::take) {
                 ui.set_tab(ABOUT_TAB);
+            }
+            if profile_requests.as_ref().is_some_and(notify::Request::take) {
+                ui.set_tab(PROFILES_TAB);
             }
             let changed_elsewhere = {
                 let s = state.borrow();

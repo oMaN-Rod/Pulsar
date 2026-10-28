@@ -17,6 +17,7 @@ pub mod logging;
 pub mod metric;
 pub mod paths;
 pub mod pdh;
+pub mod profile;
 pub mod project;
 pub mod recording;
 pub mod sampler;

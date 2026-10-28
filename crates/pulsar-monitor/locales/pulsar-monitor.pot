@@ -59,6 +59,10 @@ msgid "{} closed"
 msgstr ""
 
 #: src/app.rs
+msgid "Pulsar could not load the profile"
+msgstr ""
+
+#: src/app.rs
 msgid "Recording saved"
 msgstr ""
 
@@ -875,6 +879,14 @@ msgid "Upload on top"
 msgstr ""
 
 #: src/menu.rs
+msgid "No profiles saved"
+msgstr ""
+
+#: src/menu.rs
+msgid "Manage profiles…"
+msgstr ""
+
+#: src/menu.rs
 msgid "{} s"
 msgstr ""
 
@@ -904,6 +916,10 @@ msgstr ""
 
 #: src/menu.rs ui/settings.slint
 msgid "Update interval"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Profiles"
 msgstr ""
 
 #: src/menu.rs
@@ -1304,6 +1320,14 @@ msgstr ""
 
 #: src/settings/main.rs
 msgid "Could not save the theme: {}"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Could not save the profile: {}"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Could not read the profile."
 msgstr ""
 
 #: ui/details.slint
@@ -2060,6 +2084,42 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Cancel"
+msgstr ""
+
+#: ui/settings.slint
+msgid "A profile keeps what the overlay and widget show and how they look: items, layout, theme, popups, widget, units, drives and network. Language, startup, update interval, games, alerts and shortcuts stay the same in every profile. Switch profiles here or from the Profiles menu."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Save as a profile"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Keeps the current settings under a name. Saving with a profile's name again updates it."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Profiles folder"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Profile files to back up or share."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Saved profiles"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Current"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Apply"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Delete"
 msgstr ""
 
 #: ui/settings.slint

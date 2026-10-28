@@ -31,6 +31,9 @@ pub enum Command {
     ToggleGame,
     /// Starts or stops writing readings to a CSV file.
     Record,
+    /// Applies the profile at this index in `AppState::profiles`.
+    Profile(usize),
+    ManageProfiles,
     Toggle(Toggle),
     Edit(Edit),
 }
@@ -173,6 +176,7 @@ const ID_WIDGET: usize = 14;
 const ID_WIDGET_LOCK: usize = 15;
 const ID_GAME: usize = 16;
 const ID_RECORD: usize = 17;
+const ID_MANAGE_PROFILES: usize = 18;
 /// Plus the index into `DETAILS`.
 const ID_POPUP_DETAIL: usize = 20;
 const ID_POPUP_GRAPH: usize = 25;
@@ -186,6 +190,9 @@ const ID_BITS: usize = 43;
 const ID_UPLOAD_ON_TOP: usize = 44;
 /// Plus the index into `INTERVALS_MS`.
 const ID_INTERVAL: usize = 50;
+/// Plus the index into `AppState::profiles`.
+const ID_PROFILE: usize = 60;
+const MAX_PROFILES: usize = 40;
 /// Plus the index into `ItemKind::ALL`.
 const ID_SHOW_ITEM: usize = 100;
 /// Plus `ITEM_IDS` times the item's index into `ItemKind::ALL`, plus one
@@ -265,6 +272,7 @@ pub fn command_for(id: usize) -> Option<Command> {
         ID_WIDGET_LOCK => Some(Command::Toggle(Toggle::WidgetLock)),
         ID_GAME => Some(Command::ToggleGame),
         ID_RECORD => Some(Command::Record),
+        ID_MANAGE_PROFILES => Some(Command::ManageProfiles),
         ID_ICONS => Some(Command::Toggle(Toggle::Icons)),
         ID_TASK_MANAGER => Some(Command::TaskManager),
         ID_EXIT => Some(Command::Exit),
@@ -284,6 +292,7 @@ pub fn command_for(id: usize) -> Option<Command> {
         _ if in_range(ID_INTERVAL, INTERVALS_MS.len()) => {
             edit(Edit::IntervalMs(INTERVALS_MS[id - ID_INTERVAL]))
         }
+        _ if in_range(ID_PROFILE, MAX_PROFILES) => Some(Command::Profile(id - ID_PROFILE)),
         _ if in_range(ID_SHOW_ITEM, ItemKind::ALL.len()) => {
             edit(Edit::ShowItem(kind_at(id - ID_SHOW_ITEM)?))
         }
@@ -298,6 +307,8 @@ pub struct AppState {
     /// The app last in front and whether it counts as a game.
     pub game: Option<(String, bool)>,
     pub recording: bool,
+    /// Saved profiles by name, and whether the settings match each.
+    pub profiles: Vec<(String, bool)>,
 }
 
 /// A native popup menu that destroys itself and its submenus when dropped.
@@ -501,6 +512,19 @@ fn units_menu(config: &Config) -> Option<Menu> {
     Some(menu)
 }
 
+fn profiles_menu(state: &AppState) -> Option<Menu> {
+    let menu = Menu::new()?;
+    for (i, (name, active)) in state.profiles.iter().take(MAX_PROFILES).enumerate() {
+        menu.item(ID_PROFILE + i, name, *active, true);
+    }
+    if state.profiles.is_empty() {
+        menu.item(0, tr!("No profiles saved"), false, false);
+    }
+    menu.separator();
+    menu.item(ID_MANAGE_PROFILES, tr!("Manage profiles…"), false, true);
+    Some(menu)
+}
+
 fn interval_menu(config: &Config) -> Option<Menu> {
     let menu = Menu::new()?;
     for (i, &ms) in INTERVALS_MS.iter().enumerate() {
@@ -584,6 +608,7 @@ pub fn show(
     menu.submenu(popup_menu(config)?, tr!("Popups"));
     menu.submenu(units_menu(config)?, tr!("Units"));
     menu.submenu(interval_menu(config)?, tr!("Update interval"));
+    menu.submenu(profiles_menu(state)?, tr!("Profiles"));
     menu.separator();
     menu.item(
         ID_SHORT_LABELS,
@@ -669,6 +694,11 @@ mod tests {
         assert_eq!(command_for(ID_ABOUT), Some(Command::About));
         assert_eq!(command_for(ID_DETAILS), Some(Command::Details));
         assert_eq!(command_for(0), None, "menu dismissed");
+        assert_eq!(command_for(ID_PROFILE + 2), Some(Command::Profile(2)));
+        assert_eq!(
+            command_for(ID_MANAGE_PROFILES),
+            Some(Command::ManageProfiles)
+        );
     }
 
     #[test]

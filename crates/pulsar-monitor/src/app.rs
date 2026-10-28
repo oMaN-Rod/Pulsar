@@ -13,7 +13,7 @@ use pulsar_core::ipc;
 use pulsar_core::metric::{ItemKind, Snapshot};
 use pulsar_core::recording::Recorder;
 use pulsar_core::update::{self as release, Outcome, UpdateState};
-use pulsar_core::{crash, games, paths, sampler, tr};
+use pulsar_core::{crash, games, paths, profile, sampler, tr};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
@@ -745,6 +745,22 @@ impl App {
         self.sampler.processes.store(open, Ordering::Relaxed);
     }
 
+    fn apply_profile(&mut self, index: usize) {
+        let Some(dir) = profile::profiles_dir() else {
+            return;
+        };
+        let chosen = profile::list(&dir)
+            .get(index)
+            .and_then(|e| profile::load(&dir, &e.id));
+        match chosen {
+            Some(p) => self.change_config(|c| *c = p.applied_to(c)),
+            None => self.tray.warn(
+                tr!("Pulsar could not load the profile"),
+                &dir.display().to_string(),
+            ),
+        }
+    }
+
     fn toggle_recording(&mut self) {
         if let Some(r) = self.recorder.take() {
             self.tray.offer(
@@ -1371,6 +1387,8 @@ impl App {
             Command::TaskManager => menu::open_task_manager(),
             Command::ToggleGame => self.toggle_game(),
             Command::Record => self.toggle_recording(),
+            Command::Profile(index) => self.apply_profile(index),
+            Command::ManageProfiles => self.open_settings(Page::Profiles),
             Command::Exit => unsafe {
                 let _ = DestroyWindow(self.host);
             },
@@ -1405,6 +1423,19 @@ fn disk_names() -> Vec<(u8, String)> {
         .collect()
 }
 
+fn saved_profiles(config: &Config) -> Vec<(String, bool)> {
+    let Some(dir) = profile::profiles_dir() else {
+        return Vec::new();
+    };
+    profile::list(&dir)
+        .into_iter()
+        .map(|e| {
+            let active = profile::load(&dir, &e.id).is_some_and(|p| p.matches(config));
+            (e.name, active)
+        })
+        .collect()
+}
+
 fn translucent_popups(config: &Config) -> bool {
     config.popup.background == pulsar_core::config::PopupBackground::Translucent
 }
@@ -1429,6 +1460,7 @@ fn context_menu(x: i32, y: i32, item: Option<(HWND, i32, i32)>) {
             menu::AppState {
                 game,
                 recording: a.recorder.is_some(),
+                profiles: saved_profiles(&a.config),
             },
         )
     }) else {

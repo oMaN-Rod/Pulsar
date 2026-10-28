@@ -130,6 +130,10 @@ Set keyboard shortcuts in *Settings → General* to show or hide Pulsar, turn th
 
 Choose *Record to CSV* from the menu to write every sample to a new file in `Documents\Pulsar`, until you choose it again. Each reading Pulsar is sampling gets a column named for it and its unit, such as `cpu_temp_c` or `net_down_bps`; rates are in bytes per second and sizes in bytes.
 
+### Profiles
+
+Save the current setup as a named profile in *Settings → Profiles*, such as one for gaming and one for the desk, and switch between them there or from *Profiles* in the menu. A profile keeps the items, layout, theme, popups, widget, units, drives and network. Language, startup, the update interval, games, alerts and shortcuts are the same in every profile. The menu ticks the profile that matches the current settings.
+
 ### Make it yours
 
 - theme presets
@@ -261,7 +265,7 @@ The tray icon can be turned off in *Settings → General*. It then appears only 
 
 ### The menu
 
-Switch between graphs and text, show or hide items, and set popup detail, units, the update interval, labels, icons and floating mode, all without opening Settings.
+Switch between graphs and text, show or hide items, and set popup detail, units, the update interval, profiles, labels, icons and floating mode, all without opening Settings.
 
 | The clicked item's options | Popups |
 |:---:|:---:|
@@ -355,6 +359,7 @@ Pulsar is available in English, Spanish (Español) and Simplified Chinese (简�
 | Logs, crash reports and diagnostics | `%LOCALAPPDATA%\Pulsar\logs` |
 | Game sessions | `sessions.csv` in the logs folder |
 | Recordings | `Documents\Pulsar\readings-*.csv` |
+| Profiles | `%APPDATA%\Pulsar\profiles` |
 | A settings file that could not be read | backed up as `config.toml.bak`, and defaults are used |
 
 ## Privacy

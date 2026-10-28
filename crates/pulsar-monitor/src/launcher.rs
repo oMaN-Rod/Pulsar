@@ -1,18 +1,20 @@
 use std::io;
 use std::process::Command;
 
-use pulsar_core::ipc::{ABOUT_ARG, SETTINGS_EXE, sibling};
+use pulsar_core::ipc::{ABOUT_ARG, PROFILES_ARG, SETTINGS_EXE, sibling};
 use windows::Win32::UI::WindowsAndMessaging::{ASFW_ANY, AllowSetForegroundWindow};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Page {
     General,
+    Profiles,
     About,
 }
 
 pub fn args(page: Page) -> &'static [&'static str] {
     match page {
         Page::General => &[],
+        Page::Profiles => &[PROFILES_ARG],
         Page::About => &[ABOUT_ARG],
     }
 }
