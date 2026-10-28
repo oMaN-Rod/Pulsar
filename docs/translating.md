@@ -1,6 +1,6 @@
 # Translating Pulsar
 
-Pulsar speaks English and Spanish. It follows the Windows display language until you pick one under **Settings → General → Language**.
+Pulsar speaks English, Spanish and Simplified Chinese. It follows the Windows display language until you pick one under **Settings → General → Language**.
 
 ## How it works
 
@@ -41,7 +41,7 @@ This rewrites the templates, adds new messages to every catalog untranslated, an
 
 ## Adding a language
 
-1. Add an entry to `LANGUAGES` in `crates/pulsar-core/src/l10n/mod.rs`: its code (a BCP 47 tag such as `fr` or `pt-BR`, also the folder name), its name in that language, and the Windows language tags it is chosen for. Set `font` if Segoe UI lacks the script.
+1. Add an entry to `LANGUAGES` in `crates/pulsar-core/src/l10n/mod.rs`: its code (a BCP 47 tag such as `fr` or `pt-BR`, also the folder name), its name in that language, and the Windows language tags it is chosen for. Set `font` if Segoe UI lacks the script, as Chinese does.
 2. Copy each crate's `locales/*.pot` to `locales/<code>/LC_MESSAGES/` as a `.po` file with the same name, set `Language:` and `Plural-Forms:` in its header, and translate it. Any gettext editor, such as Poedit, works.
 3. Copy `installer/messages/en.isl` to `<code>.isl` (saved as UTF-8 with a BOM), translate it, and add a line under `[Languages]` in `installer/pulsar.iss` with Inno Setup's own messages for the language. Add the translation of "Pulsar Settings" to `SettingsWindow` there too; the installer closes that window by its title.
 4. Run `cargo test`, then check the settings window, the details window, the popups and the menu in the new language. Longer translations can be elided in narrow places such as the details sidebar.

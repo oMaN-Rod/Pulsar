@@ -39,6 +39,7 @@ CloseApplications=no
 [Languages]
 Name: "en"; MessagesFile: "compiler:Default.isl,messages\en.isl"
 Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl,messages\es.isl"
+Name: "zhCN"; MessagesFile: "compiler:Languages\ChineseSimplified.isl,messages\zh-CN.isl"
 
 [Tasks]
 Name: autostart; Description: "{cm:AutostartTask}"; Check: not IsUpgrade
@@ -87,6 +88,8 @@ begin
   Result := FindWindowByWindowName('Pulsar Settings');
   if Result = 0 then
     Result := FindWindowByWindowName('Configuración de Pulsar');
+  if Result = 0 then
+    Result := FindWindowByWindowName('Pulsar 设置');
 end;
 
 { Asks both processes to close, so Settings saves pending edits, then forces them. }

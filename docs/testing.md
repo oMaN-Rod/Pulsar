@@ -71,9 +71,10 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Check | Expected |
 |---|---|
 | *Language* set to each language in turn, with Pulsar running | The taskbar labels, menu and popups switch at once; Settings switches when the choice saves; Details on its next opening |
-| *Windows default* with the Windows display language set to Spanish, then French | Spanish, then English |
-| Settings open in Spanish, then run the installer | The installer closes the settings window before installing |
-| The installer started on Spanish Windows | Its pages, including *CPU temperature*, are in that language |
+| *Windows default* with the Windows display language set to Spanish, then Chinese (Traditional) | Spanish, then English |
+| Chinese: Settings, Details, a popup and the taskbar | No missing or Japanese-style glyphs |
+| Settings open in Spanish or Chinese, then run the installer | The installer closes the settings window before installing |
+| The installer started on Spanish and Chinese Windows | Its pages, including *CPU temperature*, are in that language |
 
 ## Footprint
 

@@ -1,0 +1,154 @@
+# Simplified Chinese translations for Pulsar.
+# Based on the translation by JasonChow94 (https://github.com/JasonChow94/Pulsar).
+msgid ""
+msgstr ""
+"Project-Id-Version: Pulsar\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/config.rs
+msgid "Could not read {}: {}"
+msgstr "无法读取 {}：{}"
+
+#: src/config.rs
+msgid "Settings file was invalid and defaults were used."
+msgstr "设置文件无效，已改用默认设置。"
+
+#: src/config.rs
+msgid "It was saved as {}."
+msgstr "原文件已另存为 {}。"
+
+#: src/config.rs
+msgid "the file is not UTF-8 text"
+msgstr "文件不是 UTF-8 文本"
+
+#: src/hardware/cpu.rs
+msgid "L{} data"
+msgstr "L{} 数据"
+
+#: src/hardware/cpu.rs
+msgid "L{} instruction"
+msgstr "L{} 指令"
+
+#: src/hardware/storage.rs
+msgid "Drive"
+msgstr "驱动器"
+
+#: src/hardware/storage.rs
+msgid "Virtual"
+msgstr "虚拟"
+
+#: src/hardware/storage.rs
+msgid "Storage Spaces"
+msgstr "存储空间"
+
+#: src/hardware/storage.rs
+msgid "No drive reports a temperature"
+msgstr "没有驱动器报告温度"
+
+#: src/ipc.rs
+msgid "Pulsar Settings"
+msgstr "Pulsar 设置"
+
+#: src/ipc.rs
+msgid "Pulsar Details"
+msgstr "Pulsar 详细信息"
+
+#: src/metric.rs
+msgid "CPU"
+msgstr "CPU"
+
+#: src/metric.rs
+msgid "RAM"
+msgstr "内存"
+
+#: src/metric.rs
+msgid "DSK"
+msgstr "磁盘"
+
+#: src/metric.rs
+msgid "NET"
+msgstr "网络"
+
+#: src/metric.rs
+msgid "GPU"
+msgstr "GPU"
+
+#: src/metric.rs
+msgid "PING"
+msgstr "延迟"
+
+#: src/metric.rs
+msgid "TEMP"
+msgstr "GPU°"
+
+#: src/metric.rs
+msgid "CPU°"
+msgstr "CPU°"
+
+#: src/metric.rs
+msgid "PWR"
+msgstr "功耗"
+
+#: src/metric.rs
+msgid "CLK"
+msgstr "频率"
+
+#: src/metric.rs
+msgid "DSK°"
+msgstr "磁盘°"
+
+#: src/metric.rs
+msgid "PCH°"
+msgstr "PCH°"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service is not installed"
+msgstr "未安装 Pulsar 传感器服务"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service is not running"
+msgstr "Pulsar 传感器服务未运行"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service needs updating"
+msgstr "Pulsar 传感器服务需要更新"
+
+#: src/sensors.rs
+msgid "PawnIO is not installed"
+msgstr "未安装 PawnIO"
+
+#: src/sensors.rs
+msgid "This CPU is not supported yet"
+msgstr "暂不支持此 CPU"
+
+#: src/sensors.rs
+msgid "The CPU sensors could not be read"
+msgstr "无法读取 CPU 传感器"
+
+#: src/sources/gpu.rs
+msgid "GPU counters unavailable"
+msgstr "GPU 计数器不可用"
+
+#: src/sources/gpu_sensors.rs
+msgid "GPU temperature unavailable"
+msgstr "GPU 温度不可用"
+
+#: src/sources/network.rs
+msgid "Adapter \"{}\" not found"
+msgstr "未找到网卡“{}”"
+
+#: src/sources/ping.rs
+msgid "Waiting for first reply"
+msgstr "正在等待首次响应"
+
+#: src/sources/ping.rs
+msgid "ICMP unavailable: {}"
+msgstr "ICMP 不可用：{}"
+
+#: src/sources/ping.rs
+msgid "Cannot resolve {} (IPv4)"
+msgstr "无法解析 {}（IPv4）"

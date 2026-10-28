@@ -164,7 +164,7 @@ Without the service, the *CPU temperature*, *CPU power* and *Chipset temperature
 
 ## Languages
 
-Pulsar is available in English, and Spanish (Español). It follows the Windows display language; pick another under **Settings → General → Language**. To add or improve a translation, see [docs/translating.md](docs/translating.md).
+Pulsar is available in English, Spanish (Español) and Simplified Chinese (简体中文). It follows the Windows display language; pick another under **Settings → General → Language**. To add or improve a translation, see [docs/translating.md](docs/translating.md).
 
 ## Settings and files
 
