@@ -880,6 +880,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             push(&ui, &f, &mut s.choices);
             drop(s);
             ui.invoke_changed();
+            notify::post_to_class(ipc::HOST_CLASS, ipc::CONFIG_CHANGED);
         }
     });
     ui.on_save_theme({

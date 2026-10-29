@@ -1358,6 +1358,8 @@ impl App {
                 self.reload_failed = false;
                 self.on_disk = Some(new.clone());
                 self.apply_config(new);
+                // A theme file may have changed though the settings did not.
+                self.on_settings_changed();
             }
             Err(e) => {
                 if !self.reload_failed {
