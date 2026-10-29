@@ -1092,7 +1092,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         move |index, checked| {
             let Some(ui) = weak.upgrade() else { return };
             let rows = ui.get_drive_rows();
-            if !checked && rows.iter().filter(|r| r.checked).count() <= 1 {
+            let ticked = rows.iter().filter(|r| r.checked).count();
+            if (!checked && ticked <= 1) || (checked && ticked >= config::MAX_DRIVES) {
                 let same: Vec<_> = rows.iter().collect();
                 ui.set_drive_rows(ModelRc::new(VecModel::from(same)));
                 return;

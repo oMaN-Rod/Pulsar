@@ -263,6 +263,8 @@ impl Default for AlertsConfig {
     }
 }
 
+pub const MAX_DRIVES: usize = 8;
+
 pub const CPU_ALERT_C: std::ops::RangeInclusive<u32> = 50..=110;
 pub const GPU_ALERT_C: std::ops::RangeInclusive<u32> = 50..=110;
 pub const BATTERY_ALERT_PERCENT: std::ops::RangeInclusive<u32> = 5..=50;
@@ -649,7 +651,7 @@ impl Config {
                 drives.push(upper);
             }
         }
-        drives.truncate(8);
+        drives.truncate(MAX_DRIVES);
         self.disk.drives = drives;
         if self
             .network
