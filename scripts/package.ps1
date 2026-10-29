@@ -29,12 +29,10 @@ function Find-Iscc {
     $command = Get-Command iscc.exe -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
     foreach ($base in @("$env:LOCALAPPDATA\Programs", ${env:ProgramFiles(x86)}, $env:ProgramFiles)) {
-        foreach ($name in @('Inno Setup 7', 'Inno Setup 6')) {
-            $candidate = Join-Path $base "$name\ISCC.exe"
-            if (Test-Path $candidate) { return $candidate }
-        }
+        $candidate = Join-Path $base 'Inno Setup 7\ISCC.exe'
+        if (Test-Path $candidate) { return $candidate }
     }
-    throw 'Inno Setup (ISCC.exe) was not found; install it from https://jrsoftware.org/isinfo.php'
+    throw 'Inno Setup 7 (ISCC.exe) was not found; install it from https://jrsoftware.org/isinfo.php'
 }
 
 $dist = Join-Path $root 'dist'

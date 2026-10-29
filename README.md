@@ -459,7 +459,7 @@ cargo test --workspace
 
 | Script | What it does |
 |---|---|
-| `scripts\package.ps1` | builds the installer, the portable zip and the winget manifests into `dist\`; needs [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or later |
+| `scripts\package.ps1` | builds the installer, the portable zip and the winget manifests into `dist\`; needs [Inno Setup](https://jrsoftware.org/isinfo.php) 7, which ships the Simplified Chinese messages |
 | `scripts\screenshots.ps1` | captures the overlay, popups, menus, Settings and the details window to `target\screenshots\`; `-Publish` refreshes the images in `docs\images` |
 
 Also see the [manual testing checklist](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/testing.md) and the [release guide](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/releasing.md).

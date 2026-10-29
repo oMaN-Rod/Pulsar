@@ -19,11 +19,20 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --workspace --locked
-      - name: Install Inno Setup if missing
+      - name: Install Inno Setup 7
         shell: pwsh
+        env:
+          INNO_URL: https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe
+          INNO_SHA256: 8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0
         run: |
-          $found = Get-ChildItem "${env:ProgramFiles(x86)}", $env:ProgramFiles -Filter ISCC.exe -Recurse -Depth 2 -ErrorAction SilentlyContinue
-          if (-not $found) { choco install innosetup -y --no-progress }
+          $installer = Join-Path $env:RUNNER_TEMP 'innosetup.exe'
+          Invoke-WebRequest $env:INNO_URL -OutFile $installer
+          $hash = (Get-FileHash $installer -Algorithm SHA256).Hash
+          if ($hash -ne $env:INNO_SHA256) { throw "Inno Setup installer hash $hash does not match" }
+          Start-Process $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER' -Wait
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\Inno Setup 7'
+          if (-not (Test-Path (Join-Path $dir 'ISCC.exe'))) { throw "ISCC.exe not found in $dir" }
+          $dir | Out-File $env:GITHUB_PATH -Append -Encoding utf8
       - name: Package
         shell: pwsh
         run: ./scripts/package.ps1 -ExpectVersion $env:TAG
