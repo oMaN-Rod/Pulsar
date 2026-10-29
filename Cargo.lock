@@ -3199,7 +3199,7 @@ dependencies = [
 
 [[package]]
 name = "pulsar-monitor"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "embed-resource",
  "log",
@@ -3214,7 +3214,7 @@ dependencies = [
 
 [[package]]
 name = "pulsar-monitor-core"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "log",
  "serde",

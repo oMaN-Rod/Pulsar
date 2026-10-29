@@ -28,7 +28,7 @@ name = "pulsar-sensors"
 path = "src/sensors/main.rs"
 
 [dependencies]
-pulsar-core = { package = "pulsar-monitor-core", version = "0.5.0", path = "../pulsar-core" }
+pulsar-core = { package = "pulsar-monitor-core", version = "0.6.0", path = "../pulsar-core" }
 slint.workspace = true
 log.workspace = true
 serde.workspace = true
