@@ -76,6 +76,12 @@ impl Profile {
     }
 }
 
+/// The profile to switch to from the one at `current` among `count`: the
+/// next, wrapping around, or the first when none is current.
+pub fn next(current: Option<usize>, count: usize) -> Option<usize> {
+    (count > 0).then(|| current.map_or(0, |i| (i + 1) % count))
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Entry {
     pub id: String,
@@ -220,6 +226,14 @@ mod tests {
         std::fs::write(dir.path().join("min.toml"), "name = \"Min\"\n").unwrap();
         let profile = load(dir.path(), "min").unwrap();
         assert_eq!(profile.applied_to(&Config::default()), Config::default());
+    }
+
+    #[test]
+    fn cycling_wraps_and_starts_from_the_first() {
+        assert_eq!(next(Some(0), 3), Some(1));
+        assert_eq!(next(Some(2), 3), Some(0));
+        assert_eq!(next(None, 3), Some(0));
+        assert_eq!(next(None, 0), None);
     }
 
     #[test]

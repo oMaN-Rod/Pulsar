@@ -594,6 +594,7 @@ export component SettingsWindow inherits Window {
     in property <string> hotkey-widget;
     in property <string> hotkey-details;
     in property <string> hotkey-record;
+    in property <string> hotkey-next-profile;
     // Which shortcut, the key's text, then Ctrl, Alt, Shift and Win.
     callback hotkey-pressed(int, string, bool, bool, bool, bool);
     in property <string> version;
@@ -1620,6 +1621,16 @@ export component SettingsWindow inherits Window {
                             text: root.hotkey-record;
                             pressed(event) => {
                                 root.hotkey-pressed(3, event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Switch to the next profile");
+                        HotkeyField {
+                            text: root.hotkey-next-profile;
+                            pressed(event) => {
+                                root.hotkey-pressed(4, event.text, event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
                             }
                         }
                     }

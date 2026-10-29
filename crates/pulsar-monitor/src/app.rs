@@ -349,6 +349,7 @@ impl App {
             1 => self.change_config(|c| menu::apply_toggle(c, menu::Toggle::Widget)),
             2 => self.open_details(None),
             3 => self.toggle_recording(),
+            4 => self.next_profile(),
             _ => {}
         }
     }
@@ -759,6 +760,25 @@ impl App {
                 &dir.display().to_string(),
             ),
         }
+    }
+
+    fn next_profile(&mut self) {
+        let Some(dir) = profile::profiles_dir() else {
+            return;
+        };
+        let entries = profile::list(&dir);
+        let current = entries
+            .iter()
+            .position(|e| profile::load(&dir, &e.id).is_some_and(|p| p.matches(&self.config)));
+        let Some(index) = profile::next(current, entries.len()) else {
+            self.tray.inform(
+                tr!("No profiles saved"),
+                tr!("Save one in Settings → Profiles."),
+            );
+            return;
+        };
+        self.apply_profile(index);
+        self.tray.inform(tr!("Profile"), &entries[index].name);
     }
 
     fn toggle_recording(&mut self) {

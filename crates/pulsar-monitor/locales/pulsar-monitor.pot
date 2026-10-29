@@ -62,6 +62,18 @@ msgstr ""
 msgid "Pulsar could not load the profile"
 msgstr ""
 
+#: src/app.rs src/menu.rs
+msgid "No profiles saved"
+msgstr ""
+
+#: src/app.rs
+msgid "Save one in Settings → Profiles."
+msgstr ""
+
+#: src/app.rs
+msgid "Profile"
+msgstr ""
+
 #: src/app.rs
 msgid "Recording saved"
 msgstr ""
@@ -876,10 +888,6 @@ msgstr ""
 
 #: src/menu.rs ui/settings.slint
 msgid "Upload on top"
-msgstr ""
-
-#: src/menu.rs
-msgid "No profiles saved"
 msgstr ""
 
 #: src/menu.rs
@@ -2000,6 +2008,10 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Start or stop recording to CSV"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
 msgstr ""
 
 #: ui/settings.slint

@@ -373,6 +373,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_hotkey_widget(f.hotkey_widget.as_str().into());
     ui.set_hotkey_details(f.hotkey_details.as_str().into());
     ui.set_hotkey_record(f.hotkey_record.as_str().into());
+    ui.set_hotkey_next_profile(f.hotkey_next_profile.as_str().into());
     ui.set_alert_cpu_limit(f.alert_cpu_limit);
     ui.set_alert_gpu(f.alert_gpu);
     ui.set_alert_gpu_limit(f.alert_gpu_limit);
@@ -458,6 +459,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         hotkey_widget: ui.get_hotkey_widget().to_string(),
         hotkey_details: ui.get_hotkey_details().to_string(),
         hotkey_record: ui.get_hotkey_record().to_string(),
+        hotkey_next_profile: ui.get_hotkey_next_profile().to_string(),
         drives: if ui.get_per_drive() {
             ui.get_drive_rows()
                 .iter()
@@ -1024,7 +1026,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 0 => ui.set_hotkey_show_hide(value),
                 1 => ui.set_hotkey_widget(value),
                 2 => ui.set_hotkey_details(value),
-                _ => ui.set_hotkey_record(value),
+                3 => ui.set_hotkey_record(value),
+                _ => ui.set_hotkey_next_profile(value),
             }
             ui.invoke_changed();
         }

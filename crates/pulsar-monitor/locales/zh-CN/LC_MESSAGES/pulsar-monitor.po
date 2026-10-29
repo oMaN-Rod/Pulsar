@@ -65,6 +65,18 @@ msgstr "{} 已关闭"
 msgid "Pulsar could not load the profile"
 msgstr "Pulsar 无法加载配置文件"
 
+#: src/app.rs src/menu.rs
+msgid "No profiles saved"
+msgstr "没有已保存的配置文件"
+
+#: src/app.rs
+msgid "Save one in Settings → Profiles."
+msgstr "请在“设置 → 配置文件”中保存一个。"
+
+#: src/app.rs
+msgid "Profile"
+msgstr "配置文件"
+
 #: src/app.rs
 msgid "Recording saved"
 msgstr "记录已保存"
@@ -880,10 +892,6 @@ msgstr "比特每秒（Mbps）"
 #: src/menu.rs ui/settings.slint
 msgid "Upload on top"
 msgstr "上传显示在上方"
-
-#: src/menu.rs
-msgid "No profiles saved"
-msgstr "没有已保存的配置文件"
 
 #: src/menu.rs
 msgid "Manage profiles…"
@@ -2004,6 +2012,10 @@ msgstr "打开系统详细信息"
 #: ui/settings.slint
 msgid "Start or stop recording to CSV"
 msgstr "开始或停止记录到 CSV"
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr "切换到下一个配置文件"
 
 #: ui/settings.slint
 msgid "Alerts"

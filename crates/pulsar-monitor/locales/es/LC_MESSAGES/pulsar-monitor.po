@@ -64,6 +64,18 @@ msgstr "{} cerrado"
 msgid "Pulsar could not load the profile"
 msgstr "Pulsar no pudo cargar el perfil"
 
+#: src/app.rs src/menu.rs
+msgid "No profiles saved"
+msgstr "No hay perfiles guardados"
+
+#: src/app.rs
+msgid "Save one in Settings → Profiles."
+msgstr "Guarda uno en Configuración → Perfiles."
+
+#: src/app.rs
+msgid "Profile"
+msgstr "Perfil"
+
 #: src/app.rs
 msgid "Recording saved"
 msgstr "Grabación guardada"
@@ -879,10 +891,6 @@ msgstr "Bits por segundo (Mbps)"
 #: src/menu.rs ui/settings.slint
 msgid "Upload on top"
 msgstr "Subida arriba"
-
-#: src/menu.rs
-msgid "No profiles saved"
-msgstr "No hay perfiles guardados"
 
 #: src/menu.rs
 msgid "Manage profiles…"
@@ -2003,6 +2011,10 @@ msgstr "Abrir los detalles del sistema"
 #: ui/settings.slint
 msgid "Start or stop recording to CSV"
 msgstr "Iniciar o detener la grabación en CSV"
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr "Cambiar al siguiente perfil"
 
 #: ui/settings.slint
 msgid "Alerts"

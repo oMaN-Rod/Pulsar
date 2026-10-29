@@ -4,9 +4,9 @@ use windows::Win32::Foundation::{HINSTANCE, HWND};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::HiDpi::{GetDpiForSystem, GetSystemMetricsForDpi};
 use windows::Win32::UI::Shell::{
-    NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIIF_WARNING, NIM_ADD, NIM_DELETE,
-    NIM_MODIFY, NIM_SETVERSION, NOTIFY_ICON_INFOTIP_FLAGS, NOTIFYICON_VERSION_4, NOTIFYICONDATAW,
-    Shell_NotifyIconW,
+    NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_INFO, NIIF_NOSOUND, NIIF_WARNING, NIM_ADD,
+    NIM_DELETE, NIM_MODIFY, NIM_SETVERSION, NOTIFY_ICON_INFOTIP_FLAGS, NOTIFYICON_VERSION_4,
+    NOTIFYICONDATAW, Shell_NotifyIconW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     HICON, IDI_APPLICATION, IMAGE_ICON, LR_DEFAULTCOLOR, LR_SHARED, LoadIconW, LoadImageW,
@@ -144,6 +144,12 @@ impl Tray {
         log::warn!("{title}: {message}");
         self.target.replace(None);
         self.balloon(NIIF_WARNING, title, message);
+    }
+
+    /// A silent balloon that does nothing when clicked.
+    pub fn inform(&self, title: &str, message: &str) {
+        self.target.replace(None);
+        self.balloon(NIIF_INFO | NIIF_NOSOUND, title, message);
     }
 
     /// A balloon that opens `target` (a file or URL) when clicked.

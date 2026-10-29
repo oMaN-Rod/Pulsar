@@ -28,7 +28,7 @@
 
 Pulsar puts live graphs or compact text for your system's vital signs right on the Windows 11 taskbar. Rest the mouse on an item for a detailed popup, or open a full view of the whole machine.
 
-![Pulsar beside the tray in graph mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/graph.gif)
+![Pulsar beside the tray in graph mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-graph.png)
 
 ## Highlights
 
@@ -108,7 +108,7 @@ CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GP
 
 Detach Pulsar from the taskbar, drag it anywhere and lock it in place, here with a panel background.
 
-![Floating mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/floating.gif)
+![Floating mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-floating.png)
 
 ### Desktop widget
 
@@ -135,7 +135,7 @@ Pulsar can warn you with a notification when the CPU or GPU stays above a temper
 
 ### Shortcuts
 
-Set keyboard shortcuts in *Settings → General* to show or hide Pulsar, turn the desktop widget on or off, open the system details window, and start or stop recording. They work anywhere in Windows and are not set until you choose them.
+Set keyboard shortcuts in *Settings → General* to show or hide Pulsar, turn the desktop widget on or off, open the system details window, start or stop recording, and switch to the next profile. They work anywhere in Windows and are not set until you choose them.
 
 <details>
 <summary><b>Shortcuts and alerts in Settings</b></summary>
@@ -150,7 +150,7 @@ Choose *Record to CSV* from the menu to write every sample to a new file in `Doc
 
 ### Profiles
 
-Save the current setup as a named profile in *Settings → Profiles*, such as one for gaming and one for the desk, and switch between them there or from *Profiles* in the menu. A profile keeps the items, layout, theme, popups, widget, units, drives and network. Language, startup, the update interval, games, alerts and shortcuts are the same in every profile. The menu ticks the profile that matches the current settings.
+Save the current setup as a named profile in *Settings → Profiles*, such as one for gaming and one for the desk, and switch between them there or from *Profiles* in the menu. A profile keeps the items, layout, theme, popups, widget, units, drives and network. Language, startup, the update interval, games, alerts and shortcuts are the same in every profile. The menu ticks the profile that matches the current settings. A keyboard shortcut, set in *Settings → General*, switches to the next profile.
 
 | Settings | Menu |
 |:---:|:---:|
@@ -249,7 +249,7 @@ Every Detailed popup except Network also shows the low, average and high of its 
 
 **Processor**
 
-![Details window processor page](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/processor.gif)
+![Details window processor page](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/details-1.png)
 
 **Memory**
 
@@ -265,7 +265,7 @@ Every Detailed popup except Network also shows the low, average and high of its 
 
 **Network**
 
-![Details window network page](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/network.png)
+![Details window network page](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/details-5.png)
 
 **System**
 
@@ -273,7 +273,7 @@ Every Detailed popup except Network also shows the low, average and high of its 
 
 **Sensors**
 
-![Details window sensors page](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/sensors.gif)
+![Details window sensors page](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/details-7.png)
 
 </details>
 

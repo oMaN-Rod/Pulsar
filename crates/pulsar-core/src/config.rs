@@ -215,11 +215,18 @@ pub struct HotkeysConfig {
     pub widget: Option<String>,
     pub details: Option<String>,
     pub record: Option<String>,
+    pub next_profile: Option<String>,
 }
 
 impl HotkeysConfig {
-    pub fn all(&self) -> [&Option<String>; 4] {
-        [&self.show_hide, &self.widget, &self.details, &self.record]
+    pub fn all(&self) -> [&Option<String>; 5] {
+        [
+            &self.show_hide,
+            &self.widget,
+            &self.details,
+            &self.record,
+            &self.next_profile,
+        ]
     }
 }
 
@@ -585,6 +592,7 @@ impl Config {
             &mut h.widget,
             &mut h.details,
             &mut h.record,
+            &mut h.next_profile,
         ] {
             *key = key
                 .as_deref()
@@ -1314,7 +1322,9 @@ on = true
         let mut c = Config::default();
         c.hotkeys.widget = Some("alt+ctrl+w".into());
         c.hotkeys.details = Some("Q".into());
+        c.hotkeys.next_profile = Some("shift+ctrl+p".into());
         let c = c.sanitize();
+        assert_eq!(c.hotkeys.next_profile.as_deref(), Some("Ctrl+Shift+P"));
         assert_eq!(c.hotkeys.widget.as_deref(), Some("Ctrl+Alt+W"));
         assert_eq!(c.hotkeys.details, None);
         assert_eq!(c.hotkeys.show_hide, None);

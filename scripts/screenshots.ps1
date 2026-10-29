@@ -112,6 +112,8 @@ function Write-Config {
         [string[]]$TextOnly = @(),
         [string]$Detail = 'standard',
         [string]$Background = 'translucent',
+        # Floating above the taskbar with a panel behind it.
+        [switch]$Floating,
         # A widget style turns the widget on, drawn above other windows.
         [string]$Widget,
         [string]$WidgetDetail = 'simple',
@@ -133,6 +135,7 @@ graph_inline = $("$Inline".ToLower())
 labels = "$Labels"
 icons = $("$Icons".ToLower())
 hide_in_fullscreen = false
+$(if ($Floating) { "position = `"floating`"`npanel_opacity = 75" })
 
 [popup]
 detail = "$Detail"
@@ -502,6 +505,10 @@ try {
             Send-ConfigChanged
             Save-Overlay $name
         }
+        Write-Config -Floating
+        Send-ConfigChanged
+        Park-Mouse
+        Save-Around (Find-Window 'PulsarOverlay') 'overlay-floating' 16
     }
 
     if ($Light -or ($Parts | Where-Object { $_ -in 'popups', 'menus' })) {

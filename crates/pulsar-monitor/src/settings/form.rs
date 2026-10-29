@@ -107,6 +107,7 @@ pub struct Form {
     pub hotkey_widget: String,
     pub hotkey_details: String,
     pub hotkey_record: String,
+    pub hotkey_next_profile: String,
     pub network_bits: bool,
     pub upload_on_top: bool,
     pub game_strip: bool,
@@ -294,6 +295,7 @@ pub fn to_form(c: &Config) -> Form {
         hotkey_widget: c.hotkeys.widget.clone().unwrap_or_default(),
         hotkey_details: c.hotkeys.details.clone().unwrap_or_default(),
         hotkey_record: c.hotkeys.record.clone().unwrap_or_default(),
+        hotkey_next_profile: c.hotkeys.next_profile.clone().unwrap_or_default(),
         network_bits: c.units.network == RateUnit::Bits,
         upload_on_top: d.upload_on_top,
         game_strip: c.game.strip,
@@ -378,6 +380,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     c.hotkeys.widget = non_empty(&f.hotkey_widget);
     c.hotkeys.details = non_empty(&f.hotkey_details);
     c.hotkeys.record = non_empty(&f.hotkey_record);
+    c.hotkeys.next_profile = non_empty(&f.hotkey_next_profile);
     c.general.autostart = f.autostart;
     c.general.update_check = f.update_check;
     c.general.tray_icon = f.tray_icon;
