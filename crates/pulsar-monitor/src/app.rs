@@ -863,13 +863,18 @@ impl App {
             return;
         }
         let saved = w.position.map(|[x, y]| (x, y));
-        let probe = self.widget.shown_at.or(saved).unwrap_or((0, 0));
+        let dragging = self.widget_drag.as_ref().is_some_and(Drag::moved);
+        let probe = if dragging {
+            self.widget.shown_at.or(saved)
+        } else {
+            saved.or(self.widget.shown_at)
+        }
+        .unwrap_or((0, 0));
         let (monitor, work) = taskbar::monitor_near(probe.0, probe.1);
         if w.hide_in_fullscreen && self.fullscreen.current().contains(&monitor) {
             self.widget.hide();
             return;
         }
-        let dragging = self.widget_drag.as_ref().is_some_and(Drag::moved);
         let current = self.widget.shown_at;
         let dpi = self.widget.dpi();
         let scale = dpi as f32 / 96.0;
