@@ -1018,10 +1018,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
     ui.on_reset_position({
-        let (weak, state) = (ui.as_weak(), state.clone());
+        let (weak, state, pending) = (ui.as_weak(), state.clone(), save_timer.clone());
         move || {
             let Some(ui) = weak.upgrade() else { return };
+            pending.stop();
             let mut s = state.borrow_mut();
+            save(&ui, &mut s);
             let mut new = config::read(&s.path).unwrap_or_else(|_| s.config.clone());
             new.general.autostart = s.config.general.autostart;
             new.display.float_position = None;

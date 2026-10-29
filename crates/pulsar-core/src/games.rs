@@ -136,7 +136,7 @@ pub struct Session {
     pub started: String,
     fps_sum: f64,
     frames: u32,
-    seconds: Vec<f64>,
+    seconds: Vec<(f64, f64)>,
     cpu_max: Option<f64>,
     gpu_max: Option<f64>,
 }
@@ -179,7 +179,8 @@ impl Session {
         if let Some(fps) = snapshot.get(MetricKey::AppFrameRate).filter(|f| *f > 0.0) {
             self.fps_sum += fps;
             self.frames += 1;
-            self.seconds.push(fps);
+            let low = snapshot.get(MetricKey::FrameRateLow1).unwrap_or(fps);
+            self.seconds.push((fps, low.min(fps)));
         }
     }
 
@@ -197,14 +198,15 @@ impl Session {
     }
 }
 
-fn low_1(seconds: &[f64]) -> Option<f64> {
+/// `seconds` holds each second's frame rate and rolling 1% low.
+fn low_1(seconds: &[(f64, f64)]) -> Option<f64> {
     let mut sorted = seconds.to_vec();
-    sorted.sort_by(f64::total_cmp);
-    let wanted = sorted.iter().sum::<f64>() * 0.01;
+    sorted.sort_by(|a, b| a.1.total_cmp(&b.1));
+    let wanted = sorted.iter().map(|(fps, _)| fps).sum::<f64>() * 0.01;
     let mut counted = 0.0;
-    sorted.into_iter().find(|&fps| {
+    sorted.into_iter().find_map(|(fps, low)| {
         counted += fps;
-        counted >= wanted
+        (counted >= wanted).then_some(low)
     })
 }
 
@@ -303,15 +305,23 @@ mod tests {
         s.record(&snap(0.0, 0.0, 50.0), true);
         let sum = s.summary(Duration::from_secs(600));
         assert_eq!(sum.average_fps, Some(120.0));
-        assert_eq!(sum.low_1, Some(100.0));
+        assert_eq!(sum.low_1, Some(80.0));
         assert_eq!(sum.cpu_max, Some(90.0));
         assert_eq!(sum.gpu_max, None);
     }
 
     #[test]
     fn the_low_is_the_slowest_frames_not_an_average() {
-        let seconds: Vec<f64> = [120.0; 50].into_iter().chain([30.0; 50]).collect();
-        assert_eq!(low_1(&seconds), Some(30.0));
+        let phases: Vec<(f64, f64)> = [(120.0, 120.0); 50]
+            .into_iter()
+            .chain([(30.0, 30.0); 50])
+            .collect();
+        assert_eq!(low_1(&phases), Some(30.0));
+        assert_eq!(
+            low_1(&[(60.0, 5.0); 10]),
+            Some(5.0),
+            "a stutter inside each second"
+        );
         assert_eq!(low_1(&[]), None);
     }
 

@@ -728,8 +728,9 @@ impl App {
         let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut()) else {
             return;
         };
+        strip.float_dpi = Some(taskbar::dpi_near(monitor.left, monitor.top));
         strip.update_layout(&config, &self.text);
-        let at = game::strip_position(monitor, strip.taskbar.dpi);
+        let at = game::strip_position(monitor, strip.dpi());
         if strip.shown_at == Some(at) {
             strip.raise();
         } else if paint.overlay(strip, at.0, at.1).is_err() {
