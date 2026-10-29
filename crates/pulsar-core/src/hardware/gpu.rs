@@ -1,7 +1,11 @@
 //! Graphics adapters as DirectX lists them.
 
+use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
+use windows::Win32::Graphics::Direct3D12::{
+    D3D12_FEATURE_ARCHITECTURE, D3D12_FEATURE_DATA_ARCHITECTURE, D3D12CreateDevice, ID3D12Device,
+};
 use windows::Win32::Graphics::Dxgi::{
-    CreateDXGIFactory1, DXGI_ADAPTER_FLAG_SOFTWARE, IDXGIDevice, IDXGIFactory1,
+    CreateDXGIFactory1, DXGI_ADAPTER_FLAG_SOFTWARE, IDXGIAdapter1, IDXGIDevice, IDXGIFactory1,
 };
 use windows::core::Interface;
 
@@ -16,13 +20,30 @@ pub struct GpuInfo {
     pub dedicated_bytes: u64,
     pub shared_bytes: u64,
     pub driver: Option<String>,
+    pub unified_memory: Option<bool>,
 }
 
 impl GpuInfo {
     /// Integrated parts carve their memory from system RAM.
     pub fn integrated(&self) -> bool {
-        self.dedicated_bytes < 512 * 1024 * 1024
+        self.unified_memory
+            .unwrap_or(self.dedicated_bytes < 512 * 1024 * 1024)
     }
+}
+
+fn unified_memory(adapter: &IDXGIAdapter1) -> Option<bool> {
+    let mut device: Option<ID3D12Device> = None;
+    unsafe { D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, &mut device) }.ok()?;
+    let mut architecture = D3D12_FEATURE_DATA_ARCHITECTURE::default();
+    unsafe {
+        device?.CheckFeatureSupport(
+            D3D12_FEATURE_ARCHITECTURE,
+            (&mut architecture as *mut D3D12_FEATURE_DATA_ARCHITECTURE).cast(),
+            size_of::<D3D12_FEATURE_DATA_ARCHITECTURE>() as u32,
+        )
+    }
+    .ok()?;
+    Some(architecture.UMA.as_bool())
 }
 
 pub fn vendor_name(id: u32) -> Option<&'static str> {
@@ -79,6 +100,7 @@ pub fn read() -> Vec<GpuInfo> {
             dedicated_bytes: desc.DedicatedVideoMemory as u64,
             shared_bytes: desc.SharedSystemMemory as u64,
             driver,
+            unified_memory: unified_memory(&adapter),
         };
         // An adapter shows once per output-capable node on some systems.
         if !out
@@ -96,6 +118,19 @@ pub fn read() -> Vec<GpuInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "reads this machine's adapters"]
+    fn probe() {
+        for g in read() {
+            println!(
+                "{} uma={:?} integrated={}",
+                g.name,
+                g.unified_memory,
+                g.integrated()
+            );
+        }
+    }
 
     #[test]
     fn nvidia_drivers_read_as_nvidia_numbers_them() {

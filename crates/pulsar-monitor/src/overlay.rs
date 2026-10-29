@@ -53,6 +53,7 @@ pub struct Overlay {
     /// Current and target opacity; a target of 0 means hidden for fullscreen.
     pub alpha: u8,
     pub fade_target: u8,
+    pub float_dpi: Option<u32>,
 }
 
 /// Stops DWM animating the window when it is shown or hidden, which flickers
@@ -97,15 +98,21 @@ impl Overlay {
             shown_at: None,
             alpha: 255,
             fade_target: 255,
+            float_dpi: None,
         })
     }
 
     /// Recomputes the layout only when something it depends on changed, so
     /// the overlay never resizes between samples.
+    pub fn dpi(&self) -> u32 {
+        self.float_dpi.unwrap_or(self.taskbar.dpi)
+    }
+
     pub fn update_layout(&mut self, config: &Config, text: &Text) {
         let key = LayoutKey {
-            height: self.taskbar.rect.height(),
-            dpi: self.taskbar.dpi,
+            height: (i64::from(self.taskbar.rect.height()) * i64::from(self.dpi())
+                / i64::from(self.taskbar.dpi.max(1))) as i32,
+            dpi: self.dpi(),
             mode: config.display.mode,
             items: item_specs(config),
             font_size_pt: config.display.font_size_pt.to_bits(),

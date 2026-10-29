@@ -643,7 +643,7 @@ fn write(state: &mut State, mut new: Config, merge: bool) -> bool {
         new.general.autostart = autostart;
         merged = true;
     }
-    if !merged && new == state.config {
+    if merge && !merged && new == state.config {
         return false;
     }
     if new.general.autostart != state.config.general.autostart {

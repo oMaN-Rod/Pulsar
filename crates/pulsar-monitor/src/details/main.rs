@@ -150,6 +150,9 @@ impl App {
             && config != self.config
         {
             pulsar_core::format::set_units(config.units);
+            if config.general.history_len != self.config.general.history_len {
+                self.history = HistoryStore::new(config.general.history_len);
+            }
             let before = l10n::current();
             let now = language::apply(&config);
             if !std::ptr::eq(before, now)

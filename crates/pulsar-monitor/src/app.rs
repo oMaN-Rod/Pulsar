@@ -193,7 +193,7 @@ struct Paint<'a> {
 
 impl Paint<'_> {
     fn overlay(&mut self, o: &mut Overlay, x: i32, y: i32) -> Result<()> {
-        let dpi = o.taskbar.dpi;
+        let dpi = o.dpi();
         let hwnd = o.hwnd;
         let alpha = o.alpha;
         let layout = o.layout.clone();
@@ -454,17 +454,21 @@ impl App {
             return;
         }
         let o = &mut self.overlays[i];
+        let floating = self.config.display.position == Position::Floating;
+        let saved = self.config.display.float_position.map(|[x, y]| (x, y));
+        let tb_rect = o.taskbar.rect;
+        let probe = saved.unwrap_or(((tb_rect.left + tb_rect.right) / 2, tb_rect.top));
+        o.float_dpi = floating.then(|| taskbar::dpi_near(probe.0, probe.1));
         o.update_layout(&self.config, &self.text);
         let (w, h) = o.size();
+        let dpi = o.dpi();
         let tb: &Taskbar = &o.taskbar;
-        let (placement, monitor) = if self.config.display.position == Position::Floating {
-            let saved = self.config.display.float_position.map(|[x, y]| (x, y));
-            let probe = saved.unwrap_or(((tb.rect.left + tb.rect.right) / 2, tb.rect.top));
+        let (placement, monitor) = if floating {
             let (monitor, work) = taskbar::monitor_near(probe.0, probe.1);
             let placement = if w <= 0 {
                 Placement::Hidden(HideReason::Empty)
             } else {
-                let (x, y) = place_floating(saved, (w, h), work, Some(tb.rect), tb.dpi);
+                let (x, y) = place_floating(saved, (w, h), work, Some(tb.rect), dpi);
                 Placement::At { x, y }
             };
             (placement, monitor)
@@ -1168,14 +1172,14 @@ impl App {
                         bottom: y + h,
                     },
                     monitor: taskbar::monitor_near(x, y).0,
-                    dpi: o.taskbar.dpi,
+                    dpi: o.dpi(),
                 }
             }
             _ => Anchor {
                 item,
                 taskbar: o.taskbar.rect,
                 monitor: o.taskbar.monitor,
-                dpi: o.taskbar.dpi,
+                dpi: o.dpi(),
             },
         };
         self.sampler.processes.store(
