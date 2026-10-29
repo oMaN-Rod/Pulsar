@@ -222,8 +222,13 @@ pub fn read() -> Vec<DiskInfo> {
 }
 
 /// Drive temperatures, for drives that report one.
+/// How often to look again for drives that report a temperature, so
+/// external ones connected or reconnected are picked up.
+const REDISCOVER: std::time::Duration = std::time::Duration::from_secs(60);
+
 pub struct DriveTempSource {
     drives: Vec<(u8, Handle)>,
+    found_at: std::time::Instant,
 }
 
 // The handles are only used from the sampler thread that owns the source.
@@ -240,7 +245,10 @@ impl DriveTempSource {
                 Some((n as u8, drive))
             })
             .collect();
-        Self { drives }
+        Self {
+            drives,
+            found_at: std::time::Instant::now(),
+        }
     }
 }
 
@@ -256,6 +264,9 @@ impl Source for DriveTempSource {
     }
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
+        if self.found_at.elapsed() >= REDISCOVER {
+            *self = Self::new();
+        }
         if self.drives.is_empty() {
             return Err(SourceError::Unavailable(
                 crate::tr!("No drive reports a temperature").into(),

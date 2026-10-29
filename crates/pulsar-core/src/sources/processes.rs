@@ -22,10 +22,12 @@ impl ProcessesSource {
 
     fn with_gpu_counter(gpu_path: &str) -> Result<Self, SourceError> {
         let query = Query::new()?;
-        let cpu = query.add(r"\Process(*)\% Processor Time")?;
-        let private = query.add(r"\Process(*)\Working Set - Private")?;
-        let ids = query.add(r"\Process(*)\ID Process")?;
-        let io = query.add(r"\Process(*)\IO Data Bytes/sec")?;
+        // `Process V2` names instances by process id, so a process exiting
+        // never shifts another's counters onto it as `Process`'s `#n` do.
+        let (cpu, private, ids, io) = match process_counters(&query, PROCESS_V2) {
+            Ok(counters) => counters,
+            Err(_) => process_counters(&query, PROCESS_V1)?,
+        };
         let gpu = query.add(gpu_path).ok();
         query.collect()?;
         let cpu_count = std::thread::available_parallelism().map_or(1, |n| n.get());
@@ -68,9 +70,40 @@ impl Source for ProcessesSource {
     }
 }
 
-/// `"chrome#12"` → `"chrome"`.
+/// Counter paths for one process counter set: % processor time, private
+/// working set, process id and I/O rate.
+type CounterSet = [&'static str; 4];
+
+const PROCESS_V2: CounterSet = [
+    r"\Process V2(*)\% Processor Time",
+    r"\Process V2(*)\Working Set - Private",
+    r"\Process V2(*)\Process ID",
+    r"\Process V2(*)\IO Data Bytes/sec",
+];
+
+const PROCESS_V1: CounterSet = [
+    r"\Process(*)\% Processor Time",
+    r"\Process(*)\Working Set - Private",
+    r"\Process(*)\ID Process",
+    r"\Process(*)\IO Data Bytes/sec",
+];
+
+fn process_counters(
+    query: &Query,
+    set: CounterSet,
+) -> Result<(Counter, Counter, Counter, Counter), SourceError> {
+    Ok((
+        query.add(set[0])?,
+        query.add(set[1])?,
+        query.add(set[2])?,
+        query.add(set[3])?,
+    ))
+}
+
+/// `"chrome#12"` (`Process`) or `"chrome:4312"` (`Process V2`) → `"chrome"`.
 fn base_name(instance: &str) -> &str {
-    instance.split_once('#').map_or(instance, |(name, _)| name)
+    let name = instance.rsplit_once(':').map_or(instance, |(name, _)| name);
+    name.split_once('#').map_or(name, |(name, _)| name)
 }
 
 fn group<'m, 's>(

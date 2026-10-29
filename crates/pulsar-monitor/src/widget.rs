@@ -649,7 +649,12 @@ impl Ctx<'_> {
         if !s.cores.is_empty() {
             y += d.gap / 2.0;
             let n = s.cores.len() as f32;
-            let cell_gap = d.scale.max(1.0);
+            // Too many cores for gaps leaves the cells touching.
+            let cell_gap = if at.w / n >= 4.0 * d.scale {
+                d.scale.max(1.0)
+            } else {
+                0.0
+            };
             let cell_w = (at.w - (n - 1.0) * cell_gap) / n;
             for (i, v) in s.cores.iter().enumerate() {
                 let cell = Rect {

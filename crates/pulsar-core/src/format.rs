@@ -17,6 +17,16 @@ pub fn set_units(units: Units) {
     NETWORK_BITS.store(units.network == RateUnit::Bits, Ordering::Relaxed);
 }
 
+/// A Celsius reading in the chosen unit, and that unit's symbol, for places
+/// that show the number apart from its unit.
+pub fn temperature(celsius: f64) -> (f64, &'static str) {
+    if FAHRENHEIT.load(Ordering::Relaxed) {
+        (celsius * 9.0 / 5.0 + 32.0, "°F")
+    } else {
+        (celsius, "°C")
+    }
+}
+
 fn units() -> Units {
     Units {
         temperature: if FAHRENHEIT.load(Ordering::Relaxed) {

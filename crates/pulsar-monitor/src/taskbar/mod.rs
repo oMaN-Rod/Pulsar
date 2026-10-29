@@ -3,7 +3,8 @@ pub mod placement;
 
 use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
-    GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MONITORINFO, MonitorFromPoint, MonitorFromWindow,
+    EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTONEAREST, MONITORINFO,
+    MonitorFromPoint, MonitorFromWindow,
 };
 use windows::Win32::System::Threading::{
     OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
@@ -207,27 +208,62 @@ pub fn is_fullscreen(
     fits && !has_caption && !SHELL_CLASSES.contains(&class)
 }
 
-/// The monitor whose taskbar should hide because a fullscreen app is in front.
-pub fn fullscreen_monitor() -> Option<Rect32> {
+/// Every monitor's rectangle.
+fn monitors() -> Vec<Rect32> {
+    unsafe extern "system" fn visit(
+        monitor: HMONITOR,
+        _: HDC,
+        _: *mut RECT,
+        found: LPARAM,
+    ) -> BOOL {
+        let mut info = MONITORINFO {
+            cbSize: size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+        unsafe {
+            if GetMonitorInfoW(monitor, &mut info).as_bool() {
+                (*(found.0 as *mut Vec<Rect32>)).push(rect32(info.rcMonitor));
+            }
+        }
+        true.into()
+    }
+    let mut found: Vec<Rect32> = Vec::new();
+    unsafe {
+        let _ = EnumDisplayMonitors(
+            None,
+            None,
+            Some(visit),
+            LPARAM(&mut found as *mut Vec<Rect32> as isize),
+        );
+    }
+    found
+}
+
+/// The monitors whose taskbars should hide because a fullscreen app in front
+/// covers them; a borderless window can span several.
+pub fn fullscreen_monitors() -> Vec<Rect32> {
     let fg = unsafe { GetForegroundWindow() };
     if fg.is_invalid() || !unsafe { IsWindowVisible(fg) }.as_bool() {
-        return None;
+        return Vec::new();
     }
-    let monitor = monitor_of(fg);
+    if image_path(process_id(fg)).is_some_and(|p| is_shell_host(&p)) {
+        return Vec::new();
+    }
+    let Some(window) = rect_of(fg) else {
+        return Vec::new();
+    };
+    let own = monitor_of(fg);
     let maximized = unsafe { IsZoomed(fg) }.as_bool();
     let style = unsafe { GetWindowLongW(fg, GWL_STYLE) } as u32;
     let has_caption = style & WS_CAPTION.0 == WS_CAPTION.0;
-    if image_path(process_id(fg)).is_some_and(|p| is_shell_host(&p)) {
-        return None;
+    let class = class_name(fg);
+    let mut all = monitors();
+    if !all.contains(&own) {
+        all.push(own);
     }
-    is_fullscreen(
-        &rect_of(fg)?,
-        &monitor,
-        &class_name(fg),
-        maximized,
-        has_caption,
-    )
-    .then_some(monitor)
+    all.into_iter()
+        .filter(|m| is_fullscreen(&window, m, &class, maximized && *m == own, has_caption))
+        .collect()
 }
 
 #[cfg(test)]

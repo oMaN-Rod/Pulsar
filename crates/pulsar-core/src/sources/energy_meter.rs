@@ -243,16 +243,24 @@ impl Source for EnergyMeterSource {
         }
         let meters = self.meters.get_or_insert_with(Meter::open_all);
         self.last.resize(meters.len(), None);
+        // Each CPU package has its own meter; their channels add up.
+        let mut totals: Vec<(MetricKey, f64)> = Vec::new();
         for (meter, last) in meters.iter().zip(self.last.iter_mut()) {
             let now = meter.measure();
             if let (Some(before), Some(after)) = (last.as_ref(), now.as_ref()) {
                 for ((channel, b), a) in meter.channels.iter().zip(before).zip(after) {
                     if let (Some(channel), Some(w)) = (channel, watts(*b, *a)) {
-                        out.set(channel.key(), w);
+                        match totals.iter_mut().find(|(k, _)| *k == channel.key()) {
+                            Some((_, total)) => *total += w,
+                            None => totals.push((channel.key(), w)),
+                        }
                     }
                 }
             }
             *last = now;
+        }
+        for (key, w) in totals {
+            out.set(key, w);
         }
         Ok(())
     }

@@ -86,6 +86,8 @@ pub struct Recorder {
     out: BufWriter<File>,
     columns: Vec<MetricKey>,
     pub path: PathBuf,
+    /// Kept sampled until recording stops, whatever the settings show.
+    pub items: Vec<ItemKind>,
 }
 
 impl Recorder {
@@ -109,7 +111,12 @@ impl Recorder {
         let columns = columns(items);
         writeln!(out, "{}", header(&columns))?;
         out.flush()?;
-        Ok(Self { out, columns, path })
+        Ok(Self {
+            out,
+            columns,
+            path,
+            items: items.to_vec(),
+        })
     }
 
     /// Flushed at once, so the file is whole whenever recording stops.

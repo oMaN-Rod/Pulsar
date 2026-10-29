@@ -182,8 +182,12 @@ impl Drop for Device {
 }
 
 impl Device {
+    /// The first interface with a battery in it; a slot may be empty.
     fn first() -> Option<Self> {
-        let path = first_interface_path()?;
+        interface_paths().iter().find_map(|path| Self::open(path))
+    }
+
+    fn open(path: &[u16]) -> Option<Self> {
         let handle = unsafe {
             CreateFileW(
                 PCWSTR(path.as_ptr()),
@@ -239,43 +243,50 @@ impl Device {
     }
 }
 
-/// The device path of the first battery, NUL-terminated.
-fn first_interface_path() -> Option<Vec<u16>> {
+/// The device path of each battery interface, NUL-terminated.
+fn interface_paths() -> Vec<Vec<u16>> {
+    let mut paths = Vec::new();
     unsafe {
-        let set = SetupDiGetClassDevsW(
+        let Ok(set) = SetupDiGetClassDevsW(
             Some(&GUID_DEVICE_BATTERY),
             PCWSTR::null(),
             None,
             DIGCF_PRESENT | DIGCF_DEVICEINTERFACE,
-        )
-        .ok()?;
-        let mut data = SP_DEVICE_INTERFACE_DATA {
-            cbSize: size_of::<SP_DEVICE_INTERFACE_DATA>() as u32,
-            ..Default::default()
+        ) else {
+            return paths;
         };
-        let path = SetupDiEnumDeviceInterfaces(set, None, &GUID_DEVICE_BATTERY, 0, &mut data)
-            .ok()
-            .and_then(|()| {
-                let mut needed = 0u32;
-                let _ =
-                    SetupDiGetDeviceInterfaceDetailW(set, &data, None, 0, Some(&mut needed), None);
-                // u32 words keep the buffer aligned for the detail struct.
-                let mut buffer = vec![0u32; (needed as usize).div_ceil(4).max(2)];
-                let detail = buffer
-                    .as_mut_ptr()
-                    .cast::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>();
-                (*detail).cbSize = size_of::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>() as u32;
-                SetupDiGetDeviceInterfaceDetailW(set, &data, Some(detail), needed, None, None)
-                    .ok()?;
-                let start = std::ptr::addr_of!((*detail).DevicePath).cast::<u16>();
-                let len = (0..).take_while(|&i| *start.add(i) != 0).count();
-                let mut path = std::slice::from_raw_parts(start, len).to_vec();
-                path.push(0);
-                Some(path)
-            });
+        for index in 0.. {
+            let mut data = SP_DEVICE_INTERFACE_DATA {
+                cbSize: size_of::<SP_DEVICE_INTERFACE_DATA>() as u32,
+                ..Default::default()
+            };
+            if SetupDiEnumDeviceInterfaces(set, None, &GUID_DEVICE_BATTERY, index, &mut data)
+                .is_err()
+            {
+                break;
+            }
+            let mut needed = 0u32;
+            let _ = SetupDiGetDeviceInterfaceDetailW(set, &data, None, 0, Some(&mut needed), None);
+            // u32 words keep the buffer aligned for the detail struct.
+            let mut buffer = vec![0u32; (needed as usize).div_ceil(4).max(2)];
+            let detail = buffer
+                .as_mut_ptr()
+                .cast::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>();
+            (*detail).cbSize = size_of::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>() as u32;
+            if SetupDiGetDeviceInterfaceDetailW(set, &data, Some(detail), needed, None, None)
+                .is_err()
+            {
+                continue;
+            }
+            let start = std::ptr::addr_of!((*detail).DevicePath).cast::<u16>();
+            let len = (0..).take_while(|&i| *start.add(i) != 0).count();
+            let mut path = std::slice::from_raw_parts(start, len).to_vec();
+            path.push(0);
+            paths.push(path);
+        }
         let _ = SetupDiDestroyDeviceInfoList(set);
-        path
     }
+    paths
 }
 
 #[cfg(test)]

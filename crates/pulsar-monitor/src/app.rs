@@ -144,7 +144,7 @@ pub struct App {
     overlays: Vec<Overlay>,
     tray: Tray,
     hooks: Option<(u32, Hooks)>,
-    fullscreen: Debounce<Option<Rect32>>,
+    fullscreen: Debounce<Vec<Rect32>>,
     retry_step: usize,
     popup: Popup,
     /// The overlay the open popup belongs to.
@@ -172,6 +172,11 @@ pub struct App {
     game: Option<Game>,
     /// Ids of the profiles the open menu lists, in its order.
     menu_profiles: Vec<String>,
+    /// The settings file as last read or written, to tell others' changes
+    /// from ours.
+    on_disk: Option<Config>,
+    /// A change notice came but the file could not be read; retried.
+    reload_failed: bool,
     alerts: Alerts,
     /// Hidden with the shortcut until it is pressed again.
     hidden: bool,
@@ -249,6 +254,7 @@ impl App {
             );
         }
         let translucent = translucent_popups(&config);
+        let on_disk = Some(config.clone());
         Ok(Self {
             instance,
             host,
@@ -266,7 +272,7 @@ impl App {
             overlays: Vec::new(),
             tray,
             hooks: None,
-            fullscreen: Debounce::new(None),
+            fullscreen: Debounce::new(Vec::new()),
             retry_step: 0,
             popup: Popup::create(instance, translucent)?,
             popup_owner: None,
@@ -284,6 +290,8 @@ impl App {
             last_app: None,
             game: None,
             menu_profiles: Vec::new(),
+            on_disk,
+            reload_failed: false,
             alerts: Alerts::default(),
             hidden: false,
             hotkeys_taken: Vec::new(),
@@ -297,7 +305,7 @@ impl App {
             SetTimer(Some(self.host), TIMER_VALIDATE, VALIDATE_MS, None);
             SetTimer(Some(self.host), TIMER_UPDATE, UPDATE_FIRST_MS, None);
         }
-        self.fullscreen = Debounce::new(taskbar::fullscreen_monitor());
+        self.fullscreen = Debounce::new(taskbar::fullscreen_monitors());
         self.register_appbar(ABM_NEW);
         self.register_hotkeys();
         self.refresh();
@@ -480,7 +488,7 @@ impl App {
         };
         let covered = self.hidden
             || (self.config.display.hide_in_fullscreen
-                && *self.fullscreen.current() == Some(monitor));
+                && self.fullscreen.current().contains(&monitor));
         match placement {
             Placement::At { x, y } if !covered => {
                 let o = &mut self.overlays[i];
@@ -733,6 +741,9 @@ impl App {
     fn sampling_config(&self, config: &Config) -> Config {
         let mut c = config.clone();
         c.session_items = self.session_items.clone();
+        if let Some(r) = &self.recorder {
+            c.session_items.extend(r.items.iter().copied());
+        }
         c
     }
 
@@ -843,7 +854,7 @@ impl App {
         let saved = w.position.map(|[x, y]| (x, y));
         let probe = self.widget.shown_at.or(saved).unwrap_or((0, 0));
         let (monitor, work) = taskbar::monitor_near(probe.0, probe.1);
-        if w.hide_in_fullscreen && *self.fullscreen.current() == Some(monitor) {
+        if w.hide_in_fullscreen && self.fullscreen.current().contains(&monitor) {
             self.widget.hide();
             return;
         }
@@ -1201,8 +1212,11 @@ impl App {
     /// Runs every 250 ms and on foreground changes: hides for fullscreen apps
     /// and lifts overlays that the taskbar has been raised above.
     fn watch(&mut self) {
-        let fullscreen = taskbar::fullscreen_monitor();
-        let leaving = fullscreen.is_none();
+        if self.reload_failed {
+            self.reload_config();
+        }
+        let fullscreen = taskbar::fullscreen_monitors();
+        let leaving = fullscreen.is_empty();
         if self
             .fullscreen
             .update(fullscreen, Instant::now(), FULLSCREEN_DELAY, leaving)
@@ -1328,25 +1342,41 @@ impl App {
             return;
         };
         match config::read(path) {
-            Ok(new) => self.apply_config(new),
-            Err(e) => log::warn!("kept the current settings; could not read them: {e}"),
+            Ok(new) => {
+                self.reload_failed = false;
+                self.on_disk = Some(new.clone());
+                self.apply_config(new);
+            }
+            Err(e) => {
+                if !self.reload_failed {
+                    log::warn!("kept the current settings; could not read them: {e}");
+                }
+                self.reload_failed = true;
+            }
         }
     }
 
     /// Changes the config from the app itself (the menu), saving it so the
     /// settings window picks it up.
     fn change_config(&mut self, edit: impl FnOnce(&mut Config)) {
-        let mut new = self
+        let theirs = self
             .config_path
             .as_deref()
-            .and_then(|p| config::read(p).ok())
-            .unwrap_or_else(|| self.config.clone());
+            .and_then(|p| config::read(p).ok());
+        let mut new = match (&self.on_disk, theirs) {
+            (Some(known), Some(theirs)) if theirs != *known => {
+                config::merge(known, &self.config, &theirs)
+            }
+            _ => self.config.clone(),
+        };
         edit(&mut new);
-        if let Some(path) = &self.config_path
-            && let Err(e) = config::save(path, &new)
-        {
-            self.tray
-                .warn(tr!("Pulsar could not save settings"), &e.to_string());
+        if let Some(path) = &self.config_path {
+            match config::save(path, &new) {
+                Ok(()) => self.on_disk = Some(new.clone()),
+                Err(e) => self
+                    .tray
+                    .warn(tr!("Pulsar could not save settings"), &e.to_string()),
+            }
         }
         self.apply_config(new);
     }
@@ -1374,6 +1404,9 @@ impl App {
             self.overlays
                 .iter_mut()
                 .for_each(Overlay::invalidate_layout);
+            if let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut()) {
+                strip.invalidate_layout();
+            }
         }
         if new.units != self.config.units {
             pulsar_core::format::set_units(new.units);
@@ -1391,6 +1424,9 @@ impl App {
             self.overlays
                 .iter_mut()
                 .for_each(Overlay::invalidate_layout);
+            if let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut()) {
+                strip.invalidate_layout();
+            }
         }
         if new.alerts != self.config.alerts {
             self.alerts = Alerts::default();

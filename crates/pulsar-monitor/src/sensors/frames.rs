@@ -414,6 +414,9 @@ pub fn clear_leftover() {
     stop_session();
 }
 
+/// How long to wait before restarting a trace that ended on its own.
+const RESTART_AFTER: Duration = Duration::from_secs(10);
+
 /// A running trace session and the thread reading it.
 struct Trace {
     consumer: PROCESSTRACE_HANDLE,
@@ -466,6 +469,11 @@ impl Trace {
         })
     }
 
+    /// Its reader stopped, as when another tool stopped the session.
+    fn ended(&self) -> bool {
+        self.reader.as_ref().is_none_or(JoinHandle::is_finished)
+    }
+
     fn rates(&self) -> FrameRates {
         let Ok(mut log) = self.log.lock() else {
             return FrameRates::default();
@@ -496,6 +504,9 @@ impl Drop for Trace {
 pub struct Frames {
     trace: Option<Trace>,
     asked_at: Option<Instant>,
+    /// When to start again after the trace ended on its own, e.g. stopped
+    /// by the `--frames` diagnostic.
+    restart_at: Option<Instant>,
 }
 
 impl Frames {
@@ -503,8 +514,12 @@ impl Frames {
         if asked {
             self.asked_at = Some(Instant::now());
         }
+        if self.trace.as_ref().is_some_and(Trace::ended) {
+            self.trace = None;
+            self.restart_at = Some(Instant::now() + RESTART_AFTER);
+        }
         if self.asked_at.is_some_and(|at| at.elapsed() < LINGER) {
-            if self.trace.is_none() {
+            if self.trace.is_none() && self.restart_at.is_none_or(|t| Instant::now() >= t) {
                 self.trace = Trace::start();
             }
         } else {

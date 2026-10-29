@@ -131,20 +131,23 @@ pub fn load(dir: &Path, id: &str) -> Option<Profile> {
 pub fn save(dir: &Path, profile: &Profile) -> io::Result<String> {
     std::fs::create_dir_all(dir)?;
     let stem = slug(&profile.name, "profile");
-    let same_name = |id: &String| {
-        read_file(&dir.join(format!("{id}.toml")))
-            .is_some_and(|p| p.name.to_lowercase() == profile.name.to_lowercase())
-    };
-    let id = (1..)
-        .map(|n| {
-            if n == 1 {
-                stem.clone()
-            } else {
-                format!("{stem}-{n}")
-            }
-        })
-        .find(|id| !dir.join(format!("{id}.toml")).exists() || same_name(id))
-        .expect("an unused name exists");
+    let wanted = profile.name.to_lowercase();
+    let existing = list(dir)
+        .into_iter()
+        .find(|e| e.name.to_lowercase() == wanted)
+        .map(|e| e.id);
+    let id = existing.unwrap_or_else(|| {
+        (1..)
+            .map(|n| {
+                if n == 1 {
+                    stem.clone()
+                } else {
+                    format!("{stem}-{n}")
+                }
+            })
+            .find(|id| !dir.join(format!("{id}.toml")).exists())
+            .expect("an unused name exists")
+    });
     let text = toml::to_string_pretty(profile).map_err(io::Error::other)?;
     let tmp = dir.join(format!("{id}.toml.tmp"));
     std::fs::write(&tmp, text)?;
@@ -251,6 +254,10 @@ mod tests {
         .unwrap();
         assert_eq!(again, first, "the same name still replaces its profile");
         assert_eq!(list(dir.path()).len(), 2);
+        delete(dir.path(), &first).unwrap();
+        let work = save(dir.path(), &Profile::from_config("工作", &gaming())).unwrap();
+        assert_eq!(work, second, "found by name, not by the first free id");
+        assert_eq!(list(dir.path()).len(), 1);
     }
 
     #[test]

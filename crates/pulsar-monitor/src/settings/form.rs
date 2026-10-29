@@ -337,14 +337,6 @@ pub fn to_form(c: &Config) -> Form {
 
 /// Every setting back to its default, except autostart, which mirrors the
 /// registry and is changed only by its own switch, and the language.
-pub fn reset(current: &Form) -> Form {
-    Form {
-        autostart: current.autostart,
-        language: current.language.clone(),
-        ..to_form(&Config::default())
-    }
-}
-
 fn non_empty(s: &str) -> Option<String> {
     let s = s.trim();
     (!s.is_empty()).then(|| s.to_string())
@@ -845,21 +837,5 @@ mod tests {
         c.items[1].popup = Some(pulsar_core::config::PopupDetail::Simple);
         let c = c.sanitize();
         assert_eq!(to_config(&to_form(&c), &c), c);
-    }
-
-    #[test]
-    fn reset_keeps_autostart_and_language_only() {
-        let mut f = to_form(&Config::default());
-        f.autostart = true;
-        f.language = "es".into();
-        f.labels = 1;
-        f.icons = true;
-        f.font_family = "Arial".into();
-        let r = reset(&f);
-        assert!(r.autostart);
-        assert_eq!(r.language, "es");
-        assert_eq!(r.labels, 0);
-        assert!(!r.icons);
-        assert_eq!(r.font_family, "");
     }
 }

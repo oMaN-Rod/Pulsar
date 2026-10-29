@@ -361,9 +361,16 @@ fn draw(
     let accent = p.graph(content.kind, content.series[0]);
     let mut y = m.pad;
 
-    r.text_at(text, &title, content.title, m.pad, y, p.popup_text)?;
-    let value_w = text.width(&content.value, m.title_px);
-    r.text_at(text, &title, &content.value, right - value_w, y, accent)?;
+    let value = ellipsize(&content.value, (right - m.pad) * 0.5, m.title_px, text);
+    let value_w = text.width(&value, m.title_px);
+    let heading = ellipsize(
+        content.title,
+        right - value_w - m.pad - 8.0 * m.scale,
+        m.title_px,
+        text,
+    );
+    r.text_at(text, &title, &heading, m.pad, y, p.popup_text)?;
+    r.text_at(text, &title, &value, right - value_w, y, accent)?;
     y += m.title_h + m.block_gap;
 
     if content.graph {

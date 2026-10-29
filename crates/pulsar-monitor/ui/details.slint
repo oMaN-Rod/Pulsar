@@ -57,6 +57,7 @@ export struct Cores {
     mode: int,
     has-clock: bool,
     has-temp: bool,
+    temp-unit: string,
     // The first efficient core, or -1.
     split: int,
     load-color: color,
@@ -397,7 +398,7 @@ component CoreMatrix inherits Rectangle {
     if root.info.has-temp: Secondary {
         x: 0;
         y: root.temp-y + (26px - self.height) / 2;
-        text: "°C";
+        text: root.info.temp-unit;
         font-size: 11px;
     }
     if root.info.split > 0: Rectangle {

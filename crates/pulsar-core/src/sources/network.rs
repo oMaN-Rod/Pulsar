@@ -65,6 +65,17 @@ impl Source for NetworkSource {
     }
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
+        let result = self.read(out);
+        if result.is_err() {
+            // The next rate covers one interval, not the time it failed.
+            self.totals.last = None;
+        }
+        result
+    }
+}
+
+impl NetworkSource {
+    fn read(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
         if self
             .hardware_refreshed
             .is_none_or(|t| t.elapsed() >= HARDWARE_REFRESH)

@@ -6,7 +6,7 @@ use std::ops::Range;
 use std::time::Duration;
 
 use pulsar_core::config::Config;
-use pulsar_core::format::format_value;
+use pulsar_core::format::{format_value, temperature};
 use pulsar_core::hardware::cpu::{Cache, CacheKind, Topology};
 use pulsar_core::hardware::pci::{self, Link};
 use pulsar_core::hardware::{DiskInfo, HardwareInfo};
@@ -820,7 +820,10 @@ fn cores(data: &Data) -> Option<(Cores, Vec<Core>, Vec<f32>)> {
                     .unwrap_or_default()
                     .into(),
                 temp: temp.map_or(0.0, |t| (t / 100.0) as f32),
-                temp_text: temp.map(|t| format!("{t:.0}")).unwrap_or_default().into(),
+                temp_text: temp
+                    .map(|t| format!("{:.0}", temperature(t).0))
+                    .unwrap_or_default()
+                    .into(),
                 heat: temp.map_or_else(Color::default, graph::heat),
                 load_arc: graph::arc(load.max(0.02), 32.0, 27.0).into(),
                 temp_arc: temp
@@ -850,6 +853,7 @@ fn cores(data: &Data) -> Option<(Cores, Vec<Core>, Vec<f32>)> {
             .unwrap_or(0) as i32,
         has_clock: !clocks.is_empty(),
         has_temp: !temps.is_empty(),
+        temp_unit: temperature(0.0).1.into(),
         split,
         load_color: data.color(ItemKind::Cpu),
         clock_color: data.color(ItemKind::CpuPower),

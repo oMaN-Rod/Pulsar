@@ -35,6 +35,10 @@ component HotkeyField inherits Rectangle {
     background: Palette.control-background;
     keys := FocusScope {
         key-pressed(event) => {
+            // Tab still moves to the next control.
+            if (event.text == Key.Tab || event.text == Key.Backtab) {
+                return reject;
+            }
             root.pressed(event);
             accept
         }

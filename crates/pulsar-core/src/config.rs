@@ -833,7 +833,7 @@ pub fn merge(base: &Config, mine: &Config, theirs: &Config) -> Config {
 }
 
 fn merge_values(base: &toml::Value, mine: &toml::Value, theirs: &mut toml::Value) {
-    use toml::Value::Table;
+    use toml::Value::{Array, Table};
     if mine == base {
         return;
     }
@@ -842,6 +842,8 @@ fn merge_values(base: &toml::Value, mine: &toml::Value, theirs: &mut toml::Value
             for (key, m_value) in m {
                 match (b.get(key), t.get_mut(key)) {
                     (Some(b_value), Some(t_value)) => merge_values(b_value, m_value, t_value),
+                    // They removed it and we left it alone: keep it removed.
+                    (Some(b_value), None) if b_value == m_value => {}
                     _ => {
                         t.insert(key.clone(), m_value.clone());
                     }
@@ -851,7 +853,45 @@ fn merge_values(base: &toml::Value, mine: &toml::Value, theirs: &mut toml::Value
                 t.remove(key);
             }
         }
+        (Array(b), Array(m), Array(t))
+            if [b, m, &*t]
+                .iter()
+                .all(|a| a.iter().all(|v| kind_of(v).is_some())) =>
+        {
+            merge_items(b, m, t);
+        }
         _ => *theirs = mine.clone(),
+    }
+}
+
+/// The `kind` that identifies an item table.
+fn kind_of(value: &toml::Value) -> Option<&str> {
+    value.get("kind")?.as_str()
+}
+
+/// Items matched by kind, so edits to different items both survive; our
+/// order wins when we changed it.
+fn merge_items(base: &[toml::Value], mine: &[toml::Value], theirs: &mut Vec<toml::Value>) {
+    for m_item in mine {
+        let kind = kind_of(m_item);
+        let b_item = base.iter().find(|b| kind_of(b) == kind);
+        match (theirs.iter_mut().find(|t| kind_of(t) == kind), b_item) {
+            (Some(t_item), Some(b_item)) => merge_values(b_item, m_item, t_item),
+            (Some(t_item), None) => *t_item = m_item.clone(),
+            (None, _) => theirs.push(m_item.clone()),
+        }
+    }
+    fn order(items: &[toml::Value]) -> Vec<Option<&str>> {
+        items.iter().map(kind_of).collect()
+    }
+    if order(mine) != order(base) {
+        let rank = |v: &toml::Value| {
+            let kind = kind_of(v);
+            mine.iter()
+                .position(|m| kind_of(m) == kind)
+                .unwrap_or(usize::MAX)
+        };
+        theirs.sort_by_key(rank);
     }
 }
 
@@ -946,7 +986,14 @@ pub fn load(path: &Path) -> Loaded {
 }
 
 fn back_up_invalid(path: &Path, reason: &str) -> Loaded {
-    let backup = path.with_extension("toml.bak");
+    // An earlier backup may not have been recovered yet.
+    let backup = (1..)
+        .map(|n| match n {
+            1 => path.with_extension("toml.bak"),
+            n => path.with_extension(format!("toml.{n}.bak")),
+        })
+        .find(|p| !p.exists())
+        .expect("an unused name exists");
     let moved = fs::rename(path, &backup).is_ok();
     Loaded {
         config: Config::default(),
@@ -1004,6 +1051,40 @@ mod tests {
         let mut cleared = mine.clone();
         cleared.display.theme = None;
         assert_eq!(merge(&mine, &cleared, &mine).display.theme, None);
+        let mut theirs_cleared = mine.clone();
+        theirs_cleared.display.theme = None;
+        let mut bolder = mine.clone();
+        bolder.display.font_size_pt = 12.0;
+        assert_eq!(
+            merge(&mine, &bolder, &theirs_cleared).display.theme,
+            None,
+            "their removal kept"
+        );
+    }
+
+    #[test]
+    fn merge_keeps_edits_to_different_items() {
+        let base = Config::default();
+        let mut mine = base.clone();
+        mine.item_mut(ItemKind::Cpu).unwrap().color = Some("#112233".into());
+        let mut theirs = base.clone();
+        theirs.item_mut(ItemKind::Gpu).unwrap().enabled = !base.is_enabled(ItemKind::Gpu);
+        let merged = merge(&base, &mine, &theirs);
+        assert_eq!(
+            merged.item(ItemKind::Cpu).unwrap().color.as_deref(),
+            Some("#112233")
+        );
+        assert_eq!(
+            merged.is_enabled(ItemKind::Gpu),
+            theirs.is_enabled(ItemKind::Gpu)
+        );
+        let mut moved = base.clone();
+        moved.move_item(ItemKind::Gpu, true);
+        let reordered = merge(&base, &moved, &theirs);
+        assert_eq!(
+            reordered.items.iter().map(|i| i.kind).collect::<Vec<_>>(),
+            moved.items.iter().map(|i| i.kind).collect::<Vec<_>>()
+        );
     }
 
     #[test]

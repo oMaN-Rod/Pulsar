@@ -617,23 +617,37 @@ fn sync_autostart(enabled: bool) {
 }
 
 fn save(ui: &SettingsWindow, state: &mut State) {
-    let mut new = form::to_config(&pull(ui, &state.kinds, &state.choices), &state.config);
-    if modified(&state.path) != state.written
-        && let Ok(theirs) = config::read(&state.path)
-    {
-        new = config::merge(&state.config, &new, &theirs);
-        new.general.autostart = state.config.general.autostart;
-    }
-    write(state, new);
-    if follow_language(ui, &state.config) {
-        push(ui, &form::to_form(&state.config), &mut state.choices);
-    }
-    push_profiles(ui, state);
+    let new = form::to_config(&pull(ui, &state.kinds, &state.choices), &state.config);
+    let merged = write(state, new);
+    refresh_after_write(ui, state, merged);
 }
 
-fn write(state: &mut State, new: Config) {
-    if new == state.config {
-        return;
+/// Shows what was saved when it holds more than the form did: another
+/// process's change, or a new language.
+fn refresh_after_write(ui: &SettingsWindow, state: &mut State, merged: bool) {
+    if merged || follow_language(ui, &state.config) {
+        let config = state.config.clone();
+        show(ui, state, config);
+    } else {
+        push_profiles(ui, state);
+    }
+}
+
+/// Saves `new`, first folding in a change another process made since our
+/// last write; returns whether there was one.
+fn write(state: &mut State, mut new: Config) -> bool {
+    let mut merged = false;
+    if modified(&state.path) != state.written
+        && let Ok(theirs) = config::read(&state.path)
+        && theirs != state.config
+    {
+        let autostart = new.general.autostart;
+        new = config::merge(&state.config, &new, &theirs);
+        new.general.autostart = autostart;
+        merged = true;
+    }
+    if !merged && new == state.config {
+        return false;
     }
     if new.general.autostart != state.config.general.autostart {
         sync_autostart(new.general.autostart);
@@ -646,6 +660,7 @@ fn write(state: &mut State, new: Config) {
         }
         Err(e) => log::warn!("could not save settings: {e}"),
     }
+    merged
 }
 
 fn open_link(url: &str) {
@@ -992,24 +1007,28 @@ fn main() -> Result<(), Box<dyn Error>> {
         let _ = std::process::Command::new("explorer").arg(dir).spawn();
     });
     ui.on_reset_all({
+        let (weak, state, pending) = (ui.as_weak(), state.clone(), save_timer.clone());
+        move || {
+            let Some(ui) = weak.upgrade() else { return };
+            pending.stop();
+            let mut s = state.borrow_mut();
+            let mut new = Config::default();
+            new.general.autostart = s.config.general.autostart;
+            new.general.language = s.config.general.language.clone();
+            write(&mut s, new);
+            let config = s.config.clone();
+            show(&ui, &mut s, config);
+        }
+    });
+    ui.on_reset_position({
         let (weak, state) = (ui.as_weak(), state.clone());
         move || {
             let Some(ui) = weak.upgrade() else { return };
             let mut s = state.borrow_mut();
-            let f = form::reset(&pull(&ui, &s.kinds, &s.choices));
-            s.kinds = f.items.iter().map(|r| r.kind).collect();
-            push(&ui, &f, &mut s.choices);
-            drop(s);
-            ui.invoke_changed();
-        }
-    });
-    ui.on_reset_position({
-        let state = state.clone();
-        move || {
-            let mut s = state.borrow_mut();
             let mut new = s.config.clone();
             new.display.float_position = None;
-            write(&mut s, new);
+            let merged = write(&mut s, new);
+            refresh_after_write(&ui, &mut s, merged);
         }
     });
     ui.on_hotkey_pressed({
