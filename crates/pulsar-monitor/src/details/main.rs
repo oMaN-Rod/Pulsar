@@ -146,6 +146,13 @@ fn with_app(f: impl FnOnce(&mut App)) {
 
 impl App {
     fn refresh(&mut self) {
+        // Settings may have changed since the window opened.
+        if let Some(config) = config::default_path().and_then(|p| config::read(&p).ok())
+            && config != self.config
+        {
+            pulsar_core::format::set_units(config.units);
+            self.config = config;
+        }
         let Some(ui) = self.ui.upgrade() else { return };
         let data = Data {
             info: &self.info,
@@ -310,6 +317,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .and_then(|p| config::read(&p).ok())
         .unwrap_or_default();
     language::init(&config);
+    pulsar_core::format::set_units(config.units);
     let Some(_instance) = SingleInstance::acquire(ipc::DETAILS_MUTEX) else {
         notify::focus_window(ipc::details_title());
         return Ok(());

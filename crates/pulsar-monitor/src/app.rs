@@ -170,6 +170,8 @@ pub struct App {
     /// as a game.
     last_app: Option<String>,
     game: Option<Game>,
+    /// Ids of the profiles the open menu lists, in its order.
+    menu_profiles: Vec<String>,
     alerts: Alerts,
     /// Hidden with the shortcut until it is pressed again.
     hidden: bool,
@@ -281,6 +283,7 @@ impl App {
             last_foreground: HWND::default(),
             last_app: None,
             game: None,
+            menu_profiles: Vec::new(),
             alerts: Alerts::default(),
             hidden: false,
             hotkeys_taken: Vec::new(),
@@ -302,11 +305,14 @@ impl App {
 
     fn register_hotkeys(&mut self) {
         let mut taken = Vec::new();
-        for (i, key) in self.config.hotkeys.all().into_iter().enumerate() {
-            let id = HOTKEY_BASE + i as i32;
+        let keys = self.config.hotkeys.all();
+        for i in 0..keys.len() {
             unsafe {
-                let _ = UnregisterHotKey(Some(self.host), id);
+                let _ = UnregisterHotKey(Some(self.host), HOTKEY_BASE + i as i32);
             }
+        }
+        for (i, key) in keys.into_iter().enumerate() {
+            let id = HOTKEY_BASE + i as i32;
             let Some(key) = key.as_deref().and_then(Hotkey::parse) else {
                 continue;
             };
@@ -603,6 +609,7 @@ impl App {
         }
         if self.game.as_ref().is_some_and(Game::exited) {
             self.end_game(true);
+            self.foreground_changed(foreground);
         }
         self.place_strip(foreground);
     }
@@ -746,14 +753,11 @@ impl App {
         self.sampler.processes.store(open, Ordering::Relaxed);
     }
 
-    fn apply_profile(&mut self, index: usize) {
+    fn apply_profile(&mut self, id: &str) {
         let Some(dir) = profile::profiles_dir() else {
             return;
         };
-        let chosen = profile::list(&dir)
-            .get(index)
-            .and_then(|e| profile::load(&dir, &e.id));
-        match chosen {
+        match profile::load(&dir, id) {
             Some(p) => self.change_config(|c| *c = p.applied_to(c)),
             None => self.tray.warn(
                 tr!("Pulsar could not load the profile"),
@@ -777,7 +781,7 @@ impl App {
             );
             return;
         };
-        self.apply_profile(index);
+        self.apply_profile(&entries[index].id);
         self.tray.inform(tr!("Profile"), &entries[index].name);
     }
 
@@ -1323,14 +1327,20 @@ impl App {
         let Some(path) = &self.config_path else {
             return;
         };
-        let new = config::load(path).config;
-        self.apply_config(new);
+        match config::read(path) {
+            Ok(new) => self.apply_config(new),
+            Err(e) => log::warn!("kept the current settings; could not read them: {e}"),
+        }
     }
 
     /// Changes the config from the app itself (the menu), saving it so the
     /// settings window picks it up.
     fn change_config(&mut self, edit: impl FnOnce(&mut Config)) {
-        let mut new = self.config.clone();
+        let mut new = self
+            .config_path
+            .as_deref()
+            .and_then(|p| config::read(p).ok())
+            .unwrap_or_else(|| self.config.clone());
         edit(&mut new);
         if let Some(path) = &self.config_path
             && let Err(e) = config::save(path, &new)
@@ -1382,6 +1392,9 @@ impl App {
                 .iter_mut()
                 .for_each(Overlay::invalidate_layout);
         }
+        if new.alerts != self.config.alerts {
+            self.alerts = Alerts::default();
+        }
         let hotkeys_changed = new.hotkeys != self.config.hotkeys;
         self.config = new;
         if hotkeys_changed {
@@ -1407,7 +1420,11 @@ impl App {
             Command::TaskManager => menu::open_task_manager(),
             Command::ToggleGame => self.toggle_game(),
             Command::Record => self.toggle_recording(),
-            Command::Profile(index) => self.apply_profile(index),
+            Command::Profile(index) => {
+                if let Some(id) = self.menu_profiles.get(index).cloned() {
+                    self.apply_profile(&id);
+                }
+            }
             Command::ManageProfiles => self.open_settings(Page::Profiles),
             Command::Exit => unsafe {
                 let _ = DestroyWindow(self.host);
@@ -1443,7 +1460,8 @@ fn disk_names() -> Vec<(u8, String)> {
         .collect()
 }
 
-fn saved_profiles(config: &Config) -> Vec<(String, bool)> {
+/// Each saved profile's id and name, and whether `config` matches it.
+fn saved_profiles(config: &Config) -> Vec<(String, String, bool)> {
     let Some(dir) = profile::profiles_dir() else {
         return Vec::new();
     };
@@ -1451,7 +1469,7 @@ fn saved_profiles(config: &Config) -> Vec<(String, bool)> {
         .into_iter()
         .map(|e| {
             let active = profile::load(&dir, &e.id).is_some_and(|p| p.matches(config));
-            (e.name, active)
+            (e.id, e.name, active)
         })
         .collect()
 }
@@ -1480,7 +1498,14 @@ fn context_menu(x: i32, y: i32, item: Option<(HWND, i32, i32)>) {
             menu::AppState {
                 game,
                 recording: a.recorder.is_some(),
-                profiles: saved_profiles(&a.config),
+                profiles: {
+                    let saved = saved_profiles(&a.config);
+                    a.menu_profiles = saved.iter().map(|(id, ..)| id.clone()).collect();
+                    saved
+                        .into_iter()
+                        .map(|(_, name, active)| (name, active))
+                        .collect()
+                },
             },
         )
     }) else {

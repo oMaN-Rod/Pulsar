@@ -186,8 +186,16 @@ pub fn theme_from(f: &Form, base: &Theme, name: &str) -> Theme {
         dark.panel_opacity = clamp_u8(f.panel_opacity);
     }
     let mut light = base.light.clone();
-    light.text = pick(&f.value_color_light, light.text);
-    light.label = pick(&f.label_color_light, light.label);
+    light.text = pick(&f.value_color_light, pick(&f.value_color, light.text));
+    light.label = pick(&f.label_color_light, pick(&f.label_color, light.label));
+    light.tile = pick(&f.tile_color, light.tile);
+    light.panel = pick(&f.panel_color, light.panel);
+    if f.tile_opacity_custom {
+        light.tile_opacity = clamp_u8(f.tile_opacity);
+    }
+    if f.panel_opacity_custom {
+        light.panel_opacity = clamp_u8(f.panel_opacity);
+    }
     for row in &f.items {
         if let Some(c) = parse_hex(&row.color) {
             dark.set_item(row.kind, c);
@@ -419,7 +427,9 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     d.font_bold = f.font_bold;
     d.offset_px = f.offset_px;
     d.fallback_margin_px = f.fallback_margin_px;
-    d.font_size_pt = f.font_size_pt as f32;
+    if f.font_size_pt != base.display.font_size_pt.round() as i32 {
+        d.font_size_pt = f.font_size_pt as f32;
+    }
     d.show_on_all_taskbars = f.show_on_all_taskbars;
     d.accent_graphs = f.accent_graphs;
     d.tile_color = non_empty(&f.tile_color);
@@ -727,7 +737,12 @@ mod tests {
         assert_eq!(t.light.item(f.items[0].kind, CellPart::Main), (1, 2, 3));
         assert_eq!(t.dark.text, (10, 11, 12));
         assert_eq!(t.dark.panel_opacity, 40);
-        assert_eq!(t.light.text, Theme::windows().light.text);
+        assert_eq!(
+            t.light.text,
+            (10, 11, 12),
+            "as the overlay shows it on a light taskbar"
+        );
+        assert_eq!(t.light.panel_opacity, 40);
     }
 
     #[test]

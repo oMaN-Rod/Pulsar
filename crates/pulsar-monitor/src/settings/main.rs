@@ -70,6 +70,8 @@ struct Choices {
     theme_values: Vec<String>,
     /// The selected theme, for the colour fields' fallbacks.
     theme: Option<Theme>,
+    /// Its id as configured, kept when its file is missing.
+    theme_id: String,
 }
 
 impl Choices {
@@ -207,6 +209,7 @@ fn push_theme(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
         .collect();
     let index = entries.iter().position(|e| e.id == f.theme).unwrap_or(0);
     choices.theme_values = entries.into_iter().map(|e| e.id).collect();
+    choices.theme_id = f.theme.clone();
     ui.set_themes(ModelRc::new(VecModel::from(cards)));
     ui.set_theme_index(index as i32);
     choices.theme = Some(theme::load(
@@ -422,12 +425,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         panel_color: ui.get_panel_color().to_string(),
         panel_opacity_custom: ui.get_panel_opacity_custom(),
         panel_opacity: ui.get_panel_opacity().round() as i32,
-        theme: choices
-            .theme
-            .as_ref()
-            .map(|t| t.id.clone())
-            .filter(|id| id != theme::DEFAULT_ID)
-            .unwrap_or_default(),
+        theme: choices.theme_id.clone(),
         items: ui
             .get_items()
             .iter()
@@ -598,9 +596,10 @@ fn push_profiles(ui: &SettingsWindow, state: &mut State) {
 /// retried on the next tick; unchanged contents leave the form untouched.
 fn pick_up_external_change(ui: &SettingsWindow, state: &mut State) {
     let stamp = modified(&state.path);
-    let Ok(config) = config::read(&state.path) else {
+    let Ok(mut config) = config::read(&state.path) else {
         return;
     };
+    config.general.autostart = autostart::get(autostart::VALUE_NAME).is_some();
     state.written = stamp;
     if config != state.config {
         show(ui, state, config);
@@ -618,7 +617,13 @@ fn sync_autostart(enabled: bool) {
 }
 
 fn save(ui: &SettingsWindow, state: &mut State) {
-    let new = form::to_config(&pull(ui, &state.kinds, &state.choices), &state.config);
+    let mut new = form::to_config(&pull(ui, &state.kinds, &state.choices), &state.config);
+    if modified(&state.path) != state.written
+        && let Ok(theirs) = config::read(&state.path)
+    {
+        new = config::merge(&state.config, &new, &theirs);
+        new.general.autostart = state.config.general.autostart;
+    }
     write(state, new);
     if follow_language(ui, &state.config) {
         push(ui, &form::to_form(&state.config), &mut state.choices);
@@ -920,7 +925,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             pending.stop();
             let mut s = state.borrow_mut();
             save(&ui, &mut s);
-            let new = Profile::from_config(&name, &s.config);
+            let current = form::to_config(&pull(&ui, &s.kinds, &s.choices), &s.config);
+            let new = Profile::from_config(&name, &current);
             if new.name.is_empty() {
                 return;
             }
@@ -944,12 +950,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             };
             pending.stop();
             let mut s = state.borrow_mut();
+            let id = s.profile_ids.get(index.max(0) as usize).cloned();
             save(&ui, &mut s);
-            let Some(chosen) = s
-                .profile_ids
-                .get(index.max(0) as usize)
-                .and_then(|id| profile::load(&dir, id))
-            else {
+            let Some(chosen) = id.and_then(|id| profile::load(&dir, &id)) else {
                 ui.set_profile_status(tr!("Could not read the profile.").into());
                 return;
             };

@@ -41,8 +41,11 @@ pub fn take_pending(dir: &Path) -> Option<PathBuf> {
     let marker = dir.join(PENDING);
     let name = fs::read_to_string(&marker).ok()?;
     let _ = fs::remove_file(&marker);
-    let path = dir.join(name.trim());
-    path.is_file().then_some(path)
+    let name = name.trim();
+    let report =
+        name.starts_with("crash-") && name.ends_with(".txt") && !name.contains(['/', '\\', ':']);
+    let path = dir.join(name);
+    (report && path.is_file()).then_some(path)
 }
 
 fn panic_message(payload: &(dyn Any + Send)) -> String {
@@ -142,6 +145,16 @@ mod tests {
         assert_eq!(fs::read_to_string(&path).unwrap(), "boom");
         assert_eq!(take_pending(dir.path()), Some(path));
         assert_eq!(take_pending(dir.path()), None);
+    }
+
+    #[test]
+    fn a_pending_marker_names_only_a_report() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("payload.exe"), "").unwrap();
+        for name in ["payload.exe", "..\\outside.txt", "C:\\crash-x.txt"] {
+            fs::write(dir.path().join(PENDING), name).unwrap();
+            assert_eq!(take_pending(dir.path()), None, "{name}");
+        }
     }
 
     #[test]

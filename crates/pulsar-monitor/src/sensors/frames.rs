@@ -408,6 +408,12 @@ fn stop_session() {
     }
 }
 
+/// Stops a session left behind by a service that did not stop cleanly,
+/// rather than waiting for the next frame rate request to.
+pub fn clear_leftover() {
+    stop_session();
+}
+
 /// A running trace session and the thread reading it.
 struct Trace {
     consumer: PROCESSTRACE_HANDLE,

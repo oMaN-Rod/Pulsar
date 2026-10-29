@@ -130,7 +130,21 @@ pub fn load(dir: &Path, id: &str) -> Option<Profile> {
 /// same name, and returns its id.
 pub fn save(dir: &Path, profile: &Profile) -> io::Result<String> {
     std::fs::create_dir_all(dir)?;
-    let id = slug(&profile.name, "profile");
+    let stem = slug(&profile.name, "profile");
+    let same_name = |id: &String| {
+        read_file(&dir.join(format!("{id}.toml")))
+            .is_some_and(|p| p.name.to_lowercase() == profile.name.to_lowercase())
+    };
+    let id = (1..)
+        .map(|n| {
+            if n == 1 {
+                stem.clone()
+            } else {
+                format!("{stem}-{n}")
+            }
+        })
+        .find(|id| !dir.join(format!("{id}.toml")).exists() || same_name(id))
+        .expect("an unused name exists");
     let text = toml::to_string_pretty(profile).map_err(io::Error::other)?;
     let tmp = dir.join(format!("{id}.toml.tmp"));
     std::fs::write(&tmp, text)?;
@@ -218,6 +232,25 @@ mod tests {
         );
         delete(dir.path(), "desk").unwrap();
         assert_eq!(list(dir.path()).len(), 1);
+    }
+
+    #[test]
+    fn names_that_share_an_id_are_kept_apart() {
+        let dir = tempfile::tempdir().unwrap();
+        let first = save(dir.path(), &Profile::from_config("游戏", &gaming())).unwrap();
+        let second = save(
+            dir.path(),
+            &Profile::from_config("工作", &Config::default()),
+        )
+        .unwrap();
+        assert_ne!(first, second);
+        let again = save(
+            dir.path(),
+            &Profile::from_config("游戏", &Config::default()),
+        )
+        .unwrap();
+        assert_eq!(again, first, "the same name still replaces its profile");
+        assert_eq!(list(dir.path()).len(), 2);
     }
 
     #[test]

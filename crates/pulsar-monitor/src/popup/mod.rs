@@ -409,8 +409,9 @@ fn draw(
                     y += m.line_h;
                 }
                 for (label, value) in rows {
-                    let value_w = text.width(value, m.font_px);
-                    r.text_at(text, &body, value, right - value_w, y, p.popup_text)?;
+                    let value = ellipsize(value, (right - m.pad) * 0.7, m.font_px, text);
+                    let value_w = text.width(&value, m.font_px);
+                    r.text_at(text, &body, &value, right - value_w, y, p.popup_text)?;
                     let room = right - value_w - gap - m.pad;
                     let label = ellipsize(label, room, m.font_px, text);
                     r.text_at(text, &body, &label, m.pad, y, p.popup_text)?;
@@ -422,8 +423,14 @@ fn draw(
                 r.text_at(text, &body, heading, m.pad, y, p.popup_label)?;
                 y += m.line_h;
                 let n = values.len() as f32;
-                let bar_gap = 2.0 * m.scale;
-                let bar_w = ((w - 2.0 * m.pad) - (n - 1.0) * bar_gap) / n;
+                let span = w - 2.0 * m.pad;
+                // Too many cores for gaps leaves the bars touching.
+                let bar_gap = if span / n >= 4.0 * m.scale {
+                    2.0 * m.scale
+                } else {
+                    0.0
+                };
+                let bar_w = (span - (n - 1.0) * bar_gap) / n;
                 for (i, v) in values.iter().enumerate() {
                     let x = m.pad + i as f32 * (bar_w + bar_gap);
                     let slot = Rect {

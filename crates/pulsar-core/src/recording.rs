@@ -93,8 +93,19 @@ impl Recorder {
     /// each reading of `items`.
     pub fn start(dir: &Path, items: &[ItemKind]) -> io::Result<Self> {
         fs::create_dir_all(dir)?;
-        let path = dir.join(format!("readings-{}.csv", local_time('-', '-', '-')));
-        let mut out = BufWriter::new(File::create(&path)?);
+        let stem = format!("readings-{}", local_time('-', '-', '-'));
+        let (path, file) = (1..)
+            .map(|n| match n {
+                1 => dir.join(format!("{stem}.csv")),
+                n => dir.join(format!("{stem}-{n}.csv")),
+            })
+            .find_map(|path| match File::create_new(&path) {
+                Ok(file) => Some(Ok((path, file))),
+                Err(e) if e.kind() == io::ErrorKind::AlreadyExists => None,
+                Err(e) => Some(Err(e)),
+            })
+            .expect("an unused name exists")?;
+        let mut out = BufWriter::new(file);
         let columns = columns(items);
         writeln!(out, "{}", header(&columns))?;
         out.flush()?;

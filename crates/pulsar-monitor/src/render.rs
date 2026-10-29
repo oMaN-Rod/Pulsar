@@ -60,7 +60,10 @@ impl Surface {
         unsafe {
             let dc = CreateCompatibleDC(None);
             let mut bits = std::ptr::null_mut();
-            let bitmap = CreateDIBSection(Some(dc), &info, DIB_RGB_COLORS, &mut bits, None, 0)?;
+            let bitmap = CreateDIBSection(Some(dc), &info, DIB_RGB_COLORS, &mut bits, None, 0)
+                .inspect_err(|_| {
+                    let _ = DeleteDC(dc);
+                })?;
             let previous = SelectObject(dc, bitmap.into());
             Ok(Self {
                 dc,

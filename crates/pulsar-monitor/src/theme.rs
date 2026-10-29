@@ -36,7 +36,9 @@ impl Color {
 
     /// `#RRGGBB`.
     pub fn parse_hex(s: &str) -> Option<Self> {
-        let hex = s.strip_prefix('#').filter(|h| h.len() == 6)?;
+        let hex = s
+            .strip_prefix('#')
+            .filter(|h| h.len() == 6 && h.bytes().all(|b| b.is_ascii_hexdigit()))?;
         let byte = |i: usize| u8::from_str_radix(&hex[i..i + 2], 16).ok();
         Some(Self::rgb(byte(0)?, byte(2)?, byte(4)?))
     }

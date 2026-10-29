@@ -26,10 +26,13 @@ struct Totals {
     up: f64,
 }
 
+/// The longest gap a rate is taken to cover; failed samples leave longer ones.
+const MAX_GAP_SECONDS: f64 = 10.0;
+
 impl Totals {
     fn add(&mut self, now: Instant, down_bps: f64, up_bps: f64) {
         if let Some(last) = self.last {
-            let seconds = now.duration_since(last).as_secs_f64();
+            let seconds = now.duration_since(last).as_secs_f64().min(MAX_GAP_SECONDS);
             self.down += down_bps * seconds;
             self.up += up_bps * seconds;
         }

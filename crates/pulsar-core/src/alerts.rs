@@ -104,7 +104,10 @@ impl Alerts {
     /// The alerts to show now.
     pub fn check(&mut self, config: &AlertsConfig, s: &Snapshot, now: Instant) -> Vec<Alert> {
         let mut due = Vec::new();
-        for (alert, level, hold) in levels(config, s) {
+        let levels = levels(config, s);
+        self.over_since
+            .retain(|alert, _| levels.iter().any(|(a, ..)| a == alert));
+        for (alert, level, hold) in levels {
             if level != Level::Over {
                 self.over_since.remove(&alert);
                 if level == Level::Clear {

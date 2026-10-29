@@ -1,6 +1,8 @@
 //! The system battery: charge and time left from the power status, and
 //! rate, capacity and wear from the first battery device.
 
+use std::time::{Duration, Instant};
+
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     DIGCF_DEVICEINTERFACE, DIGCF_PRESENT, SP_DEVICE_INTERFACE_DATA,
     SP_DEVICE_INTERFACE_DETAIL_DATA_W, SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInterfaces,
@@ -30,11 +32,14 @@ const UNKNOWN_TIME: u32 = u32::MAX;
 /// `BATTERY_INFORMATION::Capabilities`: capacities are percentages, not mWh.
 const RELATIVE_CAPACITY: u32 = 0x4000_0000;
 
+/// How long to wait before looking for the battery device again.
+const SEARCH_AGAIN: Duration = Duration::from_secs(60);
+
 #[derive(Default)]
 pub struct BatterySource {
     device: Option<Device>,
-    /// Looked for once; a battery does not appear while running.
-    searched: bool,
+    /// When to look for the device again, after none answered.
+    search_at: Option<Instant>,
 }
 
 impl Source for BatterySource {
@@ -48,9 +53,10 @@ impl Source for BatterySource {
         let reading = PowerStatus::from(&status)
             .ok_or_else(|| SourceError::Unavailable(crate::tr!("This PC has no battery").into()))?;
         reading.write(out);
-        if !self.searched {
-            self.searched = true;
+        let now = Instant::now();
+        if self.device.is_none() && self.search_at.is_none_or(|t| now >= t) {
             self.device = Device::first();
+            self.search_at = Some(now + SEARCH_AGAIN);
         }
         if let Some(device) = &self.device {
             match device.read() {

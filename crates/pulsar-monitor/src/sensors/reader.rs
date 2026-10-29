@@ -467,6 +467,7 @@ pub fn run(stop: &AtomicBool) {
         return;
     };
     let wanted = FramesWanted::create().ok();
+    super::frames::clear_leftover();
     let mut frames = Frames::default();
     let mut session: Result<Session, Status> = Err(Status::NoDriver);
     let mut retry_at = Instant::now();

@@ -323,8 +323,10 @@ impl Drop for View {
 }
 
 /// Maps the whole section, however large its writer made it.
-fn map(handle: HANDLE, access: FILE_MAP) -> Option<View> {
-    let address = unsafe { MapViewOfFile(handle, access, 0, 0, 0) };
+/// `len` 0 maps the whole section; a larger `len` than an existing
+/// section has fails rather than mapping past its end.
+fn map(handle: HANDLE, access: FILE_MAP, len: usize) -> Option<View> {
+    let address = unsafe { MapViewOfFile(handle, access, 0, 0, len) };
     if address.Value.is_null() {
         unsafe {
             let _ = CloseHandle(handle);
@@ -339,7 +341,7 @@ fn open() -> Result<View, Unavailable> {
     let name = HSTRING::from(MAPPING_NAME);
     let handle = unsafe { OpenFileMappingW(FILE_MAP_READ.0, false, &name) }
         .map_err(|_| Unavailable::NotInstalled)?;
-    let view = map(handle, FILE_MAP_READ).ok_or(Unavailable::NotInstalled)?;
+    let view = map(handle, FILE_MAP_READ, 0).ok_or(Unavailable::NotInstalled)?;
     let header = view.header();
     if header.magic.load(Ordering::Relaxed) != MAGIC
         || header.version.load(Ordering::Relaxed) != VERSION
@@ -523,7 +525,9 @@ impl Publisher {
                 &HSTRING::from(MAPPING_NAME),
             )
         })?;
-        let view = map(handle, FILE_MAP_WRITE).ok_or_else(windows::core::Error::from_thread)?;
+        // A reader may still hold an older, smaller section of the same name.
+        let view = map(handle, FILE_MAP_WRITE, size_of::<Shared>())
+            .ok_or_else(windows::core::Error::from_thread)?;
         let s = view.shared();
         s.version.store(VERSION, Ordering::Relaxed);
         s.magic.store(MAGIC, Ordering::Relaxed);

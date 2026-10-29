@@ -818,6 +818,43 @@ pub fn sampling_changed(old: &Config, new: &Config) -> bool {
             && (old.ping.host != new.ping.host || old.ping.interval_ms != new.ping.interval_ms))
 }
 
+/// `theirs` with the changes `mine` made to `base`, field by field: for a
+/// save that raced an edit from another process.
+pub fn merge(base: &Config, mine: &Config, theirs: &Config) -> Config {
+    let value = |c: &Config| toml::Value::try_from(c).ok();
+    let (Some(base_v), Some(mine_v), Some(mut out)) = (value(base), value(mine), value(theirs))
+    else {
+        return mine.clone();
+    };
+    merge_values(&base_v, &mine_v, &mut out);
+    out.try_into::<Config>()
+        .map(Config::sanitize)
+        .unwrap_or_else(|_| mine.clone())
+}
+
+fn merge_values(base: &toml::Value, mine: &toml::Value, theirs: &mut toml::Value) {
+    use toml::Value::Table;
+    if mine == base {
+        return;
+    }
+    match (base, mine, &mut *theirs) {
+        (Table(b), Table(m), Table(t)) => {
+            for (key, m_value) in m {
+                match (b.get(key), t.get_mut(key)) {
+                    (Some(b_value), Some(t_value)) => merge_values(b_value, m_value, t_value),
+                    _ => {
+                        t.insert(key.clone(), m_value.clone());
+                    }
+                }
+            }
+            for key in b.keys().filter(|k| !m.contains_key(*k)) {
+                t.remove(key);
+            }
+        }
+        _ => *theirs = mine.clone(),
+    }
+}
+
 /// `%APPDATA%\Pulsar\config.toml`.
 pub fn default_path() -> Option<PathBuf> {
     std::env::var_os("APPDATA").map(|dir| PathBuf::from(dir).join("Pulsar").join("config.toml"))
@@ -926,9 +963,11 @@ pub fn save(path: &Path, config: &Config) -> io::Result<()> {
         fs::create_dir_all(dir)?;
     }
     let text = toml::to_string_pretty(config).map_err(io::Error::other)?;
-    let tmp = path.with_extension("toml.tmp");
+    let tmp = path.with_extension(format!("toml.{}.tmp", std::process::id()));
     fs::write(&tmp, text)?;
-    fs::rename(&tmp, path)
+    fs::rename(&tmp, path).inspect_err(|_| {
+        let _ = fs::remove_file(&tmp);
+    })
 }
 
 #[cfg(test)]
@@ -943,6 +982,28 @@ mod tests {
         let loaded = load(&path);
         assert_eq!(loaded.config, Config::default());
         assert!(loaded.warning.is_none());
+    }
+
+    #[test]
+    fn merge_keeps_both_sides_changes() {
+        let base = Config::default();
+        let mut mine = base.clone();
+        mine.display.font_bold = true;
+        mine.display.theme = Some("ocean".into());
+        let mut theirs = base.clone();
+        theirs.widget.enabled = true;
+        theirs.display.theme = Some("forest".into());
+        let merged = merge(&base, &mine, &theirs);
+        assert!(merged.display.font_bold);
+        assert!(merged.widget.enabled, "their change kept");
+        assert_eq!(
+            merged.display.theme.as_deref(),
+            Some("ocean"),
+            "mine wins a clash"
+        );
+        let mut cleared = mine.clone();
+        cleared.display.theme = None;
+        assert_eq!(merge(&mine, &cleared, &mine).display.theme, None);
     }
 
     #[test]

@@ -1448,6 +1448,9 @@ export component SettingsWindow inherits Window {
                             width: 200px;
                             model: [@tr("All disks combined"), @tr("Each drive")];
                             current-index: root.per-drive ? 1 : 0;
+                            // Picking an entry replaces the binding above; this follows later changes.
+                            property <bool> wanted: root.per-drive;
+                            changed wanted => { self.current-index = self.wanted ? 1 : 0; }
                             selected => {
                                 root.per-drive = self.current-index == 1;
                                 root.per-drive-selected();
@@ -1470,6 +1473,8 @@ export component SettingsWindow inherits Window {
                             width: 200px;
                             model: [@tr("Activity"), @tr("Used space")];
                             current-index: root.drive-used ? 1 : 0;
+                            property <bool> wanted: root.drive-used;
+                            changed wanted => { self.current-index = self.wanted ? 1 : 0; }
                             selected => {
                                 root.drive-used = self.current-index == 1;
                                 root.changed();

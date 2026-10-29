@@ -1,6 +1,7 @@
 //! Registers and removes the service. Both need an elevated caller.
 
-use std::io;
+use std::io::{self, Seek};
+use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -60,6 +61,19 @@ fn retry(mut action: impl FnMut() -> io::Result<()>) -> io::Result<()> {
     result
 }
 
+/// `FILE_SHARE_READ` alone: while the handle is open, the file cannot be
+/// renamed, replaced or written.
+const SHARE_READ: u32 = 1;
+
+/// This executable, held so it cannot be swapped between the elevation
+/// prompt and the copy that runs as the service.
+fn open_own_image(path: &Path) -> io::Result<fs::File> {
+    fs::OpenOptions::new()
+        .read(true)
+        .share_mode(SHARE_READ)
+        .open(path)
+}
+
 /// What the service control manager runs.
 fn service_command(exe: &Path) -> String {
     format!("\"{}\" --service", exe.display())
@@ -69,11 +83,16 @@ pub fn install() -> io::Result<()> {
     let dir = service_dir()?;
     let target = dir.join(EXE);
     let source = env::current_exe()?;
+    let mut image = open_own_image(&source)?;
     sc(&["stop", SERVICE_NAME]);
     fs::create_dir_all(&dir)?;
     if source != target {
-        retry(|| fs::copy(&source, &target).map(drop))?;
+        retry(|| {
+            image.rewind()?;
+            io::copy(&mut image, &mut fs::File::create(&target)?).map(drop)
+        })?;
     }
+    drop(image);
     let command = service_command(&target);
     let registered = sc(&[
         "create",
@@ -122,6 +141,14 @@ pub fn uninstall() -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_running_image_can_be_held_against_renames() {
+        let exe = env::current_exe().unwrap();
+        let _held = open_own_image(&exe).unwrap();
+        let moved = exe.with_extension("moved");
+        assert!(fs::rename(&exe, &moved).is_err());
+    }
 
     #[test]
     fn the_service_path_is_quoted() {
