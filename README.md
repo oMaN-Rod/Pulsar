@@ -352,9 +352,22 @@ Everything Pulsar shows by default is read without administrator rights. A few r
 - **[PawnIO](https://pawnio.eu)** ([source](https://github.com/namazso/PawnIO)), an open-source signed driver by namazso. It only runs modules signed by its author, and the ones Pulsar uses can read a fixed list of registers.
 - **The Pulsar sensor service** (`pulsar-sensors.exe`), which reads temperatures and power draw through PawnIO once a second and publishes those numbers. It runs as a Windows service from `%ProgramFiles%\Pulsar`. Pulsar itself stays unelevated. The only input the service takes is a yes-or-no request for frame rates.
 
-Without the service, Pulsar falls back to what Windows itself publishes. CPU power comes from the Energy Meter Interface, which many recent Intel and AMD systems provide; it reads the same counters as the service, along with the cores, graphics and memory parts. CPU temperature comes from the ACPI thermal zones, which on many desktops are placeholders or describe the motherboard rather than the CPU, so Pulsar leaves out readings that cannot be a running CPU, and the item shows a dash when nothing is left.
+### Without the service
 
-The *Frame rate* item also comes from the service but does not need PawnIO. While the item is on, the service listens to the present events that DXGI, Direct3D 9 and the graphics kernel already log through Event Tracing for Windows, which only an administrator may do. It never touches the game: nothing is loaded into it or read from its memory, which is what anti-cheat software looks for. By default the item shows the rate of the app in front: how often it hands a frame to Windows, counting the GPU process that browsers and apps built on them draw from. An app that is not drawing shows 0 fps. The popup also shows how often the picture changed on that app's monitor. That is not the sum of the apps on it: Windows combines them into one picture per refresh, so it never exceeds the refresh rate, except for a game in fullscreen with V-Sync off. To watch a game on one monitor while working on another, choose that monitor under *Settings → Sensors → Frame rate*. The trace stops a few seconds after the item is turned off.
+Pulsar falls back to what Windows itself publishes:
+
+- **CPU power** comes from the Energy Meter Interface, on many recent Intel and AMD systems. It reads the same counters as the service, including the cores, graphics and memory parts.
+- **CPU temperature** comes from the ACPI thermal zones. Many desktops only publish placeholders there, so Pulsar ignores readings that can't be a running CPU and shows a dash instead.
+
+### Frame rate
+
+The *Frame rate* item needs the service, but not PawnIO.
+
+- **How it's measured:** the service listens to the present events that DXGI, Direct3D 9 and the graphics kernel already log through Event Tracing for Windows, which only an administrator can do. The trace stops a few seconds after the item is turned off.
+- **Nothing touches the game:** nothing is loaded into it or read from its memory, which is what anti-cheat software looks for.
+- **What it shows:** how often the app in front hands a frame to Windows, counting the GPU process that browsers draw from. An app that isn't drawing shows 0 fps.
+- **Monitor rate:** the popup also shows how often the picture changed on that app's monitor. Windows combines every app into one picture per refresh, so this never exceeds the refresh rate, except for a fullscreen game with V-Sync off.
+- **A game on another monitor:** to watch it while you work elsewhere, choose its monitor under *Settings → Sensors → Frame rate*.
 
 ### Setting it up
 
