@@ -26,7 +26,6 @@ struct Totals {
     up: f64,
 }
 
-/// The longest gap a rate is taken to cover; failed samples leave longer ones.
 const MAX_GAP_SECONDS: f64 = 10.0;
 
 impl Totals {
@@ -67,7 +66,6 @@ impl Source for NetworkSource {
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
         let result = self.read(out);
         if result.is_err() {
-            // The next rate covers one interval, not the time it failed.
             self.totals.last = None;
         }
         result

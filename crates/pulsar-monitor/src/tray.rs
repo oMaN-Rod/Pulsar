@@ -71,7 +71,6 @@ impl Tray {
         self.visible.get() || self.for_balloon.get()
     }
 
-    /// An unchanged preference leaves a notification's own icon alone.
     pub fn set_visible(&self, visible: bool) {
         if visible == self.visible.get() {
             return;

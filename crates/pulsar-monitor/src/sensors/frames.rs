@@ -23,6 +23,7 @@ use windows::Win32::System::SystemInformation::GetSystemTimePreciseAsFileTime;
 use windows::core::{GUID, HSTRING, PWSTR};
 
 const SESSION: &str = "Pulsar Frames";
+const DIAGNOSTIC_SESSION: &str = "Pulsar Frames Diagnostic";
 const DXGI: GUID = GUID::from_u128(0xca11c036_0102_4a2d_a6ad_f03cfed5d3c9);
 const D3D9: GUID = GUID::from_u128(0x783aca0a_790e_4d7f_8451_aa850511c6b9);
 const DXGKRNL: GUID = GUID::from_u128(0x802ec45a_1e99_4b83_9920_87c98277ba9d);
@@ -336,7 +337,7 @@ unsafe extern "system" fn on_event(record: *mut EVENT_RECORD) {
 
 /// `EVENT_TRACE_PROPERTIES` with room for the session's name after it.
 fn properties() -> Vec<u64> {
-    let size = size_of::<EVENT_TRACE_PROPERTIES>() + (SESSION.len() + 1) * 2;
+    let size = size_of::<EVENT_TRACE_PROPERTIES>() + (DIAGNOSTIC_SESSION.len() + 1) * 2;
     let mut buffer = vec![0u64; size.div_ceil(8)];
     let p = unsafe { &mut *buffer.as_mut_ptr().cast::<EVENT_TRACE_PROPERTIES>() };
     p.Wnode.BufferSize = (buffer.len() * 8) as u32;
@@ -396,39 +397,36 @@ fn enable(session: CONTROLTRACE_HANDLE, provider: GUID, keyword: u64, ids: &[u16
     result == ERROR_SUCCESS
 }
 
-fn stop_session() {
+fn stop_session(name: &str) {
     let mut properties = properties();
     unsafe {
         let _ = ControlTraceW(
             CONTROLTRACE_HANDLE::default(),
-            &HSTRING::from(SESSION),
+            &HSTRING::from(name),
             properties.as_mut_ptr().cast(),
             EVENT_TRACE_CONTROL_STOP,
         );
     }
 }
 
-/// Stops a session left behind by a service that did not stop cleanly,
-/// rather than waiting for the next frame rate request to.
 pub fn clear_leftover() {
-    stop_session();
+    stop_session(SESSION);
 }
 
-/// How long to wait before restarting a trace that ended on its own.
 const RESTART_AFTER: Duration = Duration::from_secs(10);
 
 /// A running trace session and the thread reading it.
 struct Trace {
+    name: &'static str,
     consumer: PROCESSTRACE_HANDLE,
     reader: Option<JoinHandle<()>>,
     log: Arc<Mutex<Log>>,
 }
 
 impl Trace {
-    fn start() -> Option<Self> {
-        // One left behind by a service that did not stop cleanly.
-        stop_session();
-        let name = HSTRING::from(SESSION);
+    fn start(session_name: &'static str) -> Option<Self> {
+        stop_session(session_name);
+        let name = HSTRING::from(session_name);
         let mut properties = properties();
         let mut session = CONTROLTRACE_HANDLE::default();
         let started = unsafe { StartTraceW(&mut session, &name, properties.as_mut_ptr().cast()) };
@@ -439,7 +437,7 @@ impl Trace {
             | enable(session, D3D9, RUNTIME_KEYWORD, &D3D9_PRESENTS);
         let kernel = enable(session, DXGKRNL, KERNEL_PRESENT_KEYWORD, &KERNEL_EVENTS);
         if !(runtimes || kernel) {
-            stop_session();
+            stop_session(session_name);
             return None;
         }
         let log = Arc::new(Mutex::new(Log::default()));
@@ -453,7 +451,7 @@ impl Trace {
         logfile.Anonymous2.EventRecordCallback = Some(on_event);
         let consumer = unsafe { OpenTraceW(&mut logfile) };
         if consumer.Value == INVALID_PROCESSTRACE {
-            stop_session();
+            stop_session(session_name);
             return None;
         }
         let reader = std::thread::spawn(move || unsafe {
@@ -463,13 +461,13 @@ impl Trace {
             capture_state(session, DXGKRNL, KERNEL_PRESENT_KEYWORD);
         }
         Some(Self {
+            name: session_name,
             consumer,
             reader: Some(reader),
             log,
         })
     }
 
-    /// Its reader stopped, as when another tool stopped the session.
     fn ended(&self) -> bool {
         self.reader.as_ref().is_none_or(JoinHandle::is_finished)
     }
@@ -488,7 +486,7 @@ impl Trace {
 
 impl Drop for Trace {
     fn drop(&mut self) {
-        stop_session();
+        stop_session(self.name);
         unsafe {
             let _ = CloseTrace(self.consumer);
         }
@@ -500,13 +498,22 @@ impl Drop for Trace {
 }
 
 /// Runs the trace while the app wants frame rates, and for a moment after.
-#[derive(Default)]
 pub struct Frames {
+    session: &'static str,
     trace: Option<Trace>,
     asked_at: Option<Instant>,
-    /// When to start again after the trace ended on its own, e.g. stopped
-    /// by the `--frames` diagnostic.
     restart_at: Option<Instant>,
+}
+
+impl Default for Frames {
+    fn default() -> Self {
+        Self {
+            session: SESSION,
+            trace: None,
+            asked_at: None,
+            restart_at: None,
+        }
+    }
 }
 
 impl Frames {
@@ -520,7 +527,10 @@ impl Frames {
         }
         if self.asked_at.is_some_and(|at| at.elapsed() < LINGER) {
             if self.trace.is_none() && self.restart_at.is_none_or(|t| Instant::now() >= t) {
-                self.trace = Trace::start();
+                self.trace = Trace::start(self.session);
+                if self.trace.is_none() {
+                    self.restart_at = Some(Instant::now() + RESTART_AFTER);
+                }
             }
         } else {
             self.trace = None;
@@ -534,7 +544,10 @@ impl Frames {
 /// Prints the rates every second, for trying the trace from an elevated
 /// terminal.
 pub fn print() {
-    let mut frames = Frames::default();
+    let mut frames = Frames {
+        session: DIAGNOSTIC_SESSION,
+        ..Frames::default()
+    };
     loop {
         let rates = frames.update(true);
         for d in rates.displays {

@@ -323,8 +323,6 @@ impl Drop for View {
 }
 
 /// Maps the whole section, however large its writer made it.
-/// `len` 0 maps the whole section; a larger `len` than an existing
-/// section has fails rather than mapping past its end.
 fn map(handle: HANDLE, access: FILE_MAP, len: usize) -> Option<View> {
     let address = unsafe { MapViewOfFile(handle, access, 0, 0, len) };
     if address.Value.is_null() {

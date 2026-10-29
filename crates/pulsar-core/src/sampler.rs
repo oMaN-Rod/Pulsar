@@ -77,9 +77,14 @@ impl Sampler {
         let sensors_required = [ItemKind::CpuTemp, ItemKind::CpuPower, ItemKind::ChipsetTemp]
             .into_iter()
             .any(|kind| config.is_sampled(kind));
-        let sensors_shown = [ItemKind::Cpu, ItemKind::Gpu, ItemKind::GpuTemp]
-            .into_iter()
-            .any(|kind| config.is_sampled(kind));
+        let sensors_shown = [
+            ItemKind::Cpu,
+            ItemKind::CpuClock,
+            ItemKind::Gpu,
+            ItemKind::GpuTemp,
+        ]
+        .into_iter()
+        .any(|kind| config.is_sampled(kind));
         let sensors = sensors_required || sensors_shown;
         if sensors {
             sources.push(Box::new(SensorServiceSource {

@@ -32,13 +32,11 @@ const UNKNOWN_TIME: u32 = u32::MAX;
 /// `BATTERY_INFORMATION::Capabilities`: capacities are percentages, not mWh.
 const RELATIVE_CAPACITY: u32 = 0x4000_0000;
 
-/// How long to wait before looking for the battery device again.
 const SEARCH_AGAIN: Duration = Duration::from_secs(60);
 
 #[derive(Default)]
 pub struct BatterySource {
     device: Option<Device>,
-    /// When to look for the device again, after none answered.
     search_at: Option<Instant>,
 }
 
@@ -182,9 +180,11 @@ impl Drop for Device {
 }
 
 impl Device {
-    /// The first interface with a battery in it; a slot may be empty.
     fn first() -> Option<Self> {
-        interface_paths().iter().find_map(|path| Self::open(path))
+        interface_paths()
+            .iter()
+            .filter_map(|path| Self::open(path))
+            .find(|device| device.read().is_some())
     }
 
     fn open(path: &[u16]) -> Option<Self> {
@@ -243,7 +243,6 @@ impl Device {
     }
 }
 
-/// The device path of each battery interface, NUL-terminated.
 fn interface_paths() -> Vec<Vec<u16>> {
     let mut paths = Vec::new();
     unsafe {

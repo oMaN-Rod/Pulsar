@@ -222,8 +222,6 @@ pub fn read() -> Vec<DiskInfo> {
 }
 
 /// Drive temperatures, for drives that report one.
-/// How often to look again for drives that report a temperature, so
-/// external ones connected or reconnected are picked up.
 const REDISCOVER: std::time::Duration = std::time::Duration::from_secs(60);
 
 pub struct DriveTempSource {

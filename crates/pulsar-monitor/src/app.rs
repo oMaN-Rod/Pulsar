@@ -170,12 +170,8 @@ pub struct App {
     /// as a game.
     last_app: Option<String>,
     game: Option<Game>,
-    /// Ids of the profiles the open menu lists, in its order.
     menu_profiles: Vec<String>,
-    /// The settings file as last read or written, to tell others' changes
-    /// from ours.
     on_disk: Option<Config>,
-    /// A change notice came but the file could not be read; retried.
     reload_failed: bool,
     alerts: Alerts,
     /// Hidden with the shortcut until it is pressed again.
@@ -747,6 +743,16 @@ impl App {
         c
     }
 
+    fn stop_recording(&mut self) -> Option<Recorder> {
+        let before = self.sampling_config(&self.config);
+        let recorder = self.recorder.take();
+        let after = self.sampling_config(&self.config);
+        if config::sampling_changed(&before, &after) {
+            self.respawn_sampler(&after);
+        }
+        recorder
+    }
+
     fn set_session_items(&mut self, items: Vec<ItemKind>) {
         let before = self.sampling_config(&self.config);
         self.session_items = items;
@@ -797,7 +803,7 @@ impl App {
     }
 
     fn toggle_recording(&mut self) {
-        if let Some(r) = self.recorder.take() {
+        if let Some(r) = self.stop_recording() {
             self.tray.offer(
                 tr!("Recording saved"),
                 &r.path.display().to_string(),
@@ -957,7 +963,7 @@ impl App {
             if let Some(r) = &mut self.recorder
                 && let Err(e) = r.record(&snapshot)
             {
-                self.recorder = None;
+                self.stop_recording();
                 self.tray
                     .warn(tr!("Pulsar stopped recording"), &e.to_string());
             }
@@ -1363,12 +1369,13 @@ impl App {
             .config_path
             .as_deref()
             .and_then(|p| config::read(p).ok());
-        let mut new = match (&self.on_disk, theirs) {
-            (Some(known), Some(theirs)) if theirs != *known => {
-                config::merge(known, &self.config, &theirs)
-            }
+        let mut new = match (&self.on_disk, &theirs) {
+            (Some(known), Some(t)) if t != known => config::merge(known, &self.config, t),
             _ => self.config.clone(),
         };
+        if theirs.is_some() {
+            self.on_disk = theirs;
+        }
         edit(&mut new);
         if let Some(path) = &self.config_path {
             match config::save(path, &new) {
@@ -1496,7 +1503,6 @@ fn disk_names() -> Vec<(u8, String)> {
         .collect()
 }
 
-/// Each saved profile's id and name, and whether `config` matches it.
 fn saved_profiles(config: &Config) -> Vec<(String, String, bool)> {
     let Some(dir) = profile::profiles_dir() else {
         return Vec::new();

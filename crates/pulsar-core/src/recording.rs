@@ -86,7 +86,6 @@ pub struct Recorder {
     out: BufWriter<File>,
     columns: Vec<MetricKey>,
     pub path: PathBuf,
-    /// Kept sampled until recording stops, whatever the settings show.
     pub items: Vec<ItemKind>,
 }
 

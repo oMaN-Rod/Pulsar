@@ -818,8 +818,6 @@ pub fn sampling_changed(old: &Config, new: &Config) -> bool {
             && (old.ping.host != new.ping.host || old.ping.interval_ms != new.ping.interval_ms))
 }
 
-/// `theirs` with the changes `mine` made to `base`, field by field: for a
-/// save that raced an edit from another process.
 pub fn merge(base: &Config, mine: &Config, theirs: &Config) -> Config {
     let value = |c: &Config| toml::Value::try_from(c).ok();
     let (Some(base_v), Some(mine_v), Some(mut out)) = (value(base), value(mine), value(theirs))
@@ -842,7 +840,6 @@ fn merge_values(base: &toml::Value, mine: &toml::Value, theirs: &mut toml::Value
             for (key, m_value) in m {
                 match (b.get(key), t.get_mut(key)) {
                     (Some(b_value), Some(t_value)) => merge_values(b_value, m_value, t_value),
-                    // They removed it and we left it alone: keep it removed.
                     (Some(b_value), None) if b_value == m_value => {}
                     _ => {
                         t.insert(key.clone(), m_value.clone());
@@ -864,13 +861,10 @@ fn merge_values(base: &toml::Value, mine: &toml::Value, theirs: &mut toml::Value
     }
 }
 
-/// The `kind` that identifies an item table.
 fn kind_of(value: &toml::Value) -> Option<&str> {
     value.get("kind")?.as_str()
 }
 
-/// Items matched by kind, so edits to different items both survive; our
-/// order wins when we changed it.
 fn merge_items(base: &[toml::Value], mine: &[toml::Value], theirs: &mut Vec<toml::Value>) {
     for m_item in mine {
         let kind = kind_of(m_item);
@@ -986,7 +980,6 @@ pub fn load(path: &Path) -> Loaded {
 }
 
 fn back_up_invalid(path: &Path, reason: &str) -> Loaded {
-    // An earlier backup may not have been recovered yet.
     let backup = (1..)
         .map(|n| match n {
             1 => path.with_extension("toml.bak"),

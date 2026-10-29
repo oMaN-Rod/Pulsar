@@ -35,7 +35,6 @@ component HotkeyField inherits Rectangle {
     background: Palette.control-background;
     keys := FocusScope {
         key-pressed(event) => {
-            // Tab still moves to the next control.
             if (event.text == Key.Tab || event.text == Key.Backtab) {
                 return reject;
             }
@@ -1452,7 +1451,7 @@ export component SettingsWindow inherits Window {
                             width: 200px;
                             model: [@tr("All disks combined"), @tr("Each drive")];
                             current-index: root.per-drive ? 1 : 0;
-                            // Picking an entry replaces the binding above; this follows later changes.
+                            // Picking an entry drops the binding above.
                             property <bool> wanted: root.per-drive;
                             changed wanted => { self.current-index = self.wanted ? 1 : 0; }
                             selected => {

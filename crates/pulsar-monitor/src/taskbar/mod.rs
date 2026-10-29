@@ -208,7 +208,6 @@ pub fn is_fullscreen(
     fits && !has_caption && !SHELL_CLASSES.contains(&class)
 }
 
-/// Every monitor's rectangle.
 fn monitors() -> Vec<Rect32> {
     unsafe extern "system" fn visit(
         monitor: HMONITOR,
@@ -239,8 +238,7 @@ fn monitors() -> Vec<Rect32> {
     found
 }
 
-/// The monitors whose taskbars should hide because a fullscreen app in front
-/// covers them; a borderless window can span several.
+/// The monitors whose taskbars should hide because a fullscreen app is in front.
 pub fn fullscreen_monitors() -> Vec<Rect32> {
     let fg = unsafe { GetForegroundWindow() };
     if fg.is_invalid() || !unsafe { IsWindowVisible(fg) }.as_bool() {

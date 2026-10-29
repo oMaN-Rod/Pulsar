@@ -1170,7 +1170,8 @@ fn gpu(data: &Data) -> View {
             .collect(),
     );
     let mut memory = group("\u{EEA0}", tr!("Graphics memory"), "", Vec::new());
-    let dedicated_total = main.map(|g| g.dedicated_bytes).filter(|&b| b > 0);
+    let dedicated_total =
+        Some(gpus.iter().map(|g| g.dedicated_bytes).sum::<u64>()).filter(|&b| b > 0);
     let shared_total = main.map(|g| g.shared_bytes).filter(|&b| b > 0);
     let mut meters = Vec::new();
     if let Some(used) = data.get(MetricKey::GpuDedicatedBytes) {

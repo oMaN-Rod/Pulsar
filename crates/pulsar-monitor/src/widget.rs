@@ -606,9 +606,10 @@ impl Ctx<'_> {
         let body = t.format(d.font_px)?;
         let small = t.format(d.small_px)?;
         let accent = self.accent(s);
-        let value_w = t.width(&c.value, d.font_px);
+        let value = ellipsize(&c.value, at.w * 0.7, d.font_px, t);
+        let value_w = t.width(&value, d.font_px);
         let value_x = at.x + at.w - value_w;
-        r.text_at(t, &body, &c.value, value_x, at.y, accent)?;
+        r.text_at(t, &body, &value, value_x, at.y, accent)?;
         // The name comes first; the graph takes what is left, ending in line
         // with the column's other graphs.
         let graph_end = value_x.min(at.x + at.w - column_value_w) - d.gap;
@@ -649,7 +650,6 @@ impl Ctx<'_> {
         if !s.cores.is_empty() {
             y += d.gap / 2.0;
             let n = s.cores.len() as f32;
-            // Too many cores for gaps leaves the cells touching.
             let cell_gap = if at.w / n >= 4.0 * d.scale {
                 d.scale.max(1.0)
             } else {

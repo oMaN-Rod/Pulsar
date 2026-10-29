@@ -70,7 +70,6 @@ struct Choices {
     theme_values: Vec<String>,
     /// The selected theme, for the colour fields' fallbacks.
     theme: Option<Theme>,
-    /// Its id as configured, kept when its file is missing.
     theme_id: String,
 }
 
@@ -617,15 +616,14 @@ fn sync_autostart(enabled: bool) {
 }
 
 fn save(ui: &SettingsWindow, state: &mut State) {
+    let units = state.config.units;
     let new = form::to_config(&pull(ui, &state.kinds, &state.choices), &state.config);
-    let merged = write(state, new);
-    refresh_after_write(ui, state, merged);
+    let merged = write(state, new, true);
+    refresh_after_write(ui, state, merged || state.config.units != units);
 }
 
-/// Shows what was saved when it holds more than the form did: another
-/// process's change, or a new language.
-fn refresh_after_write(ui: &SettingsWindow, state: &mut State, merged: bool) {
-    if merged || follow_language(ui, &state.config) {
+fn refresh_after_write(ui: &SettingsWindow, state: &mut State, stale: bool) {
+    if stale || follow_language(ui, &state.config) {
         let config = state.config.clone();
         show(ui, state, config);
     } else {
@@ -633,11 +631,10 @@ fn refresh_after_write(ui: &SettingsWindow, state: &mut State, merged: bool) {
     }
 }
 
-/// Saves `new`, first folding in a change another process made since our
-/// last write; returns whether there was one.
-fn write(state: &mut State, mut new: Config) -> bool {
+fn write(state: &mut State, mut new: Config, merge: bool) -> bool {
     let mut merged = false;
-    if modified(&state.path) != state.written
+    if merge
+        && modified(&state.path) != state.written
         && let Ok(theirs) = config::read(&state.path)
         && theirs != state.config
     {
@@ -972,7 +969,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 return;
             };
             let new = chosen.applied_to(&s.config);
-            write(&mut s, new);
+            write(&mut s, new, true);
             let config = s.config.clone();
             show(&ui, &mut s, config);
             ui.set_profile_status(SharedString::new());
@@ -1015,7 +1012,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut new = Config::default();
             new.general.autostart = s.config.general.autostart;
             new.general.language = s.config.general.language.clone();
-            write(&mut s, new);
+            write(&mut s, new, false);
             let config = s.config.clone();
             show(&ui, &mut s, config);
         }
@@ -1025,10 +1022,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let Some(ui) = weak.upgrade() else { return };
             let mut s = state.borrow_mut();
-            let mut new = s.config.clone();
+            let mut new = config::read(&s.path).unwrap_or_else(|_| s.config.clone());
+            new.general.autostart = s.config.general.autostart;
             new.display.float_position = None;
-            let merged = write(&mut s, new);
-            refresh_after_write(&ui, &mut s, merged);
+            write(&mut s, new, false);
+            refresh_after_write(&ui, &mut s, true);
         }
     });
     ui.on_hotkey_pressed({

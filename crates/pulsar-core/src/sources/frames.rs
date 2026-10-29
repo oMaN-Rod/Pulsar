@@ -99,9 +99,8 @@ fn display_rate(rates: &[DisplayRate], display: &Display) -> Option<f64> {
         .map(|r| r.fps)
 }
 
-/// Descendants of `pid` with no window of their own, reached only through
-/// others without one. Apps it launched have windows, so neither a game
-/// started from Explorer nor that game's helpers are Explorer's.
+/// Descendants of `pid` with no window of their own. Apps it launched
+/// have windows, so a game started from Explorer is not Explorer's helper.
 fn helpers(pid: u32, processes: &[(u32, u32)], windowed: &HashSet<u32>) -> Vec<u32> {
     let mut found = vec![pid];
     let mut i = 0;

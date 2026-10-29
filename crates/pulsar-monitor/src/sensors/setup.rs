@@ -61,12 +61,8 @@ fn retry(mut action: impl FnMut() -> io::Result<()>) -> io::Result<()> {
     result
 }
 
-/// `FILE_SHARE_READ` alone: while the handle is open, the file cannot be
-/// renamed, replaced or written.
 const SHARE_READ: u32 = 1;
 
-/// This executable, held so it cannot be swapped between the elevation
-/// prompt and the copy that runs as the service.
 fn open_own_image(path: &Path) -> io::Result<fs::File> {
     fs::OpenOptions::new()
         .read(true)

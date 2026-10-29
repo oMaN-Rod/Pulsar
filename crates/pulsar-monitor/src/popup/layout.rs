@@ -78,8 +78,7 @@ pub fn height(content: &PopupContent, m: &Metrics) -> f32 {
 }
 
 /// Centres the popup over the hovered item, just above the taskbar (below
-/// it when the taskbar is at the top), kept inside the monitor; one too tall
-/// for either side starts at the monitor's top.
+/// it when the taskbar is at the top), kept inside the monitor.
 pub fn position(
     anchor: Rect32,
     taskbar: Rect32,

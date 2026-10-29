@@ -146,11 +146,19 @@ fn with_app(f: impl FnOnce(&mut App)) {
 
 impl App {
     fn refresh(&mut self) {
-        // Settings may have changed since the window opened.
         if let Some(config) = config::default_path().and_then(|p| config::read(&p).ok())
             && config != self.config
         {
             pulsar_core::format::set_units(config.units);
+            let before = l10n::current();
+            let now = language::apply(&config);
+            if !std::ptr::eq(before, now)
+                && let Some(ui) = self.ui.upgrade()
+            {
+                language::apply_to_slint(now);
+                ui.set_window_title(ipc::details_title().into());
+                ui.set_ui_font(language::ui_font().into());
+            }
             self.config = config;
         }
         let Some(ui) = self.ui.upgrade() else { return };

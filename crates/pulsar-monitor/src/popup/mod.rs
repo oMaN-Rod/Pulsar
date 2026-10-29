@@ -431,7 +431,6 @@ fn draw(
                 y += m.line_h;
                 let n = values.len() as f32;
                 let span = w - 2.0 * m.pad;
-                // Too many cores for gaps leaves the bars touching.
                 let bar_gap = if span / n >= 4.0 * m.scale {
                     2.0 * m.scale
                 } else {

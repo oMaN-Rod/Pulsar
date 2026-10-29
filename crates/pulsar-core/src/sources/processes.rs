@@ -22,8 +22,8 @@ impl ProcessesSource {
 
     fn with_gpu_counter(gpu_path: &str) -> Result<Self, SourceError> {
         let query = Query::new()?;
-        // `Process V2` names instances by process id, so a process exiting
-        // never shifts another's counters onto it as `Process`'s `#n` do.
+        // `Process V2` keys instances by pid, so an exiting process never
+        // shifts its counters onto another.
         let (cpu, private, ids, io) = match process_counters(&query, PROCESS_V2) {
             Ok(counters) => counters,
             Err(_) => process_counters(&query, PROCESS_V1)?,
@@ -70,8 +70,6 @@ impl Source for ProcessesSource {
     }
 }
 
-/// Counter paths for one process counter set: % processor time, private
-/// working set, process id and I/O rate.
 type CounterSet = [&'static str; 4];
 
 const PROCESS_V2: CounterSet = [
@@ -100,7 +98,7 @@ fn process_counters(
     ))
 }
 
-/// `"chrome#12"` (`Process`) or `"chrome:4312"` (`Process V2`) → `"chrome"`.
+/// `"chrome#12"` → `"chrome"`.
 fn base_name(instance: &str) -> &str {
     let name = instance.rsplit_once(':').map_or(instance, |(name, _)| name);
     name.split_once('#').map_or(name, |(name, _)| name)

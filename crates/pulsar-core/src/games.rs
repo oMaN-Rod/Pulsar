@@ -135,9 +135,8 @@ pub struct Session {
     /// `YYYY-MM-DD HH:MM`, local time.
     pub started: String,
     fps_sum: f64,
-    low_sum: f64,
     frames: u32,
-    lows: u32,
+    seconds: Vec<f64>,
     cpu_max: Option<f64>,
     gpu_max: Option<f64>,
 }
@@ -180,10 +179,7 @@ impl Session {
         if let Some(fps) = snapshot.get(MetricKey::AppFrameRate).filter(|f| *f > 0.0) {
             self.fps_sum += fps;
             self.frames += 1;
-        }
-        if let Some(low) = snapshot.get(MetricKey::FrameRateLow1) {
-            self.low_sum += low;
-            self.lows += 1;
+            self.seconds.push(fps);
         }
     }
 
@@ -194,11 +190,22 @@ impl Session {
             started: self.started.clone(),
             duration,
             average_fps: mean(self.fps_sum, self.frames),
-            low_1: mean(self.low_sum, self.lows),
+            low_1: low_1(&self.seconds),
             cpu_max: self.cpu_max,
             gpu_max: self.gpu_max,
         }
     }
+}
+
+fn low_1(seconds: &[f64]) -> Option<f64> {
+    let mut sorted = seconds.to_vec();
+    sorted.sort_by(f64::total_cmp);
+    let wanted = sorted.iter().sum::<f64>() * 0.01;
+    let mut counted = 0.0;
+    sorted.into_iter().find(|&fps| {
+        counted += fps;
+        counted >= wanted
+    })
 }
 
 const CSV_HEADER: &str = "started,game,minutes,average_fps,low_1_fps,cpu_max_c,gpu_max_c";
@@ -296,9 +303,16 @@ mod tests {
         s.record(&snap(0.0, 0.0, 50.0), true);
         let sum = s.summary(Duration::from_secs(600));
         assert_eq!(sum.average_fps, Some(120.0));
-        assert_eq!(sum.low_1, Some(60.0));
+        assert_eq!(sum.low_1, Some(100.0));
         assert_eq!(sum.cpu_max, Some(90.0));
         assert_eq!(sum.gpu_max, None);
+    }
+
+    #[test]
+    fn the_low_is_the_slowest_frames_not_an_average() {
+        let seconds: Vec<f64> = [120.0; 50].into_iter().chain([30.0; 50]).collect();
+        assert_eq!(low_1(&seconds), Some(30.0));
+        assert_eq!(low_1(&[]), None);
     }
 
     #[test]

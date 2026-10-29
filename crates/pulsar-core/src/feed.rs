@@ -93,7 +93,7 @@ impl From<WireSnapshot> for Snapshot {
 /// The store a `History` message describes.
 pub fn history_store(capacity: usize, series: Vec<(MetricKey, Vec<Option<f64>>)>) -> HistoryStore {
     HistoryStore::from_series(
-        capacity,
+        capacity.clamp(1, 600),
         series.into_iter().map(|(key, samples)| {
             (
                 key,
