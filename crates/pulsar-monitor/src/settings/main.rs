@@ -1075,6 +1075,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         move |index, checked| {
             let Some(ui) = weak.upgrade() else { return };
             let rows = ui.get_widget_items();
+            if !checked && rows.iter().filter(|r| r.checked).count() <= 1 {
+                let same: Vec<_> = rows.iter().collect();
+                ui.set_widget_items(ModelRc::new(VecModel::from(same)));
+                return;
+            }
             if let Some(mut row) = rows.row_data(index.max(0) as usize) {
                 row.checked = checked;
                 rows.set_row_data(index.max(0) as usize, row);
@@ -1087,6 +1092,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         move |index, checked| {
             let Some(ui) = weak.upgrade() else { return };
             let rows = ui.get_drive_rows();
+            if !checked && rows.iter().filter(|r| r.checked).count() <= 1 {
+                let same: Vec<_> = rows.iter().collect();
+                ui.set_drive_rows(ModelRc::new(VecModel::from(same)));
+                return;
+            }
             if let Some(mut row) = rows.row_data(index.max(0) as usize) {
                 row.checked = checked;
                 rows.set_row_data(index.max(0) as usize, row);

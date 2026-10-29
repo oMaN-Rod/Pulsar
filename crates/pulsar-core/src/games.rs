@@ -134,9 +134,9 @@ pub struct Session {
     pub name: String,
     /// `YYYY-MM-DD HH:MM`, local time.
     pub started: String,
-    fps_sum: f64,
-    frames: u32,
-    seconds: Vec<(f64, f64)>,
+    frames: f64,
+    seconds_in_front: f64,
+    samples: Vec<(f64, f64)>,
     cpu_max: Option<f64>,
     gpu_max: Option<f64>,
 }
@@ -166,7 +166,7 @@ impl Session {
     }
 
     /// Frame rates count only while the game is in front and drawing.
-    pub fn record(&mut self, snapshot: &Snapshot, in_front: bool) {
+    pub fn record(&mut self, snapshot: &Snapshot, in_front: bool, seconds: f64) {
         let max = |a: Option<f64>, b: Option<f64>| match (a, b) {
             (Some(a), Some(b)) => Some(a.max(b)),
             (a, b) => a.or(b),
@@ -177,35 +177,34 @@ impl Session {
             return;
         }
         if let Some(fps) = snapshot.get(MetricKey::AppFrameRate).filter(|f| *f > 0.0) {
-            self.fps_sum += fps;
-            self.frames += 1;
+            self.frames += fps * seconds;
+            self.seconds_in_front += seconds;
             let low = snapshot.get(MetricKey::FrameRateLow1).unwrap_or(fps);
-            self.seconds.push((fps, low.min(fps)));
+            self.samples.push((fps * seconds, low.min(fps)));
         }
     }
 
     pub fn summary(&self, duration: Duration) -> Summary {
-        let mean = |sum: f64, n: u32| (n > 0).then(|| sum / f64::from(n));
         Summary {
             name: self.name.clone(),
             started: self.started.clone(),
             duration,
-            average_fps: mean(self.fps_sum, self.frames),
-            low_1: low_1(&self.seconds),
+            average_fps: (self.seconds_in_front > 0.0).then(|| self.frames / self.seconds_in_front),
+            low_1: low_1(&self.samples),
             cpu_max: self.cpu_max,
             gpu_max: self.gpu_max,
         }
     }
 }
 
-/// `seconds` holds each second's frame rate and rolling 1% low.
-fn low_1(seconds: &[(f64, f64)]) -> Option<f64> {
-    let mut sorted = seconds.to_vec();
+/// `samples` holds each sample's frame count and rolling 1% low.
+fn low_1(samples: &[(f64, f64)]) -> Option<f64> {
+    let mut sorted = samples.to_vec();
     sorted.sort_by(|a, b| a.1.total_cmp(&b.1));
-    let wanted = sorted.iter().map(|(fps, _)| fps).sum::<f64>() * 0.01;
+    let wanted = sorted.iter().map(|(frames, _)| frames).sum::<f64>() * 0.01;
     let mut counted = 0.0;
-    sorted.into_iter().find_map(|(fps, low)| {
-        counted += fps;
+    sorted.into_iter().find_map(|(frames, low)| {
+        counted += frames;
         (counted >= wanted).then_some(low)
     })
 }
@@ -299,10 +298,10 @@ mod tests {
             s.set(MetricKey::CpuTempC, cpu);
             s
         };
-        s.record(&snap(100.0, 80.0, 60.0), true);
-        s.record(&snap(140.0, 100.0, 75.0), true);
-        s.record(&snap(30.0, 20.0, 90.0), false);
-        s.record(&snap(0.0, 0.0, 50.0), true);
+        s.record(&snap(100.0, 80.0, 60.0), true, 1.0);
+        s.record(&snap(140.0, 100.0, 75.0), true, 1.0);
+        s.record(&snap(30.0, 20.0, 90.0), false, 1.0);
+        s.record(&snap(0.0, 0.0, 50.0), true, 1.0);
         let sum = s.summary(Duration::from_secs(600));
         assert_eq!(sum.average_fps, Some(120.0));
         assert_eq!(sum.low_1, Some(80.0));
@@ -323,6 +322,22 @@ mod tests {
             "a stutter inside each second"
         );
         assert_eq!(low_1(&[]), None);
+    }
+
+    #[test]
+    fn a_longer_interval_counts_for_its_time() {
+        let mut s = Session::new("game".into());
+        let mut snap = Snapshot::default();
+        snap.set(MetricKey::AppFrameRate, 120.0);
+        for _ in 0..120 {
+            s.record(&snap, true, 0.5);
+        }
+        snap.set(MetricKey::AppFrameRate, 60.0);
+        for _ in 0..12 {
+            s.record(&snap, true, 5.0);
+        }
+        let average = s.summary(Duration::from_secs(120)).average_fps.unwrap();
+        assert!((average - 90.0).abs() < 1e-9);
     }
 
     #[test]

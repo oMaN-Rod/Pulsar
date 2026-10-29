@@ -963,7 +963,8 @@ impl App {
             self.history.record(&snapshot);
             if let Some(g) = &mut self.game {
                 let in_front = taskbar::process_id(unsafe { GetForegroundWindow() }) == g.pid;
-                g.session.record(&snapshot, in_front);
+                let seconds = f64::from(self.config.general.sample_interval_ms) / 1000.0;
+                g.session.record(&snapshot, in_front, seconds);
             }
             if let Some(r) = &mut self.recorder
                 && let Err(e) = r.record(&snapshot)

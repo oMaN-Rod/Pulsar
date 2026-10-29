@@ -291,7 +291,11 @@ impl Renderer {
 
     fn draw_graph_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
         let scale = frame.dpi as f32 / 96.0;
-        let small_px = frame.layout.font_px * GRAPH_FONT_SCALE;
+        let fits = match frame.layout.cells.first() {
+            Some(cell) if !frame.graph_inline => (cell.rect.h - 4.0 * scale) / 2.6,
+            _ => f32::MAX,
+        };
+        let small_px = (frame.layout.font_px * GRAPH_FONT_SCALE).min(fits.max(1.0));
         let small = text.format(small_px)?;
         let line_h = small_px * 1.3;
         for cell in &frame.layout.cells {
