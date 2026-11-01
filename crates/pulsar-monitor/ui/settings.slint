@@ -298,6 +298,21 @@ component SettingRow inherits HorizontalLayout {
     }
 }
 
+// For a row whose description can wrap: `if` would measure it at its unwrapped
+// width and leave the extra lines out of the card's height.
+component OptionalRow inherits Rectangle {
+    in property <bool> shown;
+    in property <string> title;
+    in property <string> description;
+    visible: root.shown;
+    height: root.shown ? row.preferred-height : 0;
+    row := SettingRow {
+        title: root.title;
+        description: root.description;
+        @children
+    }
+}
+
 component Card inherits Rectangle {
     background: Palette.alternate-background;
     border-radius: 8px;
@@ -532,18 +547,23 @@ component ColorField inherits HorizontalLayout {
     }
 }
 
-component Page inherits VerticalLayout {
+// Owns its scroll view: an `if` instance inside one's layout is measured at its
+// unwrapped width, which leaves wrapped text out of the content height.
+component Page inherits ScrollView {
     in property <string> title;
-    padding: 28px;
-    padding-top: 20px;
-    spacing: 12px;
-    alignment: start;
-    Text {
-        text: root.title;
-        font-size: 28px;
-        font-weight: 600;
+    VerticalLayout {
+        width: root.visible-width;
+        padding: 28px;
+        padding-top: 20px;
+        spacing: 12px;
+        alignment: start;
+        Text {
+            text: root.title;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        @children
     }
-    @children
 }
 
 export component SettingsWindow inherits Window {
@@ -721,73 +741,68 @@ export component SettingsWindow inherits Window {
                 icon: Icons.list;
                 label: @tr("Items");
                 selected: root.tab == 0;
-                clicked => { root.tab = 0; scroll.content-y = 0; }
+                clicked => { root.tab = 0; }
             }
             NavItem {
                 icon: Icons.display;
                 label: @tr("Layout");
                 selected: root.tab == 1;
-                clicked => { root.tab = 1; scroll.content-y = 0; }
+                clicked => { root.tab = 1; }
             }
             NavItem {
                 icon: Icons.palette;
                 label: @tr("Theme");
                 selected: root.tab == 2;
-                clicked => { root.tab = 2; scroll.content-y = 0; }
+                clicked => { root.tab = 2; }
             }
             NavItem {
                 icon: Icons.popup;
                 label: @tr("Popups");
                 selected: root.tab == 3;
-                clicked => { root.tab = 3; scroll.content-y = 0; }
+                clicked => { root.tab = 3; }
             }
             NavItem {
                 icon: Icons.widget;
                 label: @tr("Widget");
                 selected: root.tab == 4;
-                clicked => { root.tab = 4; scroll.content-y = 0; }
+                clicked => { root.tab = 4; }
             }
             NavGroup { text: @tr("Readings"); }
             NavItem {
                 icon: Icons.sensor;
                 label: @tr("Sensors");
                 selected: root.tab == 5;
-                clicked => { root.tab = 5; scroll.content-y = 0; }
+                clicked => { root.tab = 5; }
             }
             NavItem {
                 icon: Icons.drive;
                 label: @tr("Devices");
                 selected: root.tab == 6;
-                clicked => { root.tab = 6; scroll.content-y = 0; }
+                clicked => { root.tab = 6; }
             }
             NavGroup { text: @tr("App"); }
             NavItem {
                 icon: Icons.profiles;
                 label: @tr("Profiles");
                 selected: root.tab == 9;
-                clicked => { root.tab = 9; scroll.content-y = 0; }
+                clicked => { root.tab = 9; }
             }
             NavItem {
                 icon: Icons.settings;
                 label: @tr("General");
                 selected: root.tab == 7;
-                clicked => { root.tab = 7; scroll.content-y = 0; }
+                clicked => { root.tab = 7; }
             }
             NavItem {
                 icon: Icons.info;
                 label: @tr("About");
                 selected: root.tab == 8;
-                clicked => { root.tab = 8; scroll.content-y = 0; }
+                clicked => { root.tab = 8; }
             }
             Rectangle { }
         }
 
         // Content
-        // A layout inside gives the scroll view its content height.
-        scroll := ScrollView {
-          VerticalLayout {
-            width: scroll.visible-width;
-            alignment: start;
             if root.tab == 0: Page {
                 title: @tr("Items");
                 Text {
@@ -887,7 +902,8 @@ export component SettingsWindow inherits Window {
                         }
                     }
                     if root.mode == 0: Divider { }
-                    if root.mode == 0: SettingRow {
+                    OptionalRow {
+                        shown: root.mode == 0;
                         title: @tr("Single-line graphs");
                         description: @tr("Put the icon, label and value on one line, for short taskbars.");
                         Switch {
@@ -981,7 +997,8 @@ export component SettingsWindow inherits Window {
                         }
                     }
                     if root.position == 2: Divider { }
-                    if root.position == 2: SettingRow {
+                    OptionalRow {
+                        shown: root.position == 2;
                         title: @tr("Lock position");
                         description: @tr("Drag the overlay to move it. Add a panel background so it stays readable over any window.");
                         Button {
@@ -994,7 +1011,8 @@ export component SettingsWindow inherits Window {
                         }
                     }
                     if root.position != 2: Divider { }
-                    if root.position != 2: SettingRow {
+                    OptionalRow {
+                        shown: root.position != 2;
                         title: @tr("Attach to the taskbar");
                         description: @tr("Keeps items visible while Start is open. Turn this off if the taskbar misbehaves; items then hide while Start is open.");
                         Switch {
@@ -1971,7 +1989,5 @@ export component SettingsWindow inherits Window {
                     }
                 }
             }
-          }
-        }
     }
 }
