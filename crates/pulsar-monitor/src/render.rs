@@ -2,7 +2,7 @@ use pulsar_core::config::{DisplayMode, GraphStyle};
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{
     Cell, CellPart, GRAPH_FONT_SCALE, Layout, Rect, TextMeasure, TileText, cell_icon, cell_label,
-    icon_gap, inline_slots, label_width, network_pair,
+    icon_gap, inline_slots, label_width, network_pair, stacked_text_px,
 };
 use pulsar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
@@ -291,11 +291,11 @@ impl Renderer {
 
     fn draw_graph_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
         let scale = frame.dpi as f32 / 96.0;
-        let fits = match frame.layout.cells.first() {
-            Some(cell) if !frame.graph_inline => (cell.rect.h - 4.0 * scale) / 2.6,
-            _ => f32::MAX,
+        let font_px = frame.layout.font_px;
+        let small_px = match frame.layout.cells.first() {
+            Some(cell) if !frame.graph_inline => stacked_text_px(font_px, cell.rect.h, scale),
+            _ => font_px * GRAPH_FONT_SCALE,
         };
-        let small_px = (frame.layout.font_px * GRAPH_FONT_SCALE).min(fits.max(1.0));
         let small = text.format(small_px)?;
         let line_h = small_px * 1.3;
         for cell in &frame.layout.cells {
@@ -585,6 +585,7 @@ mod tests {
             LayoutInput {
                 mode,
                 taskbar_height_px: 48.0,
+                fit_font: false,
                 dpi: 96,
                 font_size_pt: 9.0,
                 labels: config.display.labels,

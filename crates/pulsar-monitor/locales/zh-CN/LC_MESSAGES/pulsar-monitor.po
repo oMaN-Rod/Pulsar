@@ -1566,8 +1566,8 @@ msgid "Font size"
 msgstr "字号"
 
 #: ui/settings.slint
-msgid "Points."
-msgstr "单位：磅。"
+msgid "Points. On the taskbar, the text of two-line graphs only grows as far as the taskbar can hold it."
+msgstr "单位为磅。在任务栏上，双行图表的文字只会增大到任务栏能容纳的大小。"
 
 #: ui/settings.slint
 msgid "Position"

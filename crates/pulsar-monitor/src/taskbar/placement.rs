@@ -571,6 +571,13 @@ mod tests {
     }
 
     #[test]
+    fn a_saved_position_stays_on_screen_as_the_overlay_grows() {
+        let saved = Some((300, 992));
+        assert_eq!(place_floating(saved, (200, 40), WORK, None, 96), (300, 992));
+        assert_eq!(place_floating(saved, (200, 80), WORK, None, 96), (300, 952));
+    }
+
+    #[test]
     fn floating_position_is_clamped_onto_the_monitor() {
         assert_eq!(
             place_floating(Some((1900, 1020)), (200, 40), WORK, None, 96),

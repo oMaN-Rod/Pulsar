@@ -1569,8 +1569,8 @@ msgid "Font size"
 msgstr "글꼴 크기"
 
 #: ui/settings.slint
-msgid "Points."
-msgstr "포인트 단위입니다."
+msgid "Points. On the taskbar, the text of two-line graphs only grows as far as the taskbar can hold it."
+msgstr "포인트 단위입니다. 작업 표시줄에서는 두 줄 그래프의 글자가 작업 표시줄에 들어가는 크기까지만 커집니다."
 
 #: ui/settings.slint
 msgid "Position"

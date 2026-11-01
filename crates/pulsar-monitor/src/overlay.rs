@@ -40,6 +40,7 @@ pub fn register_class(instance: HINSTANCE, wndproc: WNDPROC) {
 struct LayoutKey {
     thickness: i32,
     vertical: bool,
+    floating: bool,
     dpi: u32,
     mode: DisplayMode,
     items: Vec<ItemSpec>,
@@ -287,6 +288,7 @@ impl Overlay {
             thickness: (i64::from(bar.height().min(bar.width())) * i64::from(self.dpi())
                 / i64::from(self.taskbar.dpi.max(1))) as i32,
             vertical: self.float_dpi.is_none() && bar.is_vertical(),
+            floating: self.float_dpi.is_some(),
             dpi: self.dpi(),
             mode: config.display.mode,
             items: item_specs(config),
@@ -305,6 +307,7 @@ impl Overlay {
             LayoutInput {
                 mode: key.mode,
                 taskbar_height_px: key.thickness as f32,
+                fit_font: key.floating,
                 dpi: key.dpi,
                 font_size_pt: config.display.font_size_pt,
                 labels: key.labels,
@@ -434,6 +437,28 @@ mod tests {
             dpi: 96,
         };
         Overlay::create(instance, taskbar).unwrap()
+    }
+
+    #[test]
+    fn leaving_floating_returns_to_the_taskbar_height() {
+        let mut overlay = overlay();
+        overlay.taskbar.rect = Rect32 {
+            left: 0,
+            top: 1032,
+            right: 1920,
+            bottom: 1080,
+        };
+        let mut config = Config::default();
+        config.display.font_size_pt = 20.0;
+        let text = Text::new(None, false).unwrap();
+        overlay.update_layout(&config, &text);
+        assert_eq!(overlay.size().1, 48);
+        overlay.float_dpi = Some(96);
+        overlay.update_layout(&config, &text);
+        assert!(overlay.size().1 > 48);
+        overlay.float_dpi = None;
+        overlay.update_layout(&config, &text);
+        assert_eq!(overlay.size().1, 48);
     }
 
     #[test]

@@ -91,6 +91,8 @@ impl Layout {
 pub struct LayoutInput {
     pub mode: DisplayMode,
     pub taskbar_height_px: f32,
+    /// Not limited by a taskbar: grow taller than it so the font fits.
+    pub fit_font: bool,
     pub dpi: u32,
     pub font_size_pt: f32,
     pub labels: LabelStyle,
@@ -120,6 +122,11 @@ const STACKED_TILE_GAP_DIP: f32 = 2.0;
 const MIN_STACKED_TILE_DIP: f32 = 36.0;
 /// Graph tiles draw their text at this fraction of the font size.
 pub const GRAPH_FONT_SCALE: f32 = 0.85;
+/// A stacked tile draws two lines, each 1.3 × the text size, inside this inset.
+const STACKED_LINES: f32 = 2.6;
+const STACKED_INSET_DIP: f32 = 4.0;
+/// The size at which a floating overlay keeps the rows its taskbar would give it.
+const REFERENCE_FONT_PT: f32 = 9.0;
 
 pub fn primary_metric(kind: ItemKind) -> MetricKey {
     match kind {
@@ -200,6 +207,14 @@ pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
         (ItemKind::Battery, _) => "\u{E83F}",
         (ItemKind::Fps, _) => "\u{E7FC}",
     }
+}
+
+fn stacked_fit_px(tile_h: f32, scale: f32) -> f32 {
+    ((tile_h - STACKED_INSET_DIP * scale) / STACKED_LINES).max(1.0)
+}
+
+pub fn stacked_text_px(font_px: f32, tile_h: f32, scale: f32) -> f32 {
+    (font_px * GRAPH_FONT_SCALE).min(stacked_fit_px(tile_h, scale))
 }
 
 /// Space between an icon and the text after it.
@@ -347,7 +362,13 @@ fn item_parts(kind: ItemKind, config: &Config, gpus: &[u8]) -> Vec<CellPart> {
 pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasure) -> Layout {
     let scale = input.dpi as f32 / 96.0;
     let font_px = input.font_size_pt * input.dpi as f32 / 72.0;
-    let height = input.taskbar_height_px;
+    let height = if input.fit_font && input.vertical_bar_px.is_none() {
+        input
+            .taskbar_height_px
+            .max(fitted_height(input, scale, font_px, m))
+    } else {
+        input.taskbar_height_px
+    };
     if items.is_empty() {
         return Layout {
             width: 0.0,
@@ -371,6 +392,24 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
         DisplayMode::Text => text_layout(items, height, scale, font_px, labels, m),
         DisplayMode::Graph => graph_layout(items, height, scale, font_px, labels, input, m),
     }
+}
+
+/// The height at which the font fits uncut. Text keeps the rows the taskbar
+/// gives the default font, rather than reflowing to one long row.
+fn fitted_height(input: LayoutInput, scale: f32, font_px: f32, m: &dyn TextMeasure) -> f32 {
+    let padding = PADDING_DIP * scale;
+    let content = match input.mode {
+        DisplayMode::Text => {
+            let reference = m.line_height(REFERENCE_FONT_PT * input.dpi as f32 / 72.0);
+            let rows = ((input.taskbar_height_px - 2.0 * padding) / reference).floor();
+            rows.clamp(1.0, MAX_TEXT_ROWS as f32) * m.line_height(font_px)
+        }
+        DisplayMode::Graph if input.graph_inline => m.line_height(font_px * GRAPH_FONT_SCALE),
+        DisplayMode::Graph => {
+            font_px * GRAPH_FONT_SCALE * STACKED_LINES + STACKED_INSET_DIP * scale
+        }
+    };
+    (content + 2.0 * padding).ceil()
 }
 
 /// Packs items into columns of `rows` cells, column-major. An item's parts
@@ -419,7 +458,9 @@ fn text_layout(
 ) -> Layout {
     let padding = PADDING_DIP * scale;
     let line_h = m.line_height(font_px);
-    let rows = (((height - 2.0 * padding) / line_h).floor() as usize).clamp(1, MAX_TEXT_ROWS);
+    // A height fitted to whole rows must not lose one to float rounding.
+    let rows =
+        (((height - 2.0 * padding) / line_h + 1e-3).floor() as usize).clamp(1, MAX_TEXT_ROWS);
     let top = ((height - rows as f32 * line_h) / 2.0).max(0.0);
 
     let mut cells = Vec::new();
@@ -561,7 +602,8 @@ fn stacked_tiles(
         })
         .fold(0.0, f32::max);
     let small_px = small_px * (available / widest.max(1.0)).min(1.0);
-    let tile_h = (MIN_STACKED_TILE_DIP * scale).max(small_px * 2.6 + 4.0 * scale);
+    let tile_h =
+        (MIN_STACKED_TILE_DIP * scale).max(small_px * STACKED_LINES + STACKED_INSET_DIP * scale);
 
     let mut cells = Vec::new();
     let mut y = padding;
@@ -672,6 +714,8 @@ fn graph_layout(
     let inline = input.graph_inline;
     let padding = PADDING_DIP * scale;
     let tile_h = (height - 2.0 * padding).max(1.0);
+    // A short tile stops widening once its text stops growing.
+    let stacked_px = font_px.min(stacked_fit_px(tile_h, scale) / GRAPH_FONT_SCALE);
     let mut cells = Vec::with_capacity(items.len());
     let mut x = padding;
     for spec in items {
@@ -702,7 +746,7 @@ fn graph_layout(
                 };
                 inline_slots(spec.kind, part, text, text_px, scale, m).1
             } else {
-                graph_text_width(spec.kind, part, labels, font_px, m)
+                graph_text_width(spec.kind, part, labels, stacked_px, m)
             };
             let w = (text_w + 2.0 * padding).max(MIN_TILE_DIP * scale);
             cells.push(Cell {
@@ -753,6 +797,7 @@ mod tests {
         LayoutInput {
             mode,
             taskbar_height_px,
+            fit_font: false,
             dpi,
             font_size_pt: 9.0,
             labels: LabelStyle::Full,
@@ -833,6 +878,129 @@ mod tests {
     fn empty_vertical_bar_has_no_width() {
         let l = compute_layout(&specs(&[]), vertical(DisplayMode::Text, 48.0), &Fixed);
         assert_eq!(l.width, 0.0);
+    }
+
+    fn sized(mode: DisplayMode, inline: bool, fit_font: bool, pt: f32) -> Layout {
+        let mut i = input(mode, 48.0, 96);
+        i.graph_inline = inline;
+        i.fit_font = fit_font;
+        i.font_size_pt = pt;
+        compute_layout(&specs(&ALL), i, &Fixed)
+    }
+
+    fn rows(l: &Layout) -> usize {
+        l.cells
+            .iter()
+            .map(|c| c.rect.y as i32)
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+    }
+
+    #[test]
+    fn docked_graph_tiles_stop_widening_when_their_text_stops_growing() {
+        // 40px tile: (40 - 4) / 2.6 = 13.85px of text, reached past 12pt.
+        let at = |pt| sized(DisplayMode::Graph, false, false, pt);
+        assert_eq!(at(20.0).height, 48.0);
+        assert_eq!(at(20.0).width, at(14.0).width);
+        assert!(at(12.0).width > at(9.0).width);
+    }
+
+    #[test]
+    fn docked_height_is_always_the_taskbars() {
+        for mode in [DisplayMode::Graph, DisplayMode::Text] {
+            for inline in [false, true] {
+                for (bar, dpi) in [(32.0, 96), (48.0, 96), (60.0, 120), (72.0, 144)] {
+                    for pt in 6..=20 {
+                        let mut i = input(mode, bar, dpi);
+                        i.graph_inline = inline;
+                        i.font_size_pt = pt as f32;
+                        assert_eq!(compute_layout(&specs(&ALL), i, &Fixed).height, bar);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn fit_font_leaves_the_default_size_alone() {
+        for (mode, inline) in [
+            (DisplayMode::Graph, false),
+            (DisplayMode::Graph, true),
+            (DisplayMode::Text, false),
+        ] {
+            assert_eq!(
+                sized(mode, inline, true, 9.0),
+                sized(mode, inline, false, 9.0)
+            );
+        }
+    }
+
+    #[test]
+    fn fit_font_grows_stacked_tiles_so_the_text_keeps_growing() {
+        let mut last = 0.0;
+        for pt in [12.0, 13.0, 14.0, 16.0, 18.0, 20.0] {
+            let l = sized(DisplayMode::Graph, false, true, pt);
+            let tile = l.cells[0].rect.h;
+            let want = l.font_px * GRAPH_FONT_SCALE;
+            assert!(
+                (stacked_text_px(l.font_px, tile, 1.0) - want).abs() < 0.01,
+                "{pt}"
+            );
+            assert!(l.width > last, "{pt}");
+            last = l.width;
+            assert_no_overlap(&l);
+            assert_inside(&l);
+        }
+    }
+
+    #[test]
+    fn fit_font_keeps_text_rows_and_grows_to_hold_them() {
+        let l = sized(DisplayMode::Text, false, true, 20.0);
+        assert_eq!(rows(&l), 2);
+        assert!(l.height > 48.0);
+        assert_inside(&l);
+        assert_eq!(rows(&sized(DisplayMode::Text, false, false, 20.0)), 1);
+    }
+
+    #[test]
+    fn fit_font_keeps_text_rows_at_every_size_and_scale() {
+        for (bar, dpi) in [
+            (32.0, 96),
+            (48.0, 96),
+            (76.0, 96),
+            (60.0, 120),
+            (72.0, 144),
+            (84.0, 168),
+        ] {
+            let at = |pt: i32| {
+                let mut i = input(DisplayMode::Text, bar, dpi);
+                i.fit_font = true;
+                i.font_size_pt = pt as f32;
+                compute_layout(&specs(&ALL), i, &Fixed)
+            };
+            let want = rows(&at(9));
+            for pt in 9..=20 {
+                let l = at(pt);
+                assert_eq!(rows(&l), want, "{bar} {dpi} {pt}");
+                assert_inside(&l);
+            }
+        }
+    }
+
+    #[test]
+    fn fit_font_does_not_change_a_vertical_bar() {
+        for mode in [DisplayMode::Graph, DisplayMode::Text] {
+            let mut i = vertical(mode, 76.0);
+            i.font_size_pt = 20.0;
+            let fitted = LayoutInput {
+                fit_font: true,
+                ..i
+            };
+            assert_eq!(
+                compute_layout(&specs(&ALL), fitted, &Fixed),
+                compute_layout(&specs(&ALL), i, &Fixed)
+            );
+        }
     }
 
     fn specs(kinds: &[ItemKind]) -> Vec<ItemSpec> {

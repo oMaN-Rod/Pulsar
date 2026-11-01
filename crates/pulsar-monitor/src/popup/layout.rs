@@ -225,6 +225,7 @@ mod tests {
         let input = LayoutInput {
             mode: DisplayMode::Text,
             taskbar_height_px: 48.0,
+            fit_font: false,
             dpi: 96,
             font_size_pt: 9.0,
             labels: pulsar_core::config::LabelStyle::Full,

@@ -1563,7 +1563,7 @@ msgid "Font size"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Points."
+msgid "Points. On the taskbar, the text of two-line graphs only grows as far as the taskbar can hold it."
 msgstr ""
 
 #: ui/settings.slint

@@ -1565,8 +1565,8 @@ msgid "Font size"
 msgstr "Tamaño de fuente"
 
 #: ui/settings.slint
-msgid "Points."
-msgstr "Puntos."
+msgid "Points. On the taskbar, the text of two-line graphs only grows as far as the taskbar can hold it."
+msgstr "Puntos. En la barra de tareas, el texto de los gráficos de dos líneas solo crece hasta donde cabe en la barra."
 
 #: ui/settings.slint
 msgid "Position"
