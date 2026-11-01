@@ -5,6 +5,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use pulsar_core::config::Config;
+use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::metric::Snapshot;
 use pulsar_core::sampler::Sampler;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
@@ -26,10 +27,14 @@ pub struct SamplerThread {
 }
 
 impl SamplerThread {
-    pub fn spawn(config: &Config, notify: Option<HWND>) -> Self {
+    pub fn spawn(config: &Config, gpus: GpuSlots, notify: Option<HWND>) -> Self {
         let interval = Duration::from_millis(config.general.sample_interval_ms.into());
         let config = config.clone();
-        Self::start(move || Sampler::from_config(&config), interval, notify)
+        Self::start(
+            move || Sampler::from_config(&config).with_gpu_slots(gpus),
+            interval,
+            notify,
+        )
     }
 
     /// Building a sampler can wait on a sleeping disk, so the new thread does it.
@@ -112,7 +117,7 @@ mod tests {
 
     #[test]
     fn delivers_snapshots_on_the_interval() {
-        let thread = SamplerThread::spawn(&fast_config(), None);
+        let thread = SamplerThread::spawn(&fast_config(), GpuSlots::new(), None);
         let first = thread
             .snapshots
             .recv_timeout(Duration::from_secs(3))
@@ -130,7 +135,7 @@ mod tests {
     #[test]
     fn processes_are_collected_only_while_flagged() {
         use std::sync::atomic::Ordering;
-        let thread = SamplerThread::spawn(&fast_config(), None);
+        let thread = SamplerThread::spawn(&fast_config(), GpuSlots::new(), None);
         let first = thread
             .snapshots
             .recv_timeout(Duration::from_secs(3))
@@ -203,7 +208,7 @@ mod tests {
 
     #[test]
     fn drop_stops_promptly() {
-        let thread = SamplerThread::spawn(&fast_config(), None);
+        let thread = SamplerThread::spawn(&fast_config(), GpuSlots::new(), None);
         thread
             .snapshots
             .recv_timeout(Duration::from_secs(3))

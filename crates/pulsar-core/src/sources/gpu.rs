@@ -1,14 +1,9 @@
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
 
 use crate::metric::{GpuEngineKind, MetricKey, Snapshot, Source, SourceError, SourceId};
 use crate::pdh::{Counter, PdhError, Query};
 
 pub const ENGINE_COUNTER: &str = r"\GPU Engine(*)\Utilization Percentage";
-
-/// How soon the adapter list is read again after PDH's adapters change; a
-/// driver update or reset gives an adapter a new LUID.
-const ADAPTER_REFRESH: Duration = Duration::from_secs(30);
 
 /// PDH reports "no data" when the GPU objects exist but have no instances
 /// (VMs, RDP sessions, basic display drivers).
@@ -21,11 +16,6 @@ pub struct GpuSource {
     engines: Counter,
     dedicated: Counter,
     shared: Counter,
-    /// Adapter LUIDs in `hardware::gpu::names` order.
-    luids: Vec<u64>,
-    luids_read: Option<Instant>,
-    /// The LUIDs PDH listed when `luids` was read, sorted.
-    present: Vec<u64>,
 }
 
 impl GpuSource {
@@ -48,9 +38,6 @@ impl GpuSource {
             engines,
             dedicated,
             shared,
-            luids: Vec::new(),
-            luids_read: None,
-            present: Vec::new(),
         })
     }
 }
@@ -66,41 +53,22 @@ impl Source for GpuSource {
 }
 
 impl GpuSource {
-    fn sample_counters(&mut self, out: &mut Snapshot) -> Result<(), PdhError> {
+    fn sample_counters(&self, out: &mut Snapshot) -> Result<(), PdhError> {
         self.query.collect()?;
         let usage = aggregate_engines(&self.engines.array()?);
         out.set(MetricKey::GpuUtil, usage.util);
-        for (kind, value) in &usage.per_kind {
-            out.set(MetricKey::GpuEngine(*kind), *value);
+        for (kind, value) in usage.per_kind {
+            out.set(MetricKey::GpuEngine(kind), value);
         }
         let dedicated = per_adapter(&self.dedicated.array()?);
         let shared = per_adapter(&self.shared.array()?);
         out.set(MetricKey::GpuDedicatedBytes, dedicated.values().sum());
         out.set(MetricKey::GpuSharedBytes, shared.values().sum());
-
-        let mut present: Vec<u64> = dedicated.keys().copied().collect();
-        present.sort_unstable();
-        if self
-            .luids_read
-            .is_none_or(|t| present != self.present && t.elapsed() >= ADAPTER_REFRESH)
-        {
-            self.luids = crate::hardware::gpu::adapters()
-                .into_iter()
-                .map(|(_, luid)| luid)
-                .collect();
-            self.luids_read = Some(Instant::now());
-            self.present = present;
-        }
-        for (i, luid) in (0..=u8::MAX).zip(&self.luids) {
-            let util = usage.per_adapter.get(luid).copied().unwrap_or(0.0);
-            out.set(MetricKey::GpuAdapterUtil(i), util);
-            if let Some(&bytes) = dedicated.get(luid) {
-                out.set(MetricKey::GpuAdapterDedicatedBytes(i), bytes);
-            }
-            if let Some(&bytes) = shared.get(luid) {
-                out.set(MetricKey::GpuAdapterSharedBytes(i), bytes);
-            }
-        }
+        let readings = &mut out.gpu_readings;
+        readings.seen.extend(dedicated.keys().chain(shared.keys()));
+        readings.load = Some(usage.per_adapter);
+        readings.dedicated = dedicated;
+        readings.shared = shared;
         Ok(())
     }
 }

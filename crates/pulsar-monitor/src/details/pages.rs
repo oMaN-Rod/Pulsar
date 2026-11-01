@@ -8,6 +8,7 @@ use std::time::Duration;
 use pulsar_core::config::Config;
 use pulsar_core::display::drive_temperature;
 use pulsar_core::format::{format_value, temperature};
+use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::hardware::cpu::{Cache, CacheKind, Topology};
 use pulsar_core::hardware::pci::{self, Link};
 use pulsar_core::hardware::{DiskInfo, HardwareInfo};
@@ -87,6 +88,10 @@ impl Page {
 pub struct Extremes(HashMap<MetricKey, (f64, f64)>);
 
 impl Extremes {
+    pub fn forget(&mut self, gone: impl Fn(MetricKey) -> bool) {
+        self.0.retain(|&key, _| !gone(key));
+    }
+
     pub fn record(&mut self, snapshot: &Snapshot) {
         for (&key, &value) in &snapshot.metrics {
             if !value.is_finite() {
@@ -1095,6 +1100,16 @@ const ENGINES: [(GpuEngineKind, &str); 5] = [
     (GpuEngineKind::Copy, tr_noop!("Copy")),
 ];
 
+/// Names the cards as the producer's table does, which may differ from this
+/// process's own numbering if a card changed between their starts.
+pub fn name_gpus(info: &mut HardwareInfo, table: &GpuSlots) {
+    for g in &mut info.gpus {
+        if let Some(name) = table.name_of(g.luid) {
+            g.name = name.to_string();
+        }
+    }
+}
+
 fn gpu(data: &Data) -> View {
     let gpus = &data.info.gpus;
     let main = gpus.first();
@@ -1202,12 +1217,15 @@ fn gpu(data: &Data) -> View {
     memory.meters = model(meters);
     view.groups.push(engines);
     view.groups.push(memory);
-    // `gpus` and the per-adapter readings share the adapter order.
-    for (i, g) in (0..=u8::MAX).zip(gpus) {
+    for g in gpus {
+        let slot = data.latest.gpus.slot_of(g.luid);
         let device = data.info.pci.iter().find(|d| {
             u32::from(d.ids.vendor) == g.vendor_id && u32::from(d.ids.device) == g.device_id
         });
-        let live = |key: MetricKey| data.get(key).map(|v| format_value(v, key.unit()));
+        let live = |key: fn(u8) -> MetricKey| {
+            let key = key(slot?);
+            data.get(key).map(|v| format_value(v, key.unit()))
+        };
         let mut rows = vec![
             (
                 tr!("Board maker"),
@@ -1227,12 +1245,12 @@ fn gpu(data: &Data) -> View {
             &g.name,
             g.vendor.unwrap_or(""),
             vec![
-                (tr!("Load"), live(MetricKey::GpuAdapterUtil(i))),
+                (tr!("Load"), live(MetricKey::GpuAdapterUtil)),
                 (
                     tr!("Memory in use"),
-                    live(MetricKey::GpuAdapterDedicatedBytes(i)),
+                    live(MetricKey::GpuAdapterDedicatedBytes),
                 ),
-                (tr!("Temperature"), live(MetricKey::GpuAdapterTempC(i))),
+                (tr!("Temperature"), live(MetricKey::GpuAdapterTempC)),
                 (
                     tr!("Dedicated memory"),
                     (g.dedicated_bytes > 0).then(|| bytes(g.dedicated_bytes)),
@@ -1892,6 +1910,7 @@ fn sensors(data: &Data) -> View {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pulsar_core::gpu_slots::GpuAdapter;
 
     static PREFS: std::sync::LazyLock<Prefs> = std::sync::LazyLock::new(Prefs::default);
 
@@ -1982,13 +2001,17 @@ mod tests {
     #[test]
     fn each_graphics_card_shows_its_own_load() {
         let mut info = HardwareInfo::default();
-        for name in ["RTX 5090", "RTX 4090"] {
+        for (name, luid) in [("RTX 5090", 1), ("RTX 4090", 2)] {
             info.gpus.push(pulsar_core::hardware::GpuInfo {
                 name: name.into(),
+                luid,
                 ..Default::default()
             });
         }
-        let mut s = Snapshot::default();
+        let mut s = Snapshot {
+            gpus: GpuSlots::listing(&[adapter("RTX 5090", 1), adapter("RTX 4090", 2)]),
+            ..Snapshot::default()
+        };
         s.set(MetricKey::GpuAdapterUtil(0), 70.0);
         s.set(MetricKey::GpuAdapterUtil(1), 5.0);
         s.set(MetricKey::GpuAdapterTempC(1), 41.0);
@@ -2007,6 +2030,105 @@ mod tests {
             [
                 ("Load".to_string(), "5%".to_string()),
                 ("Temperature".to_string(), "41°C".to_string())
+            ]
+        );
+    }
+
+    fn adapter(name: &str, luid: u64) -> GpuAdapter {
+        GpuAdapter {
+            name: name.into(),
+            luid,
+        }
+    }
+
+    fn card_loads(info: &HardwareInfo, s: &Snapshot) -> Vec<(String, Option<String>)> {
+        let (h, e, c) = (HistoryStore::new(5), Extremes::default(), Config::default());
+        let view = build(Page::Gpu, &data(info, s, &h, &e, &c));
+        info.gpus
+            .iter()
+            .map(|g| {
+                let group = view.groups.iter().find(|v| v.title == g.name.as_str());
+                let load = group.and_then(|group| {
+                    group
+                        .specs
+                        .iter()
+                        .find(|s| s.label == "Load")
+                        .map(|s| s.value.to_string())
+                });
+                (g.name.clone(), load)
+            })
+            .collect()
+    }
+
+    fn info_listing(cards: &[(&str, u64)]) -> HardwareInfo {
+        HardwareInfo {
+            gpus: cards
+                .iter()
+                .map(|&(name, luid)| pulsar_core::hardware::GpuInfo {
+                    name: name.into(),
+                    luid,
+                    ..Default::default()
+                })
+                .collect(),
+            ..HardwareInfo::default()
+        }
+    }
+
+    #[test]
+    fn a_window_started_later_reads_each_card_by_the_producers_table() {
+        // The first identical card has gone since the producer started, so
+        // this process lists the second one first and un-numbered.
+        let mut table = GpuSlots::listing(&[adapter("RTX 4090", 1), adapter("RTX 4090", 2)]);
+        table.update(&[adapter("Radeon", 3), adapter("RTX 4090", 2)]);
+        let mut s = Snapshot {
+            gpus: table.clone(),
+            ..Snapshot::default()
+        };
+        s.set(MetricKey::GpuAdapterUtil(1), 20.0);
+        s.set(MetricKey::GpuAdapterUtil(2), 30.0);
+        let mut info = info_listing(&[("RTX 4090", 2), ("Radeon", 3)]);
+        name_gpus(&mut info, &table);
+        assert_eq!(
+            card_loads(&info, &s),
+            [
+                ("RTX 4090 #2".to_string(), Some("20%".to_string())),
+                ("Radeon".to_string(), Some("30%".to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_window_started_earlier_shows_no_reading_for_a_card_gone_since() {
+        let mut table = GpuSlots::listing(&[adapter("RTX 5090", 1), adapter("RTX 4090", 2)]);
+        table.update(&[adapter("RTX 4090", 2)]);
+        let mut s = Snapshot {
+            gpus: table,
+            ..Snapshot::default()
+        };
+        s.set(MetricKey::GpuAdapterUtil(1), 20.0);
+        let info = info_listing(&[("RTX 5090", 1), ("RTX 4090", 2)]);
+        assert_eq!(
+            card_loads(&info, &s),
+            [
+                ("RTX 5090".to_string(), None),
+                ("RTX 4090".to_string(), Some("20%".to_string())),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_card_the_producer_has_not_listed_shows_no_reading() {
+        let mut s = Snapshot {
+            gpus: GpuSlots::listing(&[adapter("RTX 5090", 1)]),
+            ..Snapshot::default()
+        };
+        s.set(MetricKey::GpuAdapterUtil(0), 70.0);
+        let info = info_listing(&[("RTX 4090", 9), ("RTX 5090", 1)]);
+        assert_eq!(
+            card_loads(&info, &s),
+            [
+                ("RTX 4090".to_string(), None),
+                ("RTX 5090".to_string(), Some("70%".to_string())),
             ]
         );
     }

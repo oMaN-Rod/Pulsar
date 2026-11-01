@@ -3,6 +3,7 @@
 
 use crate::config::{Config, Display, DisplayMode, DriveValue, LabelStyle};
 use crate::format::widest_value;
+use crate::gpu_slots::GpuSlots;
 use crate::metric::{ItemKind, MetricKey};
 
 pub trait TextMeasure {
@@ -38,7 +39,7 @@ pub enum CellPart {
     /// Per-drive activity or used space, by drive letter.
     DriveActive(u8),
     DriveUsed(u8),
-    /// One GPU's load or temperature, by its place in `hardware::gpu::names`.
+    /// One GPU's load or temperature, by its slot in `GpuSlots`.
     Gpu(u8),
     /// One adapter's traffic, by its place in `NetworkConfig::adapters`.
     AdapterDown(u8),
@@ -310,14 +311,8 @@ pub fn network_pair(part: CellPart, upload_on_top: bool) -> [CellPart; 2] {
 }
 
 /// The enabled items in order, each with the cells it draws.
-pub fn item_specs(config: &Config) -> Vec<ItemSpec> {
-    // Reading the adapter names asks DirectX, so only when GPUs are chosen.
-    let gpus = if config.gpu.adapters.is_empty() {
-        Vec::new()
-    } else {
-        config.gpu_indexes(crate::hardware::gpu::names())
-    };
-    specs_with(config, &gpus)
+pub fn item_specs(config: &Config, gpus: &GpuSlots) -> Vec<ItemSpec> {
+    specs_with(config, &config.gpu_indexes(gpus))
 }
 
 /// `item_specs` with `gpus`, the GPUs with cells of their own, already known.
@@ -1541,7 +1536,7 @@ mod tests {
     fn upload_on_top_puts_the_upload_cell_on_top() {
         let mut c = Config::default();
         c.display.upload_on_top = true;
-        let net = item_specs(&c)
+        let net = item_specs(&c, &GpuSlots::new())
             .into_iter()
             .find(|s| s.kind == ItemKind::Network)
             .unwrap();
@@ -1576,7 +1571,7 @@ mod tests {
     fn per_drive_disk_has_a_cell_per_drive_in_text_mode() {
         let mut c = Config::default();
         c.disk.drives = vec!["C".into(), "D".into()];
-        let disk = item_specs(&c)
+        let disk = item_specs(&c, &GpuSlots::new())
             .into_iter()
             .find(|s| s.kind == ItemKind::Disk)
             .unwrap();
@@ -1585,7 +1580,7 @@ mod tests {
             [CellPart::DriveActive(b'C'), CellPart::DriveActive(b'D')]
         );
         c.disk.value = DriveValue::Used;
-        let disk = item_specs(&c)
+        let disk = item_specs(&c, &GpuSlots::new())
             .into_iter()
             .find(|s| s.kind == ItemKind::Disk)
             .unwrap();

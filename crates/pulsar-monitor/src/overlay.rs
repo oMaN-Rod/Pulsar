@@ -1,4 +1,5 @@
 use pulsar_core::config::{Config, DisplayMode, LabelStyle, Units};
+use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::layout::{ItemSpec, Layout, LayoutInput, TextSpacing, compute_layout, item_specs};
 use std::cell::Cell;
 use std::rc::Rc;
@@ -283,7 +284,7 @@ impl Overlay {
         self.float_dpi.unwrap_or(self.taskbar.dpi)
     }
 
-    pub fn update_layout(&mut self, config: &Config, text: &Text) {
+    pub fn update_layout(&mut self, config: &Config, gpus: &GpuSlots, text: &Text) {
         let bar = self.taskbar.rect;
         let key = LayoutKey {
             thickness: (i64::from(bar.height().min(bar.width())) * i64::from(self.dpi())
@@ -292,7 +293,7 @@ impl Overlay {
             floating: self.float_dpi.is_some(),
             dpi: self.dpi(),
             mode: config.display.mode,
-            items: item_specs(config),
+            items: item_specs(config, gpus),
             font_size_pt: config.display.font_size_pt.to_bits(),
             labels: config.display.labels,
             icons: config.display.icons,
@@ -454,13 +455,13 @@ mod tests {
         let mut config = Config::default();
         config.display.font_size_pt = 20.0;
         let text = Text::new(None, false).unwrap();
-        overlay.update_layout(&config, &text);
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
         assert_eq!(overlay.size().1, 48);
         overlay.float_dpi = Some(96);
-        overlay.update_layout(&config, &text);
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
         assert!(overlay.size().1 > 48);
         overlay.float_dpi = None;
-        overlay.update_layout(&config, &text);
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
         assert_eq!(overlay.size().1, 48);
     }
 
@@ -476,10 +477,10 @@ mod tests {
         let mut config = Config::default();
         config.display.mode = DisplayMode::Text;
         let text = Text::new(None, false).unwrap();
-        overlay.update_layout(&config, &text);
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
         let width = overlay.layout.width;
         config.display.text_item_gap = 40;
-        overlay.update_layout(&config, &text);
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
         assert!(overlay.layout.width > width);
     }
 

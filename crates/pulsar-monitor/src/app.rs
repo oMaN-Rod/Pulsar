@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use pulsar_core::alerts::Alerts;
 use pulsar_core::config::{self, Config, Position};
+use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::history::HistoryStore;
 use pulsar_core::hotkey::Hotkey;
 use pulsar_core::ipc;
@@ -276,12 +277,18 @@ impl App {
         }
         let translucent = translucent_popups(&config);
         let on_disk = Some(config.clone());
+        // Chosen GPUs' cells are laid out before the first snapshot arrives.
+        let gpus = if config.gpu.adapters.is_empty() {
+            GpuSlots::new()
+        } else {
+            pulsar_core::hardware::gpu::slots()
+        };
         Ok(Self {
             instance,
             host,
             palette: Palette::current(&config),
             history: HistoryStore::new(config.general.history_len),
-            sampler: SamplerThread::spawn(&config, Some(host)),
+            sampler: SamplerThread::spawn(&config, gpus.clone(), Some(host)),
             text: Text::new(
                 config.display.font_family.as_deref(),
                 config.display.font_bold,
@@ -289,7 +296,10 @@ impl App {
             config,
             config_path,
             renderer: Renderer::new()?,
-            latest: Snapshot::default(),
+            latest: Snapshot {
+                gpus,
+                ..Snapshot::default()
+            },
             overlays: Vec::new(),
             tray,
             hooks: None,
@@ -493,7 +503,7 @@ impl App {
         let tb_rect = o.taskbar.rect;
         let probe = saved.unwrap_or(((tb_rect.left + tb_rect.right) / 2, tb_rect.top));
         o.float_dpi = floating.then(|| taskbar::dpi_near(probe.0, probe.1));
-        o.update_layout(&self.config, &self.text);
+        o.update_layout(&self.config, &self.latest.gpus, &self.text);
         let (w, h) = o.size();
         let dpi = o.dpi();
         let tb: &Taskbar = &o.taskbar;
@@ -790,7 +800,7 @@ impl App {
             return;
         };
         strip.float_dpi = Some(taskbar::dpi_near(monitor.left, monitor.top));
-        strip.update_layout(&config, &self.text);
+        strip.update_layout(&config, &self.latest.gpus, &self.text);
         let at = game::strip_position(monitor, strip.dpi());
         if strip.shown_at == Some(at) {
             strip.raise();
@@ -830,7 +840,7 @@ impl App {
 
     fn respawn_sampler(&mut self, config: &Config) {
         self.close_popup();
-        let new = SamplerThread::spawn(config, Some(self.host));
+        let new = SamplerThread::spawn(config, self.latest.gpus.clone(), Some(self.host));
         std::mem::replace(&mut self.sampler, new).retire();
         let open = self.details.is_some();
         self.sampler.extras.store(open, Ordering::Relaxed);
@@ -950,7 +960,7 @@ impl App {
         let contents: Vec<_> = items
             .into_iter()
             .map(|kind| {
-                let mut options = PopupOptions::new(&self.config, kind);
+                let mut options = PopupOptions::new(&self.config, kind, &self.latest.gpus);
                 options.detail = self.config.widget_detail(kind);
                 options.processes = 0;
                 options.graph = true;
@@ -1215,7 +1225,10 @@ impl App {
     }
 
     fn popup_lists_processes(&self, kind: ItemKind) -> bool {
-        needs_processes(kind, &PopupOptions::new(&self.config, kind))
+        needs_processes(
+            kind,
+            &PopupOptions::new(&self.config, kind, &self.latest.gpus),
+        )
     }
 
     fn open_popup(&mut self, overlay: HWND, kind: ItemKind) {
@@ -1273,7 +1286,7 @@ impl App {
                 self.disk_names_read = None;
             }
         }
-        let mut options = PopupOptions::new(&self.config, kind);
+        let mut options = PopupOptions::new(&self.config, kind, &self.latest.gpus);
         options.disk_names = self.disk_names.as_deref().unwrap_or_default();
         let content = popup::content::build_with(kind, &self.latest, &self.history, &options);
         let style = PopupStyle {
@@ -1486,7 +1499,11 @@ impl App {
             self.respawn_sampler(&after);
         }
         if new.general.history_len != self.config.general.history_len {
-            self.history = HistoryStore::new(new.general.history_len);
+            self.history =
+                HistoryStore::new(new.general.history_len).with_gpus(self.history.gpus().clone());
+        }
+        if new.network.adapters != self.config.network.adapters {
+            self.history.forget_net_adapters();
         }
         let font = |c: &Config| (c.display.font_family.clone(), c.display.font_bold);
         if font(&new) != font(&self.config)

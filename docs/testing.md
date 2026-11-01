@@ -29,6 +29,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Network: choose one adapter, then unplug it | Only that adapter is counted; unplugged shows "—" with the reason |
 | Network: tick two adapters | A numbered ↓/↑ pair per adapter (a tile each in graph mode); the popup lists both by number |
 | GPU: *Each GPU* on a machine with two or more GPUs, with GPU temperature on | GPU1, GPU2… and TEMP1, TEMP2… roughly match each card in Task Manager; the popup and the details window's cards show each card's load |
+| GPU: *Each GPU* with two or more GPUs, then disable one in Device Manager and enable it again | Its cell goes and the others keep their number and reading within a few seconds; it comes back in the same place, with its graph started over if Windows gave it a new LUID; the details window, opened before or during this, agrees with the taskbar |
 | Ping on, with a bad host | The latency cell shows "—" and the popup names the error |
 
 | CPU temperature on, without the sensor service | The cell shows "—" and the popup says the sensor service is not installed |
@@ -77,6 +78,11 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Chinese: Settings, Details, a popup and the taskbar | No missing or Japanese-style glyphs |
 | Settings open in Spanish or Chinese, then run the installer | The installer closes the settings window before installing |
 | The installer started on Spanish and Chinese Windows | Its pages, including *CPU temperature*, are in that language |
+
+## Known limits
+
+- A saved GPU is its name, not a particular card. `RTX 4090 #2` means the second card of that model Pulsar finds when it starts, so after a restart with a card removed, or if Windows lists identical cards in another order, the name can land on the other card. While Pulsar runs, a card keeps its name and slot.
+- Settings numbers the GPUs it lists as of when it opened; after a card has changed while Pulsar runs, its numbers can differ from the taskbar's until Pulsar restarts.
 
 ## Footprint
 

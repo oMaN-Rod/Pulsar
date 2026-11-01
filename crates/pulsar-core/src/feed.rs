@@ -3,6 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::gpu_slots::GpuSlots;
 use crate::history::HistoryStore;
 use crate::metric::{
     AdapterRate, FrameLabels, ItemKind, MetricKey, ProcessUsage, Snapshot, SourceId,
@@ -18,6 +19,8 @@ pub enum Message {
     History {
         capacity: usize,
         series: Vec<(MetricKey, Vec<Option<f64>>)>,
+        #[serde(default)]
+        gpus: GpuSlots,
     },
     Snapshot(WireSnapshot),
     /// Bring the window to the front, on the page for the item clicked.
@@ -34,6 +37,8 @@ pub struct WireSnapshot {
     processes: Vec<ProcessUsage>,
     #[serde(default)]
     frames: FrameLabels,
+    #[serde(default)]
+    gpus: GpuSlots,
 }
 
 impl Message {
@@ -44,6 +49,7 @@ impl Message {
                 .iter()
                 .map(|(key, h)| (key, h.iter().map(|v| (!v.is_nan()).then_some(v)).collect()))
                 .collect(),
+            gpus: store.gpus().clone(),
         }
     }
 
@@ -63,6 +69,7 @@ impl Message {
             adapters: snapshot.adapters.clone(),
             processes: snapshot.processes.clone(),
             frames: snapshot.frames.clone(),
+            gpus: snapshot.gpus.clone(),
         })
     }
 
@@ -86,12 +93,18 @@ impl From<WireSnapshot> for Snapshot {
             adapters: w.adapters,
             processes: w.processes,
             frames: w.frames,
+            gpus: w.gpus,
+            gpu_readings: Default::default(),
         }
     }
 }
 
 /// The store a `History` message describes.
-pub fn history_store(capacity: usize, series: Vec<(MetricKey, Vec<Option<f64>>)>) -> HistoryStore {
+pub fn history_store(
+    capacity: usize,
+    series: Vec<(MetricKey, Vec<Option<f64>>)>,
+    gpus: GpuSlots,
+) -> HistoryStore {
     HistoryStore::from_series(
         capacity.clamp(1, 600),
         series.into_iter().map(|(key, samples)| {
@@ -101,11 +114,13 @@ pub fn history_store(capacity: usize, series: Vec<(MetricKey, Vec<Option<f64>>)>
             )
         }),
     )
+    .with_gpus(gpus)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gpu_slots::adapter;
     use crate::metric::GpuEngineKind;
 
     fn round_trip(snapshot: &Snapshot) -> Snapshot {
@@ -153,16 +168,44 @@ mod tests {
         a.set(MetricKey::CpuTotal, 5.0);
         store.record(&a);
         store.record(&Snapshot::default());
-        let Some(Message::History { capacity, series }) =
-            Message::decode(&Message::history(&store).encode())
+        let Some(Message::History {
+            capacity,
+            series,
+            gpus,
+        }) = Message::decode(&Message::history(&store).encode())
         else {
             panic!("not a history");
         };
-        let back = history_store(capacity, series);
+        let back = history_store(capacity, series, gpus);
         assert_eq!(back.capacity(), 5);
         let cpu: Vec<f64> = back.get(MetricKey::CpuTotal).unwrap().iter().collect();
         assert_eq!(cpu[0], 5.0);
         assert!(cpu[1].is_nan());
+    }
+
+    #[test]
+    fn the_gpu_table_travels_with_snapshots_and_history() {
+        let mut table = GpuSlots::listing(&[adapter("RTX 4090", 7), adapter("RTX 4090", 8)]);
+        table.update(&[adapter("RTX 4090", 8)]);
+        let mut s = Snapshot {
+            gpus: table.clone(),
+            ..Snapshot::default()
+        };
+        s.set(MetricKey::GpuAdapterUtil(1), 5.0);
+        assert_eq!(round_trip(&s).gpus, table);
+
+        let mut store = HistoryStore::new(5);
+        store.record(&s);
+        let Some(Message::History {
+            capacity,
+            series,
+            gpus,
+        }) = Message::decode(&Message::history(&store).encode())
+        else {
+            panic!("not a history");
+        };
+        let back = history_store(capacity, series, gpus);
+        assert_eq!(back.gpus(), &table);
     }
 
     #[test]

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use crate::gpu_slots::GpuSlots;
 use crate::metric::ItemKind;
 
 pub const CURRENT_VERSION: u32 = 1;
@@ -398,7 +399,7 @@ pub struct DiskConfig {
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GpuConfig {
-    /// Adapter names, as `hardware::gpu::names` lists them, with their own
+    /// Adapter names, as `GpuSlots` numbers them, with their own
     /// GPU and GPU temperature cells; empty shows all adapters combined.
     pub adapters: Vec<String>,
 }
@@ -728,14 +729,13 @@ impl Config {
         self.disk.drives.iter().map(|d| d.as_bytes()[0]).collect()
     }
 
-    /// Places in `available` of the GPUs with their own cells, in the
-    /// order chosen; GPUs that are no longer there are left out.
-    pub fn gpu_indexes(&self, available: &[String]) -> Vec<u8> {
+    /// Slots of the GPUs with their own cells, in the order chosen; GPUs
+    /// that are no longer there are left out.
+    pub fn gpu_indexes(&self, gpus: &GpuSlots) -> Vec<u8> {
         self.gpu
             .adapters
             .iter()
-            .filter_map(|name| available.iter().position(|a| a == name))
-            .filter_map(|i| u8::try_from(i).ok())
+            .filter_map(|name| gpus.slot_named(name))
             .collect()
     }
 
@@ -1419,11 +1419,18 @@ panel_opacity = 60
     }
 
     #[test]
-    fn chosen_gpus_resolve_to_their_place_in_the_adapter_list() {
+    fn chosen_gpus_resolve_to_their_slots() {
+        use crate::gpu_slots::adapter;
         let mut c = Config::default();
         c.gpu.adapters = vec!["RTX 4090".into(), "Gone".into(), "RTX 5090".into()];
-        let available = ["RTX 5090", "RTX 4090", "Radeon"].map(String::from);
-        assert_eq!(c.gpu_indexes(&available), [1, 0]);
+        let mut gpus = GpuSlots::listing(&[
+            adapter("RTX 5090", 1),
+            adapter("RTX 4090", 2),
+            adapter("Radeon", 3),
+        ]);
+        assert_eq!(c.gpu_indexes(&gpus), [1, 0]);
+        gpus.update(&[adapter("RTX 4090", 2), adapter("Radeon", 3)]);
+        assert_eq!(c.gpu_indexes(&gpus), [1], "the others keep their slots");
     }
 
     #[test]

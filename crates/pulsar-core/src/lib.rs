@@ -7,6 +7,7 @@ pub mod display;
 pub mod feed;
 pub mod format;
 pub mod games;
+pub mod gpu_slots;
 pub mod hardware;
 pub mod history;
 pub mod hotkey;

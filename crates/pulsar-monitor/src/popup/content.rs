@@ -2,6 +2,7 @@
 
 use pulsar_core::config::{Config, PopupDetail};
 use pulsar_core::format::format_value;
+use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::history::HistoryStore;
 use pulsar_core::layout::{CellPart, network_parts};
 use pulsar_core::metric::{GpuEngineKind, ItemKind, MetricKey, Snapshot, SourceId, Unit};
@@ -54,14 +55,14 @@ pub struct Options<'a> {
     pub upload_on_top: bool,
     /// Names for physical drives by number, for drive temperatures.
     pub disk_names: &'a [(u8, String)],
-    /// Graphics adapters by number; listed one by one when there are several.
-    pub gpus: &'a [String],
+    /// Graphics cards by slot; listed one by one when there are several.
+    pub gpus: &'a GpuSlots,
     /// The adapters with network cells of their own, when there are several.
     pub adapters: &'a [String],
 }
 
 impl<'a> Options<'a> {
-    pub fn new(config: &'a Config, kind: ItemKind) -> Self {
+    pub fn new(config: &'a Config, kind: ItemKind, gpus: &'a GpuSlots) -> Self {
         Self {
             detail: config.popup_detail(kind),
             graph: config.popup.graph,
@@ -70,10 +71,7 @@ impl<'a> Options<'a> {
             drives: config.drive_letters(),
             upload_on_top: config.display.upload_on_top,
             disk_names: &[],
-            gpus: match kind {
-                ItemKind::Gpu | ItemKind::GpuTemp => pulsar_core::hardware::gpu::names(),
-                _ => &[],
-            },
+            gpus,
             adapters: match config.network.adapters.len() {
                 0 | 1 => &[],
                 _ => &config.network.adapters,
@@ -459,10 +457,9 @@ fn numbered(i: usize, name: &str) -> String {
 }
 
 /// Each GPU's load, memory in use and temperature, where known.
-fn gpu_rows(snapshot: &Snapshot, names: &[String]) -> Vec<(String, String)> {
-    (0..=u8::MAX)
-        .zip(names)
-        .map(|(i, name)| {
+fn gpu_rows(snapshot: &Snapshot, gpus: &GpuSlots) -> Vec<(String, String)> {
+    gpus.present()
+        .map(|(i, gpu)| {
             let value = [
                 MetricKey::GpuAdapterUtil(i),
                 MetricKey::GpuAdapterDedicatedBytes(i),
@@ -472,7 +469,7 @@ fn gpu_rows(snapshot: &Snapshot, names: &[String]) -> Vec<(String, String)> {
             .filter_map(|key| Some(format_value(snapshot.get(key)?, key.unit())))
             .collect::<Vec<_>>()
             .join(" · ");
-            (numbered(usize::from(i), name), value)
+            (numbered(usize::from(i), &gpu.name), value)
         })
         .collect()
 }
@@ -625,7 +622,7 @@ pub fn build(
         drives: drives.to_vec(),
         upload_on_top: false,
         disk_names: &[],
-        gpus: &[],
+        gpus: &snapshot.gpus,
         adapters: &[],
     };
     build_with(kind, snapshot, history, &options)
@@ -793,7 +790,7 @@ pub fn build_with(
                 },
                 Block::Rows {
                     heading: Some(tr!("Adapters")),
-                    rows: if options.gpus.len() > 1 {
+                    rows: if options.gpus.present().count() > 1 {
                         gpu_rows(snapshot, options.gpus)
                     } else {
                         Vec::new()
@@ -813,13 +810,14 @@ pub fn build_with(
                 },
                 Block::Rows {
                     heading: Some(tr!("Adapters")),
-                    rows: if options.gpus.len() > 1 {
-                        (0..=u8::MAX)
-                            .zip(options.gpus)
-                            .filter_map(|(i, name)| {
+                    rows: if options.gpus.present().count() > 1 {
+                        options
+                            .gpus
+                            .present()
+                            .filter_map(|(i, gpu)| {
                                 let key = MetricKey::GpuAdapterTempC(i);
                                 let value = format_value(snapshot.get(key)?, key.unit());
-                                Some((numbered(usize::from(i), name), value))
+                                Some((numbered(usize::from(i), &gpu.name), value))
                             })
                             .collect()
                     } else {
@@ -977,6 +975,7 @@ pub fn build_with(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pulsar_core::gpu_slots::GpuAdapter;
     use pulsar_core::metric::{AdapterRate, ProcessUsage};
 
     const GB: f64 = 1024.0 * 1024.0 * 1024.0;
@@ -998,6 +997,8 @@ mod tests {
         }
     }
 
+    static NO_GPUS: GpuSlots = GpuSlots::new();
+
     fn options(detail: PopupDetail, processes: usize) -> Options<'static> {
         Options {
             detail,
@@ -1007,7 +1008,7 @@ mod tests {
             drives: Vec::new(),
             upload_on_top: false,
             disk_names: &[],
-            gpus: &[],
+            gpus: &NO_GPUS,
             adapters: &[],
         }
     }
@@ -1192,7 +1193,11 @@ mod tests {
         s.set(MetricKey::GpuAdapterDedicatedBytes(0), 2.0 * GB);
         s.set(MetricKey::GpuAdapterTempC(0), 61.0);
         s.set(MetricKey::GpuAdapterUtil(1), 3.0);
-        let gpus = ["RTX 5090".to_string(), "RTX 4090".to_string()];
+        let card = |name: &str, luid| GpuAdapter {
+            name: name.into(),
+            luid,
+        };
+        let gpus = GpuSlots::listing(&[card("RTX 5090", 1), card("RTX 4090", 2)]);
         let o = Options {
             gpus: &gpus,
             ..options(PopupDetail::Standard, 0)
@@ -1208,14 +1213,36 @@ mod tests {
             [("1 · RTX 5090".to_string(), "61°C".to_string())]
         );
 
+        let mut remaining = gpus.clone();
+        remaining.update(&[card("RTX 4090", 2)]);
         let one = Options {
-            gpus: &gpus[..1],
+            gpus: &remaining,
             ..options(PopupDetail::Standard, 0)
         };
         let c = build_with(ItemKind::Gpu, &s, &HistoryStore::new(60), &one);
         assert!(
             !c.blocks.iter().any(|b| heading(b) == Some("Adapters")),
             "one GPU needs no list"
+        );
+
+        let mut some =
+            GpuSlots::listing(&[card("RTX 5090", 1), card("RTX 4090", 2), card("Radeon", 3)]);
+        some.update(&[card("RTX 5090", 1), card("Radeon", 3)]);
+        let gaps = Options {
+            gpus: &some,
+            ..options(PopupDetail::Standard, 0)
+        };
+        let mut s = Snapshot::default();
+        s.set(MetricKey::GpuAdapterUtil(0), 40.0);
+        s.set(MetricKey::GpuAdapterUtil(2), 7.0);
+        let c = build_with(ItemKind::Gpu, &s, &HistoryStore::new(60), &gaps);
+        assert_eq!(
+            rows_under(&c, "Adapters"),
+            [
+                ("1 · RTX 5090".to_string(), "40%".to_string()),
+                ("3 · Radeon".to_string(), "7%".to_string())
+            ],
+            "a card that's gone isn't listed, and the others keep their numbers"
         );
     }
 

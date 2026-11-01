@@ -1,6 +1,5 @@
 //! Graphics adapters as DirectX lists them.
 
-use std::sync::OnceLock;
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_FEATURE_ARCHITECTURE, D3D12_FEATURE_DATA_ARCHITECTURE, D3D12CreateDevice, ID3D12Device,
@@ -13,11 +12,14 @@ use windows::Win32::Graphics::Dxgi::{
 };
 use windows::core::Interface;
 
+use crate::gpu_slots::{GpuAdapter, GpuSlots};
+
 const MICROSOFT: u32 = 0x1414;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct GpuInfo {
     pub name: String,
+    pub luid: u64,
     pub vendor: Option<&'static str>,
     pub vendor_id: u32,
     pub device_id: u32,
@@ -82,7 +84,7 @@ pub fn luid_key(luid: LUID) -> u64 {
     (u64::from(luid.HighPart as u32) << 32) | u64::from(luid.LowPart)
 }
 
-/// Hardware adapters, discrete first: the order per-adapter metrics use.
+/// Hardware adapters, discrete first.
 fn enumerate() -> Vec<(IDXGIAdapter1, DXGI_ADAPTER_DESC1, String)> {
     let Ok(factory) = (unsafe { CreateDXGIFactory1::<IDXGIFactory1>() }) else {
         return Vec::new();
@@ -112,11 +114,6 @@ fn enumerate() -> Vec<(IDXGIAdapter1, DXGI_ADAPTER_DESC1, String)> {
         out.push((adapter, desc, name));
     }
     out.sort_by_key(|(_, d, _)| std::cmp::Reverse(d.DedicatedVideoMemory));
-    let mut names: Vec<String> = out.iter().map(|(_, _, n)| n.clone()).collect();
-    number_duplicates(&mut names);
-    for ((_, _, name), unique) in out.iter_mut().zip(names) {
-        *name = unique;
-    }
     out
 }
 
@@ -131,27 +128,37 @@ pub fn number_duplicates(names: &mut [String]) {
     }
 }
 
-/// Each adapter's name and LUID, in the order `read` lists them.
-pub fn adapters() -> Vec<(String, u64)> {
+/// Each adapter's model name and LUID, in the order `read` lists them.
+pub fn adapters() -> Vec<GpuAdapter> {
     enumerate()
         .into_iter()
-        .map(|(_, desc, name)| (name, luid_key(desc.AdapterLuid)))
+        .map(|(_, desc, name)| GpuAdapter {
+            name,
+            luid: luid_key(desc.AdapterLuid),
+        })
         .collect()
 }
 
-/// Adapter names, read once per process; per-adapter metrics number them
-/// by their place in this list.
-pub fn names() -> &'static [String] {
-    static NAMES: OnceLock<Vec<String>> = OnceLock::new();
-    NAMES.get_or_init(|| adapters().into_iter().map(|(name, _)| name).collect())
+pub fn slots() -> GpuSlots {
+    GpuSlots::listing(&adapters())
+}
+
+/// Adapter names, numbered as a sampler starting now would number them.
+pub fn names() -> Vec<String> {
+    slots().present().map(|(_, s)| s.name.clone()).collect()
 }
 
 /// The discrete card comes first: it is the one the sensors describe.
 pub fn read() -> Vec<GpuInfo> {
-    enumerate()
+    let adapters = enumerate();
+    let mut names: Vec<String> = adapters.iter().map(|(_, _, n)| n.clone()).collect();
+    number_duplicates(&mut names);
+    adapters
         .into_iter()
-        .map(|(adapter, desc, name)| GpuInfo {
+        .zip(names)
+        .map(|((adapter, desc, _), name)| GpuInfo {
             name,
+            luid: luid_key(desc.AdapterLuid),
             vendor: vendor_name(desc.VendorId),
             vendor_id: desc.VendorId,
             device_id: desc.DeviceId,

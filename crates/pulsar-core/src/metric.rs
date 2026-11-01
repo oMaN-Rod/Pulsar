@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::gpu_slots::{GpuReadings, GpuSlots};
 use crate::pdh::PdhError;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -173,7 +174,7 @@ pub enum MetricKey {
     GpuEngine(GpuEngineKind),
     GpuDedicatedBytes,
     GpuSharedBytes,
-    /// By place in `hardware::gpu::names`.
+    /// By slot in `GpuSlots`.
     GpuAdapterUtil(u8),
     GpuAdapterDedicatedBytes(u8),
     GpuAdapterSharedBytes(u8),
@@ -285,6 +286,25 @@ pub enum Unit {
 }
 
 impl MetricKey {
+    pub fn gpu_slot(self) -> Option<u8> {
+        use MetricKey::*;
+        match self {
+            GpuAdapterUtil(slot)
+            | GpuAdapterDedicatedBytes(slot)
+            | GpuAdapterSharedBytes(slot)
+            | GpuAdapterTempC(slot) => Some(slot),
+            _ => None,
+        }
+    }
+
+    /// Whether this is numbered by place in `NetworkConfig::adapters`.
+    pub fn is_net_adapter(self) -> bool {
+        matches!(
+            self,
+            MetricKey::NetAdapterDownBps(_) | MetricKey::NetAdapterUpBps(_)
+        )
+    }
+
     pub fn unit(self) -> Unit {
         use MetricKey::*;
         match self {
@@ -341,8 +361,8 @@ impl MetricKey {
             MemTiming(_) => Unit::Cycles,
             CpuCoreVolts(_) | BatteryVolts => Unit::Volts,
             GpuTempC | GpuAdapterTempC(_) | GpuHotSpotC | GpuMemTempC | CpuTempC
-            | CpuCoreTempC(_) | DiskTempC(_) | DiskTempMaxC | DiskWarningC(_) | DiskCriticalC(_)
-            | ChipsetTempC => Unit::Celsius,
+            | CpuCoreTempC(_) | DiskTempC(_) | DiskTempMaxC | DiskWarningC(_)
+            | DiskCriticalC(_) | ChipsetTempC => Unit::Celsius,
             GpuFanRpm => Unit::Rpm,
             CpuPowerW | CpuCorePowerW(_) | CpuCoresPowerW | CpuGraphicsPowerW | CpuDramPowerW
             | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W | BatteryRateW => Unit::Watts,
@@ -374,6 +394,9 @@ pub struct Snapshot {
     pub adapters: Vec<AdapterRate>,
     pub processes: Vec<ProcessUsage>,
     pub frames: FrameLabels,
+    pub gpus: GpuSlots,
+    /// For the sampler, which files them under `gpus` and empties this.
+    pub gpu_readings: GpuReadings,
 }
 
 /// Names for the frame rate readings.

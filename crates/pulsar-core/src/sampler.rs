@@ -1,9 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::config::Config;
+use crate::gpu_slots::{GpuAdapter, GpuSlots};
 use crate::hardware::DriveTempSource;
 use crate::metric::{ItemKind, Snapshot, Source, SourceError, SourceId};
 use crate::sources::{
@@ -14,6 +15,57 @@ use crate::sources::{
 
 pub type ProcessesFactory = Box<dyn Fn() -> Box<dyn Source> + Send>;
 pub type ExtrasFactory = Box<dyn Fn() -> Vec<Box<dyn Source>> + Send>;
+type AdapterList = Box<dyn Fn() -> Vec<GpuAdapter> + Send>;
+
+/// How often the adapters are listed when nothing suggests they changed.
+const ADAPTER_REFRESH: Duration = Duration::from_secs(30);
+/// How soon to list them again after finding none, as DirectX may not be
+/// ready, or when the sources no longer see one that was listed.
+const NO_ADAPTER_RETRY: Duration = Duration::from_secs(5);
+
+/// Keeps the card table current and files each tick's readings under it, so
+/// load, memory and temperature always agree on which slot a card has.
+struct GpuTracker {
+    slots: GpuSlots,
+    list: AdapterList,
+    seen: BTreeSet<u64>,
+    listed: Option<Instant>,
+}
+
+impl GpuTracker {
+    fn new(list: AdapterList) -> Self {
+        Self {
+            slots: GpuSlots::new(),
+            list,
+            seen: BTreeSet::new(),
+            listed: None,
+        }
+    }
+
+    /// Lists adapters only once a GPU source has reported any.
+    fn publish(&mut self, snapshot: &mut Snapshot, now: Instant) {
+        let readings = std::mem::take(&mut snapshot.gpu_readings);
+        let settled = self.slots.present().next().is_some()
+            && self
+                .slots
+                .present()
+                .all(|(_, s)| readings.seen.contains(&s.luid));
+        let wait = if settled {
+            ADAPTER_REFRESH
+        } else {
+            NO_ADAPTER_RETRY
+        };
+        let due =
+            !readings.seen.is_empty() && self.listed.is_none_or(|t| now.duration_since(t) >= wait);
+        if due || readings.seen != self.seen {
+            self.slots.update(&(self.list)());
+            self.listed = Some(now);
+            self.seen.clone_from(&readings.seen);
+        }
+        self.slots.publish(&readings, snapshot);
+        snapshot.gpus.clone_from(&self.slots);
+    }
+}
 
 /// Runs every source once per tick. A failing source is reported in
 /// `Snapshot::errors` and never prevents the others from sampling.
@@ -26,6 +78,7 @@ pub struct Sampler {
     extras: Option<Vec<Box<dyn Source>>>,
     extras_factory: Option<ExtrasFactory>,
     want_extras: Arc<AtomicBool>,
+    gpus: GpuTracker,
 }
 
 impl Sampler {
@@ -39,7 +92,15 @@ impl Sampler {
             extras: None,
             extras_factory: None,
             want_extras: Arc::new(AtomicBool::new(false)),
+            gpus: GpuTracker::new(Box::new(crate::hardware::gpu::adapters)),
         }
+    }
+
+    /// Continues the table of the sampler this one replaces: cards must keep
+    /// their slots for the life of the process.
+    pub fn with_gpu_slots(mut self, slots: GpuSlots) -> Self {
+        self.gpus.slots = slots;
+        self
     }
 
     /// Sources for what the overlay leaves out, built while the details
@@ -184,6 +245,7 @@ impl Sampler {
         } else if !wanted {
             self.processes_primed = false;
         }
+        self.gpus.publish(&mut snapshot, Instant::now());
         snapshot
     }
 }
@@ -237,7 +299,7 @@ fn sensor_fallbacks() -> [Box<dyn Source>; 2] {
 }
 
 fn gpu_sensors_source() -> Box<dyn Source> {
-    or_failed(SourceId::GpuSensors, GpuSensorsSource::new())
+    Box::new(GpuSensorsSource::default())
 }
 
 /// Sources whose error state differs between two snapshots, in `SourceId`
@@ -296,7 +358,10 @@ impl Source for FailedSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gpu_slots::{GpuReadings, adapter};
+    use crate::history::HistoryStore;
     use crate::metric::{MetricKey, ProcessUsage};
+    use std::sync::Mutex;
 
     struct Fake(SourceId, Result<f64, &'static str>);
 
@@ -493,6 +558,271 @@ mod tests {
             None,
         );
         assert_eq!(sampler.sample().errors[&SourceId::Gpu], "nope");
+    }
+
+    /// What the fake system lists and reads now: each card's load, with its
+    /// memory the same and its temperature one higher.
+    #[derive(Clone, Default)]
+    struct Machine(Arc<Mutex<Vec<(GpuAdapter, f64)>>>);
+
+    impl Machine {
+        fn set(&self, cards: &[(&str, u64, f64)]) {
+            *self.0.lock().unwrap() = cards
+                .iter()
+                .map(|&(name, luid, value)| (adapter(name, luid), value))
+                .collect();
+        }
+
+        fn lister(&self) -> AdapterList {
+            let machine = self.clone();
+            Box::new(move || {
+                let cards = machine.0.lock().unwrap();
+                cards.iter().map(|(a, _)| a.clone()).collect()
+            })
+        }
+
+        fn sampler(&self) -> Sampler {
+            let mut sampler = Sampler::new(
+                vec![
+                    Box::new(FakeEngines(self.clone())),
+                    Box::new(FakeSensors(self.clone())),
+                ],
+                None,
+            );
+            sampler.gpus.list = self.lister();
+            sampler
+        }
+    }
+
+    struct FakeEngines(Machine);
+
+    impl Source for FakeEngines {
+        fn id(&self) -> SourceId {
+            SourceId::Gpu
+        }
+        fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
+            let cards = self.0.0.lock().unwrap();
+            let by_luid: HashMap<u64, f64> = cards.iter().map(|(a, v)| (a.luid, *v)).collect();
+            out.gpu_readings.seen.extend(by_luid.keys());
+            out.gpu_readings.load = Some(by_luid.clone());
+            out.gpu_readings.dedicated = by_luid;
+            Ok(())
+        }
+    }
+
+    struct FakeSensors(Machine);
+
+    impl Source for FakeSensors {
+        fn id(&self) -> SourceId {
+            SourceId::GpuSensors
+        }
+        fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
+            let cards = self.0.0.lock().unwrap();
+            for (a, v) in cards.iter() {
+                out.gpu_readings.seen.insert(a.luid);
+                out.gpu_readings.temp_c.insert(a.luid, v + 1.0);
+            }
+            Ok(())
+        }
+    }
+
+    /// A slot's load, having checked its memory and temperature agree on the card.
+    fn card(s: &Snapshot, slot: u8) -> Option<f64> {
+        let load = s.get(MetricKey::GpuAdapterUtil(slot));
+        assert_eq!(s.get(MetricKey::GpuAdapterDedicatedBytes(slot)), load);
+        assert_eq!(
+            s.get(MetricKey::GpuAdapterTempC(slot)),
+            load.map(|v| v + 1.0)
+        );
+        load
+    }
+
+    #[test]
+    fn a_slot_goes_on_reading_its_own_card_as_adapters_change() {
+        let machine = Machine::default();
+        machine.set(&[("RTX 4090", 1, 10.0), ("Radeon", 2, 20.0)]);
+        let mut sampler = machine.sampler();
+        let s = sampler.sample();
+        assert_eq!((card(&s, 0), card(&s, 1)), (Some(10.0), Some(20.0)));
+
+        machine.set(&[("Radeon", 2, 21.0)]);
+        let s = sampler.sample();
+        assert_eq!(
+            (card(&s, 0), card(&s, 1)),
+            (None, Some(21.0)),
+            "a card that's gone shows nothing, not the other's reading"
+        );
+
+        machine.set(&[("Radeon", 2, 22.0), ("RTX 5090", 3, 30.0)]);
+        let s = sampler.sample();
+        assert_eq!(
+            (card(&s, 0), card(&s, 1), card(&s, 2)),
+            (None, Some(22.0), Some(30.0))
+        );
+
+        machine.set(&[
+            ("RTX 5090", 3, 31.0),
+            ("Radeon", 2, 23.0),
+            ("RTX 4090", 1, 11.0),
+        ]);
+        let s = sampler.sample();
+        assert_eq!(
+            (card(&s, 0), card(&s, 1), card(&s, 2)),
+            (Some(11.0), Some(23.0), Some(31.0)),
+            "a replug under the same LUID returns to its slot, whatever the order"
+        );
+    }
+
+    #[test]
+    fn identical_cards_keep_their_readings_when_one_goes() {
+        let machine = Machine::default();
+        machine.set(&[("RTX 4090", 1, 10.0), ("RTX 4090", 2, 20.0)]);
+        let mut sampler = machine.sampler();
+        sampler.sample();
+
+        machine.set(&[("RTX 4090", 2, 21.0)]);
+        let s = sampler.sample();
+        assert_eq!((card(&s, 0), card(&s, 1)), (None, Some(21.0)));
+        assert_eq!(s.gpus.slot_named("RTX 4090 #2"), Some(1));
+        assert_eq!(s.gpus.slot_named("RTX 4090"), None);
+    }
+
+    #[test]
+    fn history_of_a_slot_taken_by_a_new_luid_starts_over() {
+        let machine = Machine::default();
+        machine.set(&[("RTX 4090", 1, 10.0), ("Radeon", 2, 20.0)]);
+        let mut sampler = machine.sampler();
+        let mut history = HistoryStore::new(10);
+        history.record(&sampler.sample());
+
+        machine.set(&[("Radeon", 2, 21.0)]);
+        history.record(&sampler.sample());
+        let series = |h: &HistoryStore, key| -> Vec<f64> { h.get(key).unwrap().iter().collect() };
+        let slot0 = series(&history, MetricKey::GpuAdapterUtil(0));
+        assert_eq!(slot0[0], 10.0);
+        assert!(slot0[1].is_nan(), "a gap while it's gone");
+
+        machine.set(&[("Radeon", 2, 22.0), ("RTX 4090", 9, 40.0)]);
+        let s = sampler.sample();
+        assert_eq!(card(&s, 0), Some(40.0));
+        history.record(&s);
+        for (key, latest) in [
+            (MetricKey::GpuAdapterUtil(0), 40.0),
+            (MetricKey::GpuAdapterDedicatedBytes(0), 40.0),
+            (MetricKey::GpuAdapterTempC(0), 41.0),
+        ] {
+            let samples = series(&history, key);
+            assert!(samples[..2].iter().all(|v| v.is_nan()), "{key:?}");
+            assert_eq!(samples[2], latest, "{key:?}");
+        }
+        assert_eq!(
+            series(&history, MetricKey::GpuAdapterUtil(1)),
+            [20.0, 21.0, 22.0],
+            "the other card keeps its history"
+        );
+    }
+
+    #[test]
+    fn a_replacement_sampler_continues_the_table() {
+        let machine = Machine::default();
+        machine.set(&[("RTX 4090", 1, 10.0), ("Radeon", 2, 20.0)]);
+        let mut first = machine.sampler();
+        first.sample();
+        machine.set(&[("Radeon", 2, 21.0)]);
+        let table = first.sample().gpus;
+
+        let mut second = machine.sampler().with_gpu_slots(table);
+        let s = second.sample();
+        assert_eq!(
+            (card(&s, 0), card(&s, 1)),
+            (None, Some(21.0)),
+            "a fresh listing would have put the Radeon in slot 0"
+        );
+    }
+
+    #[test]
+    fn an_empty_adapter_list_is_listed_again() {
+        let machine = Machine::default();
+        let mut tracker = GpuTracker::new(machine.lister());
+        let reading = || Snapshot {
+            gpu_readings: GpuReadings {
+                seen: BTreeSet::from([1]),
+                load: Some(HashMap::from([(1, 50.0)])),
+                ..GpuReadings::default()
+            },
+            ..Snapshot::default()
+        };
+        let start = Instant::now();
+        let mut s = reading();
+        tracker.publish(&mut s, start);
+        assert!(s.gpus.is_empty());
+
+        machine.set(&[("RTX 4090", 1, 0.0)]);
+        let mut s = reading();
+        tracker.publish(&mut s, start + Duration::from_secs(1));
+        assert!(s.gpus.is_empty(), "not asked again on every tick");
+
+        let mut s = reading();
+        tracker.publish(&mut s, start + NO_ADAPTER_RETRY);
+        assert_eq!(s.gpus.slot_of(1), Some(0));
+        assert_eq!(s.get(MetricKey::GpuAdapterUtil(0)), Some(50.0));
+    }
+
+    #[test]
+    fn a_card_still_listed_after_it_went_shows_nothing_and_is_listed_again_soon() {
+        let machine = Machine::default();
+        machine.set(&[("RTX 4090", 1, 10.0), ("Radeon", 2, 20.0)]);
+        let mut tracker = GpuTracker::new(machine.lister());
+        let seeing = |luids: &[u64]| Snapshot {
+            gpu_readings: GpuReadings {
+                seen: luids.iter().copied().collect(),
+                load: Some(HashMap::new()),
+                ..GpuReadings::default()
+            },
+            ..Snapshot::default()
+        };
+        let start = Instant::now();
+        tracker.publish(&mut seeing(&[1, 2]), start);
+
+        let mut s = seeing(&[2]);
+        tracker.publish(&mut s, start + Duration::from_secs(1));
+        assert_eq!(s.gpus.slot_of(1), Some(0), "DirectX still lists it");
+        assert_eq!(s.get(MetricKey::GpuAdapterUtil(0)), None, "but no reading");
+        assert_eq!(s.get(MetricKey::GpuAdapterUtil(1)), Some(0.0));
+
+        machine.set(&[("Radeon", 2, 20.0)]);
+        let mut s = seeing(&[2]);
+        tracker.publish(&mut s, start + Duration::from_secs(1) + NO_ADAPTER_RETRY);
+        assert_eq!(s.gpus.slot_of(1), None);
+    }
+
+    #[test]
+    fn adapters_are_listed_on_a_change_and_otherwise_rarely() {
+        use std::sync::atomic::AtomicUsize;
+        let calls = Arc::new(AtomicUsize::new(0));
+        let counter = calls.clone();
+        let mut tracker = GpuTracker::new(Box::new(move || {
+            counter.fetch_add(1, Ordering::SeqCst);
+            vec![adapter("RTX 4090", 1)]
+        }));
+        let seeing = |luids: &[u64]| {
+            let mut s = Snapshot::default();
+            s.gpu_readings.seen = luids.iter().copied().collect();
+            s
+        };
+        let start = Instant::now();
+        let at = |secs| start + Duration::from_secs(secs);
+        tracker.publish(&mut seeing(&[]), at(0));
+        assert_eq!(calls.load(Ordering::SeqCst), 0, "no GPU source, no DirectX");
+        tracker.publish(&mut seeing(&[1]), at(0));
+        tracker.publish(&mut seeing(&[1]), at(1));
+        assert_eq!(calls.load(Ordering::SeqCst), 1);
+        tracker.publish(&mut seeing(&[1, 2]), at(2));
+        assert_eq!(calls.load(Ordering::SeqCst), 2, "the sources saw a change");
+        tracker.publish(&mut seeing(&[1, 2]), at(31));
+        assert_eq!(calls.load(Ordering::SeqCst), 2);
+        tracker.publish(&mut seeing(&[1, 2]), at(32));
+        assert_eq!(calls.load(Ordering::SeqCst), 3, "the periodic check");
     }
 
     #[test]

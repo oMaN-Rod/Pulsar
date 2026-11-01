@@ -534,9 +534,43 @@ pub fn move_item(items: &mut [ItemRow], index: usize, up: bool) {
     }
 }
 
+/// Saved devices in their saved order, then newly ticked ones: cells are
+/// numbered by place in this list.
+pub fn in_saved_order(saved: &[String], ticked: Vec<String>) -> Vec<String> {
+    let mut ordered: Vec<String> = saved
+        .iter()
+        .filter(|name| ticked.contains(name))
+        .cloned()
+        .collect();
+    ordered.extend(ticked.into_iter().filter(|name| !saved.contains(name)));
+    ordered
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saved_devices_keep_their_order_whatever_order_the_rows_are_in() {
+        let list = |names: &[&str]| names.iter().map(|n| n.to_string()).collect::<Vec<_>>();
+        let saved = list(&["wifi", "gone", "eth"]);
+        assert_eq!(
+            in_saved_order(&saved, list(&["eth", "wifi", "gone"])),
+            saved,
+            "unchanged, so nothing renumbers and the sampler isn't restarted"
+        );
+        assert_eq!(
+            in_saved_order(&saved, list(&["eth", "vpn", "wifi", "gone"])),
+            list(&["wifi", "gone", "eth", "vpn"]),
+            "a new tick goes last"
+        );
+        assert_eq!(
+            in_saved_order(&saved, list(&["eth", "gone"])),
+            list(&["gone", "eth"]),
+            "an untick only closes the gap"
+        );
+        assert_eq!(in_saved_order(&[], list(&["b", "a"])), list(&["b", "a"]));
+    }
 
     #[test]
     fn default_config_round_trips() {

@@ -579,7 +579,7 @@ mod tests {
 
     fn render_with(mode: DisplayMode, samples: &[f64], config: &Config) -> (Surface, Layout) {
         let text = Text::new(None, false).unwrap();
-        let items = pulsar_core::layout::item_specs(config);
+        let items = pulsar_core::layout::item_specs(config, &Default::default());
         let layout = compute_layout(
             &items,
             LayoutInput {
@@ -625,6 +625,99 @@ mod tests {
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)
+    }
+
+    /// Each network tile's pixels with two adapters, optionally with the first
+    /// adapter's upload in its history or snapshot.
+    fn two_adapter_tiles(up_history: bool, up_value: bool) -> (Vec<Cell>, Vec<Vec<u32>>) {
+        let mut config = Config::default();
+        for item in &mut config.items {
+            item.enabled = item.kind == ItemKind::Network;
+        }
+        config.network.adapters = vec!["eth".into(), "wifi".into()];
+        let text = Text::new(None, false).unwrap();
+        let items = pulsar_core::layout::item_specs(&config, &Default::default());
+        let layout = compute_layout(
+            &items,
+            LayoutInput {
+                mode: DisplayMode::Graph,
+                taskbar_height_px: 48.0,
+                fit_font: false,
+                dpi: 96,
+                font_size_pt: 9.0,
+                labels: config.display.labels,
+                icons: config.display.icons,
+                graph_inline: config.display.graph_inline,
+                upload_on_top: config.display.upload_on_top,
+                vertical_bar_px: None,
+                text_spacing: TextSpacing::default(),
+            },
+            &text,
+        );
+        let up = MetricKey::NetAdapterUpBps(0);
+        let mut snapshot = Snapshot::default();
+        if up_value {
+            snapshot.set(up, 5e6);
+        }
+        let mut history = HistoryStore::new(60);
+        // Level, as a peak's mitred stroke can reach into the tile above.
+        for _ in 0..3 {
+            let mut s = Snapshot::default();
+            s.set(MetricKey::NetAdapterDownBps(1), 1e3);
+            if up_history {
+                s.set(up, 2e6);
+            }
+            history.record(&s);
+        }
+        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
+        let surface = Surface::new(layout.width.ceil() as i32, layout.height as i32).unwrap();
+        let frame = Frame {
+            layout: &layout,
+            mode: DisplayMode::Graph,
+            palette: &palette,
+            snapshot: &snapshot,
+            history: &history,
+            dpi: 96,
+            text: TileText {
+                labels: config.display.labels,
+                icons: config.display.icons,
+                upload_on_top: config.display.upload_on_top,
+            },
+            graph_inline: config.display.graph_inline,
+            styles: &graph_styles(&config),
+        };
+        Renderer::new()
+            .unwrap()
+            .draw(&surface, &frame, &text)
+            .unwrap();
+        let all = pixels(&surface);
+        let tile = |c: &Cell| -> Vec<u32> {
+            let row = |y: i32| {
+                let at = (y * surface.width + c.rect.x as i32) as usize;
+                all[at..at + c.rect.w as usize].to_vec()
+            };
+            (c.rect.y as i32..(c.rect.y + c.rect.h) as i32)
+                .flat_map(row)
+                .collect()
+        };
+        let tiles = layout.cells.iter().map(tile).collect();
+        (layout.cells.clone(), tiles)
+    }
+
+    #[test]
+    fn a_horizontal_adapter_tile_draws_both_directions() {
+        let (cells, plain) = two_adapter_tiles(false, false);
+        assert_eq!(
+            cells.iter().map(|c| c.part).collect::<Vec<_>>(),
+            [CellPart::AdapterDown(0), CellPart::AdapterDown(1)],
+            "one tile per adapter"
+        );
+        let (_, graphed) = two_adapter_tiles(true, false);
+        assert_ne!(graphed[0], plain[0], "the upload graph is in its tile");
+        assert_eq!(graphed[1], plain[1], "and not in the other adapter's");
+        let (_, valued) = two_adapter_tiles(false, true);
+        assert_ne!(valued[0], plain[0], "the upload value is in its tile");
+        assert_eq!(valued[1], plain[1], "and not in the other adapter's");
     }
 
     fn alpha_at(surface: &Surface, x: f32, y: f32) -> u32 {

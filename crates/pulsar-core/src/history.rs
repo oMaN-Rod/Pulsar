@@ -1,5 +1,6 @@
 use std::collections::{HashMap, VecDeque};
 
+use crate::gpu_slots::GpuSlots;
 use crate::metric::{MetricKey, Snapshot};
 
 /// Fixed-capacity sample buffer. Missing samples are stored as NaN so graphs
@@ -79,6 +80,7 @@ impl History {
 pub struct HistoryStore {
     capacity: usize,
     series: HashMap<MetricKey, History>,
+    gpus: GpuSlots,
 }
 
 impl HistoryStore {
@@ -86,10 +88,17 @@ impl HistoryStore {
         Self {
             capacity,
             series: HashMap::new(),
+            gpus: GpuSlots::new(),
         }
     }
 
     pub fn record(&mut self, snapshot: &Snapshot) {
+        for slot in self.gpus.replaced_by(&snapshot.gpus) {
+            self.series.retain(|key, _| key.gpu_slot() != Some(slot));
+        }
+        if self.gpus != snapshot.gpus {
+            self.gpus.clone_from(&snapshot.gpus);
+        }
         let prior_len = self.series.values().map(History::len).max().unwrap_or(0);
         for (key, value) in &snapshot.metrics {
             let capacity = self.capacity;
@@ -109,6 +118,20 @@ impl HistoryStore {
         }
     }
 
+    /// The cards the per-card series belong to.
+    pub fn gpus(&self) -> &GpuSlots {
+        &self.gpus
+    }
+
+    pub fn with_gpus(self, gpus: GpuSlots) -> Self {
+        Self { gpus, ..self }
+    }
+
+    /// For when the adapter list changes, as their series go by place in it.
+    pub fn forget_net_adapters(&mut self) {
+        self.series.retain(|key, _| !key.is_net_adapter());
+    }
+
     /// Rebuilds a store sent from another process; series are padded at the
     /// front to a common length so they stay aligned.
     pub fn from_series(
@@ -126,6 +149,7 @@ impl HistoryStore {
                     (key, History::from_samples(capacity, padding.chain(samples)))
                 })
                 .collect(),
+            gpus: GpuSlots::new(),
         }
     }
 
@@ -145,6 +169,20 @@ impl HistoryStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn forgetting_net_adapters_leaves_the_rest() {
+        let mut store = HistoryStore::new(5);
+        let mut s = Snapshot::default();
+        s.set(MetricKey::NetAdapterDownBps(0), 1.0);
+        s.set(MetricKey::NetAdapterUpBps(1), 2.0);
+        s.set(MetricKey::NetDownBps, 3.0);
+        store.record(&s);
+        store.forget_net_adapters();
+        assert!(store.get(MetricKey::NetAdapterDownBps(0)).is_none());
+        assert!(store.get(MetricKey::NetAdapterUpBps(1)).is_none());
+        assert!(store.get(MetricKey::NetDownBps).is_some());
+    }
 
     #[test]
     fn push_drops_oldest_when_full() {

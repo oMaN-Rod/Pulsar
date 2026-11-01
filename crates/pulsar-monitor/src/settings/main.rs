@@ -62,6 +62,9 @@ struct Choices {
     fonts: Vec<String>,
     gpus: Vec<String>,
     adapters: Vec<String>,
+    /// What is saved, in its order: cells are numbered by place in it.
+    saved_gpus: Vec<String>,
+    saved_adapters: Vec<String>,
     font_values: Vec<String>,
     monitors: Vec<Display>,
     /// Device paths in the order of the frame rate picker.
@@ -147,14 +150,17 @@ fn device_rows(available: &[String], chosen: &[String], numbered: bool) -> Model
 }
 
 /// The ticked devices, or none while the combined reading is chosen.
-fn ticked(each: bool, rows: &ModelRc<DeviceRow>) -> Vec<String> {
+fn ticked(each: bool, rows: &ModelRc<DeviceRow>, saved: &[String]) -> Vec<String> {
     if !each {
         return Vec::new();
     }
-    rows.iter()
-        .filter(|r| r.checked)
-        .map(|r| r.value.to_string())
-        .collect()
+    form::in_saved_order(
+        saved,
+        rows.iter()
+            .filter(|r| r.checked)
+            .map(|r| r.value.to_string())
+            .collect(),
+    )
 }
 
 /// Applies a tick unless it would leave none or more than `max` ticked;
@@ -363,6 +369,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_fonts(strings(names));
     ui.set_font_index(index);
     choices.font_values = values;
+    choices.saved_gpus.clone_from(&f.gpus);
+    choices.saved_adapters.clone_from(&f.adapters);
     ui.set_gpu_rows(device_rows(&choices.gpus, &f.gpus, true));
     ui.set_per_gpu(!f.gpus.is_empty());
     ui.set_adapter_rows(device_rows(&choices.adapters, &f.adapters, false));
@@ -535,8 +543,12 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
             Vec::new()
         },
         drive_used: ui.get_drive_used(),
-        gpus: ticked(ui.get_per_gpu(), &ui.get_gpu_rows()),
-        adapters: ticked(ui.get_per_adapter(), &ui.get_adapter_rows()),
+        gpus: ticked(ui.get_per_gpu(), &ui.get_gpu_rows(), &choices.saved_gpus),
+        adapters: ticked(
+            ui.get_per_adapter(),
+            &ui.get_adapter_rows(),
+            &choices.saved_adapters,
+        ),
         frame_monitor: chosen(&choices.monitor_values, ui.get_frame_monitor_index()),
         language: (ui.get_language_index() - 1)
             .try_into()
@@ -688,6 +700,11 @@ fn save(ui: &SettingsWindow, state: &mut State) {
     let units = state.config.units;
     let new = form::to_config(&pull(ui, &state.kinds, &state.choices), &state.config);
     let merged = write(state, new, true);
+    let choices = &mut state.choices;
+    choices.saved_gpus.clone_from(&state.config.gpu.adapters);
+    choices
+        .saved_adapters
+        .clone_from(&state.config.network.adapters);
     refresh_after_write(ui, state, merged || state.config.units != units);
 }
 
@@ -842,7 +859,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         profile_ids: Vec::new(),
         choices: Choices {
             fonts: fonts::system_families(),
-            gpus: pulsar_core::hardware::gpu::names().to_vec(),
+            gpus: pulsar_core::hardware::gpu::names(),
             adapters: hardware_adapters(),
             monitors: displays::active(),
             ..Choices::default()
@@ -1286,4 +1303,26 @@ fn main() -> Result<(), Box<dyn Error>> {
         save(&ui, &mut state.borrow_mut());
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ticked_keeps_the_saved_order_of_adapters() {
+        let row = |name: &str, checked| DeviceRow {
+            label: name.into(),
+            value: name.into(),
+            checked,
+        };
+        let rows = ModelRc::new(VecModel::from(vec![
+            row("eth", true),
+            row("vpn", false),
+            row("wifi", true),
+        ]));
+        let saved = ["wifi".to_string(), "eth".to_string()];
+        assert_eq!(ticked(true, &rows, &saved), saved);
+        assert!(ticked(false, &rows, &saved).is_empty());
+    }
 }

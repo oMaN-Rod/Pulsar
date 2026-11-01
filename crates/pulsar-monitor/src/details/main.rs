@@ -27,7 +27,7 @@ use pulsar_core::config::{self, Config};
 use pulsar_core::feed::{self, Message};
 use pulsar_core::hardware::{self, HardwareInfo};
 use pulsar_core::history::HistoryStore;
-use pulsar_core::metric::{ItemKind, Snapshot};
+use pulsar_core::metric::{ItemKind, MetricKey, Snapshot};
 use pulsar_core::sampler::Sampler;
 use pulsar_core::single_instance::SingleInstance;
 use pulsar_core::{crash, ipc, l10n, logging, paths, project, sensors};
@@ -151,7 +151,12 @@ impl App {
         {
             pulsar_core::format::set_units(config.units);
             if config.general.history_len != self.config.general.history_len {
-                self.history = HistoryStore::new(config.general.history_len);
+                self.history = HistoryStore::new(config.general.history_len)
+                    .with_gpus(self.history.gpus().clone());
+            }
+            if config.network.adapters != self.config.network.adapters {
+                self.history.forget_net_adapters();
+                self.extremes.forget(MetricKey::is_net_adapter);
             }
             let before = l10n::current();
             let now = language::apply(&config);
@@ -218,12 +223,27 @@ impl App {
 
     fn receive(&mut self, message: Message) {
         match message {
-            Message::History { capacity, series } => {
-                self.history = feed::history_store(capacity, series);
+            Message::History {
+                capacity,
+                series,
+                gpus,
+            } => {
+                self.history = feed::history_store(capacity, series, gpus.clone());
                 self.extremes.seed(&self.history);
+                pages::name_gpus(&mut self.info, &gpus);
+                self.latest.gpus = gpus;
             }
             Message::Snapshot(wire) => {
                 let snapshot = Snapshot::from(wire);
+                let known = self.history.gpus();
+                let replaced = known.replaced_by(&snapshot.gpus);
+                self.extremes
+                    .forget(|key| key.gpu_slot().is_some_and(|slot| replaced.contains(&slot)));
+                // A card this window has no facts for, or no longer should.
+                if !known.is_empty() && known.present_luids() != snapshot.gpus.present_luids() {
+                    collect_hardware();
+                }
+                pages::name_gpus(&mut self.info, &snapshot.gpus);
                 self.history.record(&snapshot);
                 self.extremes.record(&snapshot);
                 self.latest = snapshot;
@@ -294,6 +314,7 @@ fn collect_hardware() {
         let _ = slint::invoke_from_event_loop(move || {
             with_app(|app| {
                 app.info = info;
+                pages::name_gpus(&mut app.info, &app.latest.gpus);
                 app.refresh();
             })
         });
