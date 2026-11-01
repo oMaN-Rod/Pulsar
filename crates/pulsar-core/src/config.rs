@@ -325,6 +325,9 @@ pub struct Display {
     pub fallback_margin_px: i32,
     pub font_size_pt: f32,
     pub show_on_all_taskbars: bool,
+    /// Leave out taskbars on monitors taller than they are wide. When the
+    /// primary monitor is one, the overlay moves to the first landscape one.
+    pub skip_portrait_taskbars: bool,
     pub accent_graphs: bool,
     /// A `theme` id; `None` is Windows default.
     pub theme: Option<String>,
@@ -504,6 +507,7 @@ impl Default for Display {
             fallback_margin_px: 160,
             font_size_pt: 9.0,
             show_on_all_taskbars: false,
+            skip_portrait_taskbars: false,
             accent_graphs: false,
             theme: None,
             tile_color: None,

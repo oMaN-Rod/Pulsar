@@ -569,6 +569,7 @@ export component SettingsWindow inherits Window {
     in-out property <int> fallback-margin-px;
     in-out property <int> font-size-pt;
     in-out property <bool> show-on-all-taskbars;
+    in-out property <bool> skip-portrait-taskbars;
     in-out property <bool> accent-graphs;
     in-out property <string> tile-color;
     in property <color> tile-swatch;
@@ -1011,6 +1012,15 @@ export component SettingsWindow inherits Window {
                         description: @tr("Also show on the taskbars of other monitors.");
                         Switch {
                             checked <=> root.show-on-all-taskbars;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Skip portrait monitors");
+                        description: @tr("Leave out taskbars on monitors turned upright. A portrait main monitor hands the overlay to a landscape one.");
+                        Switch {
+                            checked <=> root.skip-portrait-taskbars;
                             toggled => { root.changed(); }
                         }
                     }

@@ -371,10 +371,12 @@ impl App {
 
     fn refresh(&mut self) {
         let floating = self.floating();
-        let mut found = taskbar::discover(self.config.display.show_on_all_taskbars && !floating);
-        if floating {
-            found.truncate(1);
-        }
+        let d = &self.config.display;
+        let found = if floating {
+            taskbar::discover(false)
+        } else {
+            taskbar::attach_targets(d.show_on_all_taskbars, d.skip_portrait_taskbars)
+        };
         let before = self.overlays.len();
         self.overlays
             .retain(|o| found.iter().any(|t| t.hwnd == o.taskbar.hwnd));

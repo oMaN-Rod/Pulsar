@@ -1618,6 +1618,14 @@ msgid "Also show on the taskbars of other monitors."
 msgstr "同时显示在其他显示器的任务栏上。"
 
 #: ui/settings.slint
+msgid "Skip portrait monitors"
+msgstr "跳过竖屏显示器"
+
+#: ui/settings.slint
+msgid "Leave out taskbars on monitors turned upright. A portrait main monitor hands the overlay to a landscape one."
+msgstr "不在竖屏显示器的任务栏上显示。主显示器为竖屏时，改为显示在横屏显示器上。"
+
+#: ui/settings.slint
 msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
 msgstr "主题设置项目、标签、数值、底块和面板的颜色，并带有适用于浅色任务栏的版本。选择主题会清除下方的自定义颜色。"
 

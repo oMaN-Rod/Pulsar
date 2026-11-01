@@ -11,6 +11,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Taskbar auto-hide on | The overlay hides and shows with the taskbar |
 | Display scaling 100%, 150%, 200% (sign out between) | Text stays sharp and fits; nothing is clipped |
 | A second monitor, with *Every taskbar* on, then unplug it | One overlay per taskbar; unplugging leaves the primary one working |
+| A portrait primary monitor and a landscape one, with *Skip portrait monitors* on, then rotate the primary to landscape | The overlay sits on the landscape taskbar and moves back to the primary once it is landscape |
 | A fullscreen game or video | The overlay fades out after a moment and returns as soon as fullscreen ends |
 | Task View, Alt+Tab, Start, Search | The overlay does not hide |
 | Light and dark Windows mode | Colours follow the taskbar theme |

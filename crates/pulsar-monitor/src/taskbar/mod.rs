@@ -107,6 +107,27 @@ pub fn class_name(hwnd: HWND) -> String {
     String::from_utf16_lossy(&buf[..len])
 }
 
+/// The taskbars to attach to: the primary one, or every one when `all` is
+/// set, leaving out portrait monitors when `skip_portrait` is set. A portrait
+/// primary hands its place to the first landscape secondary taskbar.
+pub fn attach_targets(all: bool, skip_portrait: bool) -> Vec<Taskbar> {
+    choose(discover(all || skip_portrait), all, skip_portrait)
+}
+
+fn choose(mut found: Vec<Taskbar>, all: bool, skip_portrait: bool) -> Vec<Taskbar> {
+    if skip_portrait {
+        found.retain(|t| !is_portrait(&t.monitor));
+    }
+    if !all {
+        found.truncate(1);
+    }
+    found
+}
+
+fn is_portrait(monitor: &Rect32) -> bool {
+    monitor.height() > monitor.width()
+}
+
 /// The primary taskbar first, then secondary taskbars when requested.
 pub fn discover(include_secondary: bool) -> Vec<Taskbar> {
     let mut found = Vec::new();
@@ -283,6 +304,53 @@ mod tests {
         right: 1920,
         bottom: 1080,
     };
+
+    const PORTRAIT: Rect32 = Rect32 {
+        left: 1920,
+        top: 0,
+        right: 3000,
+        bottom: 1920,
+    };
+
+    fn bar(id: isize, monitor: Rect32) -> Taskbar {
+        Taskbar {
+            hwnd: HWND(id as *mut _),
+            tray: None,
+            rect: monitor,
+            tray_rect: None,
+            monitor,
+            dpi: 96,
+        }
+    }
+
+    fn ids(found: &[Taskbar]) -> Vec<isize> {
+        found.iter().map(|t| t.hwnd.0 as isize).collect()
+    }
+
+    #[test]
+    fn choose_keeps_the_primary_by_default() {
+        let found = vec![bar(1, PORTRAIT), bar(2, MONITOR)];
+        assert_eq!(ids(&choose(found.clone(), false, false)), [1]);
+        assert_eq!(ids(&choose(found, true, false)), [1, 2]);
+    }
+
+    #[test]
+    fn choose_moves_off_a_portrait_primary() {
+        let found = vec![bar(1, PORTRAIT), bar(2, MONITOR), bar(3, MONITOR)];
+        assert_eq!(ids(&choose(found.clone(), false, true)), [2]);
+        assert_eq!(ids(&choose(found, true, true)), [2, 3]);
+    }
+
+    #[test]
+    fn choose_keeps_a_landscape_primary() {
+        let found = vec![bar(1, MONITOR), bar(2, PORTRAIT)];
+        assert_eq!(ids(&choose(found, false, true)), [1]);
+    }
+
+    #[test]
+    fn choose_finds_nothing_when_every_monitor_is_portrait() {
+        assert!(choose(vec![bar(1, PORTRAIT)], false, true).is_empty());
+    }
 
     #[test]
     fn fullscreen_requires_covering_the_monitor() {

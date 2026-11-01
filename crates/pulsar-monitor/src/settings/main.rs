@@ -334,6 +334,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_fallback_margin_px(f.fallback_margin_px);
     ui.set_font_size_pt(f.font_size_pt);
     ui.set_show_on_all_taskbars(f.show_on_all_taskbars);
+    ui.set_skip_portrait_taskbars(f.skip_portrait_taskbars);
     ui.set_accent_graphs(f.accent_graphs);
     ui.set_tile_color(f.tile_color.as_str().into());
     ui.set_tile_opacity_custom(f.tile_opacity_custom);
@@ -417,6 +418,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         fallback_margin_px: ui.get_fallback_margin_px(),
         font_size_pt: ui.get_font_size_pt(),
         show_on_all_taskbars: ui.get_show_on_all_taskbars(),
+        skip_portrait_taskbars: ui.get_skip_portrait_taskbars(),
         accent_graphs: ui.get_accent_graphs(),
         tile_color: ui.get_tile_color().to_string(),
         tile_opacity_custom: ui.get_tile_opacity_custom(),

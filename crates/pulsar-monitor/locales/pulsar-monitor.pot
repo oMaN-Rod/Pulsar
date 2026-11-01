@@ -1615,6 +1615,14 @@ msgid "Also show on the taskbars of other monitors."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Skip portrait monitors"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Leave out taskbars on monitors turned upright. A portrait main monitor hands the overlay to a landscape one."
+msgstr ""
+
+#: ui/settings.slint
 msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
 msgstr ""
 

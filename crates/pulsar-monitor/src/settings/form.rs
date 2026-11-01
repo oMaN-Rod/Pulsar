@@ -65,6 +65,7 @@ pub struct Form {
     pub fallback_margin_px: i32,
     pub font_size_pt: i32,
     pub show_on_all_taskbars: bool,
+    pub skip_portrait_taskbars: bool,
     pub accent_graphs: bool,
     /// A theme id; empty for Windows default.
     pub theme: String,
@@ -258,6 +259,7 @@ pub fn to_form(c: &Config) -> Form {
         fallback_margin_px: d.fallback_margin_px,
         font_size_pt: d.font_size_pt.round() as i32,
         show_on_all_taskbars: d.show_on_all_taskbars,
+        skip_portrait_taskbars: d.skip_portrait_taskbars,
         accent_graphs: d.accent_graphs,
         tile_color: d.tile_color.clone().unwrap_or_default(),
         tile_opacity_custom: d.tile_opacity.is_some(),
@@ -423,6 +425,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         d.font_size_pt = f.font_size_pt as f32;
     }
     d.show_on_all_taskbars = f.show_on_all_taskbars;
+    d.skip_portrait_taskbars = f.skip_portrait_taskbars;
     d.accent_graphs = f.accent_graphs;
     d.tile_color = non_empty(&f.tile_color);
     d.tile_opacity = f.tile_opacity_custom.then(|| clamp_u8(f.tile_opacity));
