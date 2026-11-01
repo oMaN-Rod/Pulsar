@@ -629,7 +629,11 @@ mod tests {
 
     /// Each network tile's pixels with two adapters, optionally with the first
     /// adapter's upload in its history or snapshot.
-    fn two_adapter_tiles(up_history: bool, up_value: bool) -> (Vec<Cell>, Vec<Vec<u32>>) {
+    fn two_adapter_tiles(
+        vertical_bar_px: Option<f32>,
+        up_history: bool,
+        up_value: bool,
+    ) -> (Vec<Cell>, Vec<Vec<u32>>) {
         let mut config = Config::default();
         for item in &mut config.items {
             item.enabled = item.kind == ItemKind::Network;
@@ -649,7 +653,7 @@ mod tests {
                 icons: config.display.icons,
                 graph_inline: config.display.graph_inline,
                 upload_on_top: config.display.upload_on_top,
-                vertical_bar_px: None,
+                vertical_bar_px,
                 text_spacing: TextSpacing::default(),
             },
             &text,
@@ -706,18 +710,39 @@ mod tests {
 
     #[test]
     fn a_horizontal_adapter_tile_draws_both_directions() {
-        let (cells, plain) = two_adapter_tiles(false, false);
+        let (cells, plain) = two_adapter_tiles(None, false, false);
         assert_eq!(
             cells.iter().map(|c| c.part).collect::<Vec<_>>(),
             [CellPart::AdapterDown(0), CellPart::AdapterDown(1)],
             "one tile per adapter"
         );
-        let (_, graphed) = two_adapter_tiles(true, false);
+        let (_, graphed) = two_adapter_tiles(None, true, false);
         assert_ne!(graphed[0], plain[0], "the upload graph is in its tile");
         assert_eq!(graphed[1], plain[1], "and not in the other adapter's");
-        let (_, valued) = two_adapter_tiles(false, true);
+        let (_, valued) = two_adapter_tiles(None, false, true);
         assert_ne!(valued[0], plain[0], "the upload value is in its tile");
         assert_eq!(valued[1], plain[1], "and not in the other adapter's");
+    }
+
+    #[test]
+    fn a_vertical_adapter_direction_has_a_tile_of_its_own() {
+        let bar = Some(80.0);
+        let (cells, plain) = two_adapter_tiles(bar, false, false);
+        assert_eq!(
+            cells.iter().map(|c| c.part).collect::<Vec<_>>(),
+            [
+                CellPart::AdapterDown(0),
+                CellPart::AdapterUp(0),
+                CellPart::AdapterDown(1),
+                CellPart::AdapterUp(1)
+            ],
+        );
+        let (_, graphed) = two_adapter_tiles(bar, true, false);
+        assert_eq!(graphed[0], plain[0], "no upload graph on the download tile");
+        assert_ne!(graphed[1], plain[1], "the upload tile has it");
+        let (_, valued) = two_adapter_tiles(bar, false, true);
+        assert_eq!(valued[0], plain[0], "no upload value on the download tile");
+        assert_ne!(valued[1], plain[1], "the upload tile has it");
     }
 
     fn alpha_at(surface: &Surface, x: f32, y: f32) -> u32 {
