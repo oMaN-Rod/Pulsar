@@ -1,0 +1,2197 @@
+# Korean translations for Pulsar.
+msgid ""
+msgstr ""
+"Project-Id-Version: Pulsar\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/alerts.rs
+msgid "CPU at {}"
+msgstr "CPU {} 도달"
+
+#: src/alerts.rs
+msgid "Above your limit of {} for half a minute."
+msgstr "30초 동안 설정한 한도({})를 넘었습니다."
+
+#: src/alerts.rs
+msgid "GPU at {}"
+msgstr "GPU {} 도달"
+
+#: src/alerts.rs
+msgid "Battery at {}"
+msgstr "배터리 {}"
+
+#: src/alerts.rs
+msgid "Plug in soon."
+msgstr "곧 전원을 연결하세요."
+
+#: src/alerts.rs
+msgid "Drive {}: is nearly full"
+msgstr "{}: 드라이브가 거의 가득 참"
+
+#: src/alerts.rs
+msgid "{} free."
+msgstr "{} 남음."
+
+#: src/app.rs
+msgid "Pulsar settings reset"
+msgstr "Pulsar 설정이 초기화됨"
+
+#: src/app.rs
+msgid "Pulsar closed unexpectedly"
+msgstr "Pulsar가 예기치 않게 종료됨"
+
+#: src/app.rs
+msgid "Select to open the crash report. Attaching it to a GitHub issue helps get it fixed."
+msgstr "선택하면 오류 보고서를 엽니다. GitHub 이슈에 첨부하면 문제 해결에 도움이 됩니다."
+
+#: src/app.rs
+msgid "Shortcut already in use"
+msgstr "이미 사용 중인 바로 가기 키"
+
+#: src/app.rs
+msgid "Another app uses {}. Choose another in Settings."
+msgstr "다른 앱이 {}을(를) 사용 중입니다. 설정에서 다른 키를 선택하세요."
+
+#: src/app.rs
+msgid "{} closed"
+msgstr "{} 닫힘"
+
+#: src/app.rs
+msgid "Pulsar could not load the profile"
+msgstr "Pulsar에서 프로필을 불러올 수 없음"
+
+#: src/app.rs src/menu.rs
+msgid "No profiles saved"
+msgstr "저장된 프로필 없음"
+
+#: src/app.rs
+msgid "Save one in Settings → Profiles."
+msgstr "설정 → 프로필에서 프로필을 저장하세요."
+
+#: src/app.rs
+msgid "Profile"
+msgstr "프로필"
+
+#: src/app.rs
+msgid "Recording saved"
+msgstr "기록 저장됨"
+
+#: src/app.rs
+msgid "Recording readings"
+msgstr "측정값 기록 중"
+
+#: src/app.rs
+msgid "Every sample goes to {} until you stop."
+msgstr "중지할 때까지 모든 측정값을 {}에 기록합니다."
+
+#: src/app.rs
+msgid "Pulsar could not start recording"
+msgstr "Pulsar에서 기록을 시작할 수 없음"
+
+#: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr "Pulsar 기록 중지됨"
+
+#: src/app.rs
+msgid "Pulsar could not open the details window"
+msgstr "Pulsar에서 세부 정보 창을 열 수 없음"
+
+#: src/app.rs
+msgid "Pulsar {} is available"
+msgstr "Pulsar {} 사용 가능"
+
+#: src/app.rs
+msgid "Select to open the release page."
+msgstr "선택하면 릴리스 페이지를 엽니다."
+
+#: src/app.rs
+msgid "Pulsar could not open Settings"
+msgstr "Pulsar에서 설정을 열 수 없음"
+
+#: src/app.rs
+msgid "Pulsar could not save settings"
+msgstr "Pulsar에서 설정을 저장할 수 없음"
+
+#: src/details/pages.rs
+msgid "Overview"
+msgstr "개요"
+
+#: src/details/pages.rs
+msgid "Processor"
+msgstr "프로세서"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "Memory"
+msgstr "메모리"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Graphics"
+msgstr "그래픽"
+
+#: src/details/pages.rs
+msgid "Storage"
+msgstr "저장소"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Network"
+msgstr "네트워크"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "System"
+msgstr "시스템"
+
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
+msgid "Sensors"
+msgstr "센서"
+
+#: src/details/pages.rs
+msgid "Temperatures, power draw and clocks come from the optional Pulsar sensor service, which reads them through PawnIO."
+msgstr "온도, 전력 소비, 클럭은 선택 설치 항목인 Pulsar 센서 서비스가 PawnIO를 통해 읽어 옵니다."
+
+#: src/details/pages.rs
+msgid "{}. Temperatures, power draw and clocks are unavailable until it is fixed."
+msgstr "{}. 해결될 때까지 온도, 전력 소비, 클럭을 표시할 수 없습니다."
+
+#: src/details/pages.rs
+msgid "Learn how"
+msgstr "방법 알아보기"
+
+#: src/details/pages.rs
+msgid "{} h {} min"
+msgstr "{}시간 {}분"
+
+#: src/details/pages.rs
+msgid "{} d {} h"
+msgstr "{}일 {}시간"
+
+#: src/details/pages.rs
+msgid "fully associative"
+msgstr "완전 연관"
+
+#: src/details/pages.rs
+msgid "{}-way"
+msgstr "{}-way"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Collecting…"
+msgstr "수집 중…"
+
+#: src/details/pages.rs src/menu.rs src/popup/content.rs ui/settings.slint
+msgid "Top processes"
+msgstr "상위 프로세스"
+
+#: src/details/pages.rs
+msgid "{} active"
+msgstr "{} 활성"
+
+#: src/details/pages.rs
+msgid "Motherboard"
+msgstr "메인보드"
+
+#: src/details/pages.rs
+msgid "{} across {} drives"
+msgstr "{}(드라이브 {}개)"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "CPU temperature"
+msgstr "CPU 온도"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "CPU power"
+msgstr "CPU 전력"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU temperature"
+msgstr "GPU 온도"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Ping"
+msgstr "Ping"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Up time"
+msgstr "가동 시간"
+
+#: src/details/pages.rs
+msgid "build {}"
+msgstr "빌드 {}"
+
+#: src/details/pages.rs
+msgid "{} cores ({}P + {}E)"
+msgstr "{}코어({}P + {}E)"
+
+#: src/details/pages.rs
+msgid "{} cores"
+msgstr "{}코어"
+
+#: src/details/pages.rs
+msgid "{} threads"
+msgstr "{}스레드"
+
+#: src/details/pages.rs
+msgid "Utilization"
+msgstr "사용률"
+
+#: src/details/pages.rs
+msgid "Running at {}"
+msgstr "현재 {}"
+
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
+msgid "Temperature"
+msgstr "온도"
+
+#: src/details/pages.rs
+msgid "Hottest core {}"
+msgstr "가장 뜨거운 코어 {}"
+
+#: src/details/pages.rs
+msgid "Package power"
+msgstr "패키지 전력"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Speed"
+msgstr "속도"
+
+#: src/details/pages.rs
+msgid "Multiplier"
+msgstr "배수"
+
+#: src/details/pages.rs
+msgid "Ring clock"
+msgstr "링 클럭"
+
+#: src/details/pages.rs
+msgid "Cores power"
+msgstr "코어 전력"
+
+#: src/details/pages.rs
+msgid "Graphics power"
+msgstr "그래픽 전력"
+
+#: src/details/pages.rs
+msgid "Memory power"
+msgstr "메모리 전력"
+
+#: src/details/pages.rs
+msgid "Core voltage"
+msgstr "코어 전압"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Thermal throttling"
+msgstr "발열 스로틀링"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Yes"
+msgstr "예"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "No"
+msgstr "아니요"
+
+#: src/details/pages.rs
+msgid "Cores / threads"
+msgstr "코어 / 스레드"
+
+#: src/details/pages.rs
+msgid "Vendor"
+msgstr "공급업체"
+
+#: src/details/pages.rs
+msgid "Microarchitecture"
+msgstr "마이크로아키텍처"
+
+#: src/details/pages.rs
+msgid "Family · model · stepping"
+msgstr "제품군 · 모델 · 스테핑"
+
+#: src/details/pages.rs
+msgid "Socket"
+msgstr "소켓"
+
+#: src/details/pages.rs
+msgid "Base clock"
+msgstr "기본 클럭"
+
+#: src/details/pages.rs
+msgid "Bus clock"
+msgstr "버스 클럭"
+
+#: src/details/pages.rs
+msgid "Multiplier range"
+msgstr "배수 범위"
+
+#: src/details/pages.rs
+msgid "Power limits"
+msgstr "전력 제한"
+
+#: src/details/pages.rs
+msgid "Microcode"
+msgstr "마이크로코드"
+
+#: src/details/pages.rs
+msgid "Packages"
+msgstr "패키지"
+
+#: src/details/pages.rs
+msgid "Instructions"
+msgstr "명령어"
+
+#: src/details/pages.rs
+msgid "Caches"
+msgstr "캐시"
+
+#: src/details/pages.rs
+msgid "L1 data"
+msgstr "L1 데이터"
+
+#: src/details/pages.rs
+msgid "L1 instruction"
+msgstr "L1 명령어"
+
+#: src/details/pages.rs
+msgid "P-cores show both threads' load"
+msgstr "P코어는 두 스레드의 부하를 모두 표시"
+
+#: src/details/pages.rs
+msgid "Each core shows both threads' load"
+msgstr "각 코어는 두 스레드의 부하를 모두 표시"
+
+#: src/details/pages.rs
+msgid "fastest {} GHz"
+msgstr "최고 {} GHz"
+
+#: src/details/pages.rs
+msgid "hottest {}"
+msgstr "최고 온도 {}"
+
+#: src/details/pages.rs
+msgid "{} of {} slots used"
+msgstr "슬롯 {}/{}개 사용 중"
+
+#: src/details/pages.rs
+msgid "Up to {} GB"
+msgstr "최대 {} GB"
+
+#: src/details/pages.rs
+msgid "Memory in use"
+msgstr "사용 중인 메모리"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "{} of {}"
+msgstr "{} / {}"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "In use"
+msgstr "사용 중"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Available"
+msgstr "사용 가능"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Committed"
+msgstr "커밋됨"
+
+#: src/details/pages.rs
+msgid "Commit limit"
+msgstr "커밋 한도"
+
+#: src/details/pages.rs
+msgid "Module"
+msgstr "모듈"
+
+#: src/details/pages.rs
+msgid "Manufacturer"
+msgstr "제조업체"
+
+#: src/details/pages.rs
+msgid "Type"
+msgstr "유형"
+
+#: src/details/pages.rs
+msgid "{} MT/s (rated {})"
+msgstr "{} MT/s(정격 {})"
+
+#: src/details/pages.rs
+msgid "Ranks"
+msgstr "랭크"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Voltage"
+msgstr "전압"
+
+#: src/details/pages.rs
+msgid "Bank"
+msgstr "뱅크"
+
+#: src/details/pages.rs
+msgid "{} unlimited"
+msgstr "{} 무제한"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Memory clock"
+msgstr "메모리 클럭"
+
+#: src/details/pages.rs
+msgid "Controller clock"
+msgstr "컨트롤러 클럭"
+
+#: src/details/pages.rs
+msgid "{} MHz (gear {})"
+msgstr "{} MHz(기어 {})"
+
+#: src/details/pages.rs
+msgid "Command rate"
+msgstr "커맨드 레이트"
+
+#: src/details/pages.rs
+msgid "Timings"
+msgstr "타이밍"
+
+#: src/details/pages.rs
+msgid "Link"
+msgstr "링크"
+
+#: src/details/pages.rs
+msgid "Max link"
+msgstr "최대 링크"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "3D"
+msgstr "3D"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Compute"
+msgstr "컴퓨팅"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Video decode"
+msgstr "비디오 디코딩"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Video encode"
+msgstr "비디오 인코딩"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Copy"
+msgstr "복사"
+
+#: src/details/pages.rs
+msgid "{} dedicated"
+msgstr "전용 {}"
+
+#: src/details/pages.rs
+msgid "Driver {}"
+msgstr "드라이버 {}"
+
+#: src/details/pages.rs
+msgid "{} dedicated memory in use"
+msgstr "전용 메모리 {} 사용 중"
+
+#: src/details/pages.rs
+msgid "Hot spot {}"
+msgstr "핫스폿 {}"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Hot spot"
+msgstr "핫스폿"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Memory temperature"
+msgstr "메모리 온도"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Fan"
+msgstr "팬"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Power"
+msgstr "전력"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Engines"
+msgstr "엔진"
+
+#: src/details/pages.rs
+msgid "Graphics memory"
+msgstr "그래픽 메모리"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Dedicated"
+msgstr "전용"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Shared"
+msgstr "공유"
+
+#: src/details/pages.rs
+msgid "Board maker"
+msgstr "보드 제조업체"
+
+#: src/details/pages.rs
+msgid "Revision"
+msgstr "리비전"
+
+#: src/details/pages.rs
+msgid "Dedicated memory"
+msgstr "전용 메모리"
+
+#: src/details/pages.rs
+msgid "Shared memory"
+msgstr "공유 메모리"
+
+#: src/details/pages.rs
+msgid "Driver"
+msgstr "드라이버"
+
+#: src/details/pages.rs
+msgid "Device ID"
+msgstr "장치 ID"
+
+#: src/details/pages.rs
+msgid "Integrated"
+msgstr "내장"
+
+#: src/details/pages.rs
+msgid "Discrete"
+msgstr "외장"
+
+#: src/details/pages.rs
+msgid "Download {}"
+msgstr "다운로드 {}"
+
+#: src/details/pages.rs
+msgid "Upload {}"
+msgstr "업로드 {}"
+
+#: src/details/pages.rs
+msgid "Interface"
+msgstr "인터페이스"
+
+#: src/details/pages.rs
+msgid "Firmware"
+msgstr "펌웨어"
+
+#: src/details/pages.rs
+msgid "Temperature limits"
+msgstr "온도 한계"
+
+#: src/details/pages.rs
+msgid "Warning {}°C · critical {}°C"
+msgstr "경고 {}°C · 위험 {}°C"
+
+#: src/details/pages.rs
+msgid "Warning {}°C"
+msgstr "경고 {}°C"
+
+#: src/details/pages.rs
+msgid "Critical {}°C"
+msgstr "위험 {}°C"
+
+#: src/details/pages.rs
+msgid "Removable"
+msgstr "이동식"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "{} free of {}"
+msgstr "{} 사용 가능(전체 {})"
+
+#: src/details/pages.rs
+msgid "1 drive"
+msgstr "드라이브 1개"
+
+#: src/details/pages.rs
+msgid "{} drives"
+msgstr "드라이브 {}개"
+
+#: src/details/pages.rs
+msgid "{} in total"
+msgstr "총 {}"
+
+#: src/details/pages.rs ui/settings.slint
+msgid "Activity"
+msgstr "활동"
+
+#: src/details/pages.rs
+msgid "Transfer rate"
+msgstr "전송 속도"
+
+#: src/details/pages.rs
+msgid "Read {}"
+msgstr "읽기 {}"
+
+#: src/details/pages.rs
+msgid "Write {}"
+msgstr "쓰기 {}"
+
+#: src/details/pages.rs
+msgid "Active"
+msgstr "활성 시간"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Read"
+msgstr "읽기"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Write"
+msgstr "쓰기"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Hottest drive"
+msgstr "가장 뜨거운 드라이브"
+
+#: src/details/pages.rs
+msgid "Latency"
+msgstr "지연 시간"
+
+#: src/details/pages.rs
+msgid "{} · {} loss"
+msgstr "{} · 손실 {}"
+
+#: src/details/pages.rs
+msgid "Download"
+msgstr "다운로드"
+
+#: src/details/pages.rs
+msgid "Upload"
+msgstr "업로드"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Packet loss"
+msgstr "패킷 손실"
+
+#: src/details/pages.rs
+msgid "Traffic"
+msgstr "트래픽"
+
+#: src/details/pages.rs
+msgid "Link speed"
+msgstr "링크 속도"
+
+#: src/details/pages.rs
+msgid "Gateway"
+msgstr "게이트웨이"
+
+#: src/details/pages.rs
+msgid "MAC address"
+msgstr "MAC 주소"
+
+#: src/details/pages.rs
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: src/details/pages.rs
+msgid "Ethernet"
+msgstr "이더넷"
+
+#: src/details/pages.rs
+msgid "Model"
+msgstr "모델"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Chipset"
+msgstr "칩셋"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "Chipset temperature"
+msgstr "칩셋 온도"
+
+#: src/details/pages.rs
+msgid "CPU socket"
+msgstr "CPU 소켓"
+
+#: src/details/pages.rs
+msgid "Memory slots"
+msgstr "메모리 슬롯"
+
+#: src/details/pages.rs
+msgid "Version"
+msgstr "버전"
+
+#: src/details/pages.rs
+msgid "Release date"
+msgstr "출시 날짜"
+
+#: src/details/pages.rs
+msgid "Edition"
+msgstr "에디션"
+
+#: src/details/pages.rs
+msgid "Build"
+msgstr "빌드"
+
+#: src/details/pages.rs
+msgid "Every reading, with the lowest and highest seen while this window has been open"
+msgstr "모든 측정값과 이 창을 연 동안의 최저값·최고값"
+
+#: src/details/pages.rs
+msgid "Temperatures"
+msgstr "온도"
+
+#: src/details/pages.rs
+msgid "Core {}"
+msgstr "코어 {}"
+
+#: src/details/pages.rs ui/details.slint
+msgid "Load"
+msgstr "부하"
+
+#: src/details/pages.rs
+msgid "Total"
+msgstr "합계"
+
+#: src/details/pages.rs
+msgid "Clocks"
+msgstr "클럭"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Average"
+msgstr "평균"
+
+#: src/details/pages.rs
+msgid "Ring"
+msgstr "링"
+
+#: src/details/pages.rs
+msgid "Package"
+msgstr "패키지"
+
+#: src/details/pages.rs
+msgid "Voltages"
+msgstr "전압"
+
+#: src/details/pages.rs
+msgid "Powers"
+msgstr "전력"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Cores"
+msgstr "코어"
+
+#: src/details/pages.rs
+msgid "Core"
+msgstr "코어"
+
+#: src/details/pages.rs
+msgid "Fans"
+msgstr "팬"
+
+#: src/details/pages.rs
+msgid "Data"
+msgstr "데이터"
+
+#: src/details/pages.rs ui/details.slint
+msgid "Physical"
+msgstr "물리적"
+
+#: src/details/pages.rs
+msgid "Drive"
+msgstr "드라이브"
+
+#: src/details/pages.rs
+msgid "{}: activity"
+msgstr "{}: 활동"
+
+#: src/details/pages.rs
+msgid "{}: used space"
+msgstr "{}: 사용한 공간"
+
+#: src/details/pages.rs
+msgid "All drives"
+msgstr "모든 드라이브"
+
+#: src/details/pages.rs
+msgid "Throughput"
+msgstr "처리량"
+
+#: src/game.rs
+msgid "{} average"
+msgstr "평균 {}"
+
+#: src/game.rs
+msgid "1% low {}"
+msgstr "1% 최저 {}"
+
+#: src/game.rs
+msgid "CPU up to {}"
+msgstr "CPU 최대 {}"
+
+#: src/game.rs
+msgid "GPU up to {}"
+msgstr "GPU 최대 {}"
+
+#: src/menu.rs
+msgid "Same as other items ({})"
+msgstr "다른 항목과 동일({})"
+
+#: src/menu.rs ui/settings.slint
+msgid "Popup detail"
+msgstr "팝업 세부 정보"
+
+#: src/menu.rs
+msgid "On the widget"
+msgstr "위젯에 표시"
+
+#: src/menu.rs
+msgid "Swap with item on the left"
+msgstr "왼쪽 항목과 위치 바꾸기"
+
+#: src/menu.rs
+msgid "Swap with item on the right"
+msgstr "오른쪽 항목과 위치 바꾸기"
+
+#: src/menu.rs
+msgid "Hide"
+msgstr "숨기기"
+
+#: src/menu.rs
+msgid "Same as the widget ({})"
+msgstr "위젯과 동일({})"
+
+#: src/menu.rs
+msgid "Same detail as the widget ({})"
+msgstr "위젯과 같은 세부 정보({})"
+
+#: src/menu.rs ui/settings.slint
+msgid "Graph"
+msgstr "그래프"
+
+#: src/menu.rs ui/settings.slint
+msgid "Translucent background"
+msgstr "반투명 배경"
+
+#: src/menu.rs
+msgid "None"
+msgstr "없음"
+
+#: src/menu.rs ui/settings.slint
+msgid "Details on hover"
+msgstr "마우스를 올리면 세부 정보 표시"
+
+#: src/menu.rs ui/settings.slint
+msgid "Celsius (°C)"
+msgstr "섭씨(°C)"
+
+#: src/menu.rs ui/settings.slint
+msgid "Fahrenheit (°F)"
+msgstr "화씨(°F)"
+
+#: src/menu.rs ui/settings.slint
+msgid "Bytes per second (MB/s)"
+msgstr "초당 바이트(MB/s)"
+
+#: src/menu.rs ui/settings.slint
+msgid "Bits per second (Mbps)"
+msgstr "초당 비트(Mbps)"
+
+#: src/menu.rs ui/settings.slint
+msgid "Upload on top"
+msgstr "업로드를 위에 표시"
+
+#: src/menu.rs
+msgid "Manage profiles…"
+msgstr "프로필 관리…"
+
+#: src/menu.rs
+msgid "{} s"
+msgstr "{}초"
+
+#: src/menu.rs
+msgid "System details…"
+msgstr "시스템 세부 정보…"
+
+#: src/menu.rs ui/details.slint ui/settings.slint
+msgid "Graphs"
+msgstr "그래프"
+
+#: src/menu.rs src/names.rs ui/settings.slint
+msgid "Text only"
+msgstr "텍스트만"
+
+#: src/menu.rs ui/settings.slint
+msgid "Items"
+msgstr "항목"
+
+#: src/menu.rs ui/settings.slint
+msgid "Popups"
+msgstr "팝업"
+
+#: src/menu.rs ui/settings.slint
+msgid "Units"
+msgstr "단위"
+
+#: src/menu.rs ui/settings.slint
+msgid "Update interval"
+msgstr "업데이트 간격"
+
+#: src/menu.rs ui/settings.slint
+msgid "Profiles"
+msgstr "프로필"
+
+#: src/menu.rs
+msgid "Short labels"
+msgstr "짧은 레이블"
+
+#: src/menu.rs ui/settings.slint
+msgid "Icons"
+msgstr "아이콘"
+
+#: src/menu.rs ui/settings.slint
+msgid "Hide in fullscreen"
+msgstr "전체 화면에서 숨기기"
+
+#: src/menu.rs ui/settings.slint
+msgid "Floating"
+msgstr "떠 있는 창"
+
+#: src/menu.rs ui/settings.slint
+msgid "Lock position"
+msgstr "위치 잠금"
+
+#: src/menu.rs
+msgid "Desktop widget"
+msgstr "바탕 화면 위젯"
+
+#: src/menu.rs
+msgid "Lock widget"
+msgstr "위젯 잠금"
+
+#: src/menu.rs
+msgid "Count {} as a game"
+msgstr "{}을(를) 게임으로 간주"
+
+#: src/menu.rs
+msgid "Record to CSV"
+msgstr "CSV로 기록"
+
+#: src/menu.rs
+msgid "Settings…"
+msgstr "설정…"
+
+#: src/menu.rs
+msgid "Open Task Manager"
+msgstr "작업 관리자 열기"
+
+#: src/menu.rs
+msgid "About Pulsar"
+msgstr "Pulsar 정보"
+
+#: src/menu.rs
+msgid "Exit Pulsar"
+msgstr "Pulsar 종료"
+
+#: src/names.rs src/popup/content.rs
+msgid "CPU"
+msgstr "CPU"
+
+#: src/names.rs src/popup/content.rs
+msgid "GPU"
+msgstr "GPU"
+
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Disk"
+msgstr "디스크"
+
+#: src/names.rs src/popup/content.rs
+msgid "CPU clock"
+msgstr "CPU 클럭"
+
+#: src/names.rs src/popup/content.rs
+msgid "Drive temperature"
+msgstr "드라이브 온도"
+
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Frame rate"
+msgstr "프레임 속도"
+
+#: src/names.rs src/popup/content.rs
+msgid "Battery"
+msgstr "배터리"
+
+#: src/names.rs
+msgid "Area graph"
+msgstr "영역 그래프"
+
+#: src/names.rs
+msgid "Line graph"
+msgstr "선 그래프"
+
+#: src/names.rs
+msgid "Bar graph"
+msgstr "막대 그래프"
+
+#: src/names.rs
+msgid "Level meter"
+msgstr "레벨 미터"
+
+#: src/names.rs
+msgid "Item colour"
+msgstr "항목 색"
+
+#: src/names.rs
+msgid "Windows accent"
+msgstr "Windows 강조 색"
+
+#: src/names.rs
+msgid "Colour by load"
+msgstr "부하에 따른 색"
+
+#: src/names.rs
+msgid "Sparkline"
+msgstr "스파크라인"
+
+#: src/names.rs
+msgid "Tile"
+msgstr "타일"
+
+#: src/names.rs
+msgid "Meter"
+msgstr "미터"
+
+#: src/names.rs
+msgid "Simple"
+msgstr "간단히"
+
+#: src/names.rs
+msgid "Standard"
+msgstr "표준"
+
+#: src/names.rs
+msgid "Detailed"
+msgstr "자세히"
+
+#: src/popup/content.rs
+msgid "No activity"
+msgstr "활동 없음"
+
+#: src/popup/content.rs
+msgid "Top processes (I/O)"
+msgstr "상위 프로세스(I/O)"
+
+#: src/popup/content.rs
+msgid "Breakdown"
+msgstr "구성"
+
+#: src/popup/content.rs
+msgid "Modified"
+msgstr "수정됨"
+
+#: src/popup/content.rs
+msgid "Standby"
+msgstr "대기"
+
+#: src/popup/content.rs
+msgid "Free"
+msgstr "사용 가능"
+
+#: src/popup/content.rs
+msgid "Charging"
+msgstr "충전 중"
+
+#: src/popup/content.rs
+msgid "On AC power"
+msgstr "AC 전원 사용 중"
+
+#: src/popup/content.rs
+msgid "On battery"
+msgstr "배터리 사용 중"
+
+#: src/popup/content.rs
+msgid "State"
+msgstr "상태"
+
+#: src/popup/content.rs
+msgid "Time to full"
+msgstr "완충까지 남은 시간"
+
+#: src/popup/content.rs
+msgid "Remaining"
+msgstr "남은 시간"
+
+#: src/popup/content.rs
+msgid "Charge rate"
+msgstr "충전 속도"
+
+#: src/popup/content.rs
+msgid "Discharge rate"
+msgstr "방전 속도"
+
+#: src/popup/content.rs
+msgid "Energy"
+msgstr "에너지"
+
+#: src/popup/content.rs
+msgid "Capacity when new"
+msgstr "새 제품일 때 용량"
+
+#: src/popup/content.rs
+msgid "Health"
+msgstr "상태"
+
+#: src/popup/content.rs
+msgid "Charge cycles"
+msgstr "충전 주기"
+
+#: src/popup/content.rs
+msgid "Application"
+msgstr "앱"
+
+#: src/popup/content.rs
+msgid "Application rate"
+msgstr "앱 프레임 속도"
+
+#: src/popup/content.rs
+msgid "Frame time"
+msgstr "프레임 시간"
+
+#: src/popup/content.rs
+msgid "1% low"
+msgstr "1% 최저"
+
+#: src/popup/content.rs
+msgid "0.1% low"
+msgstr "0.1% 최저"
+
+#: src/popup/content.rs
+msgid "Display ({})"
+msgstr "디스플레이({})"
+
+#: src/popup/content.rs
+msgid "Jitter"
+msgstr "지터"
+
+#: src/popup/content.rs
+msgid "Min / avg / max"
+msgstr "최소 / 평균 / 최대"
+
+#: src/popup/content.rs
+msgid "Processes"
+msgstr "프로세스"
+
+#: src/popup/content.rs
+msgid "Threads"
+msgstr "스레드"
+
+#: src/popup/content.rs
+msgid "Handles"
+msgstr "핸들"
+
+#: src/popup/content.rs
+msgid "Kernel"
+msgstr "커널"
+
+#: src/popup/content.rs
+msgid "Paged pool"
+msgstr "페이징 풀"
+
+#: src/popup/content.rs
+msgid "Non-paged pool"
+msgstr "비페이징 풀"
+
+#: src/popup/content.rs
+msgid "Reserved by hardware"
+msgstr "하드웨어 예약"
+
+#: src/popup/content.rs
+msgid "Since Pulsar started"
+msgstr "Pulsar 시작 이후"
+
+#: src/popup/content.rs
+msgid "Received"
+msgstr "받음"
+
+#: src/popup/content.rs
+msgid "Sent"
+msgstr "보냄"
+
+#: src/popup/content.rs
+msgid "Free space"
+msgstr "사용 가능한 공간"
+
+#: src/popup/content.rs
+msgid "Core temperatures"
+msgstr "코어별 온도"
+
+#: src/popup/content.rs
+msgid "Core power"
+msgstr "코어별 전력"
+
+#: src/popup/content.rs
+msgid "Core clocks"
+msgstr "코어별 클럭"
+
+#: src/popup/content.rs
+msgid "Sustained limit"
+msgstr "지속 전력 제한"
+
+#: src/popup/content.rs
+msgid "Burst limit"
+msgstr "순간 전력 제한"
+
+#: src/popup/content.rs
+msgid "Unlimited"
+msgstr "무제한"
+
+#: src/popup/content.rs
+msgid "Hottest core"
+msgstr "가장 뜨거운 코어"
+
+#: src/popup/content.rs
+msgid "Disk {}"
+msgstr "디스크 {}"
+
+#: src/popup/content.rs
+msgid "{} active · {} used"
+msgstr "활성 {} · 사용 {}"
+
+#: src/popup/content.rs ui/settings.slint
+msgid "Drives"
+msgstr "드라이브"
+
+#: src/popup/content.rs
+msgid "Adapters"
+msgstr "어댑터"
+
+#: src/popup/content.rs
+msgid "No traffic"
+msgstr "트래픽 없음"
+
+#: src/popup/content.rs
+msgid "Fastest core"
+msgstr "가장 빠른 코어"
+
+#: src/popup/content.rs ui/settings.slint
+msgid "Host"
+msgstr "호스트"
+
+#: src/settings/main.rs
+msgid "The app in front"
+msgstr "앞에 있는 앱"
+
+#: src/settings/main.rs
+msgid "Monitor: {}"
+msgstr "모니터: {}"
+
+#: src/settings/main.rs
+msgid "A monitor that is not connected"
+msgstr "연결되지 않은 모니터"
+
+#: src/settings/main.rs ui/settings.slint
+msgid "Default"
+msgstr "기본값"
+
+#: src/settings/main.rs
+msgid "not installed"
+msgstr "설치되지 않음"
+
+#: src/settings/main.rs
+msgid "All hardware adapters"
+msgstr "모든 하드웨어 어댑터"
+
+#: src/settings/main.rs
+msgid "not connected"
+msgstr "연결되지 않음"
+
+#: src/settings/main.rs
+msgid "Same as other items"
+msgstr "다른 항목과 동일"
+
+#: src/settings/main.rs
+msgid "Widget style"
+msgstr "위젯 스타일"
+
+#: src/settings/main.rs
+msgid "Widget detail"
+msgstr "위젯 세부 정보"
+
+#: src/settings/main.rs
+msgid "Windows default ({})"
+msgstr "Windows 기본값({})"
+
+#: src/settings/main.rs
+msgid "Reading every source…"
+msgstr "모든 소스를 읽는 중…"
+
+#: src/settings/main.rs
+msgid "Saved to {}"
+msgstr "{}에 저장됨"
+
+#: src/settings/main.rs
+msgid "Could not save the report: {}"
+msgstr "보고서를 저장할 수 없음: {}"
+
+#: src/settings/main.rs
+msgid "Saved."
+msgstr "저장했습니다."
+
+#: src/settings/main.rs
+msgid "Could not save the theme: {}"
+msgstr "테마를 저장할 수 없음: {}"
+
+#: src/settings/main.rs
+msgid "Could not save the profile: {}"
+msgstr "프로필을 저장할 수 없음: {}"
+
+#: src/settings/main.rs
+msgid "Could not read the profile."
+msgstr "프로필을 읽을 수 없습니다."
+
+#: ui/details.slint
+msgid "Load by thread"
+msgstr "스레드별 부하"
+
+#: ui/details.slint
+msgid "Clock by core"
+msgstr "코어별 클럭"
+
+#: ui/details.slint
+msgid "Temperature by core"
+msgstr "코어별 온도"
+
+#: ui/details.slint
+msgid "Matrix"
+msgstr "매트릭스"
+
+#: ui/details.slint
+msgid "Strips"
+msgstr "스트립"
+
+#: ui/details.slint
+msgid "Rings"
+msgstr "링"
+
+#: ui/details.slint
+msgid "Outer ring: load"
+msgstr "바깥쪽 링: 부하"
+
+#: ui/details.slint
+msgid "Inner ring: temperature"
+msgstr "안쪽 링: 온도"
+
+#: ui/details.slint
+msgid "Centre: GHz"
+msgstr "가운데: GHz"
+
+#: ui/details.slint
+msgid "Centre: load"
+msgstr "가운데: 부하"
+
+#: ui/details.slint
+msgid "Usage"
+msgstr "사용량"
+
+#: ui/details.slint
+msgid "Stick"
+msgstr "막대"
+
+#: ui/details.slint
+msgid "{} used"
+msgstr "{} 사용"
+
+#: ui/details.slint
+msgid "in use of {}"
+msgstr "사용 중(전체 {})"
+
+#: ui/details.slint
+msgid "available"
+msgstr "사용 가능"
+
+#: ui/details.slint
+msgid "committed (white line)"
+msgstr "커밋됨(흰색 선)"
+
+#: ui/details.slint
+msgid "This PC"
+msgstr "내 PC"
+
+#: ui/details.slint
+msgid "Expand all"
+msgstr "모두 펼치기"
+
+#: ui/details.slint
+msgid "Collapse to hardware"
+msgstr "하드웨어 단위로 접기"
+
+#: ui/details.slint
+msgid "Sensor"
+msgstr "센서"
+
+#: ui/details.slint
+msgid "Value"
+msgstr "값"
+
+#: ui/details.slint
+msgid "Min"
+msgstr "최소"
+
+#: ui/details.slint
+msgid "Max"
+msgstr "최대"
+
+#: ui/settings.slint
+msgid "Press keys…"
+msgstr "키를 누르세요…"
+
+#: ui/settings.slint
+msgid "Not set"
+msgstr "설정 안 됨"
+
+#: ui/settings.slint
+msgid "Use default"
+msgstr "기본값 사용"
+
+#: ui/settings.slint
+msgid "Overlay"
+msgstr "오버레이"
+
+#: ui/settings.slint
+msgid "Layout"
+msgstr "레이아웃"
+
+#: ui/settings.slint
+msgid "Theme"
+msgstr "테마"
+
+#: ui/settings.slint
+msgid "Widget"
+msgstr "위젯"
+
+#: ui/settings.slint
+msgid "Readings"
+msgstr "측정"
+
+#: ui/settings.slint
+msgid "Drives and network"
+msgstr "드라이브 및 네트워크"
+
+#: ui/settings.slint
+msgid "App"
+msgstr "앱"
+
+#: ui/settings.slint
+msgid "General"
+msgstr "일반"
+
+#: ui/settings.slint
+msgid "About"
+msgstr "정보"
+
+#: ui/settings.slint
+msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgstr "오버레이에 표시할 항목과 순서, 항목별 색(비워 두면 기본값)을 선택합니다. 항목의 옵션을 열어 그래프 스타일, 색 지정, 팝업을 설정합니다. 작업 표시줄에서 항목을 마우스 오른쪽 단추로 클릭해도 같은 옵션을 사용할 수 있습니다."
+
+#: ui/settings.slint
+msgid "Graph style"
+msgstr "그래프 스타일"
+
+#: ui/settings.slint
+msgid "Colour"
+msgstr "색"
+
+#: ui/settings.slint
+msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgstr "부하에 따른 색을 사용하면 값이 오를수록 항목이 녹색, 노란색, 주황색, 빨간색으로 바뀝니다. 기준은 50, 75, 90%, 70, 80, 90°C, Ping은 50, 100, 200ms입니다. 그 밖의 값은 항목 색을 유지합니다."
+
+#: ui/settings.slint
+msgid "Mode"
+msgstr "모드"
+
+#: ui/settings.slint
+msgid "Graphs, or compact text only."
+msgstr "그래프 또는 간단한 텍스트만 표시합니다."
+
+#: ui/settings.slint
+msgid "Single-line graphs"
+msgstr "한 줄 그래프"
+
+#: ui/settings.slint
+msgid "Put the icon, label and value on one line, for short taskbars."
+msgstr "낮은 작업 표시줄에 맞게 아이콘, 레이블, 값을 한 줄에 표시합니다."
+
+#: ui/settings.slint
+msgid "Labels"
+msgstr "레이블"
+
+#: ui/settings.slint
+msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
+msgstr "전체 이름, 항목당 한 글자(C, H, W, M, G, T, D, P) 또는 레이블 없이 아이콘만 표시합니다."
+
+#: ui/settings.slint
+msgid "Full"
+msgstr "전체"
+
+#: ui/settings.slint
+msgid "Short"
+msgstr "짧게"
+
+#: ui/settings.slint
+msgid "None (icons only)"
+msgstr "없음(아이콘만)"
+
+#: ui/settings.slint
+msgid "An icon before each label, or on its own."
+msgstr "각 레이블 앞에 아이콘을 표시하거나 아이콘만 표시합니다."
+
+#: ui/settings.slint
+msgid "Fade out while a fullscreen game or video is in front."
+msgstr "전체 화면 게임이나 동영상이 앞에 있으면 숨깁니다."
+
+#: ui/settings.slint
+msgid "Text"
+msgstr "텍스트"
+
+#: ui/settings.slint
+msgid "Font"
+msgstr "글꼴"
+
+#: ui/settings.slint
+msgid "Fonts without fixed-width digits may shift slightly as values change."
+msgstr "숫자 너비가 고정되지 않은 글꼴은 값이 바뀔 때 조금씩 흔들릴 수 있습니다."
+
+#: ui/settings.slint
+msgid "Bold"
+msgstr "굵게"
+
+#: ui/settings.slint
+msgid "Font size"
+msgstr "글꼴 크기"
+
+#: ui/settings.slint
+msgid "Points."
+msgstr "포인트 단위입니다."
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "위치"
+
+#: ui/settings.slint
+msgid "Placement"
+msgstr "배치"
+
+#: ui/settings.slint
+msgid "Where the overlay sits on the taskbar."
+msgstr "작업 표시줄에서 오버레이를 둘 위치입니다."
+
+#: ui/settings.slint
+msgid "Next to the tray"
+msgstr "알림 영역 옆"
+
+#: ui/settings.slint
+msgid "Left edge"
+msgstr "왼쪽 가장자리"
+
+#: ui/settings.slint
+msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
+msgstr "오버레이를 끌어서 옮깁니다. 어떤 창 위에서도 잘 보이도록 패널 배경을 추가하세요."
+
+#: ui/settings.slint
+msgid "Reset position"
+msgstr "위치 초기화"
+
+#: ui/settings.slint
+msgid "Offset"
+msgstr "오프셋"
+
+#: ui/settings.slint
+msgid "Extra space in pixels, moving away from the anchor."
+msgstr "기준점에서 떨어뜨릴 추가 간격(픽셀)입니다."
+
+#: ui/settings.slint
+msgid "Tray fallback margin"
+msgstr "알림 영역 대체 여백"
+
+#: ui/settings.slint
+msgid "Used when the tray position cannot be read."
+msgstr "알림 영역 위치를 읽을 수 없을 때 사용합니다."
+
+#: ui/settings.slint
+msgid "Every taskbar"
+msgstr "모든 작업 표시줄"
+
+#: ui/settings.slint
+msgid "Also show on the taskbars of other monitors."
+msgstr "다른 모니터의 작업 표시줄에도 표시합니다."
+
+#: ui/settings.slint
+msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
+msgstr "테마는 항목, 레이블, 값, 타일, 패널 색을 정하며 밝은 작업 표시줄용 변형도 포함합니다. 테마를 선택하면 아래 사용자 지정 색이 지워집니다."
+
+#: ui/settings.slint
+msgid "Save as a theme"
+msgstr "테마로 저장"
+
+#: ui/settings.slint
+msgid "Keeps the current colours as a new theme in the themes folder."
+msgstr "현재 색을 테마 폴더에 새 테마로 저장합니다."
+
+#: ui/settings.slint
+msgid "Name"
+msgstr "이름"
+
+#: ui/settings.slint
+msgid "Save"
+msgstr "저장"
+
+#: ui/settings.slint
+msgid "Themes folder"
+msgstr "테마 폴더"
+
+#: ui/settings.slint
+msgid "Theme files to share or edit. Changes show after choosing the theme again."
+msgstr "공유하거나 편집할 테마 파일입니다. 변경 내용은 테마를 다시 선택하면 반영됩니다."
+
+#: ui/settings.slint
+msgid "Open"
+msgstr "열기"
+
+#: ui/settings.slint
+msgid "Custom colours"
+msgstr "사용자 지정 색"
+
+#: ui/settings.slint
+msgid "Label colour"
+msgstr "레이블 색"
+
+#: ui/settings.slint
+msgid "Empty uses the theme."
+msgstr "비워 두면 테마를 따릅니다."
+
+#: ui/settings.slint
+msgid "Value colour"
+msgstr "값 색"
+
+#: ui/settings.slint
+msgid "Label colour on a light taskbar"
+msgstr "밝은 작업 표시줄의 레이블 색"
+
+#: ui/settings.slint
+msgid "Empty uses the label colour above."
+msgstr "비워 두면 위의 레이블 색을 사용합니다."
+
+#: ui/settings.slint
+msgid "Value colour on a light taskbar"
+msgstr "밝은 작업 표시줄의 값 색"
+
+#: ui/settings.slint
+msgid "Empty uses the value colour above."
+msgstr "비워 두면 위의 값 색을 사용합니다."
+
+#: ui/settings.slint
+msgid "Colour labels by item"
+msgstr "항목 색으로 레이블 표시"
+
+#: ui/settings.slint
+msgid "Draw each label in its item's colour."
+msgstr "각 레이블을 해당 항목의 색으로 표시합니다."
+
+#: ui/settings.slint
+msgid "Accent colour graphs"
+msgstr "강조 색 그래프"
+
+#: ui/settings.slint
+msgid "Draw graphs in your Windows accent colour."
+msgstr "그래프를 Windows 강조 색으로 표시합니다."
+
+#: ui/settings.slint
+msgid "Background"
+msgstr "배경"
+
+#: ui/settings.slint
+msgid "Tile colour"
+msgstr "타일 색"
+
+#: ui/settings.slint
+msgid "Empty uses the theme tint."
+msgstr "비워 두면 테마 색조를 사용합니다."
+
+#: ui/settings.slint
+msgid "Custom tile opacity"
+msgstr "사용자 지정 타일 불투명도"
+
+#: ui/settings.slint
+msgid "{}% — 0% removes the tiles."
+msgstr "{}% — 0%이면 타일을 표시하지 않습니다."
+
+#: ui/settings.slint
+msgid "Using the theme default."
+msgstr "테마 기본값을 사용합니다."
+
+#: ui/settings.slint
+msgid "Panel colour"
+msgstr "패널 색"
+
+#: ui/settings.slint
+msgid "A panel behind the whole overlay. Empty uses the theme."
+msgstr "오버레이 전체 뒤에 표시되는 패널입니다. 비워 두면 테마를 따릅니다."
+
+#: ui/settings.slint
+msgid "Custom panel opacity"
+msgstr "사용자 지정 패널 불투명도"
+
+#: ui/settings.slint
+msgid "Off"
+msgstr "끔"
+
+#: ui/settings.slint
+msgid "Show a graph and details when the mouse rests on an item."
+msgstr "항목에 마우스를 올려 두면 그래프와 세부 정보를 표시합니다."
+
+#: ui/settings.slint
+msgid "Detail"
+msgstr "세부 정보"
+
+#: ui/settings.slint
+msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
+msgstr "간단히는 값과 그래프를, 자세히는 Pulsar가 읽는 모든 정보를 표시합니다. 항목 페이지에서 항목별로 따로 정할 수 있습니다."
+
+#: ui/settings.slint
+msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
+msgstr "팝업 뒤를 흐리게 표시합니다. Windows에서 허용하지 않으면 팝업은 불투명하게 표시됩니다."
+
+#: ui/settings.slint
+msgid "The recent history at the top of each popup."
+msgstr "각 팝업 위쪽에 표시되는 최근 기록입니다."
+
+#: ui/settings.slint
+msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
+msgstr "CPU, 메모리, GPU, 디스크에 표시할 프로세스 수입니다. 0이면 목록을 숨깁니다."
+
+#: ui/settings.slint
+msgid "A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu."
+msgstr "항목마다 그래프와 세부 정보를 보여 주는 바탕 화면 패널로, 계속 열려 있는 팝업과 비슷합니다. 끌어서 옮기고 마우스 오른쪽 단추로 클릭하면 메뉴가 열립니다."
+
+#: ui/settings.slint
+msgid "Show the widget"
+msgstr "위젯 표시"
+
+#: ui/settings.slint
+msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
+msgstr "바탕 화면에 두면 창 뒤에 있다가 바탕 화면을 표시할 때 앞으로 나옵니다."
+
+#: ui/settings.slint
+msgid "On the desktop"
+msgstr "바탕 화면에"
+
+#: ui/settings.slint
+msgid "Always on top"
+msgstr "항상 위"
+
+#: ui/settings.slint
+msgid "Click-through while locked"
+msgstr "잠금 중 클릭 통과"
+
+#: ui/settings.slint
+msgid "Clicks go to whatever is underneath. Unlock it from the tray icon's menu."
+msgstr "클릭이 아래에 있는 창으로 전달됩니다. 알림 영역 아이콘 메뉴에서 잠금을 해제합니다."
+
+#: ui/settings.slint
+msgid "While a fullscreen app is on the widget's monitor."
+msgstr "위젯이 있는 모니터에서 전체 화면 앱이 실행 중일 때"
+
+#: ui/settings.slint
+msgid "Look"
+msgstr "모양"
+
+#: ui/settings.slint
+msgid "Style"
+msgstr "스타일"
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value."
+msgstr "스파크라인: 항목마다 작은 그래프가 있는 한 줄. 타일: 작은 그래프 격자. 미터: 현재 값을 나타내는 막대."
+
+#: ui/settings.slint
+msgid "Sparklines"
+msgstr "스파크라인"
+
+#: ui/settings.slint
+msgid "Tiles"
+msgstr "타일"
+
+#: ui/settings.slint
+msgid "Meters"
+msgstr "미터"
+
+#: ui/settings.slint
+msgid "Tiles show the value and graph only."
+msgstr "타일에는 값과 그래프만 표시됩니다."
+
+#: ui/settings.slint
+msgid "How much each item shows. Colours follow the theme."
+msgstr "각 항목에 표시할 정보의 양입니다. 색은 테마를 따릅니다."
+
+#: ui/settings.slint
+msgid "Width"
+msgstr "너비"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling."
+msgstr "배율 100% 기준 픽셀입니다."
+
+#: ui/settings.slint
+msgid "Background opacity"
+msgstr "배경 불투명도"
+
+#: ui/settings.slint
+msgid "Choose items"
+msgstr "항목 선택"
+
+#: ui/settings.slint
+msgid "Off shows the same items as the taskbar."
+msgstr "끄면 작업 표시줄과 같은 항목을 표시합니다."
+
+#: ui/settings.slint
+msgid "Temperatures and power"
+msgstr "온도 및 전력"
+
+#: ui/settings.slint
+msgid "Sensor service"
+msgstr "센서 서비스"
+
+#: ui/settings.slint
+msgid "CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO."
+msgstr "CPU 온도, CPU 전력, 칩셋 온도는 선택 설치 항목인 Pulsar 센서 서비스와 PawnIO 드라이버에서 가져오며, 둘 다 관리자 권한이 필요합니다. 추가하려면 Pulsar 설치 프로그램을 다시 실행하세요. Intel CPU와 Zen 이후 AMD Ryzen을 지원하며, 칩셋 온도는 Intel에서만 지원됩니다. 이 구성 요소가 없으면 PC가 제공하는 경우 CPU 전력과 온도를 Windows에서 가져옵니다. 프레임 속도는 서비스가 필요하지만 PawnIO는 필요하지 않습니다."
+
+#: ui/settings.slint
+msgid "About PawnIO"
+msgstr "PawnIO 정보"
+
+#: ui/settings.slint
+msgid "Measure"
+msgstr "측정 대상"
+
+#: ui/settings.slint
+msgid "The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it."
+msgstr "앞에 있는 앱은 어느 모니터에 있든 앱이 그리는 프레임 수를 셉니다. 모니터는 어느 앱이 그리든 화면이 바뀌는 횟수를 셉니다."
+
+#: ui/settings.slint
+msgid "Games"
+msgstr "게임"
+
+#: ui/settings.slint
+msgid "Show the strip in games"
+msgstr "게임에서 정보 줄 표시"
+
+#: ui/settings.slint
+msgid "While a game is in front, the frame rate and your taskbar items appear in the top-left corner of its monitor. Borderless and windowed games only."
+msgstr "게임이 앞에 있으면 프레임 속도와 작업 표시줄 항목이 해당 모니터 왼쪽 위에 표시됩니다. 테두리 없는 창 모드와 창 모드 게임만 지원합니다."
+
+#: ui/settings.slint
+msgid "Summary when a game closes"
+msgstr "게임 종료 시 요약"
+
+#: ui/settings.slint
+msgid "A notification with the time played, frame rate and peak temperatures, also saved to sessions.csv in the logs folder."
+msgstr "플레이 시간, 프레임 속도, 최고 온도를 알림으로 표시하고 로그 폴더의 sessions.csv에도 저장합니다."
+
+#: ui/settings.slint
+msgid "Which apps are games"
+msgstr "게임으로 인식할 앱"
+
+#: ui/settings.slint
+msgid "The games Windows recognises, as Game Bar does. To change that for an app, bring it to the front, then right-click Pulsar and use Count as a game."
+msgstr "Game Bar와 마찬가지로 Windows가 인식하는 게임입니다. 앱별로 바꾸려면 앱을 앞으로 가져온 다음 Pulsar를 마우스 오른쪽 단추로 클릭하고 게임으로 간주를 사용하세요."
+
+#: ui/settings.slint
+msgid "Disks"
+msgstr "디스크"
+
+#: ui/settings.slint
+msgid "One combined cell, or a cell per drive."
+msgstr "하나로 합친 칸 또는 드라이브별 칸입니다."
+
+#: ui/settings.slint
+msgid "All disks combined"
+msgstr "모든 디스크 합계"
+
+#: ui/settings.slint
+msgid "Each drive"
+msgstr "드라이브별"
+
+#: ui/settings.slint
+msgid "Drive value"
+msgstr "드라이브 값"
+
+#: ui/settings.slint
+msgid "Used space"
+msgstr "사용한 공간"
+
+#: ui/settings.slint
+msgid "Adapter"
+msgstr "어댑터"
+
+#: ui/settings.slint
+msgid "Count one adapter, or every physical one."
+msgstr "어댑터 하나만 또는 모든 물리 어댑터를 집계합니다."
+
+#: ui/settings.slint
+msgid "Network rates"
+msgstr "네트워크 속도"
+
+#: ui/settings.slint
+msgid "Disk speeds stay in bytes."
+msgstr "디스크 속도는 바이트 단위로 유지됩니다."
+
+#: ui/settings.slint
+msgid "Show the upload rate above the download rate."
+msgstr "업로드 속도를 다운로드 속도 위에 표시합니다."
+
+#: ui/settings.slint
+msgid "An IPv4 address or a name."
+msgstr "IPv4 주소 또는 이름입니다."
+
+#: ui/settings.slint
+msgid "Interval"
+msgstr "간격"
+
+#: ui/settings.slint
+msgid "Milliseconds between pings."
+msgstr "Ping 간격(밀리초)입니다."
+
+#: ui/settings.slint
+msgid "Language"
+msgstr "언어"
+
+#: ui/settings.slint
+msgid "For Pulsar's windows, menus and labels."
+msgstr "Pulsar의 창, 메뉴, 레이블에 사용합니다."
+
+#: ui/settings.slint
+msgid "Start with Windows"
+msgstr "Windows 시작 시 실행"
+
+#: ui/settings.slint
+msgid "Launch Pulsar when you sign in."
+msgstr "로그인할 때 Pulsar를 시작합니다."
+
+#: ui/settings.slint
+msgid "Check for updates"
+msgstr "업데이트 확인"
+
+#: ui/settings.slint
+msgid "Look for a new release once a day. Nothing is downloaded automatically."
+msgstr "하루에 한 번 새 릴리스를 확인합니다. 자동으로 다운로드하지는 않습니다."
+
+#: ui/settings.slint
+msgid "Tray icon"
+msgstr "알림 영역 아이콘"
+
+#: ui/settings.slint
+msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
+msgstr "알림 영역에 Pulsar를 표시합니다. 숨긴 경우 오버레이를 마우스 오른쪽 단추로 클릭해 메뉴를 열거나 Pulsar를 다시 실행해 설정을 엽니다."
+
+#: ui/settings.slint
+msgid "Shortcuts"
+msgstr "바로 가기 키"
+
+#: ui/settings.slint
+msgid "Keyboard shortcuts"
+msgstr "바로 가기 키"
+
+#: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr "입력란을 선택하고 Ctrl, Alt 또는 Win과 함께 키를 누릅니다. Backspace를 누르면 지워집니다. Windows 어디에서나 작동합니다."
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr "Pulsar 표시 또는 숨기기"
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr "바탕 화면 위젯 켜기 또는 끄기"
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr "시스템 세부 정보 열기"
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr "CSV 기록 시작 또는 중지"
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr "다음 프로필로 전환"
+
+#: ui/settings.slint
+msgid "Alerts"
+msgstr "경고"
+
+#: ui/settings.slint
+msgid "CPU temperature (°F)"
+msgstr "CPU 온도(°F)"
+
+#: ui/settings.slint
+msgid "CPU temperature (°C)"
+msgstr "CPU 온도(°C)"
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute. Needs the sensor service."
+msgstr "30초 동안 이 값 이상이 유지될 때. 센서 서비스가 필요합니다."
+
+#: ui/settings.slint
+msgid "GPU temperature (°F)"
+msgstr "GPU 온도(°F)"
+
+#: ui/settings.slint
+msgid "GPU temperature (°C)"
+msgstr "GPU 온도(°C)"
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute."
+msgstr "30초 동안 이 값 이상이 유지될 때."
+
+#: ui/settings.slint
+msgid "Battery charge (%)"
+msgstr "배터리 잔량(%)"
+
+#: ui/settings.slint
+msgid "When it falls to this on battery power."
+msgstr "배터리 전원 사용 중 이 값까지 떨어질 때."
+
+#: ui/settings.slint
+msgid "Drive free space (%)"
+msgstr "드라이브 사용 가능 공간(%)"
+
+#: ui/settings.slint
+msgid "When any drive falls to this."
+msgstr "드라이브 중 하나라도 이 값까지 떨어질 때."
+
+#: ui/settings.slint
+msgid "Sampling"
+msgstr "샘플링"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings."
+msgstr "측정 간격(밀리초)입니다."
+
+#: ui/settings.slint
+msgid "History length"
+msgstr "기록 길이"
+
+#: ui/settings.slint
+msgid "Readings kept for the graphs."
+msgstr "그래프에 보관할 측정값 수입니다."
+
+#: ui/settings.slint
+msgid "Reset"
+msgstr "초기화"
+
+#: ui/settings.slint
+msgid "Reset all settings"
+msgstr "모든 설정 초기화"
+
+#: ui/settings.slint
+msgid "Everything except Start with Windows and the language goes back to its default."
+msgstr "Windows 시작 시 실행과 언어를 제외한 모든 설정을 기본값으로 되돌립니다."
+
+#: ui/settings.slint
+msgid "Start over with the default look and items."
+msgstr "기본 모양과 항목으로 다시 시작합니다."
+
+#: ui/settings.slint
+msgid "Reset…"
+msgstr "초기화…"
+
+#: ui/settings.slint
+msgid "Cancel"
+msgstr "취소"
+
+#: ui/settings.slint
+msgid "A profile keeps what the overlay and widget show and how they look: items, layout, theme, popups, widget, units, drives and network. Language, startup, update interval, games, alerts and shortcuts stay the same in every profile. Switch profiles here or from the Profiles menu."
+msgstr "프로필에는 오버레이와 위젯에 표시할 내용과 모양(항목, 레이아웃, 테마, 팝업, 위젯, 단위, 드라이브, 네트워크)이 저장됩니다. 언어, 시작, 업데이트 간격, 게임, 경고, 바로 가기 키는 모든 프로필에서 같습니다. 여기나 프로필 메뉴에서 프로필을 전환합니다."
+
+#: ui/settings.slint
+msgid "Save as a profile"
+msgstr "프로필로 저장"
+
+#: ui/settings.slint
+msgid "Keeps the current settings under a name. Saving with a profile's name again updates it."
+msgstr "현재 설정을 이름을 붙여 저장합니다. 기존 프로필 이름으로 다시 저장하면 해당 프로필이 업데이트됩니다."
+
+#: ui/settings.slint
+msgid "Profiles folder"
+msgstr "프로필 폴더"
+
+#: ui/settings.slint
+msgid "Profile files to back up or share."
+msgstr "백업하거나 공유할 프로필 파일입니다."
+
+#: ui/settings.slint
+msgid "Saved profiles"
+msgstr "저장된 프로필"
+
+#: ui/settings.slint
+msgid "Current"
+msgstr "현재"
+
+#: ui/settings.slint
+msgid "Apply"
+msgstr "적용"
+
+#: ui/settings.slint
+msgid "Delete"
+msgstr "삭제"
+
+#: ui/settings.slint
+msgid "Pulsar {}"
+msgstr "Pulsar {}"
+
+#: ui/settings.slint
+msgid "A Windows 11 taskbar system monitor."
+msgstr "Windows 11 작업 표시줄 시스템 모니터입니다."
+
+#: ui/settings.slint
+msgid "License"
+msgstr "라이선스"
+
+#: ui/settings.slint
+msgid "GNU General Public License v3.0 or later. Built with Slint."
+msgstr "GNU General Public License v3.0 이상. Slint로 제작되었습니다."
+
+#: ui/settings.slint
+msgid "Settings file"
+msgstr "설정 파일"
+
+#: ui/settings.slint
+msgid "Open folder"
+msgstr "폴더 열기"
+
+#: ui/settings.slint
+msgid "Logs"
+msgstr "로그"
+
+#: ui/settings.slint
+msgid "Diagnostics"
+msgstr "진단"
+
+#: ui/settings.slint
+msgid "Save every reading Pulsar can take to a text file in the logs folder, to attach to an issue. It lists process and network adapter names; read it before sharing."
+msgstr "이슈에 첨부할 수 있도록 Pulsar가 읽을 수 있는 모든 측정값을 로그 폴더의 텍스트 파일로 저장합니다. 프로세스와 네트워크 어댑터 이름이 포함되므로 공유하기 전에 확인하세요."
+
+#: ui/settings.slint
+msgid "Save report"
+msgstr "보고서 저장"
+
+#: ui/settings.slint
+msgid "Source code"
+msgstr "소스 코드"
+
+#: ui/settings.slint
+msgid "Open on GitHub"
+msgstr "GitHub에서 열기"
+
+#: ui/settings.slint
+msgid "Report a problem"
+msgstr "문제 보고"
+
+#: ui/settings.slint
+msgid "Attach pulsar.log, and any crash report, from the logs folder."
+msgstr "로그 폴더의 pulsar.log와 오류 보고서(있는 경우)를 첨부하세요."
+
+#: ui/settings.slint
+msgid "Report an issue"
+msgstr "이슈 보고"
