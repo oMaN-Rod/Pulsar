@@ -615,6 +615,7 @@ export component SettingsWindow inherits Window {
     in-out property <int> labels;
     in-out property <bool> icons;
     in-out property <bool> hide-in-fullscreen;
+    in-out property <bool> attach-to-taskbar;
     in-out property <bool> lock-position;
     in-out property <string> label-color;
     in property <color> label-swatch;
@@ -989,6 +990,15 @@ export component SettingsWindow inherits Window {
                         }
                         Switch {
                             checked <=> root.lock-position;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    if root.position != 2: Divider { }
+                    if root.position != 2: SettingRow {
+                        title: @tr("Attach to the taskbar");
+                        description: @tr("Keeps items visible while Start is open. Turn this off if the taskbar misbehaves; items then hide while Start is open.");
+                        Switch {
+                            checked <=> root.attach-to-taskbar;
                             toggled => { root.changed(); }
                         }
                     }

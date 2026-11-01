@@ -48,6 +48,7 @@ pub struct Form {
     pub position: i32,
     pub lock_position: bool,
     pub hide_in_fullscreen: bool,
+    pub attach_to_taskbar: bool,
     /// 0 full, 1 short, 2 none (icons only).
     pub labels: i32,
     pub icons: bool,
@@ -243,6 +244,7 @@ pub fn to_form(c: &Config) -> Form {
         },
         lock_position: d.lock_position,
         hide_in_fullscreen: d.hide_in_fullscreen,
+        attach_to_taskbar: d.attach_to_taskbar,
         labels: match d.labels {
             LabelStyle::Full => 0,
             LabelStyle::Short => 1,
@@ -404,6 +406,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     };
     d.lock_position = f.lock_position;
     d.hide_in_fullscreen = f.hide_in_fullscreen;
+    d.attach_to_taskbar = f.attach_to_taskbar;
     d.labels = match f.labels {
         1 => LabelStyle::Short,
         2 => LabelStyle::None,
@@ -827,6 +830,7 @@ mod tests {
         c.display.font_family = Some("Bahnschrift".into());
         c.display.font_bold = true;
         c.display.hide_in_fullscreen = false;
+        c.display.attach_to_taskbar = false;
         c.display.position = Position::Floating;
         c.display.float_position = Some([10, 20]);
         c.display.lock_position = true;

@@ -21,6 +21,7 @@ mod text;
 mod theme;
 mod tray;
 mod update;
+mod watchdog;
 mod widget;
 
 use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
@@ -45,9 +46,17 @@ fn main() -> windows::core::Result<()> {
         let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok()?;
     }
-    let Some(_instance) = SingleInstance::acquire(APP_MUTEX) else {
+    let recovered = std::env::args().any(|a| a == watchdog::RECOVERED_ARG);
+    let instance = if recovered {
+        watchdog::acquire_after_restart(APP_MUTEX)
+    } else {
+        SingleInstance::acquire(APP_MUTEX)
+    };
+    let Some(_instance) = instance else {
         // Already running: a second launch opens Settings instead.
-        let _ = launcher::open(launcher::Page::General);
+        if !recovered {
+            let _ = launcher::open(launcher::Page::General);
+        }
         return Ok(());
     };
     if let Some(dir) = paths::logs_dir() {
@@ -55,7 +64,7 @@ fn main() -> windows::core::Result<()> {
         crash::install_panic_hook(dir, "pulsar", VERSION);
     }
     log::info!("Pulsar {VERSION} started");
-    let result = app::run();
+    let result = app::run(recovered);
     log::info!("Pulsar exited");
     result
 }

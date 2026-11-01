@@ -5,6 +5,7 @@ use pulsar_core::config::{
 use pulsar_core::metric::ItemKind;
 use pulsar_core::tr;
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
+use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx, CoUninitialize};
 use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress, LoadLibraryW};
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -678,8 +679,25 @@ pub fn shell_open(target: &str) {
     }
 }
 
+/// Opens `target` off the UI thread: `ShellExecuteW` waits on whatever it
+/// launches, including a UAC prompt.
+pub fn shell_open_detached(target: String) {
+    let opened = std::thread::Builder::new()
+        .name("pulsar-shell-open".into())
+        .spawn(move || unsafe {
+            let com = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+            shell_open(&target);
+            if com.is_ok() {
+                CoUninitialize();
+            }
+        });
+    if let Err(e) = opened {
+        log::warn!("could not open a target: {e}");
+    }
+}
+
 pub fn open_task_manager() {
-    shell_open("taskmgr.exe");
+    shell_open_detached("taskmgr.exe".into());
 }
 
 #[cfg(test)]

@@ -192,7 +192,7 @@ impl Renderer {
     }
 
     pub fn present(&self, hwnd: HWND, surface: &Surface, x: i32, y: i32) -> Result<()> {
-        self.present_alpha(hwnd, surface, x, y, 255)
+        self.present_alpha(hwnd, surface, Some((x, y)), 255)
     }
 
     /// Presents with the whole window's opacity scaled by `alpha`, for fades.
@@ -200,10 +200,10 @@ impl Renderer {
         &self,
         hwnd: HWND,
         surface: &Surface,
-        x: i32,
-        y: i32,
+        at: Option<(i32, i32)>,
         alpha: u8,
     ) -> Result<()> {
+        let at = at.map(|(x, y)| POINT { x, y });
         let blend = BLENDFUNCTION {
             BlendOp: AC_SRC_OVER as u8,
             BlendFlags: 0,
@@ -214,7 +214,7 @@ impl Renderer {
             UpdateLayeredWindow(
                 hwnd,
                 None,
-                Some(&POINT { x, y }),
+                at.as_ref().map(std::ptr::from_ref),
                 Some(&SIZE {
                     cx: surface.width,
                     cy: surface.height,

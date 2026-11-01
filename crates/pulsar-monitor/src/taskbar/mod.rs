@@ -1,15 +1,20 @@
 pub mod hooks;
 pub mod placement;
 
-use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, POINT, RECT};
+use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTONEAREST, MONITORINFO,
     MonitorFromPoint, MonitorFromWindow,
 };
+use windows::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation};
 use windows::Win32::System::Threading::{
-    OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
+    GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_NAME_WIN32,
+    PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
 };
-use windows::Win32::UI::HiDpi::{GetDpiForMonitor, GetDpiForWindow, MDT_EFFECTIVE_DPI};
+use windows::Win32::UI::HiDpi::{
+    AreDpiAwarenessContextsEqual, GetDpiForMonitor, GetDpiForWindow, GetWindowDpiAwarenessContext,
+    MDT_EFFECTIVE_DPI,
+};
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, FindWindowExW, FindWindowW, GW_HWNDPREV, GWL_STYLE, GetClassNameW,
     GetForegroundWindow, GetWindow, GetWindowLongW, GetWindowRect, GetWindowThreadProcessId,
@@ -137,6 +142,38 @@ pub fn process_id(hwnd: HWND) -> u32 {
     let mut pid = 0;
     unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
     pid
+}
+
+pub fn is_elevated() -> bool {
+    unsafe {
+        let mut token = HANDLE::default();
+        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token).is_err() {
+            return false;
+        }
+        let mut elevation = TOKEN_ELEVATION::default();
+        let mut written = 0;
+        let read = GetTokenInformation(
+            token,
+            TokenElevation,
+            Some((&raw mut elevation).cast()),
+            size_of::<TOKEN_ELEVATION>() as u32,
+            &mut written,
+        );
+        let _ = CloseHandle(token);
+        read.is_ok() && elevation.TokenIsElevated != 0
+    }
+}
+
+/// Parenting across processes with different awareness forcibly resets the
+/// awareness of the child's process.
+pub fn same_dpi_awareness(a: HWND, b: HWND) -> bool {
+    unsafe {
+        AreDpiAwarenessContextsEqual(
+            GetWindowDpiAwarenessContext(a),
+            GetWindowDpiAwarenessContext(b),
+        )
+    }
+    .as_bool()
 }
 
 /// True when `taskbar` is above `overlay` in z-order, i.e. covering it.

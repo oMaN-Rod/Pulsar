@@ -356,6 +356,9 @@ pub struct Display {
     pub font_family: Option<String>,
     pub font_bold: bool,
     pub hide_in_fullscreen: bool,
+    /// Makes the overlay a child of the taskbar, so it stays visible while
+    /// Start is open. Otherwise it is a separate window on top of the taskbar.
+    pub attach_to_taskbar: bool,
     /// Top-left corner in physical screen pixels; None centres it above the taskbar.
     pub float_position: Option<[i32; 2]>,
     pub lock_position: bool,
@@ -538,6 +541,7 @@ impl Default for Display {
             font_family: None,
             font_bold: false,
             hide_in_fullscreen: true,
+            attach_to_taskbar: true,
             float_position: None,
             lock_position: false,
         }
@@ -1369,6 +1373,7 @@ panel_opacity = 60
         assert!(!d.graph_inline);
         assert!(c.general.tray_icon);
         assert!(d.hide_in_fullscreen);
+        assert!(d.attach_to_taskbar);
         assert_eq!(
             (
                 d.label_color.as_deref(),

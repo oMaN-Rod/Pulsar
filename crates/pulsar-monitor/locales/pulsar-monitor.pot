@@ -47,6 +47,14 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr ""
 
 #: src/app.rs
+msgid "Pulsar restarted"
+msgstr ""
+
+#: src/app.rs
+msgid "It stopped responding. Its items stay separate from the taskbar until Pulsar next starts."
+msgstr ""
+
+#: src/app.rs
 msgid "Shortcut already in use"
 msgstr ""
 
@@ -1584,6 +1592,14 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Reset position"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Attach to the taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Keeps items visible while Start is open. Turn this off if the taskbar misbehaves; items then hide while Start is open."
 msgstr ""
 
 #: ui/settings.slint

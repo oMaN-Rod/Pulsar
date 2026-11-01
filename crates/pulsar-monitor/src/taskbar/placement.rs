@@ -130,6 +130,22 @@ pub fn place(input: &PlacementInput) -> Placement {
     Placement::At { x, y }
 }
 
+/// Where a child at screen position `at` goes in its parent's coordinates. In
+/// a mirrored parent x runs leftwards from the right edge to the child's right edge.
+pub fn child_position(
+    (x, y): (i32, i32),
+    width: i32,
+    parent: Rect32,
+    mirrored: bool,
+) -> (i32, i32) {
+    let client_x = if mirrored {
+        parent.right - x - width
+    } else {
+        x - parent.left
+    };
+    (client_x, y - parent.top)
+}
+
 /// Floating placement: the saved top-left, pulled fully inside the monitor's
 /// work area; without one, centred just above the taskbar.
 pub fn place_floating(
@@ -515,6 +531,23 @@ mod tests {
                 y: 1032
             }
         );
+    }
+
+    #[test]
+    fn child_position_is_relative_to_the_parent() {
+        assert_eq!(child_position((1500, 1036), 200, TASKBAR, false), (1500, 4));
+        let second = Rect32 {
+            left: -1920,
+            top: 1032,
+            right: 0,
+            bottom: 1080,
+        };
+        assert_eq!(child_position((-400, 1036), 200, second, false), (1520, 4));
+    }
+
+    #[test]
+    fn child_position_mirrors_x_in_a_mirrored_parent() {
+        assert_eq!(child_position((1500, 1036), 200, TASKBAR, true), (220, 4));
     }
 
     #[test]

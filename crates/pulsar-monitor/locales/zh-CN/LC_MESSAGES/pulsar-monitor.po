@@ -50,6 +50,14 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr "点击打开崩溃报告。把它附到 GitHub issue 中有助于修复问题。"
 
 #: src/app.rs
+msgid "Pulsar restarted"
+msgstr "Pulsar 已重新启动"
+
+#: src/app.rs
+msgid "It stopped responding. Its items stay separate from the taskbar until Pulsar next starts."
+msgstr "它停止了响应。在下次启动 Pulsar 之前，其项目将与任务栏保持分离。"
+
+#: src/app.rs
 msgid "Shortcut already in use"
 msgstr "快捷键已被占用"
 
@@ -1588,6 +1596,14 @@ msgstr "拖动监控条即可移动。建议加上面板背景，这样在任何
 #: ui/settings.slint
 msgid "Reset position"
 msgstr "重置位置"
+
+#: ui/settings.slint
+msgid "Attach to the taskbar"
+msgstr "附着到任务栏"
+
+#: ui/settings.slint
+msgid "Keeps items visible while Start is open. Turn this off if the taskbar misbehaves; items then hide while Start is open."
+msgstr "在“开始”菜单打开时保持项目可见。如果任务栏工作异常，请关闭此选项；关闭后，“开始”菜单打开时项目会被隐藏。"
 
 #: ui/settings.slint
 msgid "Offset"

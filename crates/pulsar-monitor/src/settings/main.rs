@@ -309,6 +309,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_position(f.position);
     ui.set_lock_position(f.lock_position);
     ui.set_hide_in_fullscreen(f.hide_in_fullscreen);
+    ui.set_attach_to_taskbar(f.attach_to_taskbar);
     ui.set_labels(f.labels);
     ui.set_icons(f.icons);
     ui.set_label_color(f.label_color.as_str().into());
@@ -464,6 +465,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         position: ui.get_position(),
         lock_position: ui.get_lock_position(),
         hide_in_fullscreen: ui.get_hide_in_fullscreen(),
+        attach_to_taskbar: ui.get_attach_to_taskbar(),
         labels: ui.get_labels(),
         icons: ui.get_icons(),
         label_color: ui.get_label_color().to_string(),

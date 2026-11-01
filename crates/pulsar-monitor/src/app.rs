@@ -2,7 +2,8 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::atomic::Ordering;
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{self, Receiver};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use pulsar_core::alerts::Alerts;
@@ -27,11 +28,12 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
-    GetForegroundWindow, GetMessageW, GetSystemMetrics, KillTimer, MA_NOACTIVATE, MSG,
-    PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SM_CXDRAG, SetTimer, TranslateMessage,
-    WM_CAPTURECHANGED, WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN,
-    WM_LBUTTONUP, WM_MOUSEACTIVATE, WM_MOUSEMOVE, WM_RBUTTONUP, WM_SETCURSOR, WM_SETTINGCHANGE,
-    WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+    GetForegroundWindow, GetMessageW, GetSystemMetrics, IDC_ARROW, KillTimer, LoadCursorW,
+    MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SM_CXDRAG,
+    SetCursor, SetTimer, TranslateMessage, WM_APPCOMMAND, WM_CAPTURECHANGED, WM_CHANGEUISTATE,
+    WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    WM_MOUSEACTIVATE, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_RBUTTONUP,
+    WM_SETCURSOR, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
@@ -61,6 +63,7 @@ use crate::text::Text;
 use crate::theme::Palette;
 use crate::tray::Tray;
 use crate::update;
+use crate::watchdog::Watchdog;
 use crate::widget::{self, Widget};
 
 const TIMER_WATCH: usize = 1;
@@ -157,6 +160,10 @@ pub struct App {
     details: Option<Details>,
     /// Physical drive names, read when a drive temperature popup first opens.
     disk_names: Option<Vec<(u8, String)>>,
+    /// The drive names being read off the UI thread; a sleeping disk can take seconds.
+    disk_names_read: Option<Receiver<Vec<(u8, String)>>>,
+    attach_allowed: bool,
+    watchdog: Watchdog,
     widget: Widget,
     /// The widget being moved with the mouse.
     widget_drag: Option<Drag>,
@@ -193,10 +200,17 @@ struct Paint<'a> {
 
 impl Paint<'_> {
     fn overlay(&mut self, o: &mut Overlay, x: i32, y: i32) -> Result<()> {
+        if !o.alive() {
+            return Ok(());
+        }
         let dpi = o.dpi();
         let hwnd = o.hwnd;
         let alpha = o.alpha;
         let layout = o.layout.clone();
+        let target = o.present_target(x, y);
+        if !o.alive() {
+            return Ok(());
+        }
         let surface = o.surface()?;
         let styles = graph_styles(self.config);
         let d = &self.config.display;
@@ -216,7 +230,7 @@ impl Paint<'_> {
             styles: &styles,
         };
         self.renderer.draw(surface, &frame, self.text)?;
-        self.renderer.present_alpha(hwnd, surface, x, y, alpha)?;
+        self.renderer.present_alpha(hwnd, surface, target, alpha)?;
         o.mark_shown(x, y);
         Ok(())
     }
@@ -229,7 +243,7 @@ const SESSIONS_FILE: &str = "sessions.csv";
 const HOTKEY_BASE: i32 = 1;
 
 impl App {
-    fn new(instance: HINSTANCE, host: HWND) -> Result<Self> {
+    fn new(instance: HINSTANCE, host: HWND, recovered: bool) -> Result<Self> {
         let config_path = config::default_path();
         let loaded = config_path.as_deref().map(config::load);
         let (config, warning) = match loaded {
@@ -248,6 +262,17 @@ impl App {
                 tr!("Select to open the crash report. Attaching it to a GitHub issue helps get it fixed."),
                 report.display().to_string(),
             );
+        }
+        if recovered {
+            log::error!("restarted after not responding; staying separate from the taskbar");
+            tray.warn(
+                tr!("Pulsar restarted"),
+                tr!("It stopped responding. Its items stay separate from the taskbar until Pulsar next starts."),
+            );
+        }
+        let elevated = taskbar::is_elevated();
+        if elevated {
+            log::info!("running elevated; staying separate from the taskbar");
         }
         let translucent = translucent_popups(&config);
         let on_disk = Some(config.clone());
@@ -277,6 +302,9 @@ impl App {
             update_check: None,
             details: None,
             disk_names: None,
+            disk_names_read: None,
+            attach_allowed: !recovered && !elevated,
+            watchdog: Watchdog::new(host),
             widget: Widget::create(instance)?,
             widget_drag: None,
             session_items: Vec::new(),
@@ -376,8 +404,12 @@ impl App {
             found.truncate(1);
         }
         let before = self.overlays.len();
-        self.overlays
-            .retain(|o| found.iter().any(|t| t.hwnd == o.taskbar.hwnd));
+        self.overlays.retain(|o| {
+            if !o.alive() {
+                log::info!("the overlay's window was destroyed with its taskbar");
+            }
+            o.alive() && found.iter().any(|t| t.hwnd == o.taskbar.hwnd)
+        });
         for tb in found {
             match self.overlays.iter_mut().find(|o| o.taskbar.hwnd == tb.hwnd) {
                 Some(o) => o.taskbar = tb,
@@ -400,6 +432,8 @@ impl App {
             }
             self.show(i);
         }
+        self.watchdog
+            .arm(self.overlays.iter().any(Overlay::attached));
         if tray_pending {
             self.schedule_retry();
         } else {
@@ -489,8 +523,20 @@ impl App {
         let covered = self.hidden
             || (self.config.display.hide_in_fullscreen
                 && self.fullscreen.current().contains(&monitor));
+        let wanted = self.attach_allowed && self.config.display.attach_to_taskbar && !floating;
+        if !wanted {
+            self.set_attached(i, false);
+        }
         match placement {
             Placement::At { x, y } if !covered => {
+                // The taskbar clips its children, so an overlay larger than it stays separate.
+                let fits = self.overlays[i].taskbar.rect.covers(&Rect32 {
+                    left: x,
+                    top: y,
+                    right: x + w,
+                    bottom: y + h,
+                });
+                self.set_attached(i, wanted && fits);
                 let o = &mut self.overlays[i];
                 if o.fade_target == 0 {
                     o.fade_target = 255;
@@ -521,6 +567,17 @@ impl App {
         }
     }
 
+    fn set_attached(&mut self, i: usize, attached: bool) {
+        let o = &mut self.overlays[i];
+        if !attached && !o.attached() {
+            return;
+        }
+        self.watchdog.arm(true);
+        self.watchdog.attaching(|| o.attach(attached));
+        self.watchdog
+            .arm(self.overlays.iter().any(Overlay::attached));
+    }
+
     fn start_fade(&self) {
         unsafe { SetTimer(Some(self.host), TIMER_FADE, FADE_MS, None) };
     }
@@ -529,7 +586,7 @@ impl App {
     fn fade_tick(&mut self) {
         let mut running = false;
         for o in &mut self.overlays {
-            if o.alpha == o.fade_target {
+            if o.alpha == o.fade_target || !o.alive() {
                 continue;
             }
             o.alpha = fade::step(o.alpha, o.fade_target, FADE_STEP);
@@ -539,8 +596,12 @@ impl App {
                 } else {
                     let hwnd = o.hwnd;
                     let alpha = o.alpha;
+                    let target = o.present_target(x, y);
+                    if !o.alive() {
+                        continue;
+                    }
                     if let Ok(surface) = o.surface() {
-                        let _ = self.renderer.present_alpha(hwnd, surface, x, y, alpha);
+                        let _ = self.renderer.present_alpha(hwnd, surface, target, alpha);
                     }
                 }
             }
@@ -1200,7 +1261,17 @@ impl App {
 
     fn show_popup(&mut self, kind: ItemKind, anchor: Anchor) {
         if kind == ItemKind::DiskTemp && self.disk_names.is_none() {
-            self.disk_names = Some(disk_names());
+            let reading = self.disk_names_read.get_or_insert_with(|| {
+                let (names, reading) = mpsc::channel();
+                thread::spawn(move || {
+                    let _ = names.send(disk_names());
+                });
+                reading
+            });
+            if let Ok(names) = reading.try_recv() {
+                self.disk_names = Some(names);
+                self.disk_names_read = None;
+            }
         }
         let mut options = PopupOptions::new(&self.config, kind);
         options.disk_names = self.disk_names.as_deref().unwrap_or_default();
@@ -1243,7 +1314,7 @@ impl App {
             return;
         }
         for o in &self.overlays {
-            if o.shown_at.is_some() && taskbar::is_behind(o.hwnd, o.taskbar.hwnd) {
+            if o.shown_at.is_some() && o.is_covered() {
                 o.raise();
             }
         }
@@ -1326,7 +1397,7 @@ impl App {
 
     fn on_balloon_click(&mut self) {
         if let Some(target) = self.tray.target() {
-            menu::shell_open(&target);
+            menu::shell_open_detached(target);
         }
         self.tray.balloon_closed();
     }
@@ -1492,6 +1563,9 @@ impl App {
 
 impl Drop for App {
     fn drop(&mut self) {
+        // Nothing pumps messages now, so Explorer must not be left with children here.
+        self.overlays.clear();
+        self.sampler.retire();
         self.register_appbar(ABM_REMOVE);
     }
 }
@@ -1683,7 +1757,20 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
 
 unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
+        WM_NCDESTROY => {
+            overlay::window_destroyed(hwnd);
+            unsafe { DefWindowProcW(hwnd, msg, wp, lp) }
+        }
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
+        // DefWindowProc passes these to the parent, a blocking call into
+        // Explorer when the overlay is a child of the taskbar.
+        WM_SETCURSOR => {
+            unsafe { SetCursor(LoadCursorW(None, IDC_ARROW).ok()) };
+            LRESULT(1)
+        }
+        WM_MOUSEWHEEL | WM_MOUSEHWHEEL | WM_APPCOMMAND | WM_CONTEXTMENU | WM_CHANGEUISTATE => {
+            LRESULT(0)
+        }
         WM_MOUSEMOVE => {
             let (x, y) = signed_words(lp.0 as usize);
             with_app(|a| {
@@ -1770,7 +1857,7 @@ unsafe extern "system" fn widget_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPAR
     }
 }
 
-pub fn run() -> Result<()> {
+pub fn run(recovered: bool) -> Result<()> {
     let instance: HINSTANCE = unsafe { GetModuleHandleW(None)? }.into();
     let host_class = HSTRING::from(ipc::HOST_CLASS);
     unsafe {
@@ -1804,7 +1891,7 @@ pub fn run() -> Result<()> {
             None,
         )?
     };
-    let app = App::new(instance, host)?;
+    let app = App::new(instance, host, recovered)?;
     APP.with(|cell| *cell.borrow_mut() = Some(app));
     with_app(App::start);
 

@@ -49,6 +49,14 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr "선택하면 오류 보고서를 엽니다. GitHub 이슈에 첨부하면 문제 해결에 도움이 됩니다."
 
 #: src/app.rs
+msgid "Pulsar restarted"
+msgstr "Pulsar가 다시 시작됨"
+
+#: src/app.rs
+msgid "It stopped responding. Its items stay separate from the taskbar until Pulsar next starts."
+msgstr "응답하지 않아 다시 시작했습니다. 다음에 Pulsar를 시작할 때까지 항목이 작업 표시줄과 분리된 상태로 유지됩니다."
+
+#: src/app.rs
 msgid "Shortcut already in use"
 msgstr "이미 사용 중인 바로 가기 키"
 
@@ -1591,6 +1599,14 @@ msgstr "오버레이를 끌어서 옮깁니다. 어떤 창 위에서도 잘 보�
 #: ui/settings.slint
 msgid "Reset position"
 msgstr "위치 초기화"
+
+#: ui/settings.slint
+msgid "Attach to the taskbar"
+msgstr "작업 표시줄에 연결"
+
+#: ui/settings.slint
+msgid "Keeps items visible while Start is open. Turn this off if the taskbar misbehaves; items then hide while Start is open."
+msgstr "시작 메뉴가 열려 있어도 항목이 계속 표시됩니다. 작업 표시줄이 이상하게 동작하면 끄세요. 끄면 시작 메뉴가 열려 있는 동안 항목이 숨겨집니다."
 
 #: ui/settings.slint
 msgid "Offset"

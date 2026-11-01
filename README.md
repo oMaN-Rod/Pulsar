@@ -67,7 +67,7 @@ To remove it, turn off *Start with Windows* in Settings, exit Pulsar, then run `
 
 ## The overlay
 
-Pulsar sits beside the tray or at the left edge of the taskbar, nudged by an offset if you like, or floats anywhere on screen. It survives Explorer restarts, taskbar moves, auto-hide, DPI changes and multiple monitors, and fades out while a fullscreen game or video is in front.
+Pulsar sits beside the tray or at the left edge of the taskbar, nudged by an offset if you like, or floats anywhere on screen. It survives Explorer restarts, taskbar moves, auto-hide, DPI changes and multiple monitors, and fades out while a fullscreen game or video is in front. On the taskbar its items are attached as a child window, which keeps them visible while Start is open; if that ever causes trouble, turn off *Attach to the taskbar* in Settings.
 
 ### Graphs or text
 

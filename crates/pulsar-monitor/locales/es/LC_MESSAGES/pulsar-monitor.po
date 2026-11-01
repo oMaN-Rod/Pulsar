@@ -49,6 +49,14 @@ msgid "Select to open the crash report. Attaching it to a GitHub issue helps get
 msgstr "Selecciona para abrir el informe de error. Adjuntarlo a un issue de GitHub ayuda a corregirlo."
 
 #: src/app.rs
+msgid "Pulsar restarted"
+msgstr "Pulsar se reinició"
+
+#: src/app.rs
+msgid "It stopped responding. Its items stay separate from the taskbar until Pulsar next starts."
+msgstr "Dejó de responder. Sus elementos seguirán separados de la barra de tareas hasta el próximo inicio de Pulsar."
+
+#: src/app.rs
 msgid "Shortcut already in use"
 msgstr "Atajo ya en uso"
 
@@ -1587,6 +1595,14 @@ msgstr "Arrastra la superposición para moverla. Añade un fondo de panel para q
 #: ui/settings.slint
 msgid "Reset position"
 msgstr "Restablecer posición"
+
+#: ui/settings.slint
+msgid "Attach to the taskbar"
+msgstr "Acoplar a la barra de tareas"
+
+#: ui/settings.slint
+msgid "Keeps items visible while Start is open. Turn this off if the taskbar misbehaves; items then hide while Start is open."
+msgstr "Mantiene los elementos visibles mientras Inicio está abierto. Desactívalo si la barra de tareas falla; los elementos se ocultarán mientras Inicio esté abierto."
 
 #: ui/settings.slint
 msgid "Offset"
