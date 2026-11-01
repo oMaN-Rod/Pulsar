@@ -284,7 +284,7 @@ impl Renderer {
             )?;
             let value = cell_value(cell.kind, cell.part, frame.snapshot);
             let color = frame.value_color(cell.kind, cell.part, false);
-            self.text_at(text, &format, &value, cell.value_x, cell.rect.y, color)?;
+            self.text_at(text, &format, &value, cell.value_x, cell.value_y, color)?;
         }
         Ok(())
     }
@@ -322,7 +322,7 @@ impl Renderer {
                     let value_x = x + slot.value_x;
                     self.text_at(text, &small, &value, value_x, y, color(slot.part))?;
                 }
-            } else if cell.kind == ItemKind::Network {
+            } else if cell.kind == ItemKind::Network && !frame.layout.vertical {
                 let [first, second] = network_pair(cell.part, frame.text.upload_on_top);
                 for (part, y) in [(first, top), (second, bottom)] {
                     self.draw_label(text, frame, small_px, cell.kind, part, x, y)?;
@@ -343,7 +343,7 @@ impl Renderer {
 
     fn draw_series(&self, frame: &Frame, cell: &Cell, style: GraphStyle, scale: f32) -> Result<()> {
         let network = network_pair(cell.part, frame.text.upload_on_top);
-        let parts: &[CellPart] = if cell.kind == ItemKind::Network {
+        let parts: &[CellPart] = if cell.kind == ItemKind::Network && !frame.layout.vertical {
             &network
         } else {
             std::slice::from_ref(&cell.part)
@@ -591,6 +591,7 @@ mod tests {
                 icons: config.display.icons,
                 graph_inline: config.display.graph_inline,
                 upload_on_top: config.display.upload_on_top,
+                vertical_bar_px: None,
             },
             &text,
         );

@@ -62,8 +62,10 @@ pub struct Cell {
     pub kind: ItemKind,
     pub part: CellPart,
     pub rect: Rect,
-    /// Text mode: x where the value starts (labels are left-aligned before it).
+    /// Text mode: where the value starts (labels are left-aligned before it,
+    /// or sit on the line above when a vertical taskbar is too narrow for both).
     pub value_x: f32,
+    pub value_y: f32,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -72,6 +74,7 @@ pub struct Layout {
     pub height: f32,
     pub font_px: f32,
     pub cells: Vec<Cell>,
+    pub vertical: bool,
 }
 
 impl Layout {
@@ -94,6 +97,8 @@ pub struct LayoutInput {
     pub icons: bool,
     pub graph_inline: bool,
     pub upload_on_top: bool,
+    /// The width of a vertical taskbar; items then stack from the top.
+    pub vertical_bar_px: Option<f32>,
 }
 
 /// An enabled item and the cells it draws.
@@ -109,6 +114,10 @@ const LABEL_GAP_DIP: f32 = 4.0;
 const TILE_GAP_DIP: f32 = 4.0;
 const MIN_TILE_DIP: f32 = 44.0;
 const MAX_TEXT_ROWS: usize = 3;
+const STACKED_PADDING_DIP: f32 = 2.0;
+const STACKED_ITEM_GAP_DIP: f32 = 6.0;
+const STACKED_TILE_GAP_DIP: f32 = 2.0;
+const MIN_STACKED_TILE_DIP: f32 = 36.0;
 /// Graph tiles draw their text at this fraction of the font size.
 pub const GRAPH_FONT_SCALE: f32 = 0.85;
 
@@ -345,12 +354,19 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
             height,
             font_px,
             cells: Vec::new(),
+            vertical: false,
         };
     }
     let labels = Labels {
         style: input.labels,
         icons: input.icons,
     };
+    if let Some(bar_w) = input.vertical_bar_px {
+        return match input.mode {
+            DisplayMode::Text => stacked_text(items, bar_w, scale, font_px, labels, m),
+            DisplayMode::Graph => stacked_tiles(items, bar_w, scale, font_px, labels, m),
+        };
+    }
     match input.mode {
         DisplayMode::Text => text_layout(items, height, scale, font_px, labels, m),
         DisplayMode::Graph => graph_layout(items, height, scale, font_px, labels, input, m),
@@ -419,16 +435,18 @@ fn text_layout(
             .fold(0.0, f32::max);
         let col_w = label_w + LABEL_GAP_DIP * scale + value_w;
         for (row, &(kind, part)) in column.iter().enumerate() {
+            let y = top + row as f32 * line_h;
             cells.push(Cell {
                 kind,
                 part,
                 rect: Rect {
                     x,
-                    y: top + row as f32 * line_h,
+                    y,
                     w: col_w,
                     h: line_h,
                 },
                 value_x: x + label_w + LABEL_GAP_DIP * scale,
+                value_y: y,
             });
         }
         x += col_w + COLUMN_GAP_DIP * scale;
@@ -439,6 +457,137 @@ fn text_layout(
         height,
         font_px,
         cells,
+        vertical: false,
+    }
+}
+
+/// One column for a vertical taskbar: a label beside its value when the bar
+/// is wide enough, otherwise above it, in a font small enough to fit the width.
+fn stacked_text(
+    items: &[ItemSpec],
+    bar_w: f32,
+    scale: f32,
+    font_px: f32,
+    labels: Labels,
+    m: &dyn TextMeasure,
+) -> Layout {
+    let padding = STACKED_PADDING_DIP * scale;
+    let available = (bar_w - 2.0 * padding).max(1.0);
+    let gap = LABEL_GAP_DIP * scale;
+    let widest_label = |px: f32| {
+        items
+            .iter()
+            .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
+            .map(|(k, p)| label_width(k, p, labels.style, labels.icons, px, m))
+            .fold(0.0, f32::max)
+    };
+    let widest_text = |px: f32| {
+        items
+            .iter()
+            .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
+            .map(|(k, p)| m.width(widest_value(part_metric(k, p).unit()), px))
+            .fold(0.0, f32::max)
+    };
+    let (label_w, value_w) = (widest_label(font_px), widest_text(font_px));
+    let labelled = label_w > 0.0;
+    let beside = !labelled || label_w + gap + value_w <= available;
+    let needed = if !labelled {
+        value_w
+    } else if beside {
+        available
+    } else {
+        label_w.max(value_w)
+    };
+    let font_px = font_px * (available / needed.max(1.0)).min(1.0);
+    let label_w = widest_label(font_px);
+    let line_h = m.line_height(font_px);
+
+    let mut cells = Vec::new();
+    let mut y = padding;
+    for spec in items {
+        for &part in &spec.parts {
+            let (value_x, value_y, h) = if !labelled {
+                (padding, y, line_h)
+            } else if beside {
+                (padding + label_w + gap, y, line_h)
+            } else {
+                (padding, y + line_h, 2.0 * line_h)
+            };
+            cells.push(Cell {
+                kind: spec.kind,
+                part,
+                rect: Rect {
+                    x: padding,
+                    y,
+                    w: available,
+                    h,
+                },
+                value_x,
+                value_y,
+            });
+            y += h;
+        }
+        y += STACKED_ITEM_GAP_DIP * scale;
+    }
+    Layout {
+        width: bar_w,
+        height: y - STACKED_ITEM_GAP_DIP * scale + padding,
+        font_px,
+        cells,
+        vertical: true,
+    }
+}
+
+/// A full-width graph tile per part for a vertical taskbar; network splits
+/// into one tile per direction because both will not fit on one line.
+fn stacked_tiles(
+    items: &[ItemSpec],
+    bar_w: f32,
+    scale: f32,
+    font_px: f32,
+    labels: Labels,
+    m: &dyn TextMeasure,
+) -> Layout {
+    let padding = STACKED_PADDING_DIP * scale;
+    let tile_w = (bar_w - 2.0 * padding).max(1.0);
+    let available = (tile_w - (PADDING_DIP + 1.0) * scale).max(1.0);
+    let small_px = font_px * GRAPH_FONT_SCALE;
+    let widest = items
+        .iter()
+        .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
+        .map(|(k, p)| {
+            label_width(k, p, labels.style, labels.icons, small_px, m)
+                .max(m.width(widest_value(part_metric(k, p).unit()), small_px))
+        })
+        .fold(0.0, f32::max);
+    let small_px = small_px * (available / widest.max(1.0)).min(1.0);
+    let tile_h = (MIN_STACKED_TILE_DIP * scale).max(small_px * 2.6 + 4.0 * scale);
+
+    let mut cells = Vec::new();
+    let mut y = padding;
+    for spec in items {
+        for &part in &spec.parts {
+            cells.push(Cell {
+                kind: spec.kind,
+                part,
+                rect: Rect {
+                    x: padding,
+                    y,
+                    w: tile_w,
+                    h: tile_h,
+                },
+                value_x: padding + PADDING_DIP * scale,
+                value_y: y,
+            });
+            y += tile_h + STACKED_TILE_GAP_DIP * scale;
+        }
+    }
+    Layout {
+        width: bar_w,
+        height: y - STACKED_TILE_GAP_DIP * scale + padding,
+        font_px: small_px / GRAPH_FONT_SCALE,
+        cells,
+        vertical: true,
     }
 }
 
@@ -566,6 +715,7 @@ fn graph_layout(
                     h: tile_h,
                 },
                 value_x: x + padding,
+                value_y: padding,
             });
             x += w + TILE_GAP_DIP * scale;
         }
@@ -576,6 +726,7 @@ fn graph_layout(
         height,
         font_px,
         cells,
+        vertical: false,
     }
 }
 
@@ -608,7 +759,80 @@ mod tests {
             icons: false,
             graph_inline: false,
             upload_on_top: false,
+            vertical_bar_px: None,
         }
+    }
+
+    fn vertical(mode: DisplayMode, bar_w: f32) -> LayoutInput {
+        LayoutInput {
+            vertical_bar_px: Some(bar_w),
+            ..input(mode, bar_w, 96)
+        }
+    }
+
+    #[test]
+    fn narrow_vertical_bar_puts_values_under_labels_in_a_fitting_font() {
+        let l = compute_layout(&specs(&ALL), vertical(DisplayMode::Text, 48.0), &Fixed);
+        assert!(l.vertical);
+        assert_eq!(l.width, 48.0);
+        assert!(
+            l.font_px < 12.0,
+            "99.9 MB/s must shrink to fit: {}",
+            l.font_px
+        );
+        assert!(Fixed.width("99.9 MB/s", l.font_px) <= 44.0 + 0.01);
+        assert_no_overlap(&l);
+        assert_inside(&l);
+        for c in &l.cells {
+            assert_eq!(c.value_x, c.rect.x);
+            assert_eq!(c.value_y, c.rect.y + l.font_px * 1.25);
+        }
+    }
+
+    #[test]
+    fn wide_vertical_bar_keeps_labels_beside_values_at_full_size() {
+        let l = compute_layout(&specs(&ALL), vertical(DisplayMode::Text, 200.0), &Fixed);
+        assert_eq!(l.font_px, 12.0);
+        assert_no_overlap(&l);
+        for c in &l.cells {
+            assert!(c.value_x > c.rect.x);
+            assert_eq!(c.value_y, c.rect.y);
+        }
+    }
+
+    #[test]
+    fn unlabelled_vertical_bar_takes_one_line_per_cell() {
+        let i = LayoutInput {
+            labels: LabelStyle::None,
+            ..vertical(DisplayMode::Text, 48.0)
+        };
+        let l = compute_layout(&specs(&[ItemKind::Cpu, ItemKind::Ram]), i, &Fixed);
+        assert_eq!(l.font_px, 12.0);
+        for c in &l.cells {
+            assert_eq!((c.value_x, c.value_y), (c.rect.x, c.rect.y));
+        }
+    }
+
+    #[test]
+    fn vertical_graph_has_full_width_tiles_with_network_split() {
+        let l = compute_layout(&specs(&ALL), vertical(DisplayMode::Graph, 48.0), &Fixed);
+        assert_no_overlap(&l);
+        assert_inside(&l);
+        let net: Vec<_> = l
+            .cells
+            .iter()
+            .filter(|c| c.kind == ItemKind::Network)
+            .map(|c| c.part)
+            .collect();
+        assert_eq!(net, [CellPart::Down, CellPart::Up]);
+        assert!(l.cells.iter().all(|c| c.rect.w == 44.0));
+        assert!(Fixed.width("99.9 MB/s", l.font_px * GRAPH_FONT_SCALE) <= 39.0 + 0.01);
+    }
+
+    #[test]
+    fn empty_vertical_bar_has_no_width() {
+        let l = compute_layout(&specs(&[]), vertical(DisplayMode::Text, 48.0), &Fixed);
+        assert_eq!(l.width, 0.0);
     }
 
     fn specs(kinds: &[ItemKind]) -> Vec<ItemSpec> {

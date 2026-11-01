@@ -17,6 +17,10 @@ impl Rect32 {
         self.bottom - self.top
     }
 
+    pub fn is_vertical(&self) -> bool {
+        self.height() > self.width()
+    }
+
     /// True when `self` covers all of `other`.
     pub fn covers(&self, other: &Rect32) -> bool {
         self.left <= other.left
@@ -43,7 +47,6 @@ pub struct PlacementInput {
 pub enum HideReason {
     Empty,
     AutoHidden,
-    Vertical,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -61,7 +64,13 @@ fn scaled(dip: i32, dpi: u32) -> i32 {
 /// Right after Explorer starts, and while icons are being added, the tray
 /// reports a zero or out-of-bounds rectangle; it must not be trusted then.
 pub fn tray_is_laid_out(taskbar: &Rect32, tray: Option<&Rect32>) -> bool {
-    tray.is_some_and(|t| t.width() > 0 && t.left > taskbar.left && t.right <= taskbar.right)
+    tray.is_some_and(|t| {
+        if taskbar.is_vertical() {
+            t.height() > 0 && t.top > taskbar.top && t.bottom <= taskbar.bottom
+        } else {
+            t.width() > 0 && t.left > taskbar.left && t.right <= taskbar.right
+        }
+    })
 }
 
 pub fn place(input: &PlacementInput) -> Placement {
@@ -70,16 +79,41 @@ pub fn place(input: &PlacementInput) -> Placement {
     if input.overlay_w <= 0 || tb.width() <= 0 || tb.height() <= 0 || off_monitor {
         return Placement::Hidden(HideReason::Empty);
     }
-    if tb.height() > tb.width() {
-        return Placement::Hidden(HideReason::Vertical);
-    }
-    let visible_h = tb.bottom.min(input.monitor.bottom) - tb.top.max(input.monitor.top);
-    if visible_h < tb.height() / 2 {
+    let vertical = tb.is_vertical();
+    let (visible, thickness) = if vertical {
+        (
+            tb.right.min(input.monitor.right) - tb.left.max(input.monitor.left),
+            tb.width(),
+        )
+    } else {
+        (
+            tb.bottom.min(input.monitor.bottom) - tb.top.max(input.monitor.top),
+            tb.height(),
+        )
+    };
+    if visible < thickness / 2 {
         return Placement::Hidden(HideReason::AutoHidden);
     }
 
     let gap = scaled(GAP_DIP, input.dpi);
     let offset = scaled(input.offset_px, input.dpi);
+    if vertical {
+        let y = match input.position {
+            Position::Left => tb.top + gap + offset,
+            Position::Right | Position::Floating => {
+                let anchor = if tray_is_laid_out(&tb, input.tray.as_ref()) {
+                    input.tray.unwrap().top
+                } else {
+                    tb.bottom - scaled(input.fallback_margin_px, input.dpi)
+                };
+                anchor - gap - input.overlay_h - offset
+            }
+        };
+        return Placement::At {
+            x: tb.left + (tb.width() - input.overlay_w) / 2,
+            y: y.clamp(tb.top, (tb.bottom - input.overlay_h).max(tb.top)),
+        };
+    }
     let x = match input.position {
         Position::Left => tb.left + gap + offset,
         Position::Right | Position::Floating => {
@@ -106,7 +140,9 @@ pub fn place_floating(
     dpi: u32,
 ) -> (i32, i32) {
     let (x, y) = saved.unwrap_or_else(|| {
-        let bottom = taskbar.map_or(work.bottom, |t| t.top.min(work.bottom));
+        let bottom = taskbar
+            .filter(|t| !t.is_vertical())
+            .map_or(work.bottom, |t| t.top.min(work.bottom));
         (
             (work.left + work.right - w) / 2,
             bottom - h - scaled(GAP_DIP, dpi),
@@ -284,7 +320,7 @@ mod tests {
     }
 
     #[test]
-    fn hidden_when_nothing_to_show_or_vertical() {
+    fn hidden_when_nothing_to_show() {
         assert_eq!(
             place(&PlacementInput {
                 overlay_w: 0,
@@ -292,19 +328,124 @@ mod tests {
             }),
             Placement::Hidden(HideReason::Empty)
         );
-        let vertical = Rect32 {
-            left: 0,
-            top: 0,
-            right: 48,
-            bottom: 1080,
+    }
+
+    const LEFT_BAR: Rect32 = Rect32 {
+        left: 0,
+        top: 0,
+        right: 48,
+        bottom: 1080,
+    };
+
+    fn vertical_input() -> PlacementInput {
+        PlacementInput {
+            taskbar: LEFT_BAR,
+            tray: Some(Rect32 {
+                top: 908,
+                ..LEFT_BAR
+            }),
+            overlay_w: 48,
+            overlay_h: 300,
+            ..input()
+        }
+    }
+
+    #[test]
+    fn vertical_right_sits_just_above_the_tray() {
+        assert_eq!(
+            place(&vertical_input()),
+            Placement::At {
+                x: 0,
+                y: 908 - 8 - 300
+            }
+        );
+    }
+
+    #[test]
+    fn vertical_left_starts_at_the_top_after_gap_plus_offset() {
+        let p = place(&PlacementInput {
+            position: Position::Left,
+            offset_px: 10,
+            ..vertical_input()
+        });
+        assert_eq!(p, Placement::At { x: 0, y: 18 });
+    }
+
+    #[test]
+    fn vertical_unlaid_tray_uses_fallback_margin() {
+        for tray in [
+            None,
+            Some(Rect32 {
+                top: 0,
+                bottom: 0,
+                ..LEFT_BAR
+            }),
+        ] {
+            let p = place(&PlacementInput {
+                tray,
+                ..vertical_input()
+            });
+            assert_eq!(
+                p,
+                Placement::At {
+                    x: 0,
+                    y: 1080 - 160 - 8 - 300
+                },
+                "{tray:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn vertical_never_leaves_the_taskbar() {
+        let p = place(&PlacementInput {
+            offset_px: 5000,
+            ..vertical_input()
+        });
+        assert_eq!(p, Placement::At { x: 0, y: 0 });
+        let p = place(&PlacementInput {
+            position: Position::Left,
+            offset_px: 5000,
+            ..vertical_input()
+        });
+        assert_eq!(p, Placement::At { x: 0, y: 780 });
+    }
+
+    #[test]
+    fn vertical_hides_when_slid_off_the_side() {
+        let slid = Rect32 {
+            left: -46,
+            right: 2,
+            ..LEFT_BAR
         };
         assert_eq!(
             place(&PlacementInput {
-                taskbar: vertical,
-                ..input()
+                taskbar: slid,
+                tray: None,
+                ..vertical_input()
             }),
-            Placement::Hidden(HideReason::Vertical)
+            Placement::Hidden(HideReason::AutoHidden)
         );
+    }
+
+    #[test]
+    fn vertical_tray_validity() {
+        let tray = Rect32 {
+            top: 908,
+            ..LEFT_BAR
+        };
+        assert!(tray_is_laid_out(&LEFT_BAR, Some(&tray)));
+        assert!(!tray_is_laid_out(&LEFT_BAR, Some(&LEFT_BAR)));
+    }
+
+    #[test]
+    fn floating_default_ignores_a_vertical_taskbar() {
+        let work = Rect32 {
+            left: 48,
+            ..MONITOR
+        };
+        let (_, y) = place_floating(None, (200, 40), work, Some(LEFT_BAR), 96);
+        assert_eq!(y, 1080 - 40 - 8);
     }
 
     #[test]

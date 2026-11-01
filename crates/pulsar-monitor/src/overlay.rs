@@ -28,7 +28,8 @@ pub fn register_class(instance: HINSTANCE, wndproc: WNDPROC) {
 
 #[derive(Clone, Debug, PartialEq)]
 struct LayoutKey {
-    height: i32,
+    thickness: i32,
+    vertical: bool,
     dpi: u32,
     mode: DisplayMode,
     items: Vec<ItemSpec>,
@@ -109,9 +110,11 @@ impl Overlay {
     }
 
     pub fn update_layout(&mut self, config: &Config, text: &Text) {
+        let bar = self.taskbar.rect;
         let key = LayoutKey {
-            height: (i64::from(self.taskbar.rect.height()) * i64::from(self.dpi())
+            thickness: (i64::from(bar.height().min(bar.width())) * i64::from(self.dpi())
                 / i64::from(self.taskbar.dpi.max(1))) as i32,
+            vertical: self.float_dpi.is_none() && bar.is_vertical(),
             dpi: self.dpi(),
             mode: config.display.mode,
             items: item_specs(config),
@@ -129,13 +132,14 @@ impl Overlay {
             &key.items,
             LayoutInput {
                 mode: key.mode,
-                taskbar_height_px: key.height as f32,
+                taskbar_height_px: key.thickness as f32,
                 dpi: key.dpi,
                 font_size_pt: config.display.font_size_pt,
                 labels: key.labels,
                 icons: key.icons,
                 graph_inline: key.graph_inline,
                 upload_on_top: key.upload_on_top,
+                vertical_bar_px: key.vertical.then_some(key.thickness as f32),
             },
             text,
         );

@@ -212,7 +212,7 @@ impl Paint<'_> {
                 icons: d.icons,
                 upload_on_top: d.upload_on_top,
             },
-            graph_inline: d.graph_inline,
+            graph_inline: d.graph_inline && !layout.vertical,
             styles: &styles,
         };
         self.renderer.draw(surface, &frame, self.text)?;

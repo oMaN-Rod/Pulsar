@@ -77,8 +77,8 @@ pub fn height(content: &PopupContent, m: &Metrics) -> f32 {
     (2.0 * m.pad + m.title_h + m.block_gap + graph + error + blocks - m.block_gap).ceil()
 }
 
-/// Centres the popup over the hovered item, just above the taskbar (below
-/// it when the taskbar is at the top), kept inside the monitor.
+/// Centres the popup on the hovered item, just outside the taskbar: above or
+/// below a horizontal one, beside a vertical one; kept inside the monitor.
 pub fn position(
     anchor: Rect32,
     taskbar: Rect32,
@@ -88,6 +88,23 @@ pub fn position(
     scale: f32,
 ) -> (i32, i32) {
     let gap = (8.0 * scale).round() as i32;
+    if taskbar.is_vertical() {
+        let centre = (anchor.top + anchor.bottom) / 2;
+        let y = (centre - height / 2).clamp(
+            monitor.top + gap,
+            (monitor.bottom - height - gap).max(monitor.top + gap),
+        );
+        let right = taskbar.right + gap;
+        let left = taskbar.left - gap - width;
+        let x = if right + width <= monitor.right {
+            right
+        } else if left >= monitor.left {
+            left
+        } else {
+            monitor.left
+        };
+        return (x, y);
+    }
     let centre = (anchor.left + anchor.right) / 2;
     let x = (centre - width / 2).clamp(
         monitor.left + gap,
@@ -214,6 +231,7 @@ mod tests {
             icons: false,
             graph_inline: false,
             upload_on_top: false,
+            vertical_bar_px: None,
         };
         let specs: Vec<_> = [ItemKind::Cpu, ItemKind::Network]
             .into_iter()
@@ -386,6 +404,44 @@ mod tests {
             bottom: 44,
         };
         assert_eq!(position(anchor, top_bar, MONITOR, 300, 200, 1.0).1, 48 + 8);
+    }
+
+    #[test]
+    fn opens_beside_a_vertical_taskbar() {
+        let anchor = Rect32 {
+            left: 0,
+            top: 500,
+            right: 48,
+            bottom: 540,
+        };
+        let left_bar = Rect32 {
+            left: 0,
+            top: 0,
+            right: 48,
+            bottom: 1080,
+        };
+        assert_eq!(
+            position(anchor, left_bar, MONITOR, 300, 200, 1.0),
+            (48 + 8, 520 - 100)
+        );
+        let right_bar = Rect32 {
+            left: 1872,
+            right: 1920,
+            ..left_bar
+        };
+        assert_eq!(
+            position(anchor, right_bar, MONITOR, 300, 200, 1.0).0,
+            1872 - 8 - 300
+        );
+        let near_end = Rect32 {
+            top: 1040,
+            bottom: 1076,
+            ..anchor
+        };
+        assert_eq!(
+            position(near_end, left_bar, MONITOR, 300, 200, 1.0).1,
+            1080 - 200 - 8
+        );
     }
 
     #[test]
