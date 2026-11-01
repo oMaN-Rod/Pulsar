@@ -128,7 +128,7 @@ msgstr "Procesador"
 msgid "Memory"
 msgstr "Memoria"
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
 msgid "Graphics"
 msgstr "Gráficos"
 
@@ -536,6 +536,10 @@ msgstr "Fabricante de la tarjeta"
 msgid "Revision"
 msgstr "Revisión"
 
+#: src/details/pages.rs ui/details.slint
+msgid "Load"
+msgstr "Carga"
+
 #: src/details/pages.rs
 msgid "Dedicated memory"
 msgstr "Memoria dedicada"
@@ -664,7 +668,7 @@ msgstr "Subida"
 msgid "Packet loss"
 msgstr "Pérdida de paquetes"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Traffic"
 msgstr "Tráfico"
 
@@ -735,10 +739,6 @@ msgstr "Temperaturas"
 #: src/details/pages.rs
 msgid "Core {}"
 msgstr "Núcleo {}"
-
-#: src/details/pages.rs ui/details.slint
-msgid "Load"
-msgstr "Carga"
 
 #: src/details/pages.rs
 msgid "Total"
@@ -1252,7 +1252,7 @@ msgstr "{} activo · {} usado"
 msgid "Drives"
 msgstr "Unidades"
 
-#: src/popup/content.rs
+#: src/popup/content.rs ui/settings.slint
 msgid "Adapters"
 msgstr "Adaptadores"
 
@@ -1280,6 +1280,10 @@ msgstr "Monitor: {}"
 msgid "A monitor that is not connected"
 msgstr "Un monitor que no está conectado"
 
+#: src/settings/main.rs
+msgid "not connected"
+msgstr "no conectado"
+
 #: src/settings/main.rs ui/settings.slint
 msgid "Default"
 msgstr "Predeterminada"
@@ -1287,14 +1291,6 @@ msgstr "Predeterminada"
 #: src/settings/main.rs
 msgid "not installed"
 msgstr "no instalada"
-
-#: src/settings/main.rs
-msgid "All hardware adapters"
-msgstr "Todos los adaptadores físicos"
-
-#: src/settings/main.rs
-msgid "not connected"
-msgstr "no conectado"
 
 #: src/settings/main.rs
 msgid "Same as other items"
@@ -1465,8 +1461,8 @@ msgid "Readings"
 msgstr "Lecturas"
 
 #: ui/settings.slint
-msgid "Drives and network"
-msgstr "Unidades y red"
+msgid "Devices"
+msgstr "Dispositivos"
 
 #: ui/settings.slint
 msgid "App"
@@ -1921,12 +1917,36 @@ msgid "Used space"
 msgstr "Espacio usado"
 
 #: ui/settings.slint
-msgid "Adapter"
-msgstr "Adaptador"
+msgid "GPUs"
+msgstr "GPU"
 
 #: ui/settings.slint
-msgid "Count one adapter, or every physical one."
-msgstr "Cuenta un adaptador, o todos los físicos."
+msgid "One combined cell, or a cell per GPU. GPU temperature follows."
+msgstr "Una celda combinada o una celda por GPU. La temperatura de la GPU hace lo mismo."
+
+#: ui/settings.slint
+msgid "All GPUs combined"
+msgstr "Todas las GPU combinadas"
+
+#: ui/settings.slint
+msgid "Each GPU"
+msgstr "Cada GPU"
+
+#: ui/settings.slint
+msgid "Cards"
+msgstr "Tarjetas"
+
+#: ui/settings.slint
+msgid "Every physical adapter combined, or only the ones you tick. Several get a cell each."
+msgstr "Todos los adaptadores físicos combinados, o solo los que marques. Si son varios, cada uno tiene su celda."
+
+#: ui/settings.slint
+msgid "All hardware adapters"
+msgstr "Todos los adaptadores físicos"
+
+#: ui/settings.slint
+msgid "Chosen adapters"
+msgstr "Adaptadores elegidos"
 
 #: ui/settings.slint
 msgid "Network rates"

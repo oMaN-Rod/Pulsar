@@ -1,9 +1,14 @@
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 use crate::metric::{GpuEngineKind, MetricKey, Snapshot, Source, SourceError, SourceId};
 use crate::pdh::{Counter, PdhError, Query};
 
 pub const ENGINE_COUNTER: &str = r"\GPU Engine(*)\Utilization Percentage";
+
+/// How soon the adapter list is read again after PDH's adapters change; a
+/// driver update or reset gives an adapter a new LUID.
+const ADAPTER_REFRESH: Duration = Duration::from_secs(30);
 
 /// PDH reports "no data" when the GPU objects exist but have no instances
 /// (VMs, RDP sessions, basic display drivers).
@@ -16,6 +21,11 @@ pub struct GpuSource {
     engines: Counter,
     dedicated: Counter,
     shared: Counter,
+    /// Adapter LUIDs in `hardware::gpu::names` order.
+    luids: Vec<u64>,
+    luids_read: Option<Instant>,
+    /// The LUIDs PDH listed when `luids` was read, sorted.
+    present: Vec<u64>,
 }
 
 impl GpuSource {
@@ -38,6 +48,9 @@ impl GpuSource {
             engines,
             dedicated,
             shared,
+            luids: Vec::new(),
+            luids_read: None,
+            present: Vec::new(),
         })
     }
 }
@@ -53,19 +66,41 @@ impl Source for GpuSource {
 }
 
 impl GpuSource {
-    fn sample_counters(&self, out: &mut Snapshot) -> Result<(), PdhError> {
+    fn sample_counters(&mut self, out: &mut Snapshot) -> Result<(), PdhError> {
         self.query.collect()?;
         let usage = aggregate_engines(&self.engines.array()?);
         out.set(MetricKey::GpuUtil, usage.util);
-        for (kind, value) in usage.per_kind {
-            out.set(MetricKey::GpuEngine(kind), value);
+        for (kind, value) in &usage.per_kind {
+            out.set(MetricKey::GpuEngine(*kind), *value);
         }
-        let sum = |c: &Counter| {
-            c.array()
-                .map(|v| v.iter().map(|(_, b)| b.max(0.0)).sum::<f64>())
-        };
-        out.set(MetricKey::GpuDedicatedBytes, sum(&self.dedicated)?);
-        out.set(MetricKey::GpuSharedBytes, sum(&self.shared)?);
+        let dedicated = per_adapter(&self.dedicated.array()?);
+        let shared = per_adapter(&self.shared.array()?);
+        out.set(MetricKey::GpuDedicatedBytes, dedicated.values().sum());
+        out.set(MetricKey::GpuSharedBytes, shared.values().sum());
+
+        let mut present: Vec<u64> = dedicated.keys().copied().collect();
+        present.sort_unstable();
+        if self
+            .luids_read
+            .is_none_or(|t| present != self.present && t.elapsed() >= ADAPTER_REFRESH)
+        {
+            self.luids = crate::hardware::gpu::adapters()
+                .into_iter()
+                .map(|(_, luid)| luid)
+                .collect();
+            self.luids_read = Some(Instant::now());
+            self.present = present;
+        }
+        for (i, luid) in (0..=u8::MAX).zip(&self.luids) {
+            let util = usage.per_adapter.get(luid).copied().unwrap_or(0.0);
+            out.set(MetricKey::GpuAdapterUtil(i), util);
+            if let Some(&bytes) = dedicated.get(luid) {
+                out.set(MetricKey::GpuAdapterDedicatedBytes(i), bytes);
+            }
+            if let Some(&bytes) = shared.get(luid) {
+                out.set(MetricKey::GpuAdapterSharedBytes(i), bytes);
+            }
+        }
         Ok(())
     }
 }
@@ -76,6 +111,32 @@ pub struct GpuUsage {
     pub util: f64,
     pub per_kind: HashMap<GpuEngineKind, f64>,
     pub per_pid: HashMap<u32, f64>,
+    /// Busiest engine on each adapter, by LUID.
+    pub per_adapter: HashMap<u64, f64>,
+}
+
+/// The adapter LUID in an instance name such as
+/// `pid_8_luid_0x00000000_0x0000C5E6_phys_0_eng_3_engtype_3D` or
+/// `luid_0x00000000_0x0000C5E6_phys_0`, high part first.
+pub fn parse_luid(name: &str) -> Option<u64> {
+    let (_, rest) = name.split_once("luid_0x")?;
+    let (high, rest) = rest.split_once("_0x")?;
+    let low = rest.split('_').next()?;
+    let high = u32::from_str_radix(high, 16).ok()?;
+    let low = u32::from_str_radix(low, 16).ok()?;
+    Some((u64::from(high) << 32) | u64::from(low))
+}
+
+/// Sums `GPU Adapter Memory` instances by adapter; a linked adapter lists
+/// one instance per physical part.
+fn per_adapter(samples: &[(String, f64)]) -> HashMap<u64, f64> {
+    let mut out = HashMap::new();
+    for (name, value) in samples {
+        if let Some(luid) = parse_luid(name) {
+            *out.entry(luid).or_default() += value.max(0.0);
+        }
+    }
+    out
 }
 
 /// Parses `pid_1234_luid_0x0_0xC5E6_phys_0_eng_3_engtype_VideoDecode`
@@ -100,7 +161,7 @@ fn engine_kind(engtype: &str) -> GpuEngineKind {
 }
 
 /// Sums per-process utilisation on each physical engine, then reports the
-/// busiest engine per kind, overall, and per process.
+/// busiest engine per kind, overall, per process and per adapter.
 pub fn aggregate_engines(samples: &[(String, f64)]) -> GpuUsage {
     let mut per_engine: HashMap<&str, (GpuEngineKind, f64)> = HashMap::new();
     let mut per_pid_engine: HashMap<(u32, &str), f64> = HashMap::new();
@@ -114,9 +175,14 @@ pub fn aggregate_engines(samples: &[(String, f64)]) -> GpuUsage {
     }
 
     let mut usage = GpuUsage::default();
-    for (kind, total) in per_engine.into_values() {
+    for (engine, (kind, total)) in per_engine {
+        let total = total.min(100.0);
         let slot = usage.per_kind.entry(kind).or_default();
-        *slot = slot.max(total.min(100.0));
+        *slot = slot.max(total);
+        if let Some(luid) = parse_luid(engine) {
+            let slot = usage.per_adapter.entry(luid).or_default();
+            *slot = slot.max(total);
+        }
     }
     usage.util = usage.per_kind.values().copied().fold(0.0, f64::max);
     for ((pid, _), value) in per_pid_engine {
@@ -205,6 +271,43 @@ pub(crate) mod tests {
             Err(SourceError::Unavailable(msg)) => assert_eq!(msg, "GPU counters unavailable"),
             other => panic!("expected Unavailable, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn luids_parse_from_engine_and_memory_instances() {
+        assert_eq!(
+            parse_luid("pid_8_luid_0x00000001_0x0000C5E6_phys_0_eng_3_engtype_3D"),
+            Some(0x1_0000_C5E6)
+        );
+        assert_eq!(
+            parse_luid("luid_0x00000000_0x0001a2b3_phys_1"),
+            Some(0x1_A2B3)
+        );
+        assert_eq!(parse_luid("pid_8_eng_3"), None);
+    }
+
+    #[test]
+    fn each_adapter_reports_its_own_busiest_engine() {
+        let usage = aggregate_engines(&[
+            s("pid_1_luid_0x0_0x1_phys_0_eng_0_engtype_3D", 30.0),
+            s("pid_2_luid_0x0_0x1_phys_0_eng_0_engtype_3D", 25.0),
+            s("pid_3_luid_0x0_0x2_phys_0_eng_5_engtype_Compute_0", 80.0),
+            s("pid_3_luid_0x0_0x2_phys_0_eng_0_engtype_3D", 10.0),
+        ]);
+        assert_eq!(usage.per_adapter[&1], 55.0);
+        assert_eq!(usage.per_adapter[&2], 80.0);
+        assert_eq!(usage.util, 80.0);
+    }
+
+    #[test]
+    fn memory_is_summed_per_adapter() {
+        let memory = per_adapter(&[
+            s("luid_0x0_0x1_phys_0", 100.0),
+            s("luid_0x0_0x2_phys_0", 7.0),
+            s("luid_0x0_0x2_phys_1", 3.0),
+        ]);
+        assert_eq!(memory[&1], 100.0);
+        assert_eq!(memory[&2], 10.0);
     }
 
     #[test]

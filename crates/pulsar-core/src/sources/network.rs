@@ -14,7 +14,7 @@ pub struct NetworkSource {
     sent: Counter,
     hardware: HashSet<String>,
     hardware_refreshed: Option<Instant>,
-    adapter: Option<String>,
+    adapters: Vec<String>,
     totals: Totals,
 }
 
@@ -40,8 +40,9 @@ impl Totals {
 }
 
 impl NetworkSource {
-    /// `adapter` limits the totals to one PDH instance; `None` sums hardware adapters.
-    pub fn new(adapter: Option<String>) -> Result<Self, SourceError> {
+    /// `adapters` are PDH instance names, each read on its own and summed
+    /// for the totals; none sums the hardware adapters.
+    pub fn new(adapters: Vec<String>) -> Result<Self, SourceError> {
         let query = Query::new()?;
         let received = query.add(r"\Network Interface(*)\Bytes Received/sec")?;
         let sent = query.add(r"\Network Interface(*)\Bytes Sent/sec")?;
@@ -52,7 +53,7 @@ impl NetworkSource {
             sent,
             hardware: HashSet::new(),
             hardware_refreshed: None,
-            adapter,
+            adapters,
             totals: Totals::default(),
         })
     }
@@ -83,12 +84,22 @@ impl NetworkSource {
         }
         self.query.collect()?;
         let all = merge_adapters(self.received.array()?, self.sent.array()?);
-        let adapters = match &self.adapter {
-            Some(name) => select_adapter(all, name).ok_or_else(|| {
-                SourceError::Unavailable(crate::tr!("Adapter \"{}\" not found", name))
-            })?,
-            None => select_hardware(all, &self.hardware),
+        let adapters = if self.adapters.is_empty() {
+            select_hardware(all, &self.hardware)
+        } else {
+            select_adapters(all, &self.adapters).ok_or_else(|| {
+                SourceError::Unavailable(crate::tr!(
+                    "Adapter \"{}\" not found",
+                    self.adapters.join(", ")
+                ))
+            })?
         };
+        for (i, name) in (0..=u8::MAX).zip(&self.adapters) {
+            if let Some(a) = adapters.iter().find(|a| &a.name == name) {
+                out.set(MetricKey::NetAdapterDownBps(i), a.down_bps);
+                out.set(MetricKey::NetAdapterUpBps(i), a.up_bps);
+            }
+        }
         let down: f64 = adapters.iter().map(|a| a.down_bps).sum();
         let up: f64 = adapters.iter().map(|a| a.up_bps).sum();
         out.set(MetricKey::NetDownBps, down);
@@ -142,9 +153,13 @@ pub fn select_hardware(adapters: Vec<AdapterRate>, hardware: &HashSet<String>) -
         .collect()
 }
 
-/// Only `name`'s traffic; `None` when that adapter is not present.
-pub fn select_adapter(adapters: Vec<AdapterRate>, name: &str) -> Option<Vec<AdapterRate>> {
-    let kept: Vec<AdapterRate> = adapters.into_iter().filter(|a| a.name == name).collect();
+/// Only the traffic of the adapters `names` lists; `None` when none of
+/// them is present.
+pub fn select_adapters(adapters: Vec<AdapterRate>, names: &[String]) -> Option<Vec<AdapterRate>> {
+    let kept: Vec<AdapterRate> = adapters
+        .into_iter()
+        .filter(|a| names.contains(&a.name))
+        .collect();
     (!kept.is_empty()).then_some(kept)
 }
 
@@ -310,26 +325,53 @@ mod tests {
         );
     }
 
-    #[test]
-    fn a_chosen_adapter_is_the_only_one_counted() {
-        let rate = |name: &str, down: f64| AdapterRate {
+    fn rate(name: &str, down: f64) -> AdapterRate {
+        AdapterRate {
             name: name.into(),
             down_bps: down,
             up_bps: 1.0,
-        };
-        let kept = select_adapter(vec![rate("wifi", 10.0), rate("eth", 5.0)], "eth").unwrap();
+        }
+    }
+
+    #[test]
+    fn a_chosen_adapter_is_the_only_one_counted() {
+        let kept =
+            select_adapters(vec![rate("wifi", 10.0), rate("eth", 5.0)], &["eth".into()]).unwrap();
         assert_eq!(kept.len(), 1);
         assert_eq!(kept[0].down_bps, 5.0);
     }
 
     #[test]
+    fn several_chosen_adapters_are_counted_and_the_rest_left_out() {
+        let kept = select_adapters(
+            vec![rate("wifi", 10.0), rate("eth", 5.0), rate("vpn", 2.0)],
+            &["eth".into(), "wifi".into(), "unplugged".into()],
+        )
+        .unwrap();
+        let names: Vec<&str> = kept.iter().map(|a| a.name.as_str()).collect();
+        assert_eq!(names, ["wifi", "eth"]);
+    }
+
+    #[test]
     fn a_missing_adapter_is_an_error() {
-        let rate = AdapterRate {
-            name: "wifi".into(),
-            down_bps: 1.0,
-            up_bps: 1.0,
-        };
-        assert_eq!(select_adapter(vec![rate], "eth"), None);
+        assert_eq!(
+            select_adapters(vec![rate("wifi", 1.0)], &["eth".into()]),
+            None
+        );
+    }
+
+    #[test]
+    fn each_chosen_adapter_is_reported_by_its_place() {
+        let mut source = NetworkSource::new(hardware_adapters()).unwrap();
+        let mut s = Snapshot::default();
+        std::thread::sleep(Duration::from_millis(500));
+        if source.sample(&mut s).is_ok() {
+            let down = s.get(MetricKey::NetDownBps).unwrap();
+            let each: f64 = (0..source.adapters.len() as u8)
+                .filter_map(|i| s.get(MetricKey::NetAdapterDownBps(i)))
+                .sum();
+            assert!((down - each).abs() < 1e-6, "{down} vs {each}");
+        }
     }
 
     #[test]

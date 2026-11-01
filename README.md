@@ -168,7 +168,7 @@ Eight built-in themes set the item, label, value, tile and panel colours, each w
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
 - temperatures in °C or °F, network rates in bytes or bits per second, and upload shown above download if you prefer
-- each drive as its own item, showing its activity or used space, and one network adapter or all physical ones
+- each drive as its own item, showing its activity or used space; each GPU with its own load and temperature; and all physical network adapters, one, or several side by side
 
 ## Popups
 
@@ -196,11 +196,11 @@ Popups are translucent by default, blurring what is behind them, or solid if you
 | **CPU clock** | average and fastest core | per-core clocks |
 | **Memory** | in use, available, committed, top processes | in use, modified, standby and free as a bar, and the kernel pools |
 | **Chipset temperature** | chipset, CPU, GPU and hottest drive | |
-| **GPU** | temperature, dedicated and shared memory, top processes | engines, fan, power, memory clock, and hot spot and memory temperature where the card has them |
-| **GPU temperature** | fan, power, memory clock, hot spot, memory temperature | |
+| **GPU** | temperature, dedicated and shared memory, each GPU's load, memory and temperature, top processes | engines, fan, power, memory clock, and hot spot and memory temperature where the card has them |
+| **GPU temperature** | fan, power, memory clock, hot spot, memory temperature, each GPU's temperature | |
 | **Disk** | read and write rates, chosen drives, top processes by I/O | free space per drive |
 | **Drive temperature** | each drive, by letter and model | |
-| **Network** | traffic per adapter | totals since Pulsar started |
+| **Network** | traffic per adapter, numbered when each has its own cells | totals since Pulsar started |
 | **Ping** | host, min/avg/max, packet loss | jitter |
 | **Battery** | state, time remaining | charge rate, energy, capacity when new, health, charge cycles, voltage |
 | **Frame rate** | application, frame time, 1% and 0.1% lows, how often its monitor's picture changed | min/avg/max |
@@ -331,9 +331,9 @@ Every option, applied as you change it.
 
 ![Settings, Sensors](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-sensors.png)
 
-**Drives and network:** drives, the network adapter and rates, and the ping host
+**Devices:** drives, GPUs, network adapters and rates, and the ping host
 
-![Settings, Drives and network](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-drives.png)
+![Settings, Devices](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-drives.png)
 
 **Profiles:** save, apply and delete profiles
 

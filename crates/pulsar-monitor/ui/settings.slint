@@ -74,6 +74,13 @@ export struct DriveRow {
     checked: bool,
 }
 
+// A GPU or network adapter that can have cells of its own.
+export struct DeviceRow {
+    label: string,
+    value: string,
+    checked: bool,
+}
+
 // Glyphs from the Segoe Fluent Icons font that ships with Windows 11.
 global Icons {
     out property <string> settings: "\u{E713}";
@@ -646,11 +653,11 @@ export component SettingsWindow inherits Window {
     in-out property <string> profile-name;
     in property <[string]> languages;
     in-out property <int> language-index;
-    in property <[string]> adapters;
-    in-out property <int> adapter-index;
     in property <[string]> frame-monitors;
     in-out property <int> frame-monitor-index;
     in-out property <[DriveRow]> drive-rows;
+    in-out property <[DeviceRow]> gpu-rows;
+    in-out property <[DeviceRow]> adapter-rows;
     in-out property <bool> widget-enabled;
     in-out property <int> widget-layer;
     in-out property <int> widget-style;
@@ -666,6 +673,8 @@ export component SettingsWindow inherits Window {
     in property <[string]> widget-item-details;
     in-out property <bool> per-drive;
     in-out property <bool> drive-used;
+    in-out property <bool> per-gpu;
+    in-out property <bool> per-adapter;
     property <bool> confirm-reset;
 
     // Any edit; the app saves shortly after the last one.
@@ -690,10 +699,14 @@ export component SettingsWindow inherits Window {
     callback reset-all();
     callback reset-position();
     callback drive-toggled(int, bool);
+    callback gpu-toggled(int, bool);
+    callback adapter-toggled(int, bool);
     callback widget-item-toggled(int, bool);
     // Row, which choice (0 style, 1 detail), new index.
     callback widget-item-choice(int, int, int);
     callback per-drive-selected();
+    callback per-gpu-selected();
+    callback per-adapter-selected();
 
     HorizontalLayout {
         // Navigation
@@ -742,7 +755,7 @@ export component SettingsWindow inherits Window {
             }
             NavItem {
                 icon: Icons.drive;
-                label: @tr("Drives and network");
+                label: @tr("Devices");
                 selected: root.tab == 6;
                 clicked => { root.tab = 6; scroll.content-y = 0; }
             }
@@ -1441,7 +1454,7 @@ export component SettingsWindow inherits Window {
             }
 
             if root.tab == 6: Page {
-                title: @tr("Drives and network");
+                title: @tr("Devices");
                 SectionTitle { text: @tr("Disk"); }
                 Card {
                     SettingRow {
@@ -1485,16 +1498,63 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
+                SectionTitle { text: @tr("Graphics"); }
+                Card {
+                    SettingRow {
+                        title: @tr("GPUs");
+                        description: @tr("One combined cell, or a cell per GPU. GPU temperature follows.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("All GPUs combined"), @tr("Each GPU")];
+                            current-index: root.per-gpu ? 1 : 0;
+                            property <bool> wanted: root.per-gpu;
+                            changed wanted => { self.current-index = self.wanted ? 1 : 0; }
+                            selected => {
+                                root.per-gpu = self.current-index == 1;
+                                root.per-gpu-selected();
+                            }
+                        }
+                    }
+                    if root.per-gpu: Divider { }
+                    if root.per-gpu: SettingRow {
+                        title: @tr("Cards");
+                        VerticalLayout {
+                            spacing: 4px;
+                            for gpu[i] in root.gpu-rows: CheckBox {
+                                text: gpu.label;
+                                checked: gpu.checked;
+                                toggled => { root.gpu-toggled(i, self.checked); }
+                            }
+                        }
+                    }
+                }
                 SectionTitle { text: @tr("Network"); }
                 Card {
                     SettingRow {
-                        title: @tr("Adapter");
-                        description: @tr("Count one adapter, or every physical one.");
+                        title: @tr("Traffic");
+                        description: @tr("Every physical adapter combined, or only the ones you tick. Several get a cell each.");
                         ComboBox {
-                            width: 260px;
-                            model: root.adapters;
-                            current-index <=> root.adapter-index;
-                            selected => { root.changed(); }
+                            width: 200px;
+                            model: [@tr("All hardware adapters"), @tr("Chosen adapters")];
+                            current-index: root.per-adapter ? 1 : 0;
+                            property <bool> wanted: root.per-adapter;
+                            changed wanted => { self.current-index = self.wanted ? 1 : 0; }
+                            selected => {
+                                root.per-adapter = self.current-index == 1;
+                                root.per-adapter-selected();
+                            }
+                        }
+                    }
+                    if root.per-adapter: Divider { }
+                    if root.per-adapter: SettingRow {
+                        title: @tr("Adapters");
+                        VerticalLayout {
+                            spacing: 4px;
+                            for adapter[i] in root.adapter-rows: CheckBox {
+                                text: adapter.label;
+                                checked: adapter.checked;
+                                toggled => { root.adapter-toggled(i, self.checked); }
+                            }
                         }
                     }
                     Divider { }

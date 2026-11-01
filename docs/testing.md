@@ -27,6 +27,8 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | GPU temperature on | TEMP roughly matches Task Manager; on a machine without a sensor it shows "—" and the popup explains why |
 | Disks: *Each drive*, then *Used space* | One cell per ticked drive; values match Explorer |
 | Network: choose one adapter, then unplug it | Only that adapter is counted; unplugged shows "—" with the reason |
+| Network: tick two adapters | A numbered ↓/↑ pair per adapter (a tile each in graph mode); the popup lists both by number |
+| GPU: *Each GPU* on a machine with two or more GPUs, with GPU temperature on | GPU1, GPU2… and TEMP1, TEMP2… roughly match each card in Task Manager; the popup and the details window's cards show each card's load |
 | Ping on, with a bad host | The latency cell shows "—" and the popup names the error |
 
 | CPU temperature on, without the sensor service | The cell shows "—" and the popup says the sensor service is not installed |
