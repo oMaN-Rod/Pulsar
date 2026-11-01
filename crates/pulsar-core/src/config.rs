@@ -327,6 +327,10 @@ pub struct Display {
     pub offset_px: i32,
     pub fallback_margin_px: i32,
     pub font_size_pt: f32,
+    /// Text mode gaps in DIPs. A vertical taskbar's item gap is 3/5 of this.
+    pub text_item_gap: i32,
+    pub text_label_gap: i32,
+    pub text_row_gap: i32,
     pub show_on_all_taskbars: bool,
     pub accent_graphs: bool,
     /// A `theme` id; `None` is Windows default.
@@ -523,6 +527,9 @@ impl Default for Display {
             offset_px: 0,
             fallback_margin_px: 160,
             font_size_pt: 9.0,
+            text_item_gap: 10,
+            text_label_gap: 4,
+            text_row_gap: 0,
             show_on_all_taskbars: false,
             accent_graphs: false,
             theme: None,
@@ -587,6 +594,9 @@ impl Config {
         } else {
             9.0
         };
+        d.text_item_gap = d.text_item_gap.clamp(0, 40);
+        d.text_label_gap = d.text_label_gap.clamp(0, 16);
+        d.text_row_gap = d.text_row_gap.clamp(0, 16);
         d.fallback_margin_px = d.fallback_margin_px.clamp(0, 2000);
         d.offset_px = d.offset_px.clamp(-2000, 2000);
         d.tile_opacity = d.tile_opacity.map(|o| o.min(100));
@@ -1210,11 +1220,17 @@ sample_interval_ms = 1
         c.general.sample_interval_ms = 1;
         c.general.history_len = 1_000_000;
         c.display.font_size_pt = f32::NAN;
+        c.display.text_item_gap = 41;
+        c.display.text_label_gap = -1;
+        c.display.text_row_gap = 17;
         c.ping.host = "   ".into();
         let c = c.sanitize();
         assert_eq!(c.general.sample_interval_ms, 500);
         assert_eq!(c.general.history_len, 600);
         assert_eq!(c.display.font_size_pt, 9.0);
+        assert_eq!(c.display.text_item_gap, 40);
+        assert_eq!(c.display.text_label_gap, 0);
+        assert_eq!(c.display.text_row_gap, 16);
         assert_eq!(c.ping.host, "1.1.1.1");
     }
 

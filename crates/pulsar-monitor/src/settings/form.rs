@@ -65,6 +65,9 @@ pub struct Form {
     pub offset_px: i32,
     pub fallback_margin_px: i32,
     pub font_size_pt: i32,
+    pub text_item_gap: i32,
+    pub text_label_gap: i32,
+    pub text_row_gap: i32,
     pub show_on_all_taskbars: bool,
     pub accent_graphs: bool,
     /// A theme id; empty for Windows default.
@@ -261,6 +264,9 @@ pub fn to_form(c: &Config) -> Form {
         offset_px: d.offset_px,
         fallback_margin_px: d.fallback_margin_px,
         font_size_pt: d.font_size_pt.round() as i32,
+        text_item_gap: d.text_item_gap,
+        text_label_gap: d.text_label_gap,
+        text_row_gap: d.text_row_gap,
         show_on_all_taskbars: d.show_on_all_taskbars,
         accent_graphs: d.accent_graphs,
         tile_color: d.tile_color.clone().unwrap_or_default(),
@@ -428,6 +434,9 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     if f.font_size_pt != base.display.font_size_pt.round() as i32 {
         d.font_size_pt = f.font_size_pt as f32;
     }
+    d.text_item_gap = f.text_item_gap;
+    d.text_label_gap = f.text_label_gap;
+    d.text_row_gap = f.text_row_gap;
     d.show_on_all_taskbars = f.show_on_all_taskbars;
     d.accent_graphs = f.accent_graphs;
     d.tile_color = non_empty(&f.tile_color);
@@ -576,11 +585,17 @@ mod tests {
         f.panel_opacity_custom = true;
         f.panel_opacity = 250;
         f.font_size_pt = 99;
+        f.text_item_gap = 99;
+        f.text_label_gap = -1;
+        f.text_row_gap = 99;
         let out = to_config(&f, &c);
         assert_eq!(out.general.sample_interval_ms, 500);
         assert_eq!(out.general.history_len, 10);
         assert_eq!(out.display.panel_opacity, Some(100));
         assert_eq!(out.display.font_size_pt, 20.0);
+        assert_eq!(out.display.text_item_gap, 40);
+        assert_eq!(out.display.text_label_gap, 0);
+        assert_eq!(out.display.text_row_gap, 16);
     }
 
     #[test]

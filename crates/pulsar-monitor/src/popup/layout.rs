@@ -221,7 +221,7 @@ mod tests {
     #[test]
     fn item_rect_spans_all_of_an_items_cells() {
         use pulsar_core::config::DisplayMode;
-        use pulsar_core::layout::{LayoutInput, compute_layout};
+        use pulsar_core::layout::{LayoutInput, TextSpacing, compute_layout};
         let input = LayoutInput {
             mode: DisplayMode::Text,
             taskbar_height_px: 48.0,
@@ -233,6 +233,7 @@ mod tests {
             graph_inline: false,
             upload_on_top: false,
             vertical_bar_px: None,
+            text_spacing: TextSpacing::default(),
         };
         let specs: Vec<_> = [ItemKind::Cpu, ItemKind::Network]
             .into_iter()

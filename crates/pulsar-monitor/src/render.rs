@@ -538,7 +538,7 @@ fn rect_f(r: Rect) -> D2D_RECT_F {
 mod tests {
     use super::*;
     use pulsar_core::config::{Config, DisplayMode};
-    use pulsar_core::layout::{LayoutInput, compute_layout};
+    use pulsar_core::layout::{LayoutInput, TextSpacing, compute_layout};
     use pulsar_core::metric::MetricKey;
 
     fn pixels(surface: &Surface) -> Vec<u32> {
@@ -593,6 +593,7 @@ mod tests {
                 graph_inline: config.display.graph_inline,
                 upload_on_top: config.display.upload_on_top,
                 vertical_bar_px: None,
+                text_spacing: TextSpacing::default(),
             },
             &text,
         );

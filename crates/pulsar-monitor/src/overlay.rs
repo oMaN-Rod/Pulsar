@@ -1,5 +1,5 @@
 use pulsar_core::config::{Config, DisplayMode, LabelStyle, Units};
-use pulsar_core::layout::{ItemSpec, Layout, LayoutInput, compute_layout, item_specs};
+use pulsar_core::layout::{ItemSpec, Layout, LayoutInput, TextSpacing, compute_layout, item_specs};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -49,6 +49,7 @@ struct LayoutKey {
     icons: bool,
     graph_inline: bool,
     upload_on_top: bool,
+    text_spacing: TextSpacing,
     /// Temperatures change width with their unit.
     units: Units,
 }
@@ -297,6 +298,7 @@ impl Overlay {
             icons: config.display.icons,
             graph_inline: config.display.graph_inline,
             upload_on_top: config.display.upload_on_top,
+            text_spacing: TextSpacing::from(&config.display),
             units: config.units,
         };
         if self.key.as_ref() == Some(&key) {
@@ -315,6 +317,7 @@ impl Overlay {
                 graph_inline: key.graph_inline,
                 upload_on_top: key.upload_on_top,
                 vertical_bar_px: key.vertical.then_some(key.thickness as f32),
+                text_spacing: key.text_spacing,
             },
             text,
         );
@@ -459,6 +462,25 @@ mod tests {
         overlay.float_dpi = None;
         overlay.update_layout(&config, &text);
         assert_eq!(overlay.size().1, 48);
+    }
+
+    #[test]
+    fn changing_a_text_gap_redoes_the_layout() {
+        let mut overlay = overlay();
+        overlay.taskbar.rect = Rect32 {
+            left: 0,
+            top: 1032,
+            right: 1920,
+            bottom: 1080,
+        };
+        let mut config = Config::default();
+        config.display.mode = DisplayMode::Text;
+        let text = Text::new(None, false).unwrap();
+        overlay.update_layout(&config, &text);
+        let width = overlay.layout.width;
+        config.display.text_item_gap = 40;
+        overlay.update_layout(&config, &text);
+        assert!(overlay.layout.width > width);
     }
 
     #[test]

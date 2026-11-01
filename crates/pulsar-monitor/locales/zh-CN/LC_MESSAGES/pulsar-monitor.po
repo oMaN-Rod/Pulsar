@@ -1570,6 +1570,30 @@ msgid "Points. On the taskbar, the text of two-line graphs only grows as far as 
 msgstr "单位为磅。在任务栏上，双行图表的文字只会增大到任务栏能容纳的大小。"
 
 #: ui/settings.slint
+msgid "Space between items"
+msgstr "项目间距"
+
+#: ui/settings.slint
+msgid "Pixels between columns, or between items on a vertical taskbar. A wider overlay can cover taskbar buttons."
+msgstr "列之间的像素数；在垂直任务栏上为项目之间的像素数。覆盖层变宽后可能会遮挡任务栏按钮。"
+
+#: ui/settings.slint
+msgid "Space after labels"
+msgstr "标签后间距"
+
+#: ui/settings.slint
+msgid "Pixels between a label and its value. A wider overlay can cover taskbar buttons."
+msgstr "标签与其数值之间的像素数。覆盖层变宽后可能会遮挡任务栏按钮。"
+
+#: ui/settings.slint
+msgid "Space between rows"
+msgstr "行间距"
+
+#: ui/settings.slint
+msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
+msgstr "行之间的像素数。在任务栏上，间距会缩小到可容纳的大小，绝不会减少行数。"
+
+#: ui/settings.slint
 msgid "Position"
 msgstr "位置"
 

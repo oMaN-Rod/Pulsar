@@ -1,7 +1,7 @@
 //! Pure layout: turns the enabled items, display mode and taskbar metrics into
 //! rectangles. All values are physical pixels.
 
-use crate::config::{Config, DisplayMode, DriveValue, LabelStyle};
+use crate::config::{Config, Display, DisplayMode, DriveValue, LabelStyle};
 use crate::format::widest_value;
 use crate::metric::{ItemKind, MetricKey};
 
@@ -101,6 +101,31 @@ pub struct LayoutInput {
     pub upload_on_top: bool,
     /// The width of a vertical taskbar; items then stack from the top.
     pub vertical_bar_px: Option<f32>,
+    pub text_spacing: TextSpacing,
+}
+
+/// Text mode gaps, in DIPs.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct TextSpacing {
+    pub item_gap: f32,
+    pub label_gap: f32,
+    pub row_gap: f32,
+}
+
+impl From<&Display> for TextSpacing {
+    fn from(d: &Display) -> Self {
+        Self {
+            item_gap: d.text_item_gap as f32,
+            label_gap: d.text_label_gap as f32,
+            row_gap: d.text_row_gap as f32,
+        }
+    }
+}
+
+impl Default for TextSpacing {
+    fn default() -> Self {
+        Self::from(&Display::default())
+    }
 }
 
 /// An enabled item and the cells it draws.
@@ -111,13 +136,11 @@ pub struct ItemSpec {
 }
 
 const PADDING_DIP: f32 = 4.0;
-const COLUMN_GAP_DIP: f32 = 10.0;
-const LABEL_GAP_DIP: f32 = 4.0;
+const INLINE_GAP_DIP: f32 = 4.0;
 const TILE_GAP_DIP: f32 = 4.0;
 const MIN_TILE_DIP: f32 = 44.0;
 const MAX_TEXT_ROWS: usize = 3;
 const STACKED_PADDING_DIP: f32 = 2.0;
-const STACKED_ITEM_GAP_DIP: f32 = 6.0;
 const STACKED_TILE_GAP_DIP: f32 = 2.0;
 const MIN_STACKED_TILE_DIP: f32 = 36.0;
 /// Graph tiles draw their text at this fraction of the font size.
@@ -362,12 +385,24 @@ fn item_parts(kind: ItemKind, config: &Config, gpus: &[u8]) -> Vec<CellPart> {
 pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasure) -> Layout {
     let scale = input.dpi as f32 / 96.0;
     let font_px = input.font_size_pt * input.dpi as f32 / 72.0;
-    let height = if input.fit_font && input.vertical_bar_px.is_none() {
+    let fit = input.fit_font && input.vertical_bar_px.is_none();
+    let height = if fit {
         input
             .taskbar_height_px
             .max(fitted_height(input, scale, font_px, m))
     } else {
         input.taskbar_height_px
+    };
+    let rows = text_rows(
+        height,
+        fit,
+        input.text_spacing.row_gap * scale,
+        PADDING_DIP * scale,
+        m.line_height(font_px),
+    );
+    let height = match input.mode {
+        DisplayMode::Text => rows.height,
+        DisplayMode::Graph => height,
     };
     if items.is_empty() {
         return Layout {
@@ -384,12 +419,16 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
     };
     if let Some(bar_w) = input.vertical_bar_px {
         return match input.mode {
-            DisplayMode::Text => stacked_text(items, bar_w, scale, font_px, labels, m),
+            DisplayMode::Text => {
+                stacked_text(items, bar_w, scale, font_px, labels, input.text_spacing, m)
+            }
             DisplayMode::Graph => stacked_tiles(items, bar_w, scale, font_px, labels, m),
         };
     }
     match input.mode {
-        DisplayMode::Text => text_layout(items, height, scale, font_px, labels, m),
+        DisplayMode::Text => {
+            text_layout(items, rows, scale, font_px, labels, input.text_spacing, m)
+        }
         DisplayMode::Graph => graph_layout(items, height, scale, font_px, labels, input, m),
     }
 }
@@ -410,6 +449,34 @@ fn fitted_height(input: LayoutInput, scale: f32, font_px: f32, m: &dyn TextMeasu
         }
     };
     (content + 2.0 * padding).ceil()
+}
+
+struct TextRows {
+    height: f32,
+    count: usize,
+    gap: f32,
+}
+
+/// Rows are counted before the row gap, so a gap can't drop one, and a height
+/// grown to hold the gaps can't add one. The gap then shrinks to what fits.
+fn text_rows(height: f32, grow: bool, gap: f32, padding: f32, line_h: f32) -> TextRows {
+    // A height fitted to whole rows must not lose one to float rounding.
+    let count =
+        (((height - 2.0 * padding) / line_h + 1e-3).floor() as usize).clamp(1, MAX_TEXT_ROWS);
+    let spare = |height: f32| (height - 2.0 * padding - count as f32 * line_h).max(0.0);
+    let gaps = (count - 1) as f32;
+    let missing = gaps * gap - spare(height);
+    let height = if grow && missing > 0.0 {
+        (height + missing).ceil()
+    } else {
+        height
+    };
+    let gap = if count > 1 {
+        gap.min(spare(height) / gaps)
+    } else {
+        0.0
+    };
+    TextRows { height, count, gap }
 }
 
 /// Packs items into columns of `rows` cells, column-major. An item's parts
@@ -450,18 +517,23 @@ fn columns(items: &[ItemSpec], rows: usize) -> Vec<Vec<(ItemKind, CellPart)>> {
 
 fn text_layout(
     items: &[ItemSpec],
-    height: f32,
+    rows: TextRows,
     scale: f32,
     font_px: f32,
     labels: Labels,
+    spacing: TextSpacing,
     m: &dyn TextMeasure,
 ) -> Layout {
     let padding = PADDING_DIP * scale;
     let line_h = m.line_height(font_px);
-    // A height fitted to whole rows must not lose one to float rounding.
-    let rows =
-        (((height - 2.0 * padding) / line_h + 1e-3).floor() as usize).clamp(1, MAX_TEXT_ROWS);
-    let top = ((height - rows as f32 * line_h) / 2.0).max(0.0);
+    let label_gap = spacing.label_gap * scale;
+    let item_gap = spacing.item_gap * scale;
+    let TextRows {
+        height,
+        count: rows,
+        gap,
+    } = rows;
+    let top = ((height - rows as f32 * line_h - (rows - 1) as f32 * gap) / 2.0).max(0.0);
 
     let mut cells = Vec::new();
     let mut x = padding;
@@ -474,9 +546,9 @@ fn text_layout(
             .iter()
             .map(|&(k, p)| m.width(widest_value(part_metric(k, p).unit()), font_px))
             .fold(0.0, f32::max);
-        let col_w = label_w + LABEL_GAP_DIP * scale + value_w;
+        let col_w = label_w + label_gap + value_w;
         for (row, &(kind, part)) in column.iter().enumerate() {
-            let y = top + row as f32 * line_h;
+            let y = top + row as f32 * (line_h + gap);
             cells.push(Cell {
                 kind,
                 part,
@@ -486,13 +558,13 @@ fn text_layout(
                     w: col_w,
                     h: line_h,
                 },
-                value_x: x + label_w + LABEL_GAP_DIP * scale,
+                value_x: x + label_w + label_gap,
                 value_y: y,
             });
         }
-        x += col_w + COLUMN_GAP_DIP * scale;
+        x += col_w + item_gap;
     }
-    let width = x - COLUMN_GAP_DIP * scale + padding;
+    let width = x - item_gap + padding;
     Layout {
         width,
         height,
@@ -510,11 +582,14 @@ fn stacked_text(
     scale: f32,
     font_px: f32,
     labels: Labels,
+    spacing: TextSpacing,
     m: &dyn TextMeasure,
 ) -> Layout {
     let padding = STACKED_PADDING_DIP * scale;
     let available = (bar_w - 2.0 * padding).max(1.0);
-    let gap = LABEL_GAP_DIP * scale;
+    let gap = spacing.label_gap * scale;
+    let row_gap = spacing.row_gap * scale;
+    let item_gap = spacing.item_gap * 3.0 / 5.0 * scale;
     let widest_label = |px: f32| {
         items
             .iter()
@@ -546,7 +621,10 @@ fn stacked_text(
     let mut cells = Vec::new();
     let mut y = padding;
     for spec in items {
-        for &part in &spec.parts {
+        for (i, &part) in spec.parts.iter().enumerate() {
+            if i > 0 {
+                y += row_gap;
+            }
             let (value_x, value_y, h) = if !labelled {
                 (padding, y, line_h)
             } else if beside {
@@ -568,11 +646,11 @@ fn stacked_text(
             });
             y += h;
         }
-        y += STACKED_ITEM_GAP_DIP * scale;
+        y += item_gap;
     }
     Layout {
         width: bar_w,
-        height: y - STACKED_ITEM_GAP_DIP * scale + padding,
+        height: y - item_gap + padding,
         font_px,
         cells,
         vertical: true,
@@ -684,7 +762,7 @@ pub fn inline_slots(
         ItemKind::Network => network_pair(part, text.upload_on_top).to_vec(),
         _ => vec![part],
     };
-    let gap = LABEL_GAP_DIP * scale;
+    let gap = INLINE_GAP_DIP * scale;
     let mut slots = Vec::with_capacity(parts.len());
     let mut x = 0.0;
     for part in parts {
@@ -805,6 +883,7 @@ mod tests {
             graph_inline: false,
             upload_on_top: false,
             vertical_bar_px: None,
+            text_spacing: TextSpacing::default(),
         }
     }
 
@@ -1000,6 +1079,251 @@ mod tests {
                 compute_layout(&specs(&ALL), fitted, &Fixed),
                 compute_layout(&specs(&ALL), i, &Fixed)
             );
+        }
+    }
+
+    const WIDEST: TextSpacing = TextSpacing {
+        item_gap: 40.0,
+        label_gap: 16.0,
+        row_gap: 16.0,
+    };
+    const TIGHTEST: TextSpacing = TextSpacing {
+        item_gap: 0.0,
+        label_gap: 0.0,
+        row_gap: 0.0,
+    };
+    const BARS: [(f32, u32); 6] = [
+        (32.0, 96),
+        (48.0, 96),
+        (76.0, 96),
+        (60.0, 120),
+        (72.0, 144),
+        (84.0, 168),
+    ];
+
+    fn spaced(mut i: LayoutInput, spacing: TextSpacing) -> Layout {
+        i.text_spacing = spacing;
+        compute_layout(&specs(&ALL), i, &Fixed)
+    }
+
+    #[test]
+    fn default_spacing_matches_the_config_defaults() {
+        let d = Config::default().display;
+        assert_eq!(
+            (d.text_item_gap, d.text_label_gap, d.text_row_gap),
+            (10, 4, 0)
+        );
+        assert_eq!(
+            TextSpacing::default(),
+            TextSpacing {
+                item_gap: 10.0,
+                label_gap: 4.0,
+                row_gap: 0.0
+            }
+        );
+    }
+
+    #[test]
+    fn default_spacing_keeps_todays_text_positions() {
+        // Labels 18px, values 24px, 4px between them: 46px columns, 10px apart.
+        let items = [ItemKind::Cpu, ItemKind::Ram, ItemKind::Gpu];
+        let l = compute_layout(&specs(&items), input(DisplayMode::Text, 48.0, 96), &Fixed);
+        let at: Vec<_> = l.cells.iter().map(|c| (c.rect.x, c.rect.y)).collect();
+        assert_eq!(at, [(4.0, 9.0), (4.0, 24.0), (60.0, 9.0)]);
+        assert_eq!(l.cells[0].value_x, 26.0);
+        assert_eq!((l.width, l.height), (110.0, 48.0));
+    }
+
+    #[test]
+    fn default_spacing_keeps_todays_vertical_positions() {
+        // One 15px line per cell, 6px between items, and none inside one.
+        let items = [ItemKind::Cpu, ItemKind::Network, ItemKind::Ram];
+        let mut i = vertical(DisplayMode::Text, 200.0);
+        let at = |i| {
+            let l = compute_layout(&specs(&items), i, &Fixed);
+            let ys: Vec<_> = l.cells.iter().map(|c| c.rect.y).collect();
+            (ys, l.height)
+        };
+        assert_eq!(at(i), (vec![2.0, 23.0, 38.0, 59.0], 76.0));
+        i.dpi = 144;
+        i.font_size_pt = 6.0;
+        assert_eq!(at(i), (vec![3.0, 27.0, 42.0, 66.0], 84.0));
+    }
+
+    #[test]
+    fn spacing_leaves_graphs_alone() {
+        for (bar, dpi) in BARS {
+            for inline in [false, true] {
+                for fit_font in [false, true] {
+                    let mut i = input(DisplayMode::Graph, bar, dpi);
+                    i.graph_inline = inline;
+                    i.fit_font = fit_font;
+                    assert_eq!(spaced(i, WIDEST), spaced(i, TextSpacing::default()));
+                }
+            }
+        }
+        for bar in [48.0, 76.0, 200.0] {
+            let i = vertical(DisplayMode::Graph, bar);
+            assert_eq!(spaced(i, WIDEST), spaced(i, TextSpacing::default()));
+        }
+    }
+
+    #[test]
+    fn item_and_label_gaps_widen_columns_at_any_scale() {
+        for (bar, dpi) in BARS {
+            let i = input(DisplayMode::Text, bar, dpi);
+            let (base, wide) = (spaced(i, TextSpacing::default()), spaced(i, WIDEST));
+            assert!(wide.width > base.width, "{bar} {dpi}");
+            let scale = dpi as f32 / 96.0;
+            let c = |l: &Layout| l.cells[0].value_x - l.cells[0].rect.x;
+            assert!((c(&wide) - c(&base) - 12.0 * scale).abs() < 0.01);
+        }
+    }
+
+    #[test]
+    fn no_overlap_at_the_extremes() {
+        let cases = BARS.into_iter().flat_map(|(bar, dpi)| {
+            [
+                input(DisplayMode::Text, bar, dpi),
+                LayoutInput {
+                    fit_font: true,
+                    ..input(DisplayMode::Text, bar, dpi)
+                },
+                LayoutInput {
+                    dpi,
+                    ..vertical(DisplayMode::Text, bar)
+                },
+                LayoutInput {
+                    dpi,
+                    ..vertical(DisplayMode::Text, 3.0 * bar)
+                },
+            ]
+        });
+        for mut i in cases {
+            for pt in [6.0, 9.0, 13.0, 20.0] {
+                i.font_size_pt = pt;
+                for spacing in [WIDEST, TIGHTEST] {
+                    let l = spaced(i, spacing);
+                    assert_eq!(l.cells.len(), ALL.len() + 1);
+                    assert_no_overlap(&l);
+                    if Fixed.line_height(l.font_px) <= l.height {
+                        assert_inside(&l);
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_row_gap_never_changes_the_docked_row_count() {
+        for (bar, dpi) in BARS {
+            for pt in 6..=20 {
+                let mut i = input(DisplayMode::Text, bar, dpi);
+                i.font_size_pt = pt as f32;
+                let (base, wide) = (spaced(i, TextSpacing::default()), spaced(i, WIDEST));
+                assert_eq!(rows(&wide), rows(&base), "{bar} {dpi} {pt}");
+                assert_eq!(wide.height, bar);
+                assert_rows_stay_within_padding(&wide, dpi);
+            }
+        }
+    }
+
+    #[test]
+    fn a_docked_row_gap_shrinks_to_what_fits() {
+        // Two 15px rows on a 48px bar leave 10px inside the padding.
+        let i = input(DisplayMode::Text, 48.0, 96);
+        let row_y = |gap| {
+            let l = spaced(
+                i,
+                TextSpacing {
+                    row_gap: gap,
+                    ..TextSpacing::default()
+                },
+            );
+            (l.cells[0].rect.y, l.cells[1].rect.y)
+        };
+        assert_eq!(row_y(0.0), (9.0, 24.0));
+        assert_eq!(row_y(4.0), (7.0, 26.0));
+        assert_eq!(row_y(10.0), (4.0, 29.0));
+        assert_eq!(row_y(16.0), (4.0, 29.0));
+    }
+
+    #[test]
+    fn a_floating_row_gap_grows_the_height_and_keeps_the_rows() {
+        for (bar, dpi) in BARS {
+            let scale = dpi as f32 / 96.0;
+            for pt in 6..=20 {
+                let mut i = input(DisplayMode::Text, bar, dpi);
+                i.fit_font = true;
+                i.font_size_pt = pt as f32;
+                let (base, wide) = (spaced(i, TextSpacing::default()), spaced(i, WIDEST));
+                assert_eq!(rows(&wide), rows(&base), "{bar} {dpi} {pt}");
+                assert_eq!(wide.height, wide.height.ceil());
+                assert_inside(&wide);
+                assert_rows_stay_within_padding(&wide, dpi);
+                let ys = wide.cells.iter().map(|c| c.rect.y);
+                let drawn = ys.clone().fold(f32::MIN, f32::max) - ys.fold(f32::MAX, f32::min);
+                let full =
+                    (rows(&wide) - 1) as f32 * (Fixed.line_height(wide.font_px) + 16.0 * scale);
+                assert!((drawn - full).abs() < 0.01, "{bar} {dpi} {pt}");
+            }
+        }
+    }
+
+    #[test]
+    fn a_floating_row_gap_that_fits_does_not_grow_the_overlay() {
+        // At 6pt, three 10px rows leave 10px inside a 48px bar's padding.
+        let mut i = input(DisplayMode::Text, 48.0, 96);
+        i.fit_font = true;
+        i.font_size_pt = 6.0;
+        let gap = |row_gap| TextSpacing {
+            row_gap,
+            ..TextSpacing::default()
+        };
+        assert_eq!(spaced(i, gap(5.0)).height, 48.0);
+        assert_eq!(spaced(i, gap(6.0)).height, 50.0);
+    }
+
+    #[test]
+    fn a_vertical_bar_keeps_its_rows_and_font_at_the_widest_gaps() {
+        for bar in [48.0, 76.0, 200.0, 400.0] {
+            for pt in [6.0, 9.0, 20.0] {
+                let mut i = vertical(DisplayMode::Text, bar);
+                i.font_size_pt = pt;
+                let (base, wide) = (spaced(i, TextSpacing::default()), spaced(i, WIDEST));
+                assert_eq!(wide.cells.len(), base.cells.len());
+                assert_eq!(rows(&wide), rows(&base), "{bar} {pt}");
+                assert_eq!(wide.font_px, base.font_px, "{bar} {pt}");
+                assert_eq!(wide.width, bar);
+                assert!(wide.height > base.height);
+            }
+        }
+    }
+
+    #[test]
+    fn a_vertical_bar_spaces_items_by_three_fifths_of_the_item_gap() {
+        let items = [ItemKind::Cpu, ItemKind::Network];
+        let mut i = vertical(DisplayMode::Text, 200.0);
+        i.text_spacing = TextSpacing {
+            item_gap: 40.0,
+            label_gap: 4.0,
+            row_gap: 3.0,
+        };
+        let l = compute_layout(&specs(&items), i, &Fixed);
+        let ys: Vec<_> = l.cells.iter().map(|c| c.rect.y).collect();
+        assert_eq!(ys, [2.0, 2.0 + 15.0 + 24.0, 2.0 + 15.0 + 24.0 + 15.0 + 3.0]);
+    }
+
+    fn assert_rows_stay_within_padding(l: &Layout, dpi: u32) {
+        let padding = PADDING_DIP * dpi as f32 / 96.0;
+        let bottom = l
+            .cells
+            .iter()
+            .map(|c| c.rect.y + c.rect.h)
+            .fold(0.0, f32::max);
+        if rows(l) > 1 {
+            assert!(l.cells[0].rect.y >= padding - 0.01, "{:?}", l.cells[0]);
+            assert!(bottom <= l.height - padding + 0.01, "{bottom} {}", l.height);
         }
     }
 

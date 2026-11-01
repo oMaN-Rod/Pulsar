@@ -595,6 +595,9 @@ export component SettingsWindow inherits Window {
     in-out property <int> offset-px;
     in-out property <int> fallback-margin-px;
     in-out property <int> font-size-pt;
+    in-out property <int> text-item-gap;
+    in-out property <int> text-label-gap;
+    in-out property <int> text-row-gap;
     in-out property <bool> show-on-all-taskbars;
     in-out property <bool> accent-graphs;
     in-out property <string> tile-color;
@@ -980,6 +983,45 @@ export component SettingsWindow inherits Window {
                             minimum: 6;
                             maximum: 20;
                             value <=> root.font-size-pt;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    if root.mode == 1: Divider { }
+                    OptionalRow {
+                        shown: root.mode == 1;
+                        title: @tr("Space between items");
+                        description: @tr("Pixels between columns, or between items on a vertical taskbar. A wider overlay can cover taskbar buttons.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 40;
+                            value <=> root.text-item-gap;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    if root.mode == 1: Divider { }
+                    OptionalRow {
+                        shown: root.mode == 1;
+                        title: @tr("Space after labels");
+                        description: @tr("Pixels between a label and its value. A wider overlay can cover taskbar buttons.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 16;
+                            value <=> root.text-label-gap;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    if root.mode == 1: Divider { }
+                    OptionalRow {
+                        shown: root.mode == 1;
+                        title: @tr("Space between rows");
+                        description: @tr("Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 16;
+                            value <=> root.text-row-gap;
                             edited => { root.changed(); }
                         }
                     }

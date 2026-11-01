@@ -1569,6 +1569,30 @@ msgid "Points. On the taskbar, the text of two-line graphs only grows as far as 
 msgstr "Puntos. En la barra de tareas, el texto de los gráficos de dos líneas solo crece hasta donde cabe en la barra."
 
 #: ui/settings.slint
+msgid "Space between items"
+msgstr "Espacio entre elementos"
+
+#: ui/settings.slint
+msgid "Pixels between columns, or between items on a vertical taskbar. A wider overlay can cover taskbar buttons."
+msgstr "Píxeles entre columnas, o entre elementos en una barra de tareas vertical. Una superposición más ancha puede tapar botones de la barra de tareas."
+
+#: ui/settings.slint
+msgid "Space after labels"
+msgstr "Espacio tras las etiquetas"
+
+#: ui/settings.slint
+msgid "Pixels between a label and its value. A wider overlay can cover taskbar buttons."
+msgstr "Píxeles entre una etiqueta y su valor. Una superposición más ancha puede tapar botones de la barra de tareas."
+
+#: ui/settings.slint
+msgid "Space between rows"
+msgstr "Espacio entre filas"
+
+#: ui/settings.slint
+msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
+msgstr "Píxeles entre filas. En la barra de tareas se reduce a lo que quepa y nunca elimina una fila."
+
+#: ui/settings.slint
 msgid "Position"
 msgstr "Posición"
 

@@ -394,6 +394,9 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_offset_px(f.offset_px);
     ui.set_fallback_margin_px(f.fallback_margin_px);
     ui.set_font_size_pt(f.font_size_pt);
+    ui.set_text_item_gap(f.text_item_gap);
+    ui.set_text_label_gap(f.text_label_gap);
+    ui.set_text_row_gap(f.text_row_gap);
     ui.set_show_on_all_taskbars(f.show_on_all_taskbars);
     ui.set_accent_graphs(f.accent_graphs);
     ui.set_tile_color(f.tile_color.as_str().into());
@@ -478,6 +481,9 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         offset_px: ui.get_offset_px(),
         fallback_margin_px: ui.get_fallback_margin_px(),
         font_size_pt: ui.get_font_size_pt(),
+        text_item_gap: ui.get_text_item_gap(),
+        text_label_gap: ui.get_text_label_gap(),
+        text_row_gap: ui.get_text_row_gap(),
         show_on_all_taskbars: ui.get_show_on_all_taskbars(),
         accent_graphs: ui.get_accent_graphs(),
         tile_color: ui.get_tile_color().to_string(),

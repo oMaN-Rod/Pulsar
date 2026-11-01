@@ -1573,6 +1573,30 @@ msgid "Points. On the taskbar, the text of two-line graphs only grows as far as 
 msgstr "포인트 단위입니다. 작업 표시줄에서는 두 줄 그래프의 글자가 작업 표시줄에 들어가는 크기까지만 커집니다."
 
 #: ui/settings.slint
+msgid "Space between items"
+msgstr "항목 간격"
+
+#: ui/settings.slint
+msgid "Pixels between columns, or between items on a vertical taskbar. A wider overlay can cover taskbar buttons."
+msgstr "열 사이의 픽셀 수이며, 세로 작업 표시줄에서는 항목 사이의 픽셀 수입니다. 오버레이가 넓어지면 작업 표시줄 단추를 가릴 수 있습니다."
+
+#: ui/settings.slint
+msgid "Space after labels"
+msgstr "레이블 뒤 간격"
+
+#: ui/settings.slint
+msgid "Pixels between a label and its value. A wider overlay can cover taskbar buttons."
+msgstr "레이블과 값 사이의 픽셀 수입니다. 오버레이가 넓어지면 작업 표시줄 단추를 가릴 수 있습니다."
+
+#: ui/settings.slint
+msgid "Space between rows"
+msgstr "행 간격"
+
+#: ui/settings.slint
+msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
+msgstr "행 사이의 픽셀 수입니다. 작업 표시줄에서는 들어가는 만큼 줄어들며 행을 없애지 않습니다."
+
+#: ui/settings.slint
 msgid "Position"
 msgstr "위치"
 
