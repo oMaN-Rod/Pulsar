@@ -270,14 +270,44 @@ pub fn item_specs(config: &Config) -> Vec<ItemSpec> {
     } else {
         config.gpu_indexes(crate::hardware::gpu::names())
     };
-    config
-        .enabled_items()
-        .into_iter()
-        .map(|kind| ItemSpec {
-            kind,
-            parts: item_parts(kind, config, &gpus),
-        })
-        .collect()
+    specs_with(config, &gpus)
+}
+
+/// `item_specs` with `gpus`, the GPUs with cells of their own, already known.
+fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
+    let kinds = config.enabled_items();
+    let is_gpu = |k: &ItemKind| matches!(k, ItemKind::Gpu | ItemKind::GpuTemp);
+    // With both on, each GPU's load and temperature sit side by side, where
+    // the first of the two items is.
+    let paired = !gpus.is_empty() && kinds.iter().filter(|k| is_gpu(k)).count() == 2;
+    let mut specs = Vec::with_capacity(kinds.len());
+    for &kind in &kinds {
+        if !(paired && is_gpu(&kind)) {
+            specs.push(ItemSpec {
+                kind,
+                parts: item_parts(kind, config, gpus),
+            });
+        } else if !specs.iter().any(|s| is_gpu(&s.kind)) {
+            let order: Vec<ItemKind> = kinds.iter().copied().filter(is_gpu).collect();
+            for &i in gpus {
+                specs.extend(order.iter().map(|&kind| ItemSpec {
+                    kind,
+                    parts: vec![CellPart::Gpu(i)],
+                }));
+            }
+        }
+    }
+    specs
+}
+
+/// One GPU's load and temperature, which share a text column.
+fn gpu_pair(a: &[(ItemKind, CellPart)], b: &[(ItemKind, CellPart)]) -> bool {
+    matches!(
+        (a, b),
+        (&[(ka, pa @ CellPart::Gpu(_))], &[(kb, pb)])
+            if pa == pb && ka != kb
+                && [ka, kb].iter().all(|k| matches!(k, ItemKind::Gpu | ItemKind::GpuTemp))
+    )
 }
 
 /// The cells `kind` draws; `gpus` are the GPUs with cells of their own.
@@ -329,26 +359,35 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
 
 /// Packs items into columns of `rows` cells, column-major. An item's parts
 /// (network ↓ and ↑) are kept together when they fit in a column; with
-/// several adapters, each adapter's pair is.
+/// several adapters, each adapter's pair is, and so is each GPU's load and
+/// temperature.
 fn columns(items: &[ItemSpec], rows: usize) -> Vec<Vec<(ItemKind, CellPart)>> {
-    let mut columns: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
+    let mut groups: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
     for spec in items {
         let together = if spec.kind == ItemKind::Network {
             2
         } else {
             spec.parts.len()
         };
-        for group in spec.parts.chunks(together.max(1)) {
-            let free = columns.last().map_or(0, |c| rows - c.len());
-            if free == 0 || (group.len() > free && group.len() <= rows) {
+        for parts in spec.parts.chunks(together.max(1)) {
+            let group: Vec<_> = parts.iter().map(|&p| (spec.kind, p)).collect();
+            match groups.last_mut() {
+                Some(last) if gpu_pair(last, &group) => last.extend(group),
+                _ => groups.push(group),
+            }
+        }
+    }
+    let mut columns: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
+    for group in groups {
+        let free = columns.last().map_or(0, |c| rows - c.len());
+        if free == 0 || (group.len() > free && group.len() <= rows) {
+            columns.push(Vec::with_capacity(rows));
+        }
+        for cell in group {
+            if columns.last().is_some_and(|c| c.len() == rows) {
                 columns.push(Vec::with_capacity(rows));
             }
-            for &part in group {
-                if columns.last().is_some_and(|c| c.len() == rows) {
-                    columns.push(Vec::with_capacity(rows));
-                }
-                columns.last_mut().unwrap().push((spec.kind, part));
-            }
+            columns.last_mut().unwrap().push(cell);
         }
     }
     columns
@@ -887,6 +926,57 @@ mod tests {
             label(ItemKind::Gpu, LabelStyle::None),
             "2",
             "the number stays"
+        );
+    }
+
+    #[test]
+    fn each_gpus_load_and_temperature_sit_side_by_side() {
+        let mut c = Config::default();
+        let order = [ItemKind::Gpu, ItemKind::Cpu, ItemKind::GpuTemp];
+        c.items.retain(|i| order.contains(&i.kind));
+        c.items
+            .sort_by_key(|i| order.iter().position(|&k| k == i.kind));
+        c.items.iter_mut().for_each(|i| i.enabled = true);
+        let cells = |specs: &[ItemSpec]| {
+            specs
+                .iter()
+                .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
+                .collect::<Vec<_>>()
+        };
+        let items = specs_with(&c, &[0, 2]);
+        assert_eq!(
+            cells(&items),
+            [
+                (ItemKind::Gpu, CellPart::Gpu(0)),
+                (ItemKind::GpuTemp, CellPart::Gpu(0)),
+                (ItemKind::Gpu, CellPart::Gpu(2)),
+                (ItemKind::GpuTemp, CellPart::Gpu(2)),
+                (ItemKind::Cpu, CellPart::Main),
+            ]
+        );
+        let mut items_after_cpu = specs(&[ItemKind::Cpu]);
+        items_after_cpu.extend(items.into_iter().filter(|s| s.kind != ItemKind::Cpu));
+        let l = compute_layout(&items_after_cpu, input(DisplayMode::Text, 48.0, 96), &Fixed);
+        assert_no_overlap(&l);
+        let x = |kind, i| {
+            l.cells
+                .iter()
+                .find(|c| c.kind == kind && c.part == CellPart::Gpu(i))
+                .unwrap()
+                .rect
+                .x
+        };
+        for i in [0, 2] {
+            assert_eq!(x(ItemKind::Gpu, i), x(ItemKind::GpuTemp, i), "GPU {i}");
+        }
+        c.items.retain(|i| i.kind != ItemKind::GpuTemp);
+        assert_eq!(
+            cells(&specs_with(&c, &[0, 2]))[..2],
+            [
+                (ItemKind::Gpu, CellPart::Gpu(0)),
+                (ItemKind::Gpu, CellPart::Gpu(2))
+            ],
+            "load alone keeps its cells together"
         );
     }
 
