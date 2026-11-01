@@ -191,6 +191,18 @@ impl Palette {
                 items.push((kind, part, color));
             }
         }
+        // Each GPU's load and temperature share a colour of its own, turned
+        // from the GPU colour by the card's place in the adapter list.
+        let gpu = items
+            .iter()
+            .find(|(k, _, _)| *k == ItemKind::Gpu)
+            .map_or(text, |(_, _, c)| *c);
+        for (i, degrees) in (0..=u8::MAX).zip(CARD_TURNS) {
+            let color = turn_hue(gpu, degrees);
+            for kind in [ItemKind::Gpu, ItemKind::GpuTemp] {
+                items.push((kind, CellPart::Gpu(i), color));
+            }
+        }
         Self {
             text,
             label,
@@ -243,11 +255,14 @@ impl Palette {
     }
 
     pub fn graph(&self, kind: ItemKind, part: CellPart) -> Color {
-        let part = part.base();
-        self.items
-            .iter()
-            .find(|(k, p, _)| *k == kind && *p == part)
-            .map(|(_, _, c)| *c)
+        let find = |part| {
+            self.items
+                .iter()
+                .find(|(k, p, _)| *k == kind && *p == part)
+                .map(|(_, _, c)| *c)
+        };
+        find(part)
+            .or_else(|| find(part.base()))
             .unwrap_or(self.text)
     }
 
@@ -259,6 +274,42 @@ impl Palette {
         } else {
             self.label
         }
+    }
+}
+
+/// Hue turns for each GPU card, spread so the first few stay far apart.
+const CARD_TURNS: [f32; 8] = [0.0, 180.0, 90.0, 270.0, 45.0, 225.0, 135.0, 315.0];
+
+/// `c` with its hue turned by `degrees`, keeping saturation and brightness.
+fn turn_hue(c: Color, degrees: f32) -> Color {
+    let max = c.r.max(c.g).max(c.b);
+    let min = c.r.min(c.g).min(c.b);
+    let chroma = max - min;
+    if chroma <= f32::EPSILON {
+        return c;
+    }
+    let sector = if max == c.r {
+        (c.g - c.b) / chroma
+    } else if max == c.g {
+        (c.b - c.r) / chroma + 2.0
+    } else {
+        (c.r - c.g) / chroma + 4.0
+    };
+    let h = (sector * 60.0 + degrees).rem_euclid(360.0) / 60.0;
+    let x = chroma * (1.0 - (h % 2.0 - 1.0).abs());
+    let (r, g, b) = match h as u32 {
+        0 => (chroma, x, 0.0),
+        1 => (x, chroma, 0.0),
+        2 => (0.0, chroma, x),
+        3 => (0.0, x, chroma),
+        4 => (x, 0.0, chroma),
+        _ => (chroma, 0.0, x),
+    };
+    Color {
+        r: r + min,
+        g: g + min,
+        b: b + min,
+        a: c.a,
     }
 }
 
@@ -485,6 +536,40 @@ mod tests {
             p.graph(ItemKind::Disk, CellPart::DriveUsed(b'D')),
             p.graph(ItemKind::Disk, CellPart::Main)
         );
+    }
+
+    #[test]
+    fn each_gpu_card_has_one_colour_for_load_and_temperature() {
+        let p = Palette::new(false, &Config::default(), None, &Theme::windows());
+        let card = |kind, i| p.graph(kind, CellPart::Gpu(i));
+        assert_eq!(
+            card(ItemKind::Gpu, 0),
+            p.graph(ItemKind::Gpu, CellPart::Main)
+        );
+        for i in [0, 1, 2] {
+            assert_eq!(card(ItemKind::GpuTemp, i), card(ItemKind::Gpu, i));
+        }
+        assert_ne!(card(ItemKind::Gpu, 1), card(ItemKind::Gpu, 0));
+        assert_ne!(card(ItemKind::Gpu, 2), card(ItemKind::Gpu, 1));
+    }
+
+    #[test]
+    fn hue_turns_keep_saturation_and_brightness() {
+        let close = |a: Color, b: Color| {
+            [(a.r, b.r), (a.g, b.g), (a.b, b.b)]
+                .iter()
+                .all(|(x, y)| (x - y).abs() < 1.0 / 255.0)
+        };
+        let pink = Color::rgb(0xFF, 0x6F, 0xB5);
+        assert!(close(turn_hue(pink, 0.0), pink));
+        assert!(close(turn_hue(pink, 360.0), pink));
+        assert!(close(turn_hue(pink, 180.0), Color::rgb(0x6F, 0xFF, 0xB9)));
+        assert!(close(
+            turn_hue(Color::rgb(0xFF, 0, 0), 120.0),
+            Color::rgb(0, 0xFF, 0)
+        ));
+        let grey = Color::rgb(0x80, 0x80, 0x80);
+        assert_eq!(turn_hue(grey, 90.0), grey);
     }
 
     #[test]
