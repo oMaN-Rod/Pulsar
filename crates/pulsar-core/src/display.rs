@@ -4,7 +4,7 @@ use crate::format::format_value;
 use crate::history::History;
 pub use crate::layout::part_metric as metric_for;
 use crate::layout::{CellPart, Rect};
-use crate::metric::{ItemKind, Snapshot, Unit};
+use crate::metric::{ItemKind, MetricKey, Snapshot, Unit};
 
 /// The value shown for a cell; a dash when the source failed or has no data yet.
 pub fn cell_value(kind: ItemKind, part: CellPart, snapshot: &Snapshot) -> String {
@@ -13,6 +13,25 @@ pub fn cell_value(kind: ItemKind, part: CellPart, snapshot: &Snapshot) -> String
         Some(v) if snapshot.item_error(kind).is_none() => format_value(v, key.unit()),
         _ => format_value(f64::NAN, key.unit()),
     }
+}
+
+pub fn drive_temperature(snapshot: &Snapshot, number: u8) -> Option<String> {
+    let temp = snapshot
+        .get(MetricKey::DiskTempC(number))
+        .map(|t| format_value(t, Unit::Celsius));
+    let asleep = snapshot.get(MetricKey::DiskAsleep(number)).is_some();
+    let minutes = snapshot
+        .get(MetricKey::DiskTempAgeSeconds(number))
+        .map(|seconds| (seconds / 60.0) as u32);
+    Some(match (temp, asleep, minutes) {
+        (None, true, _) => crate::tr!("Asleep").to_string(),
+        (None, false, _) => return None,
+        (Some(t), true, None | Some(0)) => crate::tr!("{} · asleep", t),
+        (Some(t), true, Some(m)) => crate::tr!("{} · asleep, read {} min ago", t, m),
+        (Some(t), false, None) => t,
+        (Some(t), false, Some(0)) => crate::tr!("{} · just now", t),
+        (Some(t), false, Some(m)) => crate::tr!("{} · {} min ago", t, m),
+    })
 }
 
 /// Graph ceiling: percentages are fixed at 100; everything else scales to
@@ -114,7 +133,38 @@ pub fn meter_fraction(value: f64, max: f64) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::metric::{MetricKey, SourceId};
+    use crate::metric::SourceId;
+
+    #[test]
+    fn a_drive_temperature_says_how_recent_it_is() {
+        let text = |temp: Option<f64>, asleep, age: Option<f64>| {
+            let mut s = Snapshot::default();
+            if let Some(temp) = temp {
+                s.set(MetricKey::DiskTempC(0), temp);
+            }
+            if asleep {
+                s.set(MetricKey::DiskAsleep(0), 1.0);
+            }
+            if let Some(age) = age {
+                s.set(MetricKey::DiskTempAgeSeconds(0), age);
+            }
+            drive_temperature(&s, 0)
+        };
+        let some = |s: &str| Some(s.to_string());
+        assert_eq!(text(Some(45.0), false, None), some("45°C"));
+        assert_eq!(text(Some(38.0), false, Some(59.0)), some("38°C · just now"));
+        assert_eq!(
+            text(Some(38.0), false, Some(240.0)),
+            some("38°C · 4 min ago")
+        );
+        assert_eq!(text(Some(38.0), true, Some(30.0)), some("38°C · asleep"));
+        assert_eq!(
+            text(Some(38.0), true, Some(720.0)),
+            some("38°C · asleep, read 12 min ago")
+        );
+        assert_eq!(text(None, true, None), some("Asleep"));
+        assert_eq!(text(None, false, None), None);
+    }
 
     #[test]
     fn bars_fit_the_newest_samples_at_the_right_edge() {

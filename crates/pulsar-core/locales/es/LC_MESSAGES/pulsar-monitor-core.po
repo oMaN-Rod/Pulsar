@@ -24,6 +24,26 @@ msgstr "Se guardó como {}."
 msgid "the file is not UTF-8 text"
 msgstr "el archivo no es texto UTF-8"
 
+#: src/display.rs
+msgid "Asleep"
+msgstr "En reposo"
+
+#: src/display.rs
+msgid "{} · asleep"
+msgstr "{} · en reposo"
+
+#: src/display.rs
+msgid "{} · asleep, read {} min ago"
+msgstr "{} · en reposo, lectura de hace {} min"
+
+#: src/display.rs
+msgid "{} · just now"
+msgstr "{} · ahora mismo"
+
+#: src/display.rs
+msgid "{} · {} min ago"
+msgstr "{} · hace {} min"
+
 #: src/hardware/cpu.rs
 msgid "L{} data"
 msgstr "L{} datos"

@@ -200,6 +200,13 @@ pub enum MetricKey {
     DiskTempC(u8),
     /// The hottest drive.
     DiskTempMaxC,
+    /// How old a `DiskTempC` is, for a drive that is not read every tick.
+    DiskTempAgeSeconds(u8),
+    /// 1 while the drive was last found asleep.
+    DiskAsleep(u8),
+    /// Limits a drive that is not read every tick reported with its reading.
+    DiskWarningC(u8),
+    DiskCriticalC(u8),
     /// The platform controller hub, the board's chipset.
     ChipsetTempC,
     CpuTdpW,
@@ -315,8 +322,8 @@ impl MetricKey {
             | NetDownTotalBytes
             | NetUpTotalBytes => Unit::Bytes,
             ProcessCount | ThreadCount | HandleCount | BatteryPluggedIn | BatteryCharging
-            | BatteryCycles => Unit::Count,
-            UptimeSeconds | BatterySecondsLeft => Unit::Seconds,
+            | BatteryCycles | DiskAsleep(_) => Unit::Count,
+            UptimeSeconds | BatterySecondsLeft | DiskTempAgeSeconds(_) => Unit::Seconds,
             BatteryRemainingWh | BatteryFullWh | BatteryDesignWh => Unit::WattHours,
             DiskReadBps | DiskWriteBps => Unit::BytesPerSec,
             NetDownBps | NetUpBps | NetAdapterDownBps(_) | NetAdapterUpBps(_) => Unit::NetworkRate,
@@ -334,7 +341,8 @@ impl MetricKey {
             MemTiming(_) => Unit::Cycles,
             CpuCoreVolts(_) | BatteryVolts => Unit::Volts,
             GpuTempC | GpuAdapterTempC(_) | GpuHotSpotC | GpuMemTempC | CpuTempC
-            | CpuCoreTempC(_) | DiskTempC(_) | DiskTempMaxC | ChipsetTempC => Unit::Celsius,
+            | CpuCoreTempC(_) | DiskTempC(_) | DiskTempMaxC | DiskWarningC(_) | DiskCriticalC(_)
+            | ChipsetTempC => Unit::Celsius,
             GpuFanRpm => Unit::Rpm,
             CpuPowerW | CpuCorePowerW(_) | CpuCoresPowerW | CpuGraphicsPowerW | CpuDramPowerW
             | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W | BatteryRateW => Unit::Watts,

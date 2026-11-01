@@ -269,6 +269,7 @@ fn read_feed() {
 
 /// Started on its own: sample everything, as `pulsar.exe` does for us.
 fn sample_alone(config: &Config) {
+    hardware::storage::yield_rotational_reads_to(ipc::APP_MUTEX);
     let mut sampler = Sampler::from_config(config);
     sampler.extras_flag().store(true, Ordering::Relaxed);
     sampler.processes_flag().store(true, Ordering::Relaxed);

@@ -8,7 +8,7 @@ use pulsar_core::metric::{GpuEngineKind, ItemKind, MetricKey, Snapshot, SourceId
 use pulsar_core::sources::{ProcessSort, top_by};
 use pulsar_core::tr;
 
-use pulsar_core::display::{cell_value, metric_for};
+use pulsar_core::display::{cell_value, drive_temperature, metric_for};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Block {
@@ -578,12 +578,12 @@ fn relative_bars(values: &[f64]) -> Vec<f64> {
 fn drive_temps(snapshot: &Snapshot, names: &[(u8, String)]) -> Vec<(String, String)> {
     (0..=u8::MAX)
         .filter_map(|n| {
-            let temp = snapshot.get(MetricKey::DiskTempC(n))?;
+            let value = drive_temperature(snapshot, n)?;
             let name = names
                 .iter()
                 .find(|(number, _)| *number == n)
                 .map_or_else(|| tr!("Disk {}", n), |(_, name)| name.clone());
-            Some((name, format_value(temp, Unit::Celsius)))
+            Some((name, value))
         })
         .collect()
 }
@@ -1552,6 +1552,23 @@ mod tests {
         let c = build_with(ItemKind::DiskTemp, &s, &HistoryStore::new(60), &o);
         let labels: Vec<&str> = rows(&c.blocks[0]).iter().map(|(l, _)| l.as_str()).collect();
         assert_eq!(labels, ["Disk 0", "C: Samsung 990"]);
+    }
+
+    #[test]
+    fn a_rotational_drive_shows_its_age_or_that_it_sleeps() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::DiskTempC(1), 38.0);
+        s.set(MetricKey::DiskTempAgeSeconds(1), 240.0);
+        s.set(MetricKey::DiskAsleep(2), 1.0);
+        let o = options(PopupDetail::Standard, 5);
+        let c = build_with(ItemKind::DiskTemp, &s, &HistoryStore::new(60), &o);
+        assert_eq!(
+            rows(&c.blocks[0]),
+            [
+                ("Disk 1".to_string(), "38°C · 4 min ago".to_string()),
+                ("Disk 2".to_string(), "Asleep".to_string()),
+            ]
+        );
     }
 
     #[test]

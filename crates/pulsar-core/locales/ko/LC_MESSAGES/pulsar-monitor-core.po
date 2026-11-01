@@ -24,6 +24,26 @@ msgstr "{}(으)로 저장했습니다."
 msgid "the file is not UTF-8 text"
 msgstr "파일이 UTF-8 텍스트가 아닙니다"
 
+#: src/display.rs
+msgid "Asleep"
+msgstr "절전 중"
+
+#: src/display.rs
+msgid "{} · asleep"
+msgstr "{} · 절전 중"
+
+#: src/display.rs
+msgid "{} · asleep, read {} min ago"
+msgstr "{} · 절전 중, {}분 전에 읽음"
+
+#: src/display.rs
+msgid "{} · just now"
+msgstr "{} · 방금"
+
+#: src/display.rs
+msgid "{} · {} min ago"
+msgstr "{} · {}분 전"
+
 #: src/hardware/cpu.rs
 msgid "L{} data"
 msgstr "L{} 데이터"

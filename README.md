@@ -199,7 +199,7 @@ Popups are translucent by default, blurring what is behind them, or solid if you
 | **GPU** | temperature, dedicated and shared memory, each GPU's load, memory and temperature, top processes | engines, fan, power, memory clock, and hot spot and memory temperature where the card has them |
 | **GPU temperature** | fan, power, memory clock, hot spot, memory temperature, each GPU's temperature | |
 | **Disk** | read and write rates, chosen drives, top processes by I/O | free space per drive |
-| **Drive temperature** | each drive, by letter and model | |
+| **Drive temperature** | each drive, by letter and model; hard drives are read at most every 5 minutes and show the reading's age, or that they are asleep | |
 | **Network** | traffic per adapter, numbered when each has its own cells | totals since Pulsar started |
 | **Ping** | host, min/avg/max, packet loss | jitter |
 | **Battery** | state, time remaining | charge rate, energy, capacity when new, health, charge cycles, voltage |

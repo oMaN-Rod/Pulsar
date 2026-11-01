@@ -6,6 +6,7 @@ use std::ops::Range;
 use std::time::Duration;
 
 use pulsar_core::config::Config;
+use pulsar_core::display::drive_temperature;
 use pulsar_core::format::{format_value, temperature};
 use pulsar_core::hardware::cpu::{Cache, CacheKind, Topology};
 use pulsar_core::hardware::pci::{self, Link};
@@ -1282,7 +1283,12 @@ fn network_graph(data: &Data) -> Graph {
 }
 
 fn disk_card(data: &Data, d: &DiskInfo) -> SpecGroup {
-    let temp = data.get(MetricKey::DiskTempC(d.number as u8));
+    let number = d.number as u8;
+    let limit = |inventory: Option<i16>, key| {
+        inventory.or_else(|| data.get(key).map(|limit: f64| limit as i16))
+    };
+    let warning = limit(d.warning_c, MetricKey::DiskWarningC(number));
+    let critical = limit(d.critical_c, MetricKey::DiskCriticalC(number));
     let mut card = group(
         "\u{EDA2}",
         &d.model,
@@ -1293,13 +1299,10 @@ fn disk_card(data: &Data, d: &DiskInfo) -> SpecGroup {
         vec![
             (tr!("Interface"), d.bus.map(str::to_string)),
             (tr!("Firmware"), d.firmware.clone()),
-            (
-                tr!("Temperature"),
-                temp.map(|t| format_value(t, Unit::Celsius)),
-            ),
+            (tr!("Temperature"), drive_temperature(data.latest, number)),
             (
                 tr!("Temperature limits"),
-                match (d.warning_c, d.critical_c) {
+                match (warning, critical) {
                     (Some(w), Some(c)) => Some(tr!("Warning {}°C · critical {}°C", w, c)),
                     (Some(w), None) => Some(tr!("Warning {}°C", w)),
                     (None, Some(c)) => Some(tr!("Critical {}°C", c)),

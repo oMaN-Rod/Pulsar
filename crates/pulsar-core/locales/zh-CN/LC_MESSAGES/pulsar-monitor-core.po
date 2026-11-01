@@ -25,6 +25,26 @@ msgstr "原文件已另存为 {}。"
 msgid "the file is not UTF-8 text"
 msgstr "文件不是 UTF-8 文本"
 
+#: src/display.rs
+msgid "Asleep"
+msgstr "休眠中"
+
+#: src/display.rs
+msgid "{} · asleep"
+msgstr "{} · 休眠中"
+
+#: src/display.rs
+msgid "{} · asleep, read {} min ago"
+msgstr "{} · 休眠中，{} 分钟前读取"
+
+#: src/display.rs
+msgid "{} · just now"
+msgstr "{} · 刚刚"
+
+#: src/display.rs
+msgid "{} · {} min ago"
+msgstr "{} · {} 分钟前"
+
 #: src/hardware/cpu.rs
 msgid "L{} data"
 msgstr "L{} 数据"

@@ -22,6 +22,26 @@ msgstr ""
 msgid "the file is not UTF-8 text"
 msgstr ""
 
+#: src/display.rs
+msgid "Asleep"
+msgstr ""
+
+#: src/display.rs
+msgid "{} · asleep"
+msgstr ""
+
+#: src/display.rs
+msgid "{} · asleep, read {} min ago"
+msgstr ""
+
+#: src/display.rs
+msgid "{} · just now"
+msgstr ""
+
+#: src/display.rs
+msgid "{} · {} min ago"
+msgstr ""
+
 #: src/hardware/cpu.rs
 msgid "L{} data"
 msgstr ""
