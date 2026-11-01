@@ -769,7 +769,8 @@ impl App {
 
     fn respawn_sampler(&mut self, config: &Config) {
         self.close_popup();
-        self.sampler = SamplerThread::spawn(config, Some(self.host));
+        let new = SamplerThread::spawn(config, Some(self.host));
+        std::mem::replace(&mut self.sampler, new).retire();
         let open = self.details.is_some();
         self.sampler.extras.store(open, Ordering::Relaxed);
         self.sampler.processes.store(open, Ordering::Relaxed);

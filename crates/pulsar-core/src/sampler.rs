@@ -125,6 +125,14 @@ impl Sampler {
         }))
     }
 
+    pub fn with_flags(self, processes: Arc<AtomicBool>, extras: Arc<AtomicBool>) -> Self {
+        Self {
+            want_processes: processes,
+            want_extras: extras,
+            ..self
+        }
+    }
+
     /// Shared flag the UI sets while the details window is open; the sampler
     /// then reads everything, not just what the overlay shows.
     pub fn extras_flag(&self) -> Arc<AtomicBool> {

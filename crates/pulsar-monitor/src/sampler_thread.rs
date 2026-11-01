@@ -27,16 +27,27 @@ pub struct SamplerThread {
 
 impl SamplerThread {
     pub fn spawn(config: &Config, notify: Option<HWND>) -> Self {
-        let mut sampler = Sampler::from_config(config);
-        let processes = sampler.processes_flag();
-        let extras = sampler.extras_flag();
         let interval = Duration::from_millis(config.general.sample_interval_ms.into());
+        let config = config.clone();
+        Self::start(move || Sampler::from_config(&config), interval, notify)
+    }
+
+    /// Building a sampler can wait on a sleeping disk, so the new thread does it.
+    fn start(
+        build: impl FnOnce() -> Sampler + Send + 'static,
+        interval: Duration,
+        notify: Option<HWND>,
+    ) -> Self {
+        let processes = Arc::<AtomicBool>::default();
+        let extras = Arc::<AtomicBool>::default();
+        let flags = (processes.clone(), extras.clone());
         let notify = notify.map(|h| h.0 as isize);
         let (tx, snapshots) = mpsc::channel();
         let (stop, stopped) = mpsc::channel::<()>();
         let handle = thread::Builder::new()
             .name("pulsar-sampler".into())
             .spawn(move || {
+                let mut sampler = build().with_flags(flags.0, flags.1);
                 let mut next = Instant::now();
                 loop {
                     if tx.send(sampler.sample()).is_err() {
@@ -72,6 +83,11 @@ impl SamplerThread {
             handle: Some(handle),
         }
     }
+
+    /// Lets the thread finish by itself: its current sample can take seconds.
+    pub fn retire(&mut self) {
+        self.handle = None;
+    }
 }
 
 impl Drop for SamplerThread {
@@ -86,7 +102,7 @@ impl Drop for SamplerThread {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pulsar_core::metric::MetricKey;
+    use pulsar_core::metric::{MetricKey, Source, SourceError, SourceId};
 
     fn fast_config() -> Config {
         let mut config = Config::default();
@@ -131,6 +147,58 @@ mod tests {
             listed,
             "processes appear once flagged (after one priming sample)"
         );
+    }
+
+    const INTERVAL: Duration = Duration::from_millis(500);
+
+    struct Blocked {
+        release: Receiver<()>,
+        limit: Duration,
+    }
+
+    impl Source for Blocked {
+        fn id(&self) -> SourceId {
+            SourceId::Processes
+        }
+        fn sample(&mut self, _: &mut Snapshot) -> Result<(), SourceError> {
+            let _ = self.release.recv_timeout(self.limit);
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_slow_build_does_not_hold_up_the_caller() {
+        let (release, released) = mpsc::channel::<()>();
+        let thread = SamplerThread::start(
+            move || {
+                let _ = released.recv();
+                Sampler::new(Vec::new(), None)
+            },
+            INTERVAL,
+            None,
+        );
+        assert!(thread.snapshots.try_recv().is_err());
+        drop(release);
+        assert!(
+            thread
+                .snapshots
+                .recv_timeout(Duration::from_secs(3))
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn retiring_does_not_wait_for_a_sample() {
+        let (_keep_blocked, release) = mpsc::channel::<()>();
+        let limit = Duration::from_secs(5);
+        let mut thread = SamplerThread::start(
+            move || Sampler::new(vec![Box::new(Blocked { release, limit })], None),
+            INTERVAL,
+            None,
+        );
+        let start = Instant::now();
+        thread.retire();
+        assert!(start.elapsed() < Duration::from_secs(1));
     }
 
     #[test]
