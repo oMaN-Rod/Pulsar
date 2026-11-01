@@ -181,6 +181,7 @@ pub struct Config {
     pub items: Vec<ItemConfig>,
     pub ping: PingConfig,
     pub disk: DiskConfig,
+    pub gpu: GpuConfig,
     pub network: NetworkConfig,
     pub units: Units,
     pub popup: PopupConfig,
@@ -264,6 +265,8 @@ impl Default for AlertsConfig {
 }
 
 pub const MAX_DRIVES: usize = 8;
+pub const MAX_GPUS: usize = 8;
+pub const MAX_ADAPTERS: usize = 8;
 
 pub const CPU_ALERT_C: std::ops::RangeInclusive<u32> = 50..=110;
 pub const GPU_ALERT_C: std::ops::RangeInclusive<u32> = 50..=110;
@@ -387,8 +390,21 @@ pub struct DiskConfig {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+pub struct GpuConfig {
+    /// Adapter names, as `hardware::gpu::names` lists them, with their own
+    /// GPU and GPU temperature cells; empty shows all adapters combined.
+    pub adapters: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct NetworkConfig {
-    /// PDH instance name of the one adapter to show; None sums hardware adapters.
+    /// PDH instance names of the adapters to count. One replaces the
+    /// combined reading; more give each adapter its own cells. Empty sums
+    /// the hardware adapters.
+    pub adapters: Vec<String>,
+    /// The single adapter older versions counted; moved to `adapters`.
+    #[serde(skip_serializing)]
     pub adapter: Option<String>,
 }
 
@@ -467,6 +483,7 @@ impl Default for Config {
                 .collect(),
             ping: PingConfig::default(),
             disk: DiskConfig::default(),
+            gpu: GpuConfig::default(),
             network: NetworkConfig::default(),
             units: Units::default(),
             popup: PopupConfig::default(),
@@ -653,14 +670,13 @@ impl Config {
         }
         drives.truncate(MAX_DRIVES);
         self.disk.drives = drives;
-        if self
-            .network
-            .adapter
-            .as_deref()
-            .is_some_and(|a| a.trim().is_empty())
+        if let Some(old) = self.network.adapter.take()
+            && self.network.adapters.is_empty()
         {
-            self.network.adapter = None;
+            self.network.adapters.push(old);
         }
+        self.network.adapters = distinct_names(&self.network.adapters, MAX_ADAPTERS);
+        self.gpu.adapters = distinct_names(&self.gpu.adapters, MAX_GPUS);
         self.ping.interval_ms = self.ping.interval_ms.clamp(1000, 60_000);
         self.popup.processes = self.popup.processes.min(MAX_POPUP_PROCESSES);
         if self.ping.host.trim().is_empty() {
@@ -696,6 +712,17 @@ impl Config {
 
     pub fn drive_letters(&self) -> Vec<u8> {
         self.disk.drives.iter().map(|d| d.as_bytes()[0]).collect()
+    }
+
+    /// Places in `available` of the GPUs with their own cells, in the
+    /// order chosen; GPUs that are no longer there are left out.
+    pub fn gpu_indexes(&self, available: &[String]) -> Vec<u8> {
+        self.gpu
+            .adapters
+            .iter()
+            .filter_map(|name| available.iter().position(|a| a == name))
+            .filter_map(|i| u8::try_from(i).ok())
+            .collect()
     }
 
     pub fn is_enabled(&self, kind: ItemKind) -> bool {
@@ -800,6 +827,18 @@ impl Config {
     }
 }
 
+/// Trimmed, without blanks or repeats, at most `max`.
+fn distinct_names(names: &[String], max: usize) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for name in names.iter().map(|n| n.trim()) {
+        if !name.is_empty() && !out.iter().any(|n| n == name) {
+            out.push(name.to_string());
+        }
+    }
+    out.truncate(max);
+    out
+}
+
 fn is_hex_color(s: &str) -> bool {
     s.len() == 7 && s.starts_with('#') && s[1..].chars().all(|c| c.is_ascii_hexdigit())
 }
@@ -814,7 +853,7 @@ pub fn sampling_changed(old: &Config, new: &Config) -> bool {
     let pinging = new.is_sampled(ItemKind::Ping);
     a != b
         || old.general.sample_interval_ms != new.general.sample_interval_ms
-        || old.network.adapter != new.network.adapter
+        || old.network.adapters != new.network.adapters
         || old.frames != new.frames
         || (pinging
             && (old.ping.host != new.ping.host || old.ping.interval_ms != new.ping.interval_ms))
@@ -1341,7 +1380,29 @@ panel_opacity = 60
         assert_eq!(d.float_position, None);
         assert!(c.disk.drives.is_empty());
         assert_eq!(c.disk.value, DriveValue::Activity);
+        assert!(c.network.adapters.is_empty());
+        assert!(c.gpu.adapters.is_empty());
+    }
+
+    #[test]
+    fn an_old_single_adapter_moves_to_the_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "[network]\nadapter = \"Realtek 2.5GbE\"\n").unwrap();
+        let c = load(&path).config;
+        assert_eq!(c.network.adapters, ["Realtek 2.5GbE"]);
         assert_eq!(c.network.adapter, None);
+        save(&path, &c).unwrap();
+        let text = fs::read_to_string(&path).unwrap();
+        assert!(!text.contains("adapter ="), "{text}");
+    }
+
+    #[test]
+    fn chosen_gpus_resolve_to_their_place_in_the_adapter_list() {
+        let mut c = Config::default();
+        c.gpu.adapters = vec!["RTX 4090".into(), "Gone".into(), "RTX 5090".into()];
+        let available = ["RTX 5090", "RTX 4090", "Radeon"].map(String::from);
+        assert_eq!(c.gpu_indexes(&available), [1, 0]);
     }
 
     #[test]
@@ -1368,14 +1429,16 @@ panel_opacity = 60
         c.display.value_color = Some("#ABCDEF".into());
         c.display.font_family = Some("   ".into());
         c.disk.drives = vec!["c".into(), "CC".into(), "1".into(), "D".into(), "C".into()];
-        c.network.adapter = Some(" ".into());
+        c.network.adapters = vec![" ".into(), "eth".into(), " eth ".into()];
+        c.gpu.adapters = (0..12).map(|i| format!("GPU {i}")).collect();
         let c = c.sanitize();
         assert_eq!(c.display.label_color, None);
         assert_eq!(c.display.value_color.as_deref(), Some("#ABCDEF"));
         assert_eq!(c.display.font_family, None);
         assert_eq!(c.disk.drives, ["C", "D"]);
         assert_eq!(c.drive_letters(), [b'C', b'D']);
-        assert_eq!(c.network.adapter, None);
+        assert_eq!(c.network.adapters, ["eth"]);
+        assert_eq!(c.gpu.adapters.len(), MAX_GPUS);
     }
 
     #[test]
@@ -1501,7 +1564,8 @@ on = true
         c.general.tray_icon = false;
         c.disk.drives = vec!["C".into()];
         c.disk.value = DriveValue::Used;
-        c.network.adapter = Some("Realtek 2.5GbE".into());
+        c.network.adapters = vec!["Realtek 2.5GbE".into(), "Intel[R] Wi-Fi".into()];
+        c.gpu.adapters = vec!["NVIDIA GeForce RTX 4090".into()];
         save(&path, &c).unwrap();
         assert_eq!(load(&path).config, c);
     }
@@ -1510,8 +1574,14 @@ on = true
     fn adapter_and_gpu_sensors_change_sampling() {
         let base = Config::default();
         let mut adapter = base.clone();
-        adapter.network.adapter = Some("x".into());
+        adapter.network.adapters = vec!["x".into()];
         assert!(sampling_changed(&base, &adapter));
+        let mut gpus = base.clone();
+        gpus.gpu.adapters = vec!["x".into()];
+        assert!(
+            !sampling_changed(&base, &gpus),
+            "every adapter is always sampled"
+        );
         let mut temp = base.clone();
         temp.items
             .iter_mut()

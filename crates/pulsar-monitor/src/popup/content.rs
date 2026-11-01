@@ -54,6 +54,10 @@ pub struct Options<'a> {
     pub upload_on_top: bool,
     /// Names for physical drives by number, for drive temperatures.
     pub disk_names: &'a [(u8, String)],
+    /// Graphics adapters by number; listed one by one when there are several.
+    pub gpus: &'a [String],
+    /// The adapters with network cells of their own, when there are several.
+    pub adapters: &'a [String],
 }
 
 impl<'a> Options<'a> {
@@ -66,6 +70,14 @@ impl<'a> Options<'a> {
             drives: config.drive_letters(),
             upload_on_top: config.display.upload_on_top,
             disk_names: &[],
+            gpus: match kind {
+                ItemKind::Gpu | ItemKind::GpuTemp => pulsar_core::hardware::gpu::names(),
+                _ => &[],
+            },
+            adapters: match config.network.adapters.len() {
+                0 | 1 => &[],
+                _ => &config.network.adapters,
+            },
         }
     }
 }
@@ -441,6 +453,30 @@ fn volumes(snapshot: &Snapshot) -> Vec<(String, String)> {
         .collect()
 }
 
+/// A device's number and name, as its own taskbar cell numbers it.
+fn numbered(i: usize, name: &str) -> String {
+    format!("{} · {name}", i + 1)
+}
+
+/// Each GPU's load, memory in use and temperature, where known.
+fn gpu_rows(snapshot: &Snapshot, names: &[String]) -> Vec<(String, String)> {
+    (0..=u8::MAX)
+        .zip(names)
+        .map(|(i, name)| {
+            let value = [
+                MetricKey::GpuAdapterUtil(i),
+                MetricKey::GpuAdapterDedicatedBytes(i),
+                MetricKey::GpuAdapterTempC(i),
+            ]
+            .into_iter()
+            .filter_map(|key| Some(format_value(snapshot.get(key)?, key.unit())))
+            .collect::<Vec<_>>()
+            .join(" · ");
+            (numbered(usize::from(i), name), value)
+        })
+        .collect()
+}
+
 fn engines(snapshot: &Snapshot) -> Vec<(String, String)> {
     [
         (GpuEngineKind::ThreeD, tr!("3D")),
@@ -589,6 +625,8 @@ pub fn build(
         drives: drives.to_vec(),
         upload_on_top: false,
         disk_names: &[],
+        gpus: &[],
+        adapters: &[],
     };
     build_with(kind, snapshot, history, &options)
 }
@@ -686,19 +724,34 @@ pub fn build_with(
                     format!("{down}  {up}")
                 }
             };
-            let adapters: Vec<(String, String)> = snapshot
-                .adapters
-                .iter()
-                .map(|a| {
-                    (
-                        a.name.clone(),
-                        both(
-                            format_value(a.down_bps, Unit::NetworkRate),
-                            format_value(a.up_bps, Unit::NetworkRate),
-                        ),
-                    )
-                })
-                .collect();
+            let adapters: Vec<(String, String)> = if options.adapters.is_empty() {
+                snapshot
+                    .adapters
+                    .iter()
+                    .map(|a| {
+                        (
+                            a.name.clone(),
+                            both(
+                                format_value(a.down_bps, Unit::NetworkRate),
+                                format_value(a.up_bps, Unit::NetworkRate),
+                            ),
+                        )
+                    })
+                    .collect()
+            } else {
+                (0..=u8::MAX)
+                    .zip(options.adapters)
+                    .map(|(i, name)| {
+                        (
+                            numbered(usize::from(i), name),
+                            both(
+                                cell_value(kind, CellPart::AdapterDown(i), snapshot),
+                                cell_value(kind, CellPart::AdapterUp(i), snapshot),
+                            ),
+                        )
+                    })
+                    .collect()
+            };
             (
                 tr!("Network"),
                 both(
@@ -738,6 +791,14 @@ pub fn build_with(
                         ),
                     ],
                 },
+                Block::Rows {
+                    heading: Some(tr!("Adapters")),
+                    rows: if options.gpus.len() > 1 {
+                        gpu_rows(snapshot, options.gpus)
+                    } else {
+                        Vec::new()
+                    },
+                },
                 processes(snapshot, ProcessSort::Gpu, count),
             ],
         ),
@@ -745,10 +806,27 @@ pub fn build_with(
             tr!("GPU temperature"),
             cell_value(kind, CellPart::Main, snapshot),
             vec![CellPart::Main],
-            vec![Block::Rows {
-                heading: None,
-                rows: sensors(snapshot),
-            }],
+            vec![
+                Block::Rows {
+                    heading: None,
+                    rows: sensors(snapshot),
+                },
+                Block::Rows {
+                    heading: Some(tr!("Adapters")),
+                    rows: if options.gpus.len() > 1 {
+                        (0..=u8::MAX)
+                            .zip(options.gpus)
+                            .filter_map(|(i, name)| {
+                                let key = MetricKey::GpuAdapterTempC(i);
+                                let value = format_value(snapshot.get(key)?, key.unit());
+                                Some((numbered(usize::from(i), name), value))
+                            })
+                            .collect()
+                    } else {
+                        Vec::new()
+                    },
+                },
+            ],
         ),
         ItemKind::CpuTemp | ItemKind::CpuPower => (
             if kind == ItemKind::CpuTemp {
@@ -929,6 +1007,8 @@ mod tests {
             drives: Vec::new(),
             upload_on_top: false,
             disk_names: &[],
+            gpus: &[],
+            adapters: &[],
         }
     }
 
@@ -1083,6 +1163,60 @@ mod tests {
             &[],
         );
         assert_eq!(rows(&idle.blocks[0])[0].0, "No traffic");
+    }
+
+    #[test]
+    fn several_chosen_adapters_are_listed_by_number() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::NetAdapterDownBps(0), 2048.0);
+        s.set(MetricKey::NetAdapterUpBps(0), 512.0);
+        let adapters = ["Intel".to_string(), "Marvell".to_string()];
+        let o = Options {
+            adapters: &adapters,
+            ..options(PopupDetail::Standard, 0)
+        };
+        let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
+        let r = rows_under(&c, "Adapters");
+        assert_eq!(r[0], ("1 · Intel".into(), "↓ 2.0 KB/s  ↑ 512 B/s".into()));
+        assert_eq!(
+            r[1],
+            ("2 · Marvell".into(), "↓ —  ↑ —".into()),
+            "an adapter without a reading still shows"
+        );
+    }
+
+    #[test]
+    fn several_gpus_are_listed_with_load_memory_and_temperature() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::GpuAdapterUtil(0), 40.0);
+        s.set(MetricKey::GpuAdapterDedicatedBytes(0), 2.0 * GB);
+        s.set(MetricKey::GpuAdapterTempC(0), 61.0);
+        s.set(MetricKey::GpuAdapterUtil(1), 3.0);
+        let gpus = ["RTX 5090".to_string(), "RTX 4090".to_string()];
+        let o = Options {
+            gpus: &gpus,
+            ..options(PopupDetail::Standard, 0)
+        };
+        let c = build_with(ItemKind::Gpu, &s, &HistoryStore::new(60), &o);
+        let r = rows_under(&c, "Adapters");
+        assert_eq!(r[0], ("1 · RTX 5090".into(), "40% · 2.0 GB · 61°C".into()));
+        assert_eq!(r[1], ("2 · RTX 4090".into(), "3%".into()));
+
+        let temps = build_with(ItemKind::GpuTemp, &s, &HistoryStore::new(60), &o);
+        assert_eq!(
+            rows_under(&temps, "Adapters"),
+            [("1 · RTX 5090".to_string(), "61°C".to_string())]
+        );
+
+        let one = Options {
+            gpus: &gpus[..1],
+            ..options(PopupDetail::Standard, 0)
+        };
+        let c = build_with(ItemKind::Gpu, &s, &HistoryStore::new(60), &one);
+        assert!(
+            !c.blocks.iter().any(|b| heading(b) == Some("Adapters")),
+            "one GPU needs no list"
+        );
     }
 
     #[test]

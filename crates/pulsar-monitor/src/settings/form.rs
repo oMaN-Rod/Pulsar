@@ -84,8 +84,10 @@ pub struct Form {
     /// Letters with their own disk cell; empty shows all disks combined.
     pub drives: Vec<String>,
     pub drive_used: bool,
-    /// Empty sums every hardware adapter.
-    pub adapter: String,
+    /// GPUs with their own cells; empty shows all of them combined.
+    pub gpus: Vec<String>,
+    /// Adapters to count; empty sums every hardware adapter.
+    pub adapters: Vec<String>,
     /// A monitor's device path, or empty for the foreground app's rate.
     pub frame_monitor: String,
     /// A language code, or empty to follow Windows.
@@ -286,7 +288,8 @@ pub fn to_form(c: &Config) -> Form {
         ping_interval_ms: c.ping.interval_ms as i32,
         drives: c.disk.drives.clone(),
         drive_used: c.disk.value == DriveValue::Used,
-        adapter: c.network.adapter.clone().unwrap_or_default(),
+        gpus: c.gpu.adapters.clone(),
+        adapters: c.network.adapters.clone(),
         frame_monitor: c.frames.monitor.clone().unwrap_or_default(),
         language: c.general.language.clone().unwrap_or_default(),
         fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
@@ -456,7 +459,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     } else {
         DriveValue::Activity
     };
-    c.network.adapter = non_empty(&f.adapter);
+    c.gpu.adapters = f.gpus.clone();
+    c.network.adapters = f.adapters.clone();
     c.frames.monitor = non_empty(&f.frame_monitor);
     c.general.language = non_empty(&f.language);
     c.units.temperature = if f.fahrenheit {
@@ -830,7 +834,8 @@ mod tests {
         c.general.tray_icon = false;
         c.disk.drives = vec!["C".into(), "D".into()];
         c.disk.value = DriveValue::Used;
-        c.network.adapter = Some("eth".into());
+        c.network.adapters = vec!["eth".into(), "wifi".into()];
+        c.gpu.adapters = vec!["NVIDIA GeForce RTX 4090".into()];
         c.frames.monitor = Some(r"\\?\DISPLAY#DEL1234#5&1&UID1".into());
         c.general.language = Some("es".into());
         c.items[0].graph = false;

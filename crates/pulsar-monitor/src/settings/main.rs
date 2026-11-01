@@ -56,13 +56,13 @@ struct State {
     profile_ids: Vec<String>,
 }
 
-/// What the font and adapter pickers offer, and the value behind each entry.
+/// What the font, GPU and adapter pickers offer, and the value behind each entry.
 #[derive(Default)]
 struct Choices {
     fonts: Vec<String>,
+    gpus: Vec<String>,
     adapters: Vec<String>,
     font_values: Vec<String>,
-    adapter_values: Vec<String>,
     monitors: Vec<Display>,
     /// Device paths in the order of the frame rate picker.
     monitor_values: Vec<String>,
@@ -120,6 +120,71 @@ fn monitor_picker(monitors: &[Display], current: &str) -> (Vec<SharedString>, Ve
     }
     let index = values.iter().position(|v| v == current).unwrap_or(0);
     (names, values, index as i32)
+}
+
+/// A row per device, numbered as their cells are when `numbered`, then
+/// each chosen one that is no longer there.
+fn device_rows(available: &[String], chosen: &[String], numbered: bool) -> ModelRc<DeviceRow> {
+    let present = available.iter().enumerate().map(|(i, name)| DeviceRow {
+        label: if numbered {
+            format!("{} · {name}", i + 1)
+        } else {
+            name.clone()
+        }
+        .into(),
+        value: name.as_str().into(),
+        checked: chosen.contains(name),
+    });
+    let gone = chosen
+        .iter()
+        .filter(|name| !available.contains(name))
+        .map(|name| DeviceRow {
+            label: format!("{name} ({})", tr!("not connected")).into(),
+            value: name.as_str().into(),
+            checked: true,
+        });
+    ModelRc::new(VecModel::from(present.chain(gone).collect::<Vec<_>>()))
+}
+
+/// The ticked devices, or none while the combined reading is chosen.
+fn ticked(each: bool, rows: &ModelRc<DeviceRow>) -> Vec<String> {
+    if !each {
+        return Vec::new();
+    }
+    rows.iter()
+        .filter(|r| r.checked)
+        .map(|r| r.value.to_string())
+        .collect()
+}
+
+/// Applies a tick unless it would leave none or more than `max` ticked;
+/// a refused tick returns the rows as they were, to redraw them.
+fn device_toggled(
+    rows: ModelRc<DeviceRow>,
+    index: i32,
+    checked: bool,
+    max: usize,
+) -> Option<ModelRc<DeviceRow>> {
+    let ticked = rows.iter().filter(|r| r.checked).count();
+    if (!checked && ticked <= 1) || (checked && ticked >= max) {
+        let same: Vec<_> = rows.iter().collect();
+        return Some(ModelRc::new(VecModel::from(same)));
+    }
+    if let Some(mut row) = rows.row_data(index.max(0) as usize) {
+        row.checked = checked;
+        rows.set_row_data(index.max(0) as usize, row);
+    }
+    None
+}
+
+/// "Each" with nothing ticked would mean "combined"; start with the first.
+fn tick_first(rows: &ModelRc<DeviceRow>) {
+    if !rows.iter().any(|r| r.checked)
+        && let Some(mut first) = rows.row_data(0)
+    {
+        first.checked = true;
+        rows.set_row_data(0, first);
+    }
 }
 
 fn strings(v: Vec<SharedString>) -> ModelRc<SharedString> {
@@ -297,15 +362,10 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_fonts(strings(names));
     ui.set_font_index(index);
     choices.font_values = values;
-    let (names, values, index) = picker(
-        tr!("All hardware adapters"),
-        &choices.adapters,
-        &f.adapter,
-        tr!("not connected"),
-    );
-    ui.set_adapters(strings(names));
-    ui.set_adapter_index(index);
-    choices.adapter_values = values;
+    ui.set_gpu_rows(device_rows(&choices.gpus, &f.gpus, true));
+    ui.set_per_gpu(!f.gpus.is_empty());
+    ui.set_adapter_rows(device_rows(&choices.adapters, &f.adapters, false));
+    ui.set_per_adapter(!f.adapters.is_empty());
     let (names, values, index) = monitor_picker(&choices.monitors, &f.frame_monitor);
     ui.set_frame_monitors(strings(names));
     ui.set_frame_monitor_index(index);
@@ -467,7 +527,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
             Vec::new()
         },
         drive_used: ui.get_drive_used(),
-        adapter: chosen(&choices.adapter_values, ui.get_adapter_index()),
+        gpus: ticked(ui.get_per_gpu(), &ui.get_gpu_rows()),
+        adapters: ticked(ui.get_per_adapter(), &ui.get_adapter_rows()),
         frame_monitor: chosen(&choices.monitor_values, ui.get_frame_monitor_index()),
         language: (ui.get_language_index() - 1)
             .try_into()
@@ -773,6 +834,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         profile_ids: Vec::new(),
         choices: Choices {
             fonts: fonts::system_families(),
+            gpus: pulsar_core::hardware::gpu::names().to_vec(),
             adapters: hardware_adapters(),
             monitors: displays::active(),
             ..Choices::default()
@@ -1118,6 +1180,46 @@ fn main() -> Result<(), Box<dyn Error>> {
             {
                 first.checked = true;
                 rows.set_row_data(0, first);
+            }
+            ui.invoke_changed();
+        }
+    });
+    ui.on_gpu_toggled({
+        let weak = ui.as_weak();
+        move |index, checked| {
+            let Some(ui) = weak.upgrade() else { return };
+            match device_toggled(ui.get_gpu_rows(), index, checked, config::MAX_GPUS) {
+                Some(same) => ui.set_gpu_rows(same),
+                None => ui.invoke_changed(),
+            }
+        }
+    });
+    ui.on_adapter_toggled({
+        let weak = ui.as_weak();
+        move |index, checked| {
+            let Some(ui) = weak.upgrade() else { return };
+            match device_toggled(ui.get_adapter_rows(), index, checked, config::MAX_ADAPTERS) {
+                Some(same) => ui.set_adapter_rows(same),
+                None => ui.invoke_changed(),
+            }
+        }
+    });
+    ui.on_per_gpu_selected({
+        let weak = ui.as_weak();
+        move || {
+            let Some(ui) = weak.upgrade() else { return };
+            if ui.get_per_gpu() {
+                tick_first(&ui.get_gpu_rows());
+            }
+            ui.invoke_changed();
+        }
+    });
+    ui.on_per_adapter_selected({
+        let weak = ui.as_weak();
+        move || {
+            let Some(ui) = weak.upgrade() else { return };
+            if ui.get_per_adapter() {
+                tick_first(&ui.get_adapter_rows());
             }
             ui.invoke_changed();
         }

@@ -9,8 +9,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use crate::config::{
-    Config, DiskConfig, Display, FramesConfig, ItemConfig, NetworkConfig, PingConfig, PopupConfig,
-    Units, WidgetConfig,
+    Config, DiskConfig, Display, FramesConfig, GpuConfig, ItemConfig, NetworkConfig, PingConfig,
+    PopupConfig, Units, WidgetConfig,
 };
 use crate::theme::{slug, valid_id};
 
@@ -24,6 +24,7 @@ pub struct Profile {
     pub items: Vec<ItemConfig>,
     pub ping: PingConfig,
     pub disk: DiskConfig,
+    pub gpu: GpuConfig,
     pub network: NetworkConfig,
     pub units: Units,
     pub popup: PopupConfig,
@@ -45,6 +46,7 @@ impl Profile {
             items: c.items.clone(),
             ping: c.ping.clone(),
             disk: c.disk.clone(),
+            gpu: c.gpu.clone(),
             network: c.network.clone(),
             units: c.units,
             popup: c.popup,
@@ -60,6 +62,7 @@ impl Profile {
             items: self.items.clone(),
             ping: self.ping.clone(),
             disk: self.disk.clone(),
+            gpu: self.gpu.clone(),
             network: self.network.clone(),
             units: self.units,
             popup: self.popup,

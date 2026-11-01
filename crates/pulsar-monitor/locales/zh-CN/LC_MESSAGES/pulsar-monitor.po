@@ -129,7 +129,7 @@ msgstr "处理器"
 msgid "Memory"
 msgstr "内存"
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
 msgid "Graphics"
 msgstr "显卡"
 
@@ -537,6 +537,10 @@ msgstr "板卡厂商"
 msgid "Revision"
 msgstr "修订版本"
 
+#: src/details/pages.rs ui/details.slint
+msgid "Load"
+msgstr "负载"
+
 #: src/details/pages.rs
 msgid "Dedicated memory"
 msgstr "专用显存"
@@ -665,7 +669,7 @@ msgstr "上传"
 msgid "Packet loss"
 msgstr "丢包率"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Traffic"
 msgstr "流量"
 
@@ -736,10 +740,6 @@ msgstr "温度"
 #: src/details/pages.rs
 msgid "Core {}"
 msgstr "核心 {}"
-
-#: src/details/pages.rs ui/details.slint
-msgid "Load"
-msgstr "负载"
 
 #: src/details/pages.rs
 msgid "Total"
@@ -1253,7 +1253,7 @@ msgstr "活动 {} · 已用 {}"
 msgid "Drives"
 msgstr "驱动器"
 
-#: src/popup/content.rs
+#: src/popup/content.rs ui/settings.slint
 msgid "Adapters"
 msgstr "网卡"
 
@@ -1281,6 +1281,10 @@ msgstr "显示器：{}"
 msgid "A monitor that is not connected"
 msgstr "未连接的显示器"
 
+#: src/settings/main.rs
+msgid "not connected"
+msgstr "未连接"
+
 #: src/settings/main.rs ui/settings.slint
 msgid "Default"
 msgstr "默认"
@@ -1288,14 +1292,6 @@ msgstr "默认"
 #: src/settings/main.rs
 msgid "not installed"
 msgstr "未安装"
-
-#: src/settings/main.rs
-msgid "All hardware adapters"
-msgstr "所有物理网卡"
-
-#: src/settings/main.rs
-msgid "not connected"
-msgstr "未连接"
 
 #: src/settings/main.rs
 msgid "Same as other items"
@@ -1466,8 +1462,8 @@ msgid "Readings"
 msgstr "读数"
 
 #: ui/settings.slint
-msgid "Drives and network"
-msgstr "驱动器和网络"
+msgid "Devices"
+msgstr "设备"
 
 #: ui/settings.slint
 msgid "App"
@@ -1922,12 +1918,36 @@ msgid "Used space"
 msgstr "已用空间"
 
 #: ui/settings.slint
-msgid "Adapter"
-msgstr "网卡"
+msgid "GPUs"
+msgstr "GPU"
 
 #: ui/settings.slint
-msgid "Count one adapter, or every physical one."
-msgstr "只统计一个网卡，或统计所有物理网卡。"
+msgid "One combined cell, or a cell per GPU. GPU temperature follows."
+msgstr "一个合并单元格，或每个 GPU 一个单元格。GPU 温度同样如此。"
+
+#: ui/settings.slint
+msgid "All GPUs combined"
+msgstr "所有 GPU 合并"
+
+#: ui/settings.slint
+msgid "Each GPU"
+msgstr "每个 GPU"
+
+#: ui/settings.slint
+msgid "Cards"
+msgstr "显卡"
+
+#: ui/settings.slint
+msgid "Every physical adapter combined, or only the ones you tick. Several get a cell each."
+msgstr "合并所有物理适配器，或仅统计勾选的适配器。勾选多个时各占一个单元格。"
+
+#: ui/settings.slint
+msgid "All hardware adapters"
+msgstr "所有物理网卡"
+
+#: ui/settings.slint
+msgid "Chosen adapters"
+msgstr "所选适配器"
 
 #: ui/settings.slint
 msgid "Network rates"

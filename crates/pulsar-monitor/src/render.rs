@@ -2,7 +2,7 @@ use pulsar_core::config::{DisplayMode, GraphStyle};
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{
     Cell, CellPart, GRAPH_FONT_SCALE, Layout, Rect, TextMeasure, TileText, cell_icon, cell_label,
-    icon_gap, inline_slots, label_width, network_parts,
+    icon_gap, inline_slots, label_width, network_pair,
 };
 use pulsar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
@@ -323,7 +323,7 @@ impl Renderer {
                     self.text_at(text, &small, &value, value_x, y, color(slot.part))?;
                 }
             } else if cell.kind == ItemKind::Network {
-                let [first, second] = network_parts(frame.text.upload_on_top);
+                let [first, second] = network_pair(cell.part, frame.text.upload_on_top);
                 for (part, y) in [(first, top), (second, bottom)] {
                     self.draw_label(text, frame, small_px, cell.kind, part, x, y)?;
                     let (labels, icons) = (frame.text.labels, frame.text.icons);
@@ -342,7 +342,7 @@ impl Renderer {
     }
 
     fn draw_series(&self, frame: &Frame, cell: &Cell, style: GraphStyle, scale: f32) -> Result<()> {
-        let network = network_parts(frame.text.upload_on_top);
+        let network = network_pair(cell.part, frame.text.upload_on_top);
         let parts: &[CellPart] = if cell.kind == ItemKind::Network {
             &network
         } else {

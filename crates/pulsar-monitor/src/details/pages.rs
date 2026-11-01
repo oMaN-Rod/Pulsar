@@ -1201,10 +1201,12 @@ fn gpu(data: &Data) -> View {
     memory.meters = model(meters);
     view.groups.push(engines);
     view.groups.push(memory);
-    for g in gpus {
+    // `gpus` and the per-adapter readings share the adapter order.
+    for (i, g) in (0..=u8::MAX).zip(gpus) {
         let device = data.info.pci.iter().find(|d| {
             u32::from(d.ids.vendor) == g.vendor_id && u32::from(d.ids.device) == g.device_id
         });
+        let live = |key: MetricKey| data.get(key).map(|v| format_value(v, key.unit()));
         let mut rows = vec![
             (
                 tr!("Board maker"),
@@ -1224,6 +1226,12 @@ fn gpu(data: &Data) -> View {
             &g.name,
             g.vendor.unwrap_or(""),
             vec![
+                (tr!("Load"), live(MetricKey::GpuAdapterUtil(i))),
+                (
+                    tr!("Memory in use"),
+                    live(MetricKey::GpuAdapterDedicatedBytes(i)),
+                ),
+                (tr!("Temperature"), live(MetricKey::GpuAdapterTempC(i))),
                 (
                     tr!("Dedicated memory"),
                     (g.dedicated_bytes > 0).then(|| bytes(g.dedicated_bytes)),
@@ -1966,6 +1974,38 @@ mod tests {
         let d = data(&info, &s, &h, &e, &c);
         assert_eq!(core_label(&d, 1), "P1");
         assert_eq!(core_label(&d, 2), "E0");
+    }
+
+    #[test]
+    fn each_graphics_card_shows_its_own_load() {
+        let mut info = HardwareInfo::default();
+        for name in ["RTX 5090", "RTX 4090"] {
+            info.gpus.push(pulsar_core::hardware::GpuInfo {
+                name: name.into(),
+                ..Default::default()
+            });
+        }
+        let mut s = Snapshot::default();
+        s.set(MetricKey::GpuAdapterUtil(0), 70.0);
+        s.set(MetricKey::GpuAdapterUtil(1), 5.0);
+        s.set(MetricKey::GpuAdapterTempC(1), 41.0);
+        let (h, e, c) = (HistoryStore::new(5), Extremes::default(), Config::default());
+        let view = build(Page::Gpu, &data(&info, &s, &h, &e, &c));
+        let card = |name: &str| {
+            let g = view.groups.iter().find(|g| g.title == name).unwrap();
+            g.specs
+                .iter()
+                .map(|s| (s.label.to_string(), s.value.to_string()))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(card("RTX 5090")[0], ("Load".to_string(), "70%".to_string()));
+        assert_eq!(
+            card("RTX 4090")[..2],
+            [
+                ("Load".to_string(), "5%".to_string()),
+                ("Temperature".to_string(), "41°C".to_string())
+            ]
+        );
     }
 
     #[test]

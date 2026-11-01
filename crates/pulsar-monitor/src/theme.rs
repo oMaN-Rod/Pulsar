@@ -243,10 +243,7 @@ impl Palette {
     }
 
     pub fn graph(&self, kind: ItemKind, part: CellPart) -> Color {
-        let part = match part {
-            CellPart::DriveActive(_) | CellPart::DriveUsed(_) => CellPart::Main,
-            p => p,
-        };
+        let part = part.base();
         self.items
             .iter()
             .find(|(k, p, _)| *k == kind && *p == part)

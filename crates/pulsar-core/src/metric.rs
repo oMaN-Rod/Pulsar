@@ -166,10 +166,18 @@ pub enum MetricKey {
     /// Received and sent since sampling started.
     NetDownTotalBytes,
     NetUpTotalBytes,
+    /// By place in `NetworkConfig::adapters`.
+    NetAdapterDownBps(u8),
+    NetAdapterUpBps(u8),
     GpuUtil,
     GpuEngine(GpuEngineKind),
     GpuDedicatedBytes,
     GpuSharedBytes,
+    /// By place in `hardware::gpu::names`.
+    GpuAdapterUtil(u8),
+    GpuAdapterDedicatedBytes(u8),
+    GpuAdapterSharedBytes(u8),
+    GpuAdapterTempC(u8),
     GpuTempC,
     GpuFanRpm,
     GpuPowerPercent,
@@ -279,6 +287,7 @@ impl MetricKey {
             | DiskActivePercent
             | GpuUtil
             | GpuEngine(_)
+            | GpuAdapterUtil(_)
             | PingLossPercent
             | GpuPowerPercent
             | CpuThrottling
@@ -301,6 +310,8 @@ impl MetricKey {
             | VolumeTotalBytes(_)
             | GpuDedicatedBytes
             | GpuSharedBytes
+            | GpuAdapterDedicatedBytes(_)
+            | GpuAdapterSharedBytes(_)
             | NetDownTotalBytes
             | NetUpTotalBytes => Unit::Bytes,
             ProcessCount | ThreadCount | HandleCount | BatteryPluggedIn | BatteryCharging
@@ -308,7 +319,7 @@ impl MetricKey {
             UptimeSeconds | BatterySecondsLeft => Unit::Seconds,
             BatteryRemainingWh | BatteryFullWh | BatteryDesignWh => Unit::WattHours,
             DiskReadBps | DiskWriteBps => Unit::BytesPerSec,
-            NetDownBps | NetUpBps => Unit::NetworkRate,
+            NetDownBps | NetUpBps | NetAdapterDownBps(_) | NetAdapterUpBps(_) => Unit::NetworkRate,
             PingMs | FrameTimeMs => Unit::Millis,
             FrameRate | AppFrameRate | DisplayFrameRate | FrameRateLow1 | FrameRateLow01 => {
                 Unit::FramesPerSec
@@ -322,8 +333,8 @@ impl MetricKey {
             CpuMinRatio | CpuMaxRatio => Unit::Ratio,
             MemTiming(_) => Unit::Cycles,
             CpuCoreVolts(_) | BatteryVolts => Unit::Volts,
-            GpuTempC | GpuHotSpotC | GpuMemTempC | CpuTempC | CpuCoreTempC(_) | DiskTempC(_)
-            | DiskTempMaxC | ChipsetTempC => Unit::Celsius,
+            GpuTempC | GpuAdapterTempC(_) | GpuHotSpotC | GpuMemTempC | CpuTempC
+            | CpuCoreTempC(_) | DiskTempC(_) | DiskTempMaxC | ChipsetTempC => Unit::Celsius,
             GpuFanRpm => Unit::Rpm,
             CpuPowerW | CpuCorePowerW(_) | CpuCoresPowerW | CpuGraphicsPowerW | CpuDramPowerW
             | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W | BatteryRateW => Unit::Watts,

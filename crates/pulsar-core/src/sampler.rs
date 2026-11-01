@@ -191,7 +191,7 @@ fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
         ],
         ItemKind::Network => vec![or_failed(
             SourceId::Network,
-            NetworkSource::new(config.network.adapter.clone()),
+            NetworkSource::new(config.network.adapters.clone()),
         )],
         ItemKind::Gpu => vec![or_failed(SourceId::Gpu, GpuSource::new())],
         ItemKind::Ping => vec![Box::new(PingSource::spawn(

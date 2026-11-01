@@ -38,6 +38,23 @@ pub enum CellPart {
     /// Per-drive activity or used space, by drive letter.
     DriveActive(u8),
     DriveUsed(u8),
+    /// One GPU's load or temperature, by its place in `hardware::gpu::names`.
+    Gpu(u8),
+    /// One adapter's traffic, by its place in `NetworkConfig::adapters`.
+    AdapterDown(u8),
+    AdapterUp(u8),
+}
+
+impl CellPart {
+    /// The part of a combined item this one shares its colour with.
+    pub fn base(self) -> CellPart {
+        match self {
+            CellPart::DriveActive(_) | CellPart::DriveUsed(_) | CellPart::Gpu(_) => CellPart::Main,
+            CellPart::AdapterDown(_) => CellPart::Down,
+            CellPart::AdapterUp(_) => CellPart::Up,
+            p => p,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -119,18 +136,34 @@ pub fn part_metric(kind: ItemKind, part: CellPart) -> MetricKey {
         CellPart::Up => MetricKey::NetUpBps,
         CellPart::DriveActive(d) => MetricKey::DriveActivePercent(d),
         CellPart::DriveUsed(d) => MetricKey::DriveUsedPercent(d),
+        CellPart::Gpu(i) if kind == ItemKind::GpuTemp => MetricKey::GpuAdapterTempC(i),
+        CellPart::Gpu(i) => MetricKey::GpuAdapterUtil(i),
+        CellPart::AdapterDown(i) => MetricKey::NetAdapterDownBps(i),
+        CellPart::AdapterUp(i) => MetricKey::NetAdapterUpBps(i),
         CellPart::Main | CellPart::Down => primary_metric(kind),
     }
 }
 
-/// The text part of a cell's label. Drive letters always show; network
-/// arrows give way to the direction icons.
+/// The text part of a cell's label. Drive letters and GPU and adapter
+/// numbers always show; network arrows give way to the direction icons.
 pub fn cell_label(kind: ItemKind, part: CellPart, labels: LabelStyle, icons: bool) -> String {
+    let number = |i: u8| u32::from(i) + 1;
     match part {
         CellPart::Down | CellPart::Up if icons => String::new(),
         CellPart::Down => "↓".into(),
         CellPart::Up => "↑".into(),
+        CellPart::AdapterDown(i) | CellPart::AdapterUp(i) if icons => number(i).to_string(),
+        CellPart::AdapterDown(i) => format!("{}↓", number(i)),
+        CellPart::AdapterUp(i) => format!("{}↑", number(i)),
         CellPart::DriveActive(d) | CellPart::DriveUsed(d) => format!("{}:", d as char),
+        CellPart::Gpu(i) => {
+            let name = match labels {
+                LabelStyle::Full => kind.label(),
+                LabelStyle::Short => kind.short_label(),
+                LabelStyle::None => "",
+            };
+            format!("{name}{}", number(i))
+        }
         CellPart::Main => match labels {
             LabelStyle::Full => kind.label().into(),
             LabelStyle::Short => kind.short_label().into(),
@@ -141,10 +174,9 @@ pub fn cell_label(kind: ItemKind, part: CellPart, labels: LabelStyle, icons: boo
 
 /// A Segoe Fluent Icons glyph for the cell.
 pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
-    match (kind, part) {
+    match (kind, part.base()) {
         (_, CellPart::Down) => "\u{E896}",
         (_, CellPart::Up) => "\u{E898}",
-        (_, CellPart::DriveActive(_) | CellPart::DriveUsed(_)) => "\u{EDA2}",
         (ItemKind::Cpu, _) => "\u{E950}",
         (ItemKind::Ram, _) => "\u{EEA0}",
         (ItemKind::Gpu, _) => "\u{F211}",
@@ -214,29 +246,63 @@ pub fn network_parts(upload_on_top: bool) -> [CellPart; 2] {
     }
 }
 
+/// The two directions a network cell or tile shows, in the order they are
+/// shown: one adapter's, or the combined ones.
+pub fn network_pair(part: CellPart, upload_on_top: bool) -> [CellPart; 2] {
+    match part {
+        CellPart::AdapterDown(i) | CellPart::AdapterUp(i) => {
+            let (down, up) = (CellPart::AdapterDown(i), CellPart::AdapterUp(i));
+            if upload_on_top {
+                [up, down]
+            } else {
+                [down, up]
+            }
+        }
+        _ => network_parts(upload_on_top),
+    }
+}
+
 /// The enabled items in order, each with the cells it draws.
 pub fn item_specs(config: &Config) -> Vec<ItemSpec> {
-    let drives = config.drive_letters();
+    // Reading the adapter names asks DirectX, so only when GPUs are chosen.
+    let gpus = if config.gpu.adapters.is_empty() {
+        Vec::new()
+    } else {
+        config.gpu_indexes(crate::hardware::gpu::names())
+    };
     config
         .enabled_items()
         .into_iter()
-        .map(|kind| {
-            let parts = if kind == ItemKind::Disk && !drives.is_empty() {
-                drives
-                    .iter()
-                    .map(|&d| match config.disk.value {
-                        DriveValue::Activity => CellPart::DriveActive(d),
-                        DriveValue::Used => CellPart::DriveUsed(d),
-                    })
-                    .collect()
-            } else if kind == ItemKind::Network {
-                network_parts(config.display.upload_on_top).to_vec()
-            } else {
-                default_parts(kind)
-            };
-            ItemSpec { kind, parts }
+        .map(|kind| ItemSpec {
+            kind,
+            parts: item_parts(kind, config, &gpus),
         })
         .collect()
+}
+
+/// The cells `kind` draws; `gpus` are the GPUs with cells of their own.
+fn item_parts(kind: ItemKind, config: &Config, gpus: &[u8]) -> Vec<CellPart> {
+    let drives = config.drive_letters();
+    let upload_on_top = config.display.upload_on_top;
+    match kind {
+        ItemKind::Disk if !drives.is_empty() => drives
+            .iter()
+            .map(|&d| match config.disk.value {
+                DriveValue::Activity => CellPart::DriveActive(d),
+                DriveValue::Used => CellPart::DriveUsed(d),
+            })
+            .collect(),
+        ItemKind::Gpu | ItemKind::GpuTemp if !gpus.is_empty() => {
+            gpus.iter().map(|&i| CellPart::Gpu(i)).collect()
+        }
+        // One chosen adapter takes the place of the combined reading.
+        ItemKind::Network if config.network.adapters.len() > 1 => (0..=u8::MAX)
+            .take(config.network.adapters.len())
+            .flat_map(|i| network_pair(CellPart::AdapterDown(i), upload_on_top))
+            .collect(),
+        ItemKind::Network => network_parts(upload_on_top).to_vec(),
+        _ => default_parts(kind),
+    }
 }
 
 pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasure) -> Layout {
@@ -262,19 +328,27 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
 }
 
 /// Packs items into columns of `rows` cells, column-major. An item's parts
-/// (network ↓ and ↑) are kept together when they fit in a column.
+/// (network ↓ and ↑) are kept together when they fit in a column; with
+/// several adapters, each adapter's pair is.
 fn columns(items: &[ItemSpec], rows: usize) -> Vec<Vec<(ItemKind, CellPart)>> {
     let mut columns: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
     for spec in items {
-        let free = columns.last().map_or(0, |c| rows - c.len());
-        if free == 0 || (spec.parts.len() > free && spec.parts.len() <= rows) {
-            columns.push(Vec::with_capacity(rows));
-        }
-        for &part in &spec.parts {
-            if columns.last().is_some_and(|c| c.len() == rows) {
+        let together = if spec.kind == ItemKind::Network {
+            2
+        } else {
+            spec.parts.len()
+        };
+        for group in spec.parts.chunks(together.max(1)) {
+            let free = columns.last().map_or(0, |c| rows - c.len());
+            if free == 0 || (group.len() > free && group.len() <= rows) {
                 columns.push(Vec::with_capacity(rows));
             }
-            columns.last_mut().unwrap().push((spec.kind, part));
+            for &part in group {
+                if columns.last().is_some_and(|c| c.len() == rows) {
+                    columns.push(Vec::with_capacity(rows));
+                }
+                columns.last_mut().unwrap().push((spec.kind, part));
+            }
         }
     }
     columns
@@ -341,7 +415,9 @@ fn graph_text_width(
     let widest = widest_value(part_metric(kind, part).unit());
     let label = |part| label_width(kind, part, labels.style, labels.icons, font_px, m);
     match kind {
-        ItemKind::Network => label(CellPart::Down) + icon_gap(font_px) + m.width(widest, font_px),
+        ItemKind::Network => {
+            label(network_pair(part, false)[0]) + icon_gap(font_px) + m.width(widest, font_px)
+        }
         _ => label(part).max(m.width(widest, font_px)),
     }
 }
@@ -375,7 +451,7 @@ pub fn inline_slots(
 ) -> (Vec<InlineSlot>, f32) {
     let TileText { labels, icons, .. } = text;
     let parts = match kind {
-        ItemKind::Network => network_parts(text.upload_on_top).to_vec(),
+        ItemKind::Network => network_pair(part, text.upload_on_top).to_vec(),
         _ => vec![part],
     };
     let gap = LABEL_GAP_DIP * scale;
@@ -411,9 +487,20 @@ fn graph_layout(
     let mut cells = Vec::with_capacity(items.len());
     let mut x = padding;
     for spec in items {
-        // Network draws both directions in one tile; other items get a tile per part.
+        // Network draws both directions in one tile, one per adapter when
+        // there are several; other items get a tile per part.
         let tiles = if spec.kind == ItemKind::Network {
-            vec![CellPart::Main]
+            let adapters: Vec<CellPart> = spec
+                .parts
+                .iter()
+                .filter(|p| matches!(p, CellPart::AdapterDown(_)))
+                .copied()
+                .collect();
+            if adapters.is_empty() {
+                vec![CellPart::Main]
+            } else {
+                adapters
+            }
         } else {
             spec.parts.clone()
         };
@@ -773,6 +860,111 @@ mod tests {
             Some(ItemKind::Disk)
         );
         assert_no_overlap(&l);
+    }
+
+    #[test]
+    fn chosen_gpus_get_a_cell_each_for_load_and_temperature() {
+        let c = Config::default();
+        assert_eq!(item_parts(ItemKind::Gpu, &c, &[]), [CellPart::Main]);
+        for kind in [ItemKind::Gpu, ItemKind::GpuTemp] {
+            assert_eq!(
+                item_parts(kind, &c, &[0, 2]),
+                [CellPart::Gpu(0), CellPart::Gpu(2)]
+            );
+        }
+        assert_eq!(
+            part_metric(ItemKind::Gpu, CellPart::Gpu(2)),
+            MetricKey::GpuAdapterUtil(2)
+        );
+        assert_eq!(
+            part_metric(ItemKind::GpuTemp, CellPart::Gpu(2)),
+            MetricKey::GpuAdapterTempC(2)
+        );
+        let label = |kind, style| cell_label(kind, CellPart::Gpu(1), style, false);
+        assert_eq!(label(ItemKind::Gpu, LabelStyle::Full), "GPU2");
+        assert_eq!(label(ItemKind::GpuTemp, LabelStyle::Short), "T2");
+        assert_eq!(
+            label(ItemKind::Gpu, LabelStyle::None),
+            "2",
+            "the number stays"
+        );
+    }
+
+    #[test]
+    fn several_adapters_get_a_pair_of_cells_each() {
+        let mut c = Config::default();
+        c.network.adapters = vec!["eth".into()];
+        assert_eq!(
+            item_parts(ItemKind::Network, &c, &[]),
+            [CellPart::Down, CellPart::Up],
+            "one adapter takes the combined cells"
+        );
+        c.network.adapters.push("wifi".into());
+        assert_eq!(
+            item_parts(ItemKind::Network, &c, &[]),
+            [
+                CellPart::AdapterDown(0),
+                CellPart::AdapterUp(0),
+                CellPart::AdapterDown(1),
+                CellPart::AdapterUp(1)
+            ]
+        );
+        c.display.upload_on_top = true;
+        assert_eq!(
+            item_parts(ItemKind::Network, &c, &[])[..2],
+            [CellPart::AdapterUp(0), CellPart::AdapterDown(0)]
+        );
+        assert_eq!(
+            part_metric(ItemKind::Network, CellPart::AdapterUp(1)),
+            MetricKey::NetAdapterUpBps(1)
+        );
+        let label = |part, icons| cell_label(ItemKind::Network, part, LabelStyle::Full, icons);
+        assert_eq!(label(CellPart::AdapterDown(0), false), "1↓");
+        assert_eq!(label(CellPart::AdapterUp(1), false), "2↑");
+        assert_eq!(
+            label(CellPart::AdapterUp(1), true),
+            "2",
+            "the icon shows the arrow"
+        );
+        assert_eq!(
+            cell_icon(ItemKind::Network, CellPart::AdapterUp(1)),
+            "\u{E898}"
+        );
+        assert_eq!(CellPart::AdapterDown(3).base(), CellPart::Down);
+        assert_eq!(CellPart::Gpu(3).base(), CellPart::Main);
+    }
+
+    fn adapter_specs(n: u8) -> Vec<ItemSpec> {
+        vec![ItemSpec {
+            kind: ItemKind::Network,
+            parts: (0..n)
+                .flat_map(|i| [CellPart::AdapterDown(i), CellPart::AdapterUp(i)])
+                .collect(),
+        }]
+    }
+
+    #[test]
+    fn each_adapters_pair_shares_a_text_column() {
+        let mut items = specs(&[ItemKind::Cpu]);
+        items.extend(adapter_specs(2));
+        let l = compute_layout(&items, input(DisplayMode::Text, 48.0, 96), &Fixed);
+        assert_no_overlap(&l);
+        for i in 0..2 {
+            let x = |part| l.cells.iter().find(|c| c.part == part).unwrap().rect.x;
+            assert_eq!(x(CellPart::AdapterDown(i)), x(CellPart::AdapterUp(i)));
+        }
+    }
+
+    #[test]
+    fn each_adapter_gets_its_own_graph_tile() {
+        for inline in [false, true] {
+            let mut i = input(DisplayMode::Graph, 48.0, 96);
+            i.graph_inline = inline;
+            let l = compute_layout(&adapter_specs(2), i, &Fixed);
+            let parts: Vec<CellPart> = l.cells.iter().map(|c| c.part).collect();
+            assert_eq!(parts, [CellPart::AdapterDown(0), CellPart::AdapterDown(1)]);
+            assert_no_overlap(&l);
+        }
     }
 
     #[test]
