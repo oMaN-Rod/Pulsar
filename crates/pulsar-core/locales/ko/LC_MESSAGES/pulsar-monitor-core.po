@@ -1,0 +1,197 @@
+# Korean translations for Pulsar.
+msgid ""
+msgstr ""
+"Project-Id-Version: Pulsar\n"
+"Language: ko\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/config.rs
+msgid "Could not read {}: {}"
+msgstr "{}을(를) 읽을 수 없음: {}"
+
+#: src/config.rs
+msgid "Settings file was invalid and defaults were used."
+msgstr "설정 파일이 잘못되어 기본값을 사용했습니다."
+
+#: src/config.rs
+msgid "It was saved as {}."
+msgstr "{}(으)로 저장했습니다."
+
+#: src/config.rs
+msgid "the file is not UTF-8 text"
+msgstr "파일이 UTF-8 텍스트가 아닙니다"
+
+#: src/hardware/cpu.rs
+msgid "L{} data"
+msgstr "L{} 데이터"
+
+#: src/hardware/cpu.rs
+msgid "L{} instruction"
+msgstr "L{} 명령어"
+
+#: src/hardware/storage.rs
+msgid "Drive"
+msgstr "드라이브"
+
+#: src/hardware/storage.rs
+msgid "Virtual"
+msgstr "가상"
+
+#: src/hardware/storage.rs
+msgid "Storage Spaces"
+msgstr "저장소 공간"
+
+#: src/hardware/storage.rs
+msgid "No drive reports a temperature"
+msgstr "온도를 보고하는 드라이브가 없음"
+
+#: src/ipc.rs
+msgid "Pulsar Settings"
+msgstr "Pulsar 설정"
+
+#: src/ipc.rs
+msgid "Pulsar Details"
+msgstr "Pulsar 세부 정보"
+
+#: src/metric.rs
+msgid "CPU"
+msgstr "CPU"
+
+#: src/metric.rs
+msgid "RAM"
+msgstr "메모리"
+
+#: src/metric.rs
+msgid "DSK"
+msgstr "디스크"
+
+#: src/metric.rs
+msgid "NET"
+msgstr "네트워크"
+
+#: src/metric.rs
+msgid "GPU"
+msgstr "GPU"
+
+#: src/metric.rs
+msgid "PING"
+msgstr "핑"
+
+#: src/metric.rs
+msgid "TEMP"
+msgstr "GPU°"
+
+#: src/metric.rs
+msgid "CPU°"
+msgstr "CPU°"
+
+#: src/metric.rs
+msgid "PWR"
+msgstr "전력"
+
+#: src/metric.rs
+msgid "CLK"
+msgstr "클럭"
+
+#: src/metric.rs
+msgid "DSK°"
+msgstr "디스크°"
+
+#: src/metric.rs
+msgid "PCH°"
+msgstr "PCH°"
+
+#: src/metric.rs
+msgid "BAT"
+msgstr "배터리"
+
+#: src/metric.rs
+msgid "FPS"
+msgstr "FPS"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service is not installed"
+msgstr "Pulsar 센서 서비스가 설치되지 않음"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service is not running"
+msgstr "Pulsar 센서 서비스가 실행되고 있지 않음"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service needs updating"
+msgstr "Pulsar 센서 서비스를 업데이트해야 함"
+
+#: src/sensors.rs
+msgid "PawnIO is not installed"
+msgstr "PawnIO가 설치되지 않음"
+
+#: src/sensors.rs
+msgid "This CPU is not supported yet"
+msgstr "아직 지원되지 않는 CPU"
+
+#: src/sensors.rs
+msgid "The CPU sensors could not be read"
+msgstr "CPU 센서를 읽을 수 없음"
+
+#: src/sources/battery.rs
+msgid "This PC has no battery"
+msgstr "이 PC에는 배터리가 없음"
+
+#: src/sources/gpu.rs
+msgid "GPU counters unavailable"
+msgstr "GPU 카운터를 사용할 수 없음"
+
+#: src/sources/gpu_sensors.rs
+msgid "GPU temperature unavailable"
+msgstr "GPU 온도를 사용할 수 없음"
+
+#: src/sources/network.rs
+msgid "Adapter \"{}\" not found"
+msgstr "어댑터 “{}”을(를) 찾을 수 없음"
+
+#: src/sources/ping.rs
+msgid "Waiting for first reply"
+msgstr "첫 응답을 기다리는 중"
+
+#: src/sources/ping.rs
+msgid "ICMP unavailable: {}"
+msgstr "ICMP를 사용할 수 없음: {}"
+
+#: src/sources/ping.rs
+msgid "Cannot resolve {} (IPv4)"
+msgstr "{}을(를) 확인할 수 없음(IPv4)"
+
+#: src/theme.rs
+msgid "Windows default"
+msgstr "Windows 기본값"
+
+#: src/theme.rs
+msgid "Aurora"
+msgstr "오로라"
+
+#: src/theme.rs
+msgid "Ember"
+msgstr "잉걸불"
+
+#: src/theme.rs
+msgid "Ocean"
+msgstr "바다"
+
+#: src/theme.rs
+msgid "Forest"
+msgstr "숲"
+
+#: src/theme.rs
+msgid "Mono"
+msgstr "모노"
+
+#: src/theme.rs
+msgid "Neon"
+msgstr "네온"
+
+#: src/theme.rs
+msgid "Sunset"
+msgstr "노을"
