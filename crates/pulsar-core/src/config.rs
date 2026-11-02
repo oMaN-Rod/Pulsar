@@ -420,6 +420,10 @@ pub struct NetworkConfig {
     /// The single adapter older versions counted; moved to `adapters`.
     #[serde(skip_serializing)]
     pub adapter: Option<String>,
+    /// Bytes per second. A slower rate draws as 0 on the taskbar and widget,
+    /// and stays as measured everywhere else.
+    pub min_down_bps: u64,
+    pub min_up_bps: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1628,6 +1632,33 @@ on = true
         c.disk.value = DriveValue::Used;
         c.network.adapters = vec!["Realtek 2.5GbE".into(), "Intel[R] Wi-Fi".into()];
         c.gpu.adapters = vec!["NVIDIA GeForce RTX 4090".into()];
+        save(&path, &c).unwrap();
+        assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn a_network_floor_does_not_restart_the_sampler() {
+        let base = Config::default();
+        let mut floored = base.clone();
+        floored.network.min_down_bps = 10_240;
+        floored.network.min_up_bps = 1_024;
+        assert!(!sampling_changed(&base, &floored));
+    }
+
+    #[test]
+    fn a_network_floor_defaults_to_zero_and_survives_a_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "[network]\nadapters = [\"eth\"]\n").unwrap();
+        let c = load(&path).config;
+        assert_eq!((c.network.min_down_bps, c.network.min_up_bps), (0, 0));
+
+        fs::write(&path, "[network]\nmin_down_bps = 10240\nmin_up_bps = 512\n").unwrap();
+        let c = load(&path).config;
+        assert_eq!(
+            (c.network.min_down_bps, c.network.min_up_bps),
+            (10_240, 512)
+        );
         save(&path, &c).unwrap();
         assert_eq!(load(&path).config, c);
     }

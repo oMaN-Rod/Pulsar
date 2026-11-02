@@ -2049,6 +2049,18 @@ msgid "Chosen adapters"
 msgstr "선택한 어댑터"
 
 #: ui/settings.slint
+msgid "Minimum download speed"
+msgstr "최소 다운로드 속도"
+
+#: ui/settings.slint
+msgid "Below this, the taskbar and widget show 0. Details and recordings keep the real rate."
+msgstr "이 값보다 낮으면 작업 표시줄과 위젯에 0으로 표시됩니다. 세부 정보와 기록에는 실제 속도가 유지됩니다."
+
+#: ui/settings.slint
+msgid "Minimum upload speed"
+msgstr "최소 업로드 속도"
+
+#: ui/settings.slint
 msgid "Network rates"
 msgstr "네트워크 속도"
 

@@ -2047,6 +2047,18 @@ msgid "Chosen adapters"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Minimum download speed"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Below this, the taskbar and widget show 0. Details and recordings keep the real rate."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Minimum upload speed"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Network rates"
 msgstr ""
 

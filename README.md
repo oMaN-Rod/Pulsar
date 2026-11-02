@@ -167,7 +167,7 @@ Eight built-in themes set the item, label, value, tile and panel colours, each w
 - label, value and item colours, with separate label and value colours for a light taskbar
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
-- temperatures in °C or °F, network rates in bytes or bits per second, and upload shown above download if you prefer
+- temperatures in °C or °F, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
 - each drive as its own item, showing its activity or used space; each GPU with its own load and temperature; and all physical network adapters, one, or several side by side
 
 ## Popups
@@ -331,7 +331,7 @@ Every option, applied as you change it.
 
 ![Settings, Sensors](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-sensors.png)
 
-**Devices:** drives, GPUs, network adapters and rates, and the ping host
+**Devices:** drives, GPUs, network adapters, rates and minimum speeds, and the ping host
 
 ![Settings, Devices](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-drives.png)
 

@@ -2050,6 +2050,18 @@ msgid "Chosen adapters"
 msgstr "所选适配器"
 
 #: ui/settings.slint
+msgid "Minimum download speed"
+msgstr "最低下载速度"
+
+#: ui/settings.slint
+msgid "Below this, the taskbar and widget show 0. Details and recordings keep the real rate."
+msgstr "低于此值时，任务栏和小组件显示 0。详细信息和记录保留实际速率。"
+
+#: ui/settings.slint
+msgid "Minimum upload speed"
+msgstr "最低上传速度"
+
+#: ui/settings.slint
 msgid "Network rates"
 msgstr "网络速率"
 

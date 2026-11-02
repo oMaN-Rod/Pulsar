@@ -9,7 +9,9 @@ use pulsar_core::metric::{GpuEngineKind, ItemKind, MetricKey, Snapshot, SourceId
 use pulsar_core::sources::{ProcessSort, top_by};
 use pulsar_core::tr;
 
-use pulsar_core::display::{cell_value, drive_temperature, metric_for};
+use pulsar_core::display::{
+    NetworkFloor, cell_value, drive_temperature, floored_cell_value, metric_for,
+};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Block {
@@ -59,6 +61,8 @@ pub struct Options<'a> {
     pub gpus: &'a GpuSlots,
     /// The adapters with network cells of their own, when there are several.
     pub adapters: &'a [String],
+    /// Applies to the headline; the adapter rows keep the real rates.
+    pub network_floor: NetworkFloor,
 }
 
 impl<'a> Options<'a> {
@@ -76,6 +80,7 @@ impl<'a> Options<'a> {
                 0 | 1 => &[],
                 _ => &config.network.adapters,
             },
+            network_floor: NetworkFloor::new(&config.network),
         }
     }
 }
@@ -624,6 +629,7 @@ pub fn build(
         disk_names: &[],
         gpus: &snapshot.gpus,
         adapters: &[],
+        network_floor: NetworkFloor::default(),
     };
     build_with(kind, snapshot, history, &options)
 }
@@ -752,8 +758,8 @@ pub fn build_with(
             (
                 tr!("Network"),
                 both(
-                    cell_value(kind, CellPart::Down, snapshot),
-                    cell_value(kind, CellPart::Up, snapshot),
+                    floored_cell_value(kind, CellPart::Down, snapshot, options.network_floor),
+                    floored_cell_value(kind, CellPart::Up, snapshot, options.network_floor),
                 ),
                 order.to_vec(),
                 vec![Block::Rows {
@@ -1010,7 +1016,15 @@ mod tests {
             disk_names: &[],
             gpus: &NO_GPUS,
             adapters: &[],
+            network_floor: NetworkFloor::default(),
         }
+    }
+
+    fn min_down(bps: u64) -> NetworkFloor {
+        NetworkFloor::new(&pulsar_core::config::NetworkConfig {
+            min_down_bps: bps,
+            ..Default::default()
+        })
     }
 
     fn detailed(kind: ItemKind, snapshot: &Snapshot) -> PopupContent {
@@ -1164,6 +1178,53 @@ mod tests {
             &[],
         );
         assert_eq!(rows(&idle.blocks[0])[0].0, "No traffic");
+    }
+
+    #[test]
+    fn a_floored_headline_sits_beside_real_adapter_rates() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::NetDownBps, 2048.0);
+        s.set(MetricKey::NetUpBps, 512.0);
+        s.adapters = vec![AdapterRate {
+            name: "Realtek".into(),
+            down_bps: 2048.0,
+            up_bps: 512.0,
+        }];
+        let o = Options {
+            network_floor: min_down(10_240),
+            ..options(PopupDetail::Standard, 0)
+        };
+        let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
+        assert_eq!(c.value, "↓ 0 B/s  ↑ 512 B/s");
+        assert_eq!(
+            rows_under(&c, "Adapters")[0],
+            ("Realtek".into(), "↓ 2.0 KB/s  ↑ 512 B/s".into())
+        );
+    }
+
+    #[test]
+    fn chosen_adapters_keep_real_rates_while_the_sum_is_compared_as_a_sum() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::NetAdapterDownBps(0), 6144.0);
+        s.set(MetricKey::NetAdapterDownBps(1), 6144.0);
+        s.set(MetricKey::NetDownBps, 12_288.0);
+        let adapters = ["Intel".to_string(), "Marvell".to_string()];
+        let o = Options {
+            adapters: &adapters,
+            network_floor: min_down(10_240),
+            ..options(PopupDetail::Standard, 0)
+        };
+        let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
+        assert_eq!(c.value, "↓ 12.0 KB/s  ↑ —");
+        assert_eq!(rows_under(&c, "Adapters")[0].1, "↓ 6.0 KB/s  ↑ —");
+    }
+
+    #[test]
+    fn the_popup_takes_its_network_floor_from_the_settings() {
+        let mut config = Config::default();
+        config.network.min_down_bps = 10_240;
+        let o = Options::new(&config, ItemKind::Network, &NO_GPUS);
+        assert_eq!(o.network_floor, min_down(10_240));
     }
 
     #[test]

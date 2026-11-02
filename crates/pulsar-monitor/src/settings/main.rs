@@ -380,6 +380,11 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_per_gpu(!f.gpus.is_empty());
     ui.set_adapter_rows(device_rows(&choices.adapters, &f.adapters, false));
     ui.set_per_adapter(!f.adapters.is_empty());
+    ui.set_network_floor_bits(f.network_floor_bits);
+    ui.set_min_down(f.min_down);
+    ui.set_min_down_unit(f.min_down_unit);
+    ui.set_min_up(f.min_up);
+    ui.set_min_up_unit(f.min_up_unit);
     let (names, values, index) = monitor_picker(&choices.monitors, &f.frame_monitor);
     ui.set_frame_monitors(strings(names));
     ui.set_frame_monitor_index(index);
@@ -558,6 +563,11 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
             &ui.get_adapter_rows(),
             &choices.saved_adapters,
         ),
+        min_down: ui.get_min_down(),
+        min_down_unit: ui.get_min_down_unit(),
+        min_up: ui.get_min_up(),
+        min_up_unit: ui.get_min_up_unit(),
+        network_floor_bits: ui.get_network_floor_bits(),
         frame_monitor: chosen(&choices.monitor_values, ui.get_frame_monitor_index()),
         language: (ui.get_language_index() - 1)
             .try_into()

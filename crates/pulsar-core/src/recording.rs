@@ -129,6 +129,8 @@ impl Recorder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::NetworkConfig;
+    use crate::display::NetworkFloor;
 
     #[test]
     fn columns_follow_the_items_and_name_their_unit() {
@@ -160,6 +162,22 @@ mod tests {
             MetricKey::PingMs,
         ];
         assert_eq!(row("t", &cols, &s), "t,12.5,8589934592,,");
+    }
+
+    #[test]
+    fn a_recording_keeps_rates_a_network_floor_hides() {
+        let floor = NetworkFloor::new(&NetworkConfig {
+            min_down_bps: 10_000,
+            ..NetworkConfig::default()
+        });
+        let mut s = Snapshot::default();
+        s.set(MetricKey::NetDownBps, 300.0);
+        assert_eq!(floor.value(MetricKey::NetDownBps, 300.0), 0.0);
+        let dir = tempfile::tempdir().unwrap();
+        let mut r = Recorder::start(dir.path(), &[ItemKind::Network]).unwrap();
+        r.record(&s).unwrap();
+        let text = fs::read_to_string(&r.path).unwrap();
+        assert!(text.lines().nth(1).unwrap().ends_with(",300,"), "{text}");
     }
 
     #[test]

@@ -96,6 +96,13 @@ pub struct Form {
     pub gpus: Vec<String>,
     /// Adapters to count; empty sums every hardware adapter.
     pub adapters: Vec<String>,
+    /// Network minimums as shown: an amount and an index into the units of
+    /// `network_floor_bits`, the rate unit the form was filled in.
+    pub min_down: i32,
+    pub min_down_unit: i32,
+    pub min_up: i32,
+    pub min_up_unit: i32,
+    pub network_floor_bits: bool,
     /// A monitor's device path, or empty for the foreground app's rate.
     pub frame_monitor: String,
     /// A language code, or empty to follow Windows.
@@ -232,6 +239,9 @@ fn at<T: Copy>(all: &[T], index: i32) -> Option<T> {
 }
 
 pub fn to_form(c: &Config) -> Form {
+    let floor_bits = c.units.network == RateUnit::Bits;
+    let (min_down, min_down_unit) = shown_rate(c.network.min_down_bps, floor_bits);
+    let (min_up, min_up_unit) = shown_rate(c.network.min_up_bps, floor_bits);
     let d = &c.display;
     let theme = pulsar_core::theme::load(
         pulsar_core::theme::themes_dir().as_deref(),
@@ -306,6 +316,11 @@ pub fn to_form(c: &Config) -> Form {
         drive_used: c.disk.value == DriveValue::Used,
         gpus: c.gpu.adapters.clone(),
         adapters: c.network.adapters.clone(),
+        min_down,
+        min_down_unit,
+        min_up,
+        min_up_unit,
+        network_floor_bits: floor_bits,
         frame_monitor: c.frames.monitor.clone().unwrap_or_default(),
         language: c.general.language.clone().unwrap_or_default(),
         fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
@@ -389,6 +404,55 @@ fn celsius(shown: i32, fahrenheit: bool) -> u32 {
         shown
     };
     c.max(0) as u32
+}
+
+const MAX_SHOWN_RATE: u64 = 1_000_000_000;
+const BYTE_RATE_UNITS: [u64; 3] = [1, 1024, 1024 * 1024];
+const BIT_RATE_UNITS: [u64; 3] = [1, 1000, 1_000_000];
+
+/// A rate in the largest unit that shows it exactly, as an amount and a unit
+/// index. A rate too big or fine for that shows rounded in the largest unit.
+fn shown_rate(bytes_per_sec: u64, bits: bool) -> (i32, i32) {
+    let (amount, units) = if bits {
+        (bytes_per_sec.saturating_mul(8), BIT_RATE_UNITS)
+    } else {
+        (bytes_per_sec, BYTE_RATE_UNITS)
+    };
+    if amount == 0 {
+        return (0, 1);
+    }
+    let exact = (0..units.len())
+        .rev()
+        .find(|&i| amount % units[i] == 0 && amount / units[i] <= MAX_SHOWN_RATE);
+    match exact {
+        Some(i) => ((amount / units[i]) as i32, i as i32),
+        None => {
+            let last = units.len() - 1;
+            let rounded = amount.saturating_add(units[last] / 2) / units[last];
+            (rounded.min(MAX_SHOWN_RATE) as i32, last as i32)
+        }
+    }
+}
+
+/// Rounds up, so a nonzero amount of bits stays a nonzero minimum.
+fn rate_from_form(amount: i32, unit: i32, bits: bool) -> u64 {
+    let units = if bits {
+        BIT_RATE_UNITS
+    } else {
+        BYTE_RATE_UNITS
+    };
+    let unit = units[unit.clamp(0, units.len() as i32 - 1) as usize];
+    let total = amount.max(0) as u64 * unit;
+    if bits { total.div_ceil(8) } else { total }
+}
+
+/// Keeps `base` while the form still shows it, as not every rate shows exactly.
+fn rate_or_base(base: u64, amount: i32, unit: i32, bits: bool) -> u64 {
+    if shown_rate(base, bits) == (amount, unit) {
+        base
+    } else {
+        rate_from_form(amount, unit, bits)
+    }
 }
 
 pub fn to_config(f: &Form, base: &Config) -> Config {
@@ -490,6 +554,18 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     };
     c.gpu.adapters = f.gpus.clone();
     c.network.adapters = f.adapters.clone();
+    c.network.min_down_bps = rate_or_base(
+        base.network.min_down_bps,
+        f.min_down,
+        f.min_down_unit,
+        f.network_floor_bits,
+    );
+    c.network.min_up_bps = rate_or_base(
+        base.network.min_up_bps,
+        f.min_up,
+        f.min_up_unit,
+        f.network_floor_bits,
+    );
     c.frames.monitor = non_empty(&f.frame_monitor);
     c.general.language = non_empty(&f.language);
     c.units.temperature = if f.fahrenheit {
@@ -890,6 +966,93 @@ mod tests {
             c.alerts.gpu.limit = limit;
             assert_eq!(to_config(&to_form(&c), &c).alerts.gpu.limit, limit);
         }
+    }
+
+    #[test]
+    fn a_network_minimum_is_not_rewritten_by_the_form() {
+        for bits in [false, true] {
+            for rate in [
+                0,
+                1,
+                3,
+                300,
+                1000,
+                1024,
+                1500,
+                10_240,
+                1_000_001,
+                5_000_000_000,
+                i64::MAX as u64,
+            ] {
+                let mut c = Config::default();
+                c.units.network = if bits {
+                    RateUnit::Bits
+                } else {
+                    RateUnit::Bytes
+                };
+                c.network.min_down_bps = rate;
+                c.network.min_up_bps = rate;
+                let c = c.sanitize();
+                let f = to_form(&c);
+                assert!(f.min_down >= 0 && f.min_down as u64 <= MAX_SHOWN_RATE);
+                assert_eq!(to_config(&f, &c), c, "{rate} bytes, bits {bits}");
+            }
+        }
+    }
+
+    #[test]
+    fn network_minimums_show_in_the_units_of_the_rates() {
+        assert_eq!(shown_rate(0, false), (0, 1));
+        assert_eq!(shown_rate(300, false), (300, 0));
+        assert_eq!(shown_rate(10 * 1024, false), (10, 1));
+        assert_eq!(shown_rate(3 * 1024 * 1024, false), (3, 2));
+        assert_eq!(shown_rate(3, true), (24, 0));
+        assert_eq!(shown_rate(125, true), (1, 1));
+        assert_eq!(shown_rate(10_000, true), (80, 1));
+        assert_eq!(shown_rate(125_000, true), (1, 2));
+        assert_eq!(shown_rate(5_000_000_000, true), (40_000, 2));
+    }
+
+    #[test]
+    fn network_minimums_convert_to_bytes() {
+        assert_eq!(rate_from_form(300, 0, false), 300);
+        assert_eq!(rate_from_form(10, 1, false), 10_240);
+        assert_eq!(rate_from_form(2, 2, false), 2_097_152);
+        assert_eq!(rate_from_form(8, 0, true), 1);
+        assert_eq!(rate_from_form(3, 0, true), 1, "rounds up, not to off");
+        assert_eq!(rate_from_form(80, 1, true), 10_000);
+        assert_eq!(rate_from_form(1, 2, true), 125_000);
+        assert_eq!(rate_from_form(-5, 1, false), 0);
+    }
+
+    #[test]
+    fn editing_one_network_minimum_leaves_the_other() {
+        let mut c = Config::default();
+        c.network.min_down_bps = 1_000_001;
+        c.network.min_up_bps = 1024;
+        let c = c.sanitize();
+        let mut f = to_form(&c);
+        f.min_up = 5;
+        f.min_up_unit = 1;
+        let out = to_config(&f, &c);
+        assert_eq!(out.network.min_down_bps, 1_000_001);
+        assert_eq!(out.network.min_up_bps, 5 * 1024);
+    }
+
+    #[test]
+    fn changing_the_rate_unit_keeps_a_network_minimum() {
+        let mut c = Config::default();
+        c.network.min_down_bps = 1500;
+        let c = c.sanitize();
+        let mut f = to_form(&c);
+        f.network_bits = true;
+        let c = to_config(&f, &c);
+        assert_eq!(c.units.network, RateUnit::Bits);
+        assert_eq!(c.network.min_down_bps, 1500);
+        let f = to_form(&c);
+        assert!(f.network_floor_bits);
+        assert_eq!((f.min_down, f.min_down_unit), (12, 1));
+        assert_eq!(to_config(&f, &c).network.min_down_bps, 1500);
     }
 
     #[test]

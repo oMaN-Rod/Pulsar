@@ -761,6 +761,12 @@ export component SettingsWindow inherits Window {
     in-out property <bool> color-labels;
     in-out property <int> temperature-unit;
     in-out property <int> network-unit;
+    in-out property <int> min-down;
+    in-out property <int> min-down-unit;
+    in-out property <int> min-up;
+    in-out property <int> min-up-unit;
+    in property <bool> network-floor-bits;
+    property <[string]> network-floor-units: root.network-floor-bits ? ["bps", "Kbps", "Mbps"] : ["B/s", "KB/s", "MB/s"];
     in-out property <bool> upload-on-top;
     in-out property <bool> game-strip;
     in-out property <bool> game-summary;
@@ -1873,6 +1879,42 @@ export component SettingsWindow inherits Window {
                                 checked: adapter.checked;
                                 toggled => { root.adapter-toggled(i, self.checked); }
                             }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Minimum download speed");
+                        description: @tr("Below this, the taskbar and widget show 0. Details and recordings keep the real rate.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 1000000000;
+                            value <=> root.min-down;
+                            edited => { root.changed(); }
+                        }
+                        ComboBox {
+                            width: 90px;
+                            model: root.network-floor-units;
+                            current-index <=> root.min-down-unit;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Minimum upload speed");
+                        description: @tr("Below this, the taskbar and widget show 0. Details and recordings keep the real rate.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 1000000000;
+                            value <=> root.min-up;
+                            edited => { root.changed(); }
+                        }
+                        ComboBox {
+                            width: 90px;
+                            model: root.network-floor-units;
+                            current-index <=> root.min-up-unit;
+                            selected => { root.changed(); }
                         }
                     }
                     Divider { }

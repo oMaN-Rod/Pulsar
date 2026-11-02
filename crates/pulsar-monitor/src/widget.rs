@@ -1,10 +1,12 @@
 //! The desktop widget: a panel that stays open with a compact section per
 //! item, in as many columns as it needs to fit on the screen.
 
+use std::borrow::Cow;
+
 use pulsar_core::config::{WidgetLayer, WidgetStyle};
-use pulsar_core::display::{area_points, graph_max, metric_for};
+use pulsar_core::display::{NetworkFloor, area_points, graph_max, metric_for};
 use pulsar_core::history::{History, HistoryStore};
-use pulsar_core::layout::{Rect, TextMeasure};
+use pulsar_core::layout::{CellPart, Rect, TextMeasure};
 use pulsar_core::metric::{ItemKind, Snapshot, Unit};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM};
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
@@ -138,6 +140,7 @@ impl Widget {
             text,
             palette,
             history,
+            network_floor: look.network_floor,
             d: &d,
         };
         renderer.paint(surface, Color::rgb(0, 0, 0).with_alpha(0.0), |r| {
@@ -301,6 +304,7 @@ pub struct Look {
     pub font_px: f32,
     pub opacity: f32,
     pub scale: f32,
+    pub network_floor: NetworkFloor,
 }
 
 struct Dims {
@@ -583,6 +587,7 @@ struct Ctx<'a> {
     text: &'a Text,
     palette: &'a Palette,
     history: &'a HistoryStore,
+    network_floor: NetworkFloor,
     d: &'a Dims,
 }
 
@@ -744,23 +749,27 @@ impl Ctx<'_> {
 
     fn graph(&self, r: &Renderer, s: &Section, rect: Rect, stroke: f32) -> Result<()> {
         let c = s.content;
-        let histories: Vec<&History> = c
+        let histories: Vec<(CellPart, Cow<History>)> = c
             .series
             .iter()
-            .filter_map(|&part| self.history.get(metric_for(c.kind, part)))
+            .filter_map(|&part| {
+                let key = metric_for(c.kind, part);
+                let history = self.history.get(key)?;
+                Some((part, self.network_floor.series(key, history)))
+            })
             .collect();
         let unit = metric_for(c.kind, c.series[0]).unit();
-        let max = graph_max(unit, &histories);
-        for (i, &part) in c.series.iter().enumerate() {
-            if let Some(history) = self.history.get(metric_for(c.kind, part)) {
-                let color = self.palette.graph(c.kind, part);
-                r.series(
-                    &area_points(history, rect, max),
-                    color,
-                    i == 0,
-                    stroke * self.d.scale,
-                )?;
-            }
+        let max = graph_max(
+            unit,
+            &histories.iter().map(|(_, h)| &**h).collect::<Vec<_>>(),
+        );
+        for (i, (part, history)) in histories.iter().enumerate() {
+            r.series(
+                &area_points(history, rect, max),
+                self.palette.graph(c.kind, *part),
+                i == 0,
+                stroke * self.d.scale,
+            )?;
         }
         Ok(())
     }

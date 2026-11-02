@@ -8,6 +8,7 @@ use std::time::{Duration, Instant};
 
 use pulsar_core::alerts::Alerts;
 use pulsar_core::config::{self, Config, Position};
+use pulsar_core::display::NetworkFloor;
 use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::history::HistoryStore;
 use pulsar_core::hotkey::Hotkey;
@@ -229,6 +230,7 @@ impl Paint<'_> {
             },
             graph_inline: d.graph_inline && !layout.vertical,
             styles: &styles,
+            network_floor: NetworkFloor::new(&self.config.network),
         };
         self.renderer.draw(surface, &frame, self.text)?;
         self.renderer.present_alpha(hwnd, surface, target, alpha)?;
@@ -956,6 +958,7 @@ impl App {
             font_px: self.config.display.font_size_pt * dpi as f32 / 72.0,
             opacity: f32::from(w.opacity) / 100.0,
             scale,
+            network_floor: NetworkFloor::new(&self.config.network),
         };
         let contents: Vec<_> = items
             .into_iter()

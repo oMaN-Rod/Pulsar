@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use pulsar_core::config::{DisplayMode, GraphStyle};
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{
@@ -30,7 +32,7 @@ use windows_numerics::Vector2;
 use crate::text::Text;
 use crate::theme::{Color, Palette};
 use pulsar_core::display::{
-    area_points, bar_rects, cell_value, graph_max, meter_fraction, metric_for,
+    NetworkFloor, area_points, bar_rects, floored_cell_value, graph_max, meter_fraction, metric_for,
 };
 
 /// A 32-bit premultiplied DIB that Direct2D draws into and
@@ -104,9 +106,14 @@ pub struct Frame<'a> {
     pub graph_inline: bool,
     /// Graph mode: how each item draws its graph; `None` draws text only.
     pub styles: &'a [(ItemKind, Option<GraphStyle>)],
+    pub network_floor: NetworkFloor,
 }
 
 impl Frame<'_> {
+    fn value_text(&self, kind: ItemKind, part: CellPart) -> String {
+        floored_cell_value(kind, part, self.snapshot, self.network_floor)
+    }
+
     fn style(&self, kind: ItemKind) -> Option<GraphStyle> {
         self.styles
             .iter()
@@ -120,10 +127,12 @@ impl Frame<'_> {
             return self.palette.text;
         }
         let failed = self.snapshot.item_error(kind).is_some();
+        let key = metric_for(kind, part);
         let value = self
             .snapshot
-            .get(metric_for(kind, part))
-            .filter(|_| !failed);
+            .get(key)
+            .filter(|_| !failed)
+            .map(|v| self.network_floor.value(key, v));
         self.palette.value_at(kind, part, value)
     }
 }
@@ -282,7 +291,7 @@ impl Renderer {
                 cell.rect.x,
                 cell.rect.y,
             )?;
-            let value = cell_value(cell.kind, cell.part, frame.snapshot);
+            let value = frame.value_text(cell.kind, cell.part);
             let color = frame.value_color(cell.kind, cell.part, false);
             self.text_at(text, &format, &value, cell.value_x, cell.value_y, color)?;
         }
@@ -318,7 +327,7 @@ impl Renderer {
                 for slot in slots {
                     let label_x = x + slot.label_x;
                     self.draw_label(text, frame, small_px, cell.kind, slot.part, label_x, y)?;
-                    let value = cell_value(cell.kind, slot.part, frame.snapshot);
+                    let value = frame.value_text(cell.kind, slot.part);
                     let value_x = x + slot.value_x;
                     self.text_at(text, &small, &value, value_x, y, color(slot.part))?;
                 }
@@ -328,13 +337,13 @@ impl Renderer {
                     self.draw_label(text, frame, small_px, cell.kind, part, x, y)?;
                     let (labels, icons) = (frame.text.labels, frame.text.icons);
                     let label_w = label_width(cell.kind, part, labels, icons, small_px, text);
-                    let value = cell_value(cell.kind, part, frame.snapshot);
+                    let value = frame.value_text(cell.kind, part);
                     let value_x = x + label_w + icon_gap(small_px);
                     self.text_at(text, &small, &value, value_x, y, color(part))?;
                 }
             } else {
                 self.draw_label(text, frame, small_px, cell.kind, cell.part, x, top)?;
-                let value = cell_value(cell.kind, cell.part, frame.snapshot);
+                let value = frame.value_text(cell.kind, cell.part);
                 self.text_at(text, &small, &value, x, bottom, color(cell.part))?;
             }
         }
@@ -348,15 +357,22 @@ impl Renderer {
         } else {
             std::slice::from_ref(&cell.part)
         };
-        let histories: Vec<(CellPart, &History)> = parts
+        let histories: Vec<(CellPart, Cow<History>)> = parts
             .iter()
-            .filter_map(|&p| frame.history.get(metric_for(cell.kind, p)).map(|h| (p, h)))
+            .filter_map(|&p| {
+                let key = metric_for(cell.kind, p);
+                let history = frame.history.get(key)?;
+                Some((p, frame.network_floor.series(key, history)))
+            })
             .collect();
         if histories.is_empty() {
             return Ok(());
         }
         let unit = metric_for(cell.kind, parts[0]).unit();
-        let max = graph_max(unit, &histories.iter().map(|(_, h)| *h).collect::<Vec<_>>());
+        let max = graph_max(
+            unit,
+            &histories.iter().map(|(_, h)| &**h).collect::<Vec<_>>(),
+        );
         let inset = 1.0 * scale;
         let area = Rect {
             x: cell.rect.x + inset,
@@ -622,9 +638,189 @@ mod tests {
             },
             graph_inline: config.display.graph_inline,
             styles: &graph_styles(config),
+            network_floor: NetworkFloor::new(&config.network),
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)
+    }
+
+    /// An overlay showing only the network, with three samples per metric; the
+    /// last is the current value.
+    fn network_pixels(
+        config: &Config,
+        mode: DisplayMode,
+        vertical_bar_px: Option<f32>,
+        rates: &[(MetricKey, [f64; 3])],
+    ) -> Vec<u32> {
+        let mut config = config.clone();
+        for item in &mut config.items {
+            item.enabled = item.kind == ItemKind::Network;
+        }
+        let text = Text::new(None, false).unwrap();
+        let items = pulsar_core::layout::item_specs(&config, &Default::default());
+        let layout = compute_layout(
+            &items,
+            LayoutInput {
+                mode,
+                taskbar_height_px: 48.0,
+                fit_font: false,
+                dpi: 96,
+                font_size_pt: 9.0,
+                labels: config.display.labels,
+                icons: config.display.icons,
+                graph_inline: config.display.graph_inline,
+                upload_on_top: config.display.upload_on_top,
+                vertical_bar_px,
+                text_spacing: TextSpacing::default(),
+            },
+            &text,
+        );
+        let mut history = HistoryStore::new(60);
+        let mut snapshot = Snapshot::default();
+        for sample in 0..3 {
+            snapshot = Snapshot::default();
+            for (key, values) in rates {
+                snapshot.set(*key, values[sample]);
+            }
+            history.record(&snapshot);
+        }
+        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
+        let surface = Surface::new(layout.width.ceil() as i32, layout.height as i32).unwrap();
+        let frame = Frame {
+            layout: &layout,
+            mode,
+            palette: &palette,
+            snapshot: &snapshot,
+            history: &history,
+            dpi: 96,
+            text: TileText {
+                labels: config.display.labels,
+                icons: config.display.icons,
+                upload_on_top: config.display.upload_on_top,
+            },
+            graph_inline: config.display.graph_inline && !layout.vertical,
+            styles: &graph_styles(&config),
+            network_floor: NetworkFloor::new(&config.network),
+        };
+        Renderer::new()
+            .unwrap()
+            .draw(&surface, &frame, &text)
+            .unwrap();
+        pixels(&surface)
+    }
+
+    const KB: f64 = 1024.0;
+
+    fn every_network_look(mut check: impl FnMut(&Config, DisplayMode, Option<f32>)) {
+        for upload_on_top in [false, true] {
+            for vertical in [None, Some(80.0)] {
+                let mut config = Config::default();
+                config.display.upload_on_top = upload_on_top;
+                check(&config, DisplayMode::Text, vertical);
+                for inline in [false, true] {
+                    for style in [
+                        GraphStyle::Area,
+                        GraphStyle::Line,
+                        GraphStyle::Bars,
+                        GraphStyle::Meter,
+                    ] {
+                        config.display.graph_inline = inline;
+                        config.item_mut(ItemKind::Network).unwrap().style = style;
+                        check(&config, DisplayMode::Graph, vertical);
+                    }
+                }
+            }
+        }
+    }
+
+    fn floored(config: &Config) -> Config {
+        let mut config = config.clone();
+        config.network.min_down_bps = (10.0 * KB) as u64;
+        config.network.min_up_bps = KB as u64;
+        config
+    }
+
+    #[test]
+    fn rates_below_the_floor_draw_as_zero() {
+        use MetricKey::{NetDownBps, NetUpBps};
+        every_network_look(|config, mode, vertical| {
+            let measured = [
+                (NetDownBps, [4.0 * KB, 25.0 * KB, 4.0 * KB]),
+                (NetUpBps, [512.0, 2.0 * KB, 512.0]),
+            ];
+            let projected = [
+                (NetDownBps, [0.0, 25.0 * KB, 0.0]),
+                (NetUpBps, [0.0, 2.0 * KB, 0.0]),
+            ];
+            assert_eq!(
+                network_pixels(&floored(config), mode, vertical, &measured),
+                network_pixels(config, mode, vertical, &projected),
+            );
+            assert_ne!(
+                network_pixels(&floored(config), mode, vertical, &measured),
+                network_pixels(config, mode, vertical, &measured),
+                "the floor changes what is drawn",
+            );
+        });
+    }
+
+    #[test]
+    fn rates_at_or_above_the_floor_draw_as_measured() {
+        use MetricKey::{NetDownBps, NetUpBps};
+        every_network_look(|config, mode, vertical| {
+            let measured = [
+                (NetDownBps, [10.0 * KB, 25.0 * KB, 10.0 * KB]),
+                (NetUpBps, [KB, 2.0 * KB, KB]),
+            ];
+            assert_eq!(
+                network_pixels(&floored(config), mode, vertical, &measured),
+                network_pixels(config, mode, vertical, &measured),
+            );
+        });
+    }
+
+    #[test]
+    fn each_direction_draws_against_its_own_floor() {
+        use MetricKey::{NetDownBps, NetUpBps};
+        every_network_look(|config, mode, vertical| {
+            let measured = [
+                (NetDownBps, [5.0 * KB, 5.0 * KB, 5.0 * KB]),
+                (NetUpBps, [5.0 * KB, 5.0 * KB, 5.0 * KB]),
+            ];
+            let projected = [
+                (NetDownBps, [0.0, 0.0, 0.0]),
+                (NetUpBps, [5.0 * KB, 5.0 * KB, 5.0 * KB]),
+            ];
+            assert_eq!(
+                network_pixels(&floored(config), mode, vertical, &measured),
+                network_pixels(config, mode, vertical, &projected),
+            );
+        });
+    }
+
+    #[test]
+    fn each_adapter_draws_against_the_floor_by_itself() {
+        use MetricKey::{NetAdapterDownBps as Down, NetAdapterUpBps as Up};
+        every_network_look(|config, mode, vertical| {
+            let mut config = config.clone();
+            config.network.adapters = vec!["eth".into(), "wifi".into()];
+            let measured = [
+                (Down(0), [4.0 * KB, 4.0 * KB, 4.0 * KB]),
+                (Up(0), [512.0, 512.0, 512.0]),
+                (Down(1), [25.0 * KB, 25.0 * KB, 25.0 * KB]),
+                (Up(1), [2.0 * KB, 2.0 * KB, 2.0 * KB]),
+            ];
+            let projected = [
+                (Down(0), [0.0, 0.0, 0.0]),
+                (Up(0), [0.0, 0.0, 0.0]),
+                (Down(1), [25.0 * KB, 25.0 * KB, 25.0 * KB]),
+                (Up(1), [2.0 * KB, 2.0 * KB, 2.0 * KB]),
+            ];
+            assert_eq!(
+                network_pixels(&floored(&config), mode, vertical, &measured),
+                network_pixels(&config, mode, vertical, &projected),
+            );
+        });
     }
 
     /// Each network tile's pixels with two adapters, optionally with the first
@@ -689,6 +885,7 @@ mod tests {
             },
             graph_inline: config.display.graph_inline,
             styles: &graph_styles(&config),
+            network_floor: NetworkFloor::default(),
         };
         Renderer::new()
             .unwrap()
