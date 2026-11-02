@@ -1036,6 +1036,8 @@ export component SettingsWindow inherits Window {
     in-out property <bool> update-check;
     in-out property <bool> tray-icon;
     in-out property <int> sample-interval-ms;
+    in-out property <bool> battery-interval-on;
+    in-out property <int> battery-interval-ms;
     in-out property <int> history-len;
     in-out property <int> mode;
     in-out property <bool> graph-inline;
@@ -2913,6 +2915,24 @@ export component SettingsWindow inherits Window {
                             step-size: 250;
                             value <=> root.sample-interval-ms;
                             edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Update interval on battery");
+                        description: @tr("Milliseconds between readings while unplugged. Off keeps the interval above.");
+                        SpinBox {
+                            width: 140px;
+                            enabled: root.battery-interval-on;
+                            minimum: 500;
+                            maximum: 5000;
+                            step-size: 250;
+                            value <=> root.battery-interval-ms;
+                            edited => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.battery-interval-on;
+                            toggled => { root.changed(); }
                         }
                     }
                     Divider { }

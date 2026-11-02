@@ -33,11 +33,12 @@ use windows::Win32::UI::Shell::{
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
     GetForegroundWindow, GetMessageW, GetSystemMetrics, IDC_ARROW, KillTimer, LoadCursorW,
-    MA_NOACTIVATE, MSG, PostQuitMessage, RegisterClassW, RegisterWindowMessageW, SM_CXDRAG,
-    SetCursor, SetTimer, TranslateMessage, WM_APPCOMMAND, WM_CAPTURECHANGED, WM_CHANGEUISTATE,
-    WM_CONTEXTMENU, WM_DESTROY, WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP,
-    WM_MOUSEACTIVATE, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_RBUTTONUP,
-    WM_SETCURSOR, WM_SETTINGCHANGE, WM_TIMER, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+    MA_NOACTIVATE, MSG, PBT_POWERSETTINGCHANGE, PostQuitMessage, RegisterClassW,
+    RegisterWindowMessageW, SM_CXDRAG, SetCoalescableTimer, SetCursor, SetTimer, TranslateMessage,
+    WM_APPCOMMAND, WM_CAPTURECHANGED, WM_CHANGEUISTATE, WM_CONTEXTMENU, WM_DESTROY,
+    WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE, WM_MOUSEHWHEEL,
+    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POWERBROADCAST, WM_RBUTTONUP, WM_SETCURSOR,
+    WM_SETTINGCHANGE, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
@@ -56,6 +57,7 @@ use crate::overlay::{self, Overlay};
 use crate::popup::content::{Options as PopupOptions, needs_processes};
 use crate::popup::layout::item_screen_rect;
 use crate::popup::{self, Anchor, Popup, Style as PopupStyle};
+use crate::power::{self, Presence};
 use crate::render::{Frame, Renderer, graph_styles};
 use crate::sampler_thread::SamplerThread;
 use crate::taskbar::hooks::{self, Hooks};
@@ -78,6 +80,8 @@ const TIMER_WATCH: usize = 1;
 const TIMER_VALIDATE: usize = 2;
 const TIMER_RETRY: usize = 3;
 const TIMER_FADE: usize = 5;
+const TIMER_PRESENCE: usize = 6;
+const PRESENCE_RETRY_MS: u32 = 250;
 const TIMER_UPDATE: usize = 4;
 /// The first check waits for startup to settle; after that an hourly tick asks
 /// whether a day has passed, since a PC may stay on for days.
@@ -90,6 +94,8 @@ const FADE_STEP: u8 = 40;
 /// so shell transitions do not flicker them.
 const FULLSCREEN_DELAY: Duration = Duration::from_millis(300);
 const VALIDATE_MS: u32 = 2000;
+const WATCH_TOLERANCE_MS: u32 = 50;
+const VALIDATE_TOLERANCE_MS: u32 = 500;
 /// Explorer lays out the tray some time after announcing the taskbar.
 const RETRY_MS: [u32; 4] = [100, 250, 500, 1000];
 
@@ -121,6 +127,20 @@ thread_local! {
             config_changed: false,
         })
     };
+}
+
+thread_local! {
+    static PRESENCE: Cell<Presence> = const { Cell::new(Presence::new()) };
+}
+
+/// Records the change whatever the app is doing, and acts on it once it can.
+fn update_presence(host: HWND, change: impl FnOnce(&mut Presence)) {
+    let mut presence = PRESENCE.get();
+    change(&mut presence);
+    PRESENCE.set(presence);
+    if with_app(App::on_presence_changed).is_none() {
+        unsafe { SetTimer(Some(host), TIMER_PRESENCE, PRESENCE_RETRY_MS, None) };
+    }
 }
 
 fn defer(mark: impl FnOnce(&mut Deferred)) {
@@ -202,6 +222,7 @@ pub struct App {
     /// Shortcuts another app had taken, last time they were registered.
     hotkeys_taken: Vec<String>,
     recorder: Option<Recorder>,
+    unseen: bool,
 }
 
 /// What drawing an overlay needs besides the overlay.
@@ -359,15 +380,16 @@ impl App {
             hidden: false,
             hotkeys_taken: Vec::new(),
             recorder: None,
+            unseen: false,
         })
     }
 
     fn start(&mut self) {
-        unsafe {
-            SetTimer(Some(self.host), TIMER_WATCH, WATCH_MS, None);
-            SetTimer(Some(self.host), TIMER_VALIDATE, VALIDATE_MS, None);
-            SetTimer(Some(self.host), TIMER_UPDATE, UPDATE_FIRST_MS, None);
-        }
+        self.start_periodic_timers();
+        unsafe { SetTimer(Some(self.host), TIMER_UPDATE, UPDATE_FIRST_MS, None) };
+        PRESENCE.set(Presence::current());
+        power::register(self.host);
+        self.on_presence_changed();
         self.fullscreen = Debounce::new(taskbar::fullscreen_monitors());
         self.register_appbar(ABM_NEW);
         self.register_hotkeys();
@@ -1028,6 +1050,7 @@ impl App {
         if config::sampling_changed(&before, &after) {
             self.respawn_sampler(&after);
         }
+        self.apply_pace();
         recorder
     }
 
@@ -1038,6 +1061,7 @@ impl App {
         if config::sampling_changed(&before, &after) {
             self.respawn_sampler(&after);
         }
+        self.apply_pace();
     }
 
     fn respawn_sampler(&mut self, config: &Config) {
@@ -1047,6 +1071,7 @@ impl App {
         let open = self.details.is_some();
         self.sampler.extras.store(open, Ordering::Relaxed);
         self.sampler.processes.store(open, Ordering::Relaxed);
+        self.apply_pace();
     }
 
     fn apply_profile(&mut self, id: &str) {
@@ -1102,6 +1127,7 @@ impl App {
                     dir.display().to_string(),
                 );
                 self.recorder = Some(r);
+                self.apply_pace();
             }
             Err(e) => self
                 .tray
@@ -1238,13 +1264,61 @@ impl App {
         }
     }
 
+    fn start_periodic_timers(&self) {
+        unsafe {
+            SetCoalescableTimer(
+                Some(self.host),
+                TIMER_WATCH,
+                WATCH_MS,
+                None,
+                WATCH_TOLERANCE_MS,
+            );
+            SetCoalescableTimer(
+                Some(self.host),
+                TIMER_VALIDATE,
+                VALIDATE_MS,
+                None,
+                VALIDATE_TOLERANCE_MS,
+            );
+        }
+    }
+
+    fn on_presence_changed(&mut self) {
+        let unseen = PRESENCE.get().hidden();
+        if unseen != self.unseen {
+            self.unseen = unseen;
+            if unseen {
+                unsafe {
+                    let _ = KillTimer(Some(self.host), TIMER_WATCH);
+                    let _ = KillTimer(Some(self.host), TIMER_VALIDATE);
+                }
+            } else {
+                self.start_periodic_timers();
+                self.refresh();
+            }
+        }
+        self.apply_pace();
+    }
+
+    /// Alerts, recordings and game sessions go on while nobody is looking.
+    fn apply_pace(&self) {
+        let presence = PRESENCE.get();
+        let general = &self.config.general;
+        self.sampler
+            .set_interval_ms(general.sample_interval(presence.on_battery()));
+        let needed = self.recorder.is_some()
+            || self.game.is_some()
+            || !self.config.alerts.items().is_empty();
+        self.sampler.set_paused(presence.hidden() && !needed);
+    }
+
     fn on_snapshot(&mut self) {
         let mut received = false;
         while let Ok(snapshot) = self.sampler.snapshots.try_recv() {
             self.history.record(&snapshot);
             if let Some(g) = &mut self.game {
                 let in_front = taskbar::process_id(unsafe { GetForegroundWindow() }) == g.pid;
-                let seconds = f64::from(self.config.general.sample_interval_ms) / 1000.0;
+                let seconds = self.sampler.interval().as_secs_f64();
                 g.session.record(&snapshot, in_front, seconds);
             }
             if let Some(r) = &mut self.recorder
@@ -1275,7 +1349,11 @@ impl App {
             self.latest = snapshot;
             received = true;
         }
-        if received {
+        // The watch timer that would notice a game closing is stopped.
+        if received && self.unseen && self.game.is_some() {
+            self.watch_games();
+        }
+        if received && !self.unseen {
             self.redraw();
             self.show_tray_metric();
             if let (Some((kind, _)), Some(owner)) = (self.popup.open, self.popup_owner) {
@@ -1562,6 +1640,12 @@ impl App {
             TIMER_WATCH => self.watch(),
             TIMER_VALIDATE => self.refresh(),
             TIMER_FADE => self.fade_tick(),
+            TIMER_PRESENCE => {
+                unsafe {
+                    let _ = KillTimer(Some(self.host), TIMER_PRESENCE);
+                }
+                self.on_presence_changed();
+            }
             TIMER_UPDATE => {
                 unsafe { SetTimer(Some(self.host), TIMER_UPDATE, UPDATE_EVERY_MS, None) };
                 self.check_for_update();
@@ -1761,6 +1845,7 @@ impl App {
         }
         let hotkeys_changed = new.hotkeys != self.config.hotkeys;
         self.config = new;
+        self.apply_pace();
         if hotkeys_changed {
             self.register_hotkeys();
         }
@@ -1801,6 +1886,7 @@ impl Drop for App {
     fn drop(&mut self) {
         // Nothing pumps messages now, so Explorer must not be left with children here.
         self.overlays.clear();
+        power::unregister(self.host);
         self.sampler.retire();
         self.register_appbar(ABM_REMOVE);
     }
@@ -1943,6 +2029,13 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
     match msg {
         WM_APP_SNAPSHOT => {
             with_app(App::on_snapshot);
+        }
+        WM_POWERBROADCAST if wp.0 as u32 == PBT_POWERSETTINGCHANGE => {
+            update_presence(hwnd, |p| p.on_power_setting(lp));
+            return LRESULT(1);
+        }
+        WM_WTSSESSION_CHANGE => {
+            update_presence(hwnd, |p| p.on_session_change(wp.0 as u32));
         }
         WM_APP_TASKBAR => {
             hooks::handled(msg);

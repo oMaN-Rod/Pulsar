@@ -2554,6 +2554,14 @@ msgid "Milliseconds between readings."
 msgstr "两次读数之间的间隔（毫秒）。"
 
 #: ui/settings.slint
+msgid "Update interval on battery"
+msgstr "使用电池时的更新间隔"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr "未接通电源时两次读数之间的毫秒数。关闭时使用上面的间隔。"
+
+#: ui/settings.slint
 msgid "History length"
 msgstr "历史长度"
 

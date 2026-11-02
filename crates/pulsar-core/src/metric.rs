@@ -454,4 +454,6 @@ pub enum SourceError {
 pub trait Source: Send {
     fn id(&self) -> SourceId;
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError>;
+    /// For a source with work of its own between samples.
+    fn set_paused(&mut self, _paused: bool) {}
 }

@@ -2553,6 +2553,14 @@ msgid "Milliseconds between readings."
 msgstr "Milisegundos entre lecturas."
 
 #: ui/settings.slint
+msgid "Update interval on battery"
+msgstr "Intervalo de actualización con batería"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr "Milisegundos entre lecturas sin conexión a la corriente. Si está desactivado, se usa el intervalo anterior."
+
+#: ui/settings.slint
 msgid "History length"
 msgstr "Longitud del historial"
 

@@ -395,6 +395,8 @@ pub struct General {
     pub autostart: bool,
     pub update_check: bool,
     pub sample_interval_ms: u32,
+    /// `None` keeps `sample_interval_ms` on battery power.
+    pub battery_sample_interval_ms: Option<u32>,
     pub history_len: usize,
     /// Off keeps Pulsar out of the notification area except while a
     /// notification is showing.
@@ -687,12 +689,21 @@ impl Default for Config {
     }
 }
 
+impl General {
+    pub fn sample_interval(&self, on_battery: bool) -> u32 {
+        self.battery_sample_interval_ms
+            .filter(|_| on_battery)
+            .unwrap_or(self.sample_interval_ms)
+    }
+}
+
 impl Default for General {
     fn default() -> Self {
         Self {
             autostart: false,
             update_check: true,
             sample_interval_ms: 1000,
+            battery_sample_interval_ms: None,
             history_len: 60,
             tray_icon: true,
             language: None,
@@ -775,6 +786,7 @@ impl Config {
         self.version = CURRENT_VERSION;
         let g = &mut self.general;
         g.sample_interval_ms = g.sample_interval_ms.clamp(500, 5000);
+        g.battery_sample_interval_ms = g.battery_sample_interval_ms.map(|ms| ms.clamp(500, 5000));
         g.history_len = g.history_len.clamp(10, 600);
         g.language = g
             .language
@@ -1492,6 +1504,16 @@ sample_interval_ms = 1
         assert_eq!(c.display.load_thresholds.percent, [50, 75, 90]);
         save(&path, &c).unwrap();
         assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn the_battery_interval_applies_only_on_battery_and_is_clamped() {
+        let mut c = Config::default();
+        assert_eq!(c.general.sample_interval(true), 1000);
+        c.general.battery_sample_interval_ms = Some(99_999);
+        let c = c.sanitize();
+        assert_eq!(c.general.sample_interval(true), 5000);
+        assert_eq!(c.general.sample_interval(false), 1000);
     }
 
     #[test]

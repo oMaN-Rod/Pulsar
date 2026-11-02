@@ -2553,6 +2553,14 @@ msgid "Milliseconds between readings."
 msgstr "측정 간격(밀리초)입니다."
 
 #: ui/settings.slint
+msgid "Update interval on battery"
+msgstr "배터리 사용 시 업데이트 간격"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr "전원이 연결되지 않았을 때 측정 간격(밀리초)입니다. 끄면 위의 간격을 사용합니다."
+
+#: ui/settings.slint
 msgid "History length"
 msgstr "기록 길이"
 

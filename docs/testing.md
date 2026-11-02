@@ -26,6 +26,10 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | *Status tint* and *Status bubble* on CPU, memory and a temperature, with color modes *Item color* and *Color by load*, across the thresholds | The tile or dot follows the thresholds whatever the color mode; the bubble sits right of the text; neither is listed for Network, Battery or items with no load scale |
 | *Dot matrix* on an idle and a busy item, on a vertical taskbar and with a tall tile height | Only lit cells draw; no more than eight rows; text stays readable |
 | Network: *Mirror bars*, with *Upload on top* on and off, and on an adapter with its own tiles | The direction on the top line rises and the other falls; a one-direction tile falls back to bars |
+| Lock the PC, or let the display turn off, for a minute, then come back, with nothing else depending on Pulsar | Task Manager shows no CPU use and no ping traffic meanwhile; readings and graphs resume within a couple of seconds, with no false spike |
+| The same with an alert on or while recording | Sampling goes on, so the alert still fires and the CSV has no gap; the overlay is drawn again on return |
+| A laptop with *Update interval on battery* set, unplugged and plugged in | The graphs slow down and speed up without a restart; a game session's times stay right |
+| Task Manager's Details tab, *Power throttling* column, while Pulsar runs; hover popups and dragging the floating overlay | Throttling is enabled for pulsar.exe; hover and drag still feel immediate |
 | Widget: style *Dials*; CPU item's widget style *Core wall* | Rows of three rings with the value inside; Network on its own row; tall core bars with peak marks, and P-core and E-core counts on hybrid CPUs |
 | Settings → Items: graph style picker, by mouse and by Tab then Enter | The chosen tile is outlined and the overlay updates; only the CPU lists core styles |
 | Settings → Items: *Low*, *Moderate*, *High* and *Critical color*, then empty them again | The ribbons, load-colored items and heat cells take each color on dark and light taskbars; empty restores the default; choosing a theme leaves them alone |

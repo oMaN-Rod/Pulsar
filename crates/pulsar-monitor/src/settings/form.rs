@@ -53,6 +53,8 @@ pub struct Form {
     pub update_check: bool,
     pub tray_icon: bool,
     pub sample_interval_ms: i32,
+    pub battery_interval_on: bool,
+    pub battery_interval_ms: i32,
     pub history_len: i32,
     pub text_mode: bool,
     pub graph_inline: bool,
@@ -261,6 +263,7 @@ pub fn theme_from(f: &Form, base: &Theme, name: &str) -> Theme {
     }
 }
 
+const DEFAULT_BATTERY_INTERVAL_MS: i32 = 2000;
 const NETWORK_SHOW: [NetworkShow; 3] = [
     NetworkShow::Both,
     NetworkShow::Download,
@@ -289,6 +292,11 @@ pub fn to_form(c: &Config) -> Form {
         update_check: c.general.update_check,
         tray_icon: c.general.tray_icon,
         sample_interval_ms: c.general.sample_interval_ms as i32,
+        battery_interval_on: c.general.battery_sample_interval_ms.is_some(),
+        battery_interval_ms: c
+            .general
+            .battery_sample_interval_ms
+            .map_or(DEFAULT_BATTERY_INTERVAL_MS, |ms| ms as i32),
         history_len: c.general.history_len as i32,
         text_mode: d.mode == DisplayMode::Text,
         graph_inline: d.graph_inline,
@@ -555,6 +563,9 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     c.general.update_check = f.update_check;
     c.general.tray_icon = f.tray_icon;
     c.general.sample_interval_ms = f.sample_interval_ms.max(0) as u32;
+    c.general.battery_sample_interval_ms = f
+        .battery_interval_on
+        .then_some(f.battery_interval_ms.max(0) as u32);
     c.general.history_len = f.history_len.max(0) as usize;
     let d = &mut c.display;
     d.mode = if f.text_mode {
@@ -815,6 +826,8 @@ mod tests {
         let c = Config::default();
         let mut f = to_form(&c);
         f.sample_interval_ms = 10;
+        f.battery_interval_on = true;
+        f.battery_interval_ms = 99_999;
         f.history_len = -5;
         f.panel_opacity_custom = true;
         f.panel_opacity = 250;
@@ -824,6 +837,7 @@ mod tests {
         f.text_row_gap = 99;
         let out = to_config(&f, &c);
         assert_eq!(out.general.sample_interval_ms, 500);
+        assert_eq!(out.general.battery_sample_interval_ms, Some(5000));
         assert_eq!(out.general.history_len, 10);
         assert_eq!(out.display.panel_opacity, Some(100));
         assert_eq!(out.display.font_size_pt, 20.0);

@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -22,8 +22,22 @@ pub struct SamplerThread {
     /// Set while the details window is open: everything is sampled, not
     /// just what the overlay shows.
     pub extras: Arc<AtomicBool>,
+    pace: Arc<Pace>,
+    /// A message wakes the thread to read `pace`; dropping it stops the thread.
     stop: Option<Sender<()>>,
     handle: Option<JoinHandle<()>>,
+}
+
+#[derive(Debug)]
+struct Pace {
+    paused: AtomicBool,
+    interval_ms: AtomicU32,
+}
+
+impl Pace {
+    fn interval(&self) -> Duration {
+        Duration::from_millis(self.interval_ms.load(Ordering::Relaxed).into())
+    }
 }
 
 impl SamplerThread {
@@ -46,6 +60,11 @@ impl SamplerThread {
         let processes = Arc::<AtomicBool>::default();
         let extras = Arc::<AtomicBool>::default();
         let flags = (processes.clone(), extras.clone());
+        let pace = Arc::new(Pace {
+            paused: AtomicBool::new(false),
+            interval_ms: AtomicU32::new(interval.as_millis() as u32),
+        });
+        let thread_pace = pace.clone();
         let notify = notify.map(|h| h.0 as isize);
         let (tx, snapshots) = mpsc::channel();
         let (stop, stopped) = mpsc::channel::<()>();
@@ -68,13 +87,30 @@ impl SamplerThread {
                             );
                         }
                     }
-                    next += interval;
-                    let wait = next.saturating_duration_since(Instant::now());
-                    match stopped.recv_timeout(wait) {
-                        Err(RecvTimeoutError::Timeout) => {}
-                        _ => return,
+                    next += thread_pace.interval();
+                    loop {
+                        let wait = next.saturating_duration_since(Instant::now());
+                        match stopped.recv_timeout(wait) {
+                            Err(RecvTimeoutError::Timeout) => break,
+                            Err(RecvTimeoutError::Disconnected) => return,
+                            Ok(()) => {}
+                        }
+                        if thread_pace.paused.load(Ordering::Relaxed) {
+                            sampler.set_paused(true);
+                            while thread_pace.paused.load(Ordering::Relaxed) {
+                                if stopped.recv().is_err() {
+                                    return;
+                                }
+                            }
+                            sampler.set_paused(false);
+                            // Rate counters average over the whole pause.
+                            sampler.sample();
+                            next = Instant::now() + thread_pace.interval();
+                        } else {
+                            next = next.min(Instant::now() + thread_pace.interval());
+                        }
                     }
-                    if Instant::now() > next + interval {
+                    if Instant::now() > next + thread_pace.interval() {
                         next = Instant::now();
                     }
                 }
@@ -84,8 +120,31 @@ impl SamplerThread {
             snapshots,
             processes,
             extras,
+            pace,
             stop: Some(stop),
             handle: Some(handle),
+        }
+    }
+
+    pub fn set_paused(&self, paused: bool) {
+        if self.pace.paused.swap(paused, Ordering::Relaxed) != paused {
+            self.wake();
+        }
+    }
+
+    pub fn set_interval_ms(&self, ms: u32) {
+        if self.pace.interval_ms.swap(ms, Ordering::Relaxed) != ms {
+            self.wake();
+        }
+    }
+
+    pub fn interval(&self) -> Duration {
+        self.pace.interval()
+    }
+
+    fn wake(&self) {
+        if let Some(stop) = &self.stop {
+            let _ = stop.send(());
         }
     }
 
@@ -169,6 +228,64 @@ mod tests {
             let _ = self.release.recv_timeout(self.limit);
             Ok(())
         }
+    }
+
+    fn drain(thread: &SamplerThread) {
+        while thread.snapshots.try_recv().is_ok() {}
+    }
+
+    #[test]
+    fn a_paused_thread_sends_nothing_until_resumed() {
+        let interval = Duration::from_millis(20);
+        let thread = SamplerThread::start(|| Sampler::new(Vec::new(), None), interval, None);
+        thread
+            .snapshots
+            .recv_timeout(Duration::from_secs(3))
+            .unwrap();
+        thread.set_paused(true);
+        std::thread::sleep(interval * 5);
+        drain(&thread);
+        std::thread::sleep(interval * 5);
+        assert!(thread.snapshots.try_recv().is_err());
+        thread.set_paused(false);
+        assert!(
+            thread
+                .snapshots
+                .recv_timeout(Duration::from_secs(3))
+                .is_ok()
+        );
+    }
+
+    #[test]
+    fn dropping_a_paused_thread_stops_it() {
+        let thread = SamplerThread::start(
+            || Sampler::new(Vec::new(), None),
+            Duration::from_millis(20),
+            None,
+        );
+        thread.set_paused(true);
+        drop(thread);
+    }
+
+    #[test]
+    fn a_shorter_interval_applies_without_waiting_for_the_old_one() {
+        let thread = SamplerThread::start(
+            || Sampler::new(Vec::new(), None),
+            Duration::from_secs(60),
+            None,
+        );
+        thread
+            .snapshots
+            .recv_timeout(Duration::from_secs(3))
+            .unwrap();
+        thread.set_interval_ms(20);
+        assert_eq!(thread.interval(), Duration::from_millis(20));
+        assert!(
+            thread
+                .snapshots
+                .recv_timeout(Duration::from_secs(3))
+                .is_ok()
+        );
     }
 
     #[test]

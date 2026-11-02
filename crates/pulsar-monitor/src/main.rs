@@ -14,6 +14,7 @@ mod messages;
 mod names;
 mod overlay;
 mod popup;
+mod power;
 mod render;
 mod sampler_thread;
 mod taskbar;
@@ -64,6 +65,7 @@ fn main() -> windows::core::Result<()> {
         crash::install_panic_hook(dir, "pulsar", VERSION);
     }
     log::info!("Pulsar {VERSION} started");
+    power::prefer_efficiency();
     let result = app::run(recovered);
     log::info!("Pulsar exited");
     result

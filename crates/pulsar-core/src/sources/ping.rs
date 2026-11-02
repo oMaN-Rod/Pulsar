@@ -28,18 +28,25 @@ struct PingState {
 pub struct PingSource {
     state: Arc<Mutex<PingState>>,
     stop: Arc<AtomicBool>,
+    paused: Arc<AtomicBool>,
 }
 
 impl PingSource {
     pub fn spawn(host: String, interval: Duration) -> Self {
         let state = Arc::new(Mutex::new(PingState::default()));
         let stop = Arc::new(AtomicBool::new(false));
-        let (worker_state, worker_stop) = (state.clone(), stop.clone());
+        let paused = Arc::new(AtomicBool::new(false));
+        let (worker_state, worker_stop, worker_paused) =
+            (state.clone(), stop.clone(), paused.clone());
         thread::Builder::new()
             .name("pulsar-ping".into())
-            .spawn(move || run(&host, interval, &worker_state, &worker_stop))
+            .spawn(move || run(&host, interval, &worker_state, &worker_stop, &worker_paused))
             .expect("spawn ping thread");
-        Self { state, stop }
+        Self {
+            state,
+            stop,
+            paused,
+        }
     }
 }
 
@@ -52,6 +59,10 @@ impl Drop for PingSource {
 impl Source for PingSource {
     fn id(&self) -> SourceId {
         SourceId::Ping
+    }
+
+    fn set_paused(&mut self, paused: bool) {
+        self.paused.store(paused, Ordering::Relaxed);
     }
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
@@ -69,6 +80,15 @@ impl Source for PingSource {
         }
         out.set(MetricKey::PingLossPercent, loss_percent(&state.recent));
         Ok(())
+    }
+}
+
+impl PingState {
+    fn record(&mut self, reply: Option<f64>) {
+        if self.recent.len() == WINDOW {
+            self.recent.pop_front();
+        }
+        self.recent.push_back(reply);
     }
 }
 
@@ -92,7 +112,13 @@ fn resolve(host: &str) -> Option<Ipv4Addr> {
         })
 }
 
-fn run(host: &str, interval: Duration, state: &Mutex<PingState>, stop: &AtomicBool) {
+fn run(
+    host: &str,
+    interval: Duration,
+    state: &Mutex<PingState>,
+    stop: &AtomicBool,
+    paused: &AtomicBool,
+) {
     let handle = match unsafe { IcmpCreateFile() } {
         Ok(h) => h,
         Err(e) => {
@@ -102,21 +128,24 @@ fn run(host: &str, interval: Duration, state: &Mutex<PingState>, stop: &AtomicBo
     };
     let mut target = None;
     while !stop.load(Ordering::Relaxed) {
+        if paused.load(Ordering::Relaxed) {
+            thread::sleep(interval);
+            continue;
+        }
         if target.is_none() {
             target = resolve(host);
         }
         match target {
             None => {
-                state.lock().unwrap().error = Some(crate::tr!("Cannot resolve {} (IPv4)", host))
+                let mut s = state.lock().unwrap();
+                s.error = Some(crate::tr!("Cannot resolve {} (IPv4)", host));
+                s.record(None);
             }
             Some(ip) => {
                 let reply = echo(handle, ip);
                 let mut s = state.lock().unwrap();
                 s.error = None;
-                if s.recent.len() == WINDOW {
-                    s.recent.pop_front();
-                }
-                s.recent.push_back(reply);
+                s.record(reply);
                 if reply.is_none() {
                     target = None;
                 }
@@ -152,6 +181,16 @@ fn echo(handle: HANDLE, ip: Ipv4Addr) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_latest_attempts_are_kept() {
+        let mut state = PingState::default();
+        for i in 0..WINDOW + 3 {
+            state.record(Some(i as f64));
+        }
+        assert_eq!(state.recent.len(), WINDOW);
+        assert_eq!(state.recent.front(), Some(&Some(3.0)));
+    }
 
     #[test]
     fn loss_counts_missing_replies() {

@@ -205,6 +205,21 @@ impl Sampler {
         self.want_processes.clone()
     }
 
+    /// Tells sources that work between samples to stop or go on.
+    pub fn set_paused(&mut self, paused: bool) {
+        for source in self
+            .sources
+            .iter_mut()
+            .chain(self.extras.iter_mut().flatten())
+            .chain(self.processes.iter_mut())
+        {
+            source.set_paused(paused);
+        }
+        if paused {
+            self.processes_primed = false;
+        }
+    }
+
     pub fn sample(&mut self) -> Snapshot {
         let mut snapshot = Snapshot::default();
         for source in &mut self.sources {
@@ -439,6 +454,30 @@ mod tests {
         };
         assert_eq!(sources(&[ItemKind::GpuMemory]), 1);
         assert_eq!(sources(&[ItemKind::Gpu, ItemKind::GpuMemory]), 1);
+    }
+
+    struct PauseAware(Arc<AtomicBool>);
+
+    impl Source for PauseAware {
+        fn id(&self) -> SourceId {
+            SourceId::Ping
+        }
+        fn sample(&mut self, _: &mut Snapshot) -> Result<(), SourceError> {
+            Ok(())
+        }
+        fn set_paused(&mut self, paused: bool) {
+            self.0.store(paused, Ordering::Relaxed);
+        }
+    }
+
+    #[test]
+    fn pausing_reaches_the_sources() {
+        let paused = Arc::new(AtomicBool::new(false));
+        let mut sampler = Sampler::new(vec![Box::new(PauseAware(paused.clone()))], None);
+        sampler.set_paused(true);
+        assert!(paused.load(Ordering::Relaxed));
+        sampler.set_paused(false);
+        assert!(!paused.load(Ordering::Relaxed));
     }
 
     #[test]

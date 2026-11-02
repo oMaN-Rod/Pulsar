@@ -321,6 +321,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_update_check(f.update_check);
     ui.set_tray_icon(f.tray_icon);
     ui.set_sample_interval_ms(f.sample_interval_ms);
+    ui.set_battery_interval_on(f.battery_interval_on);
+    ui.set_battery_interval_ms(f.battery_interval_ms);
     ui.set_history_len(f.history_len);
     ui.set_mode(i32::from(f.text_mode));
     ui.set_graph_inline(f.graph_inline);
@@ -532,6 +534,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         update_check: ui.get_update_check(),
         tray_icon: ui.get_tray_icon(),
         sample_interval_ms: ui.get_sample_interval_ms(),
+        battery_interval_on: ui.get_battery_interval_on(),
+        battery_interval_ms: ui.get_battery_interval_ms(),
         history_len: ui.get_history_len(),
         text_mode: ui.get_mode() == 1,
         graph_inline: ui.get_graph_inline(),
