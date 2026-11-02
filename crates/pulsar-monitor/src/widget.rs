@@ -4,10 +4,14 @@
 use std::borrow::Cow;
 
 use pulsar_core::config::{WidgetLayer, WidgetStyle};
-use pulsar_core::display::{NetworkFloor, area_points, graph_max, metric_for};
+use pulsar_core::display::{
+    CoreLoad, NetworkFloor, area_points, core_loads, graph_max, meter_fraction, metric_for,
+};
+use pulsar_core::hardware::cpu::cached_topology;
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{CellPart, Rect, TextMeasure};
 use pulsar_core::metric::{ItemKind, Snapshot, Unit};
+use pulsar_core::tr;
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM};
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -22,7 +26,7 @@ use windows::core::{BOOL, Result, w};
 
 use crate::popup::content::{Block, PopupContent};
 use crate::popup::layout::ellipsize;
-use crate::render::{Renderer, Surface};
+use crate::render::{CoreMarks, Renderer, Surface};
 use crate::taskbar::placement::Rect32;
 use crate::text::Text;
 use crate::theme::{Color, Palette};
@@ -119,7 +123,7 @@ impl Widget {
         let d = Dims::new(text, look);
         let mut sections: Vec<Section> = contents
             .iter()
-            .map(|(c, style)| Section::new(c, *style, snapshot))
+            .map(|(c, style)| Section::new(c, *style, snapshot, history))
             .collect();
         let plan = Plan::new(&mut sections, &d, look.max_h, text);
         self.hits = plan
@@ -307,6 +311,9 @@ pub struct Look {
     pub network_floor: NetworkFloor,
 }
 
+const DIALS_PER_ROW: usize = 3;
+const MAX_DIAL_DIP: f32 = 76.0;
+
 struct Dims {
     scale: f32,
     pad: f32,
@@ -322,12 +329,16 @@ struct Dims {
     tile_pad: f32,
     tile_graph_h: f32,
     column_w: f32,
+    wall_h: f32,
+    dial: f32,
 }
 
 impl Dims {
     fn new(text: &Text, look: &Look) -> Self {
         let s = look.scale;
         let small_px = look.font_px * 0.88;
+        let inner = look.column_w - 2.0 * 10.0 * s;
+        let dial_cell = (inner - 2.0 * 8.0 * s) / DIALS_PER_ROW as f32;
         Self {
             scale: s,
             pad: 10.0 * s,
@@ -341,11 +352,17 @@ impl Dims {
             tile_pad: 6.0 * s,
             tile_graph_h: 18.0 * s,
             column_w: look.column_w,
+            wall_h: 64.0 * s,
+            dial: dial_cell.min(MAX_DIAL_DIP * s).max(1.0),
         }
     }
 
     fn tile_h(&self) -> f32 {
         2.0 * self.tile_pad + self.small_h + self.line_h + self.tile_graph_h
+    }
+
+    fn dial_h(&self) -> f32 {
+        self.dial + self.gap / 2.0 + self.small_h
     }
 }
 
@@ -361,13 +378,20 @@ struct Section<'a> {
     shares: Vec<f64>,
     /// The current value as a fraction of its scale, for a meter.
     meter: Option<f32>,
+    /// Per-core load and peak, for the core wall.
+    wall: Vec<CoreLoad>,
     /// Indexes into `pairs` by line: two side by side, or one that needs
     /// the whole width. Set by `lay_out_pairs`.
     rows: Vec<(usize, Option<usize>)>,
 }
 
 impl<'a> Section<'a> {
-    fn new(content: &'a PopupContent, style: WidgetStyle, snapshot: &Snapshot) -> Self {
+    fn new(
+        content: &'a PopupContent,
+        style: WidgetStyle,
+        snapshot: &Snapshot,
+        history: &HistoryStore,
+    ) -> Self {
         let mut pairs = Vec::new();
         let mut cores: &[f64] = &[];
         let mut shares = Vec::new();
@@ -383,6 +407,15 @@ impl<'a> Section<'a> {
                 }
             }
         }
+        let is_wall = style == WidgetStyle::CoreWall;
+        if is_wall {
+            cores = &[];
+        }
+        let wall = if is_wall && snapshot.item_error(content.kind).is_none() {
+            core_loads(snapshot, history)
+        } else {
+            Vec::new()
+        };
         let key = metric_for(content.kind, content.series[0]);
         let meter = match key.unit() {
             Unit::Percent | Unit::Celsius => snapshot
@@ -398,6 +431,7 @@ impl<'a> Section<'a> {
             cores,
             shares,
             meter,
+            wall,
             rows: Vec::new(),
         }
     }
@@ -412,9 +446,20 @@ impl<'a> Section<'a> {
         self.rows = pair_rows(&wide);
     }
 
+    /// Where efficient cores begin, on a hybrid CPU.
+    fn split(&self) -> Option<usize> {
+        cached_topology().performance_threads(self.wall.len())
+    }
+
     /// Height in the line styles.
     fn height(&self, d: &Dims) -> f32 {
         let mut h = d.line_h;
+        if self.style == WidgetStyle::CoreWall {
+            h += d.gap / 2.0 + d.wall_h;
+            if self.split().is_some() {
+                h += d.small_h;
+            }
+        }
         if !self.cores.is_empty() {
             h += d.gap / 2.0 + d.strip_h;
         }
@@ -478,11 +523,11 @@ impl Plan {
         let styles: Vec<WidgetStyle> = sections.iter().map(|s| s.style).collect();
         let wide: Vec<bool> = sections.iter().map(|s| wide_tile(s.content.kind)).collect();
         let units = units(&styles, &wide);
-        let tile_w = (inner - d.gap) / 2.0;
         let heights: Vec<f32> = units
             .iter()
             .map(|u| match styles[u[0]] {
                 WidgetStyle::Tiles => d.tile_h(),
+                WidgetStyle::Dials => d.dial_h(),
                 _ => sections[u[0]].height(d),
             })
             .collect();
@@ -494,25 +539,27 @@ impl Plan {
             let value_w = column
                 .iter()
                 .flat_map(|&u| &units[u])
-                .filter(|&&i| styles[i] != WidgetStyle::Tiles)
+                .filter(|&&i| per_row(styles[i]) == 1)
                 .map(|&i| text.width(&sections[i].content.value, d.font_px))
                 .fold(0.0, f32::max)
                 .min(inner * 0.3);
             let mut y = d.pad;
             for (n, &u) in column.iter().enumerate() {
                 let h = heights[u];
-                let is_line = styles[units[u][0]] != WidgetStyle::Tiles;
+                let is_line = per_row(styles[units[u][0]]) == 1;
                 let next_is_line = column
                     .get(n + 1)
-                    .is_some_and(|&next| styles[units[next][0]] != WidgetStyle::Tiles);
+                    .is_some_and(|&next| per_row(styles[units[next][0]]) == 1);
+                let across = per_row(styles[units[u][0]]) as f32;
+                let cell_w = (inner - (across - 1.0) * d.gap) / across;
                 for (k, &index) in units[u].iter().enumerate() {
                     let rect = if is_line || wide[index] {
                         Rect { x, y, w: inner, h }
                     } else {
                         Rect {
-                            x: x + k as f32 * (tile_w + d.gap),
+                            x: x + k as f32 * (cell_w + d.gap),
                             y,
-                            w: tile_w,
+                            w: cell_w,
                             h,
                         }
                     };
@@ -544,18 +591,27 @@ fn wide_tile(kind: ItemKind) -> bool {
     kind == ItemKind::Network
 }
 
+/// How many sections in a style share a row.
+fn per_row(style: WidgetStyle) -> usize {
+    match style {
+        WidgetStyle::Tiles => 2,
+        WidgetStyle::Dials => DIALS_PER_ROW,
+        WidgetStyle::Sparklines | WidgetStyle::Meters | WidgetStyle::CoreWall => 1,
+    }
+}
+
 /// Groups sections into what stacks in a column: one section in a line
-/// style, a wide tile, or up to two tiles side by side.
+/// style, a wide tile, or a row of tiles or dials side by side.
 fn units(styles: &[WidgetStyle], wide: &[bool]) -> Vec<Vec<usize>> {
     let mut out: Vec<Vec<usize>> = Vec::new();
-    let half = |i: usize| styles[i] == WidgetStyle::Tiles && !wide[i];
+    let shares = |i: usize| per_row(styles[i]) > 1 && !wide[i];
     for i in 0..styles.len() {
-        let pairs_up = half(i)
-            && out
-                .last()
-                .is_some_and(|last| last.len() == 1 && half(last[0]));
+        let joins = shares(i)
+            && out.last().is_some_and(|last| {
+                last.len() < per_row(styles[i]) && shares(last[0]) && styles[last[0]] == styles[i]
+            });
         match out.last_mut() {
-            Some(last) if pairs_up => last.push(i),
+            Some(last) if joins => last.push(i),
             _ => out.push(vec![i]),
         }
     }
@@ -595,6 +651,7 @@ impl Ctx<'_> {
     fn section(&self, r: &Renderer, s: &Section, at: Rect, value_w: f32) -> Result<()> {
         match s.style {
             WidgetStyle::Tiles => self.tile(r, s, at),
+            WidgetStyle::Dials => self.dial(r, s, at),
             _ => self.lines(r, s, at, value_w),
         }
     }
@@ -626,8 +683,9 @@ impl Ctx<'_> {
             w: graph_w,
             h: d.line_h * 0.7,
         };
-        let has_graph =
-            middle.w >= 24.0 * d.scale && (s.style != WidgetStyle::Meters || s.meter.is_some());
+        let has_graph = s.style != WidgetStyle::CoreWall
+            && middle.w >= 24.0 * d.scale
+            && (s.style != WidgetStyle::Meters || s.meter.is_some());
         let title_end = if has_graph { middle.x } else { value_x } - d.gap;
         let title = ellipsize(c.title, title_end - at.x, d.font_px, t);
         r.text_at(t, &body, &title, at.x, at.y, p.popup_text)?;
@@ -652,6 +710,35 @@ impl Ctx<'_> {
             }
         }
         let mut y = at.y + d.line_h;
+        if s.style == WidgetStyle::CoreWall {
+            y += d.gap / 2.0;
+            let wall = Rect {
+                x: at.x,
+                y,
+                w: at.w,
+                h: d.wall_h,
+            };
+            let marks = CoreMarks {
+                split: s.split(),
+                track: p.popup_border,
+                peak: p.popup_text,
+                scale: d.scale,
+            };
+            r.draw_core_bars(&s.wall, wall, marks, |load| {
+                p.graph_at(c.kind, c.series[0], Some(load))
+            })?;
+            y += d.wall_h;
+            if let Some(split) = s.split() {
+                let efficient = s.wall.len() - split;
+                let half = (at.w - d.gap) / 2.0;
+                let first = ellipsize(&tr!("P-cores, {} threads", split), half, d.small_px, t);
+                let second = ellipsize(&tr!("E-cores, {} threads", efficient), half, d.small_px, t);
+                r.text_at(t, &small, &first, at.x, y, p.popup_label)?;
+                let x = at.x + at.w - t.width(&second, d.small_px);
+                r.text_at(t, &small, &second, x, y, p.popup_label)?;
+                y += d.small_h;
+            }
+        }
         if !s.cores.is_empty() {
             y += d.gap / 2.0;
             let n = s.cores.len() as f32;
@@ -747,7 +834,69 @@ impl Ctx<'_> {
         self.graph(r, s, graph, 1.0)
     }
 
-    fn graph(&self, r: &Renderer, s: &Section, rect: Rect, stroke: f32) -> Result<()> {
+    /// A ring per reading with its value in the middle and its name below.
+    /// A wide dial has the ring on the left and the text beside it, as a
+    /// value such as two network rates doesn't fit inside a ring.
+    fn dial(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
+        let (d, p, t) = (self.d, self.palette, self.text);
+        let c = s.content;
+        let wide = wide_tile(c.kind);
+        let center_x = if wide {
+            at.x + d.dial / 2.0
+        } else {
+            at.x + at.w / 2.0
+        };
+        let center = (center_x, at.y + d.dial / 2.0);
+        let (histories, max) = self.series(s);
+        let stroke = d.dial * if histories.len() > 1 { 0.09 } else { 0.11 };
+        let mut radius = d.dial / 2.0 - stroke / 2.0;
+        let readings: Vec<(f32, Color)> = if histories.is_empty() {
+            vec![(0.0, self.accent(s))]
+        } else {
+            histories
+                .iter()
+                .map(|(part, history)| {
+                    let latest = history.latest();
+                    (
+                        meter_fraction(latest.unwrap_or(f64::NAN), max),
+                        p.graph_at(c.kind, *part, latest),
+                    )
+                })
+                .collect()
+        };
+        for (fraction, color) in readings {
+            r.draw_ring(center, radius, stroke, fraction, color, p.popup_border)?;
+            radius -= stroke + d.scale;
+        }
+        let small = t.format(d.small_px)?;
+        if wide {
+            let x = at.x + d.dial + d.gap;
+            let room = at.right() - x;
+            let middle = at.y + d.dial / 2.0;
+            let title = ellipsize(c.title, room, d.small_px, t);
+            r.text_at(t, &small, &title, x, middle - d.small_h, p.popup_label)?;
+            let value = ellipsize(&c.value, room, d.font_px, t);
+            let body = t.format(d.font_px)?;
+            r.text_at(t, &body, &value, x, middle, p.popup_text)?;
+        } else {
+            let inside = (d.dial - 2.0 * stroke - 4.0 * d.scale).max(1.0);
+            let px = [d.font_px, d.small_px, d.small_px * 0.8]
+                .into_iter()
+                .find(|&px| t.width(&c.value, px) <= inside)
+                .unwrap_or(d.small_px * 0.8);
+            let value = ellipsize(&c.value, inside, px, t);
+            let x = center.0 - t.width(&value, px) / 2.0;
+            let y = center.1 - t.line_height(px) / 2.0;
+            r.text_at(t, &t.format(px)?, &value, x, y, p.popup_text)?;
+            let title = ellipsize(c.title, at.w, d.small_px, t);
+            let x = center.0 - t.width(&title, d.small_px) / 2.0;
+            let y = at.y + d.dial + d.gap / 2.0;
+            r.text_at(t, &small, &title, x, y, p.popup_label)?;
+        }
+        Ok(())
+    }
+
+    fn series<'s>(&'s self, s: &Section) -> (Vec<(CellPart, Cow<'s, History>)>, f64) {
         let c = s.content;
         let histories: Vec<(CellPart, Cow<History>)> = c
             .series
@@ -763,6 +912,12 @@ impl Ctx<'_> {
             unit,
             &histories.iter().map(|(_, h)| &**h).collect::<Vec<_>>(),
         );
+        (histories, max)
+    }
+
+    fn graph(&self, r: &Renderer, s: &Section, rect: Rect, stroke: f32) -> Result<()> {
+        let c = s.content;
+        let (histories, max) = self.series(s);
         for (i, (part, history)) in histories.iter().enumerate() {
             r.series(
                 &area_points(history, rect, max),
@@ -902,6 +1057,116 @@ mod tests {
             "a wide tile stands alone"
         );
         assert!(units(&[], &[]).is_empty());
+    }
+
+    #[test]
+    fn dials_share_rows_of_three_with_their_own_style_only() {
+        use WidgetStyle::{CoreWall, Dials, Tiles};
+        let narrow = [false; 7];
+        assert_eq!(
+            units(
+                &[Dials, Dials, Dials, Dials, Tiles, Dials, CoreWall],
+                &narrow
+            ),
+            [vec![0, 1, 2], vec![3], vec![4], vec![5], vec![6]]
+        );
+        assert_eq!(
+            units(&[Dials, Dials, Dials], &[false, true, false]),
+            [vec![0], vec![1], vec![2]],
+            "a wide dial stands alone"
+        );
+    }
+
+    fn sample() -> (Snapshot, HistoryStore) {
+        use pulsar_core::metric::MetricKey;
+        let mut history = HistoryStore::new(60);
+        let mut last = Snapshot::default();
+        for tick in 0..12 {
+            let mut s = Snapshot::default();
+            s.set(MetricKey::CpuTotal, 38.0);
+            s.set(MetricKey::CpuTempC, 61.0);
+            s.set(MetricKey::MemUsedPercent, 41.0);
+            s.set(MetricKey::GpuUtil, 12.0);
+            s.set(MetricKey::NetDownBps, 300_000.0);
+            s.set(MetricKey::NetUpBps, 40_000.0);
+            for core in 0..24u16 {
+                let load = f64::from((core * 7 + tick * 11) % 100);
+                s.set(MetricKey::CpuCore(core), load);
+            }
+            history.record(&s);
+            last = s;
+        }
+        (last, history)
+    }
+
+    #[test]
+    fn dials_and_the_core_wall_draw_inside_the_panel() {
+        use pulsar_core::config::Config;
+        let text = Text::new(None, false).unwrap();
+        let config = Config::default();
+        let (snapshot, history) = sample();
+        let kinds = [
+            (ItemKind::Cpu, WidgetStyle::CoreWall),
+            (ItemKind::Cpu, WidgetStyle::Dials),
+            (ItemKind::CpuTemp, WidgetStyle::Dials),
+            (ItemKind::Ram, WidgetStyle::Dials),
+            (ItemKind::Gpu, WidgetStyle::Dials),
+            (ItemKind::Network, WidgetStyle::Dials),
+        ];
+        let contents: Vec<(PopupContent, WidgetStyle)> = kinds
+            .iter()
+            .map(|&(kind, style)| {
+                let options = crate::popup::content::Options::new(&config, kind, &snapshot.gpus);
+                let content =
+                    crate::popup::content::build_with(kind, &snapshot, &history, &options);
+                (content, style)
+            })
+            .collect();
+        let look = Look {
+            column_w: 300.0,
+            max_h: 1000.0,
+            font_px: 12.0,
+            opacity: 1.0,
+            scale: 1.0,
+            network_floor: NetworkFloor::default(),
+        };
+        let d = Dims::new(&text, &look);
+        let mut sections: Vec<Section> = contents
+            .iter()
+            .map(|(c, style)| Section::new(c, *style, &snapshot, &history))
+            .collect();
+        let plan = Plan::new(&mut sections, &d, look.max_h, &text);
+        for placed in &plan.placed {
+            let r = placed.rect;
+            assert!(r.x >= 0.0 && r.right() <= plan.width, "{:?}", r);
+            assert!(r.y >= 0.0 && r.y + r.h <= plan.height, "{:?}", r);
+        }
+        assert_eq!(
+            plan.placed[1].rect.y, plan.placed[3].rect.y,
+            "dials share a row"
+        );
+        assert!(
+            plan.placed[5].rect.w > plan.placed[1].rect.w,
+            "network is wide"
+        );
+        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
+        let ctx = Ctx {
+            text: &text,
+            palette: &palette,
+            history: &history,
+            network_floor: look.network_floor,
+            d: &d,
+        };
+        let surface = Surface::new(plan.width as i32, plan.height.ceil() as i32).unwrap();
+        let mut renderer = Renderer::new().unwrap();
+        renderer
+            .paint(&surface, Color::rgb(28, 28, 28), |r| {
+                for placed in &plan.placed {
+                    ctx.section(r, &sections[placed.index], placed.rect, placed.value_w)?;
+                }
+                Ok(())
+            })
+            .unwrap();
     }
 
     #[test]

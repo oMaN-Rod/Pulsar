@@ -370,6 +370,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
             name: names::item_name(r.kind).into(),
             checked: f.widget_items.contains(&r.kind),
             style: r.widget_style,
+            is_cpu: r.kind == ItemKind::Cpu,
             detail: r.widget_detail,
         })
         .collect();
@@ -747,6 +748,18 @@ fn style_choices(kind: ItemKind) -> slint::ModelRc<StyleChoice> {
     slint::ModelRc::new(slint::VecModel::from(choices))
 }
 
+fn widget_style_names(kind: ItemKind) -> slint::ModelRc<SharedString> {
+    strings(
+        std::iter::once(tr!("Widget style").into())
+            .chain(
+                names::widget_styles_for(kind)
+                    .iter()
+                    .map(|&s| names::widget_style_name(s).into()),
+            )
+            .collect(),
+    )
+}
+
 /// The text the window gets from here rather than from its `.slint` file.
 fn localize(ui: &SettingsWindow) {
     ui.set_window_title(ipc::settings_title().into());
@@ -769,15 +782,8 @@ fn localize(ui: &SettingsWindow) {
             .chain(details.clone())
             .collect(),
     ));
-    ui.set_widget_item_styles(strings(
-        std::iter::once(tr!("Widget style").into())
-            .chain(
-                names::WIDGET_STYLES
-                    .iter()
-                    .map(|&s| names::widget_style_name(s).into()),
-            )
-            .collect(),
-    ));
+    ui.set_cpu_widget_item_styles(widget_style_names(ItemKind::Cpu));
+    ui.set_widget_item_styles(widget_style_names(ItemKind::Ram));
     ui.set_widget_item_details(strings(
         std::iter::once(tr!("Widget detail").into())
             .chain(details)

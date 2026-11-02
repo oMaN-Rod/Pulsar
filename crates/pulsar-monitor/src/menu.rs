@@ -17,7 +17,7 @@ use windows::core::{HSTRING, PCSTR, PCWSTR, w};
 
 use crate::names::{
     COLOR_MODES, DETAILS, STYLES, WIDGET_STYLES, color_mode_name, detail_name, item_name,
-    style_name, styles_for, widget_style_name,
+    style_name, styles_for, widget_style_name, widget_styles_for,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -432,9 +432,11 @@ fn widget_item_menu(config: &Config, kind: ItemKind) -> Option<Menu> {
         true,
     );
     for (i, style) in WIDGET_STYLES.into_iter().enumerate() {
-        let id = item_id(kind, ITEM_WIDGET_STYLE + i);
-        let checked = item.widget_style == Some(style);
-        menu.item(id, widget_style_name(style), checked, true);
+        if widget_styles_for(kind).contains(&style) {
+            let id = item_id(kind, ITEM_WIDGET_STYLE + i);
+            let checked = item.widget_style == Some(style);
+            menu.item(id, widget_style_name(style), checked, true);
+        }
     }
     menu.separator();
     let same = tr!(

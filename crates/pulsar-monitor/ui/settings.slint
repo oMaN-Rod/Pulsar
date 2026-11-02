@@ -82,6 +82,7 @@ export struct WidgetItemRow {
     // 0 follows the widget; otherwise one more than an index into the
     // style and detail lists.
     style: int,
+    is-cpu: bool,
     detail: int,
 }
 
@@ -1188,6 +1189,7 @@ export component SettingsWindow inherits Window {
     in-out property <bool> widget-own-items;
     in-out property <[WidgetItemRow]> widget-items;
     in property <[string]> widget-item-styles;
+    in property <[string]> cpu-widget-item-styles;
     in property <[string]> widget-item-details;
     in-out property <bool> per-drive;
     in-out property <bool> drive-used;
@@ -2322,10 +2324,10 @@ export component SettingsWindow inherits Window {
                 Card {
                     SettingRow {
                         title: @tr("Style");
-                        description: @tr("Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value.");
+                        description: @tr("Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings.");
                         ComboBox {
                             width: 200px;
-                            model: [@tr("Sparklines"), @tr("Tiles"), @tr("Meters")];
+                            model: [@tr("Sparklines"), @tr("Tiles"), @tr("Meters"), @tr("Dials")];
                             current-index <=> root.widget-style;
                             selected => { root.changed(); }
                         }
@@ -2333,7 +2335,7 @@ export component SettingsWindow inherits Window {
                     Divider { }
                     SettingRow {
                         title: @tr("Detail");
-                        description: root.widget-style == 1 ? @tr("Tiles show the value and graph only.") : @tr("How much each item shows. Colors follow the theme.");
+                        description: root.widget-style == 1 ? @tr("Tiles show the value and graph only.") : root.widget-style == 3 ? @tr("Dials show the value only.") : @tr("How much each item shows. Colors follow the theme.");
                         ComboBox {
                             width: 200px;
                             model: root.popup-details;
@@ -2383,7 +2385,7 @@ export component SettingsWindow inherits Window {
                             title: row.name;
                             ComboBox {
                                 width: 150px;
-                                model: root.widget-item-styles;
+                                model: row.is-cpu ? root.cpu-widget-item-styles : root.widget-item-styles;
                                 current-index: row.style;
                                 selected => { root.widget-item-choice(i, 0, self.current-index); }
                             }

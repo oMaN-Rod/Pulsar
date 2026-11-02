@@ -1083,6 +1083,14 @@ msgid "Meter"
 msgstr ""
 
 #: src/names.rs
+msgid "Dial"
+msgstr ""
+
+#: src/names.rs
+msgid "Core wall"
+msgstr ""
+
+#: src/names.rs
 msgid "Simple"
 msgstr ""
 
@@ -1331,11 +1339,11 @@ msgid "The app in front"
 msgstr ""
 
 #: src/settings/main.rs
-msgid "Same as other items"
+msgid "Widget style"
 msgstr ""
 
 #: src/settings/main.rs
-msgid "Widget style"
+msgid "Same as other items"
 msgstr ""
 
 #: src/settings/main.rs
@@ -1392,6 +1400,14 @@ msgstr ""
 
 #: src/settings/search.rs
 msgid "Settings page"
+msgstr ""
+
+#: src/widget.rs
+msgid "P-cores, {} threads"
+msgstr ""
+
+#: src/widget.rs
+msgid "E-cores, {} threads"
 msgstr ""
 
 #: ui/details.slint
@@ -2147,7 +2163,7 @@ msgid "Style"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value."
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings."
 msgstr ""
 
 #: ui/settings.slint
@@ -2163,7 +2179,15 @@ msgid "Meters"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Dials"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Tiles show the value and graph only."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Dials show the value only."
 msgstr ""
 
 #: ui/settings.slint

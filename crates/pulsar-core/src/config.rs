@@ -140,6 +140,10 @@ pub enum WidgetStyle {
     Tiles,
     /// A bar showing the current value, with no history.
     Meters,
+    /// A grid of rings showing the current value.
+    Dials,
+    /// A tall bar per logical processor; CPU only.
+    CoreWall,
 }
 
 /// A panel on the desktop with a section per item, like an always-open popup.
@@ -850,6 +854,12 @@ impl Config {
             if matches!(item.style, GraphStyle::Cores | GraphStyle::Heat) {
                 item.style = GraphStyle::default();
             }
+            if item.widget_style == Some(WidgetStyle::CoreWall) {
+                item.widget_style = None;
+            }
+        }
+        if self.widget.style == WidgetStyle::CoreWall {
+            self.widget.style = WidgetStyle::default();
         }
         let d = &mut self.display;
         if d.labels == LabelStyle::None {
@@ -1472,6 +1482,14 @@ sample_interval_ms = 1
             assert_eq!(c.item(ItemKind::Cpu).unwrap().style, style);
             assert_eq!(c.item(ItemKind::Ram).unwrap().style, GraphStyle::Area);
         }
+        let mut c = Config::default();
+        c.widget.style = WidgetStyle::CoreWall;
+        c.item_mut(ItemKind::Cpu).unwrap().widget_style = Some(WidgetStyle::CoreWall);
+        c.item_mut(ItemKind::Ram).unwrap().widget_style = Some(WidgetStyle::CoreWall);
+        let c = c.sanitize();
+        assert_eq!(c.widget.style, WidgetStyle::Sparklines);
+        assert_eq!(c.widget_style(ItemKind::Cpu), WidgetStyle::CoreWall);
+        assert_eq!(c.widget_style(ItemKind::Ram), WidgetStyle::Sparklines);
     }
 
     #[test]

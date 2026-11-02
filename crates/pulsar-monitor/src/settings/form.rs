@@ -12,7 +12,7 @@ use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::theme::{Colors, Theme};
 
-use crate::names::{COLOR_MODES, DETAILS, WIDGET_STYLES, styles_for};
+use crate::names::{COLOR_MODES, DETAILS, styles_for, widget_styles_for};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ItemRow {
@@ -360,7 +360,7 @@ pub fn to_form(c: &Config) -> Form {
                 short_label: i.short_label.clone().unwrap_or_default(),
                 widget_style: i
                     .widget_style
-                    .map_or(0, |s| index_of(&WIDGET_STYLES, &s) + 1),
+                    .map_or(0, |s| index_of(widget_styles_for(i.kind), &s) + 1),
                 widget_detail: i.widget_detail.map_or(0, |d| index_of(&DETAILS, &d) + 1),
             })
             .collect(),
@@ -422,6 +422,8 @@ pub fn to_form(c: &Config) -> Form {
             WidgetStyle::Sparklines => 0,
             WidgetStyle::Tiles => 1,
             WidgetStyle::Meters => 2,
+            WidgetStyle::Dials => 3,
+            WidgetStyle::CoreWall => 0,
         },
         widget_lock: c.widget.lock_position,
         widget_click_through: c.widget.click_through,
@@ -635,7 +637,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
                 tile_height: (r.tile_height > 0).then(|| clamp_u16(r.tile_height)),
                 label: sanitize_label(&r.label),
                 short_label: sanitize_label(&r.short_label),
-                widget_style: at(&WIDGET_STYLES, r.widget_style - 1),
+                widget_style: at(widget_styles_for(r.kind), r.widget_style - 1),
                 widget_detail: at(&DETAILS, r.widget_detail - 1),
                 ..ItemConfig::new(r.kind, r.enabled)
             }
@@ -700,6 +702,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     w.style = match f.widget_style {
         1 => WidgetStyle::Tiles,
         2 => WidgetStyle::Meters,
+        3 => WidgetStyle::Dials,
         _ => WidgetStyle::Sparklines,
     };
     w.lock_position = f.widget_lock;
@@ -917,7 +920,7 @@ mod tests {
         f.items[0].widget_detail = 3;
         let out = to_config(&f, &c);
         let kind = f.items[0].kind;
-        assert_eq!(out.widget_style(kind), WIDGET_STYLES[1]);
+        assert_eq!(out.widget_style(kind), widget_styles_for(kind)[1]);
         assert_eq!(out.widget_detail(kind), DETAILS[2]);
         assert_eq!(to_form(&out).items[0].widget_style, 2);
         f.items[0].widget_style = 0;
@@ -1047,6 +1050,21 @@ mod tests {
         assert_eq!((back.items[0].style, back.items[1].style), (7, 6));
         f.items[0].style = 8;
         assert_eq!(to_config(&f, &c).items[0].style, GraphStyle::Heat);
+    }
+
+    #[test]
+    fn only_the_cpu_lists_the_core_wall() {
+        use pulsar_core::config::WidgetStyle;
+        let c = Config::default();
+        let mut f = to_form(&c);
+        f.items[0].widget_style = 5;
+        f.items[1].widget_style = 4;
+        let out = to_config(&f, &c);
+        assert_eq!(out.items[0].widget_style, Some(WidgetStyle::CoreWall));
+        assert_eq!(out.items[1].widget_style, Some(WidgetStyle::Dials));
+        let back = to_form(&out);
+        assert_eq!(back.items[0].widget_style, 5);
+        assert_eq!(back.items[1].widget_style, 4);
     }
 
     #[test]

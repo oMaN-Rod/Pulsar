@@ -61,6 +61,15 @@ pub fn styles_for(kind: ItemKind) -> &'static [Option<GraphStyle>] {
     }
 }
 
+/// The widget's styles for `kind`; the first four are for every item.
+pub fn widget_styles_for(kind: ItemKind) -> &'static [WidgetStyle] {
+    if kind == ItemKind::Cpu {
+        &WIDGET_STYLES
+    } else {
+        &WIDGET_STYLES[..4]
+    }
+}
+
 pub fn style_name(style: Option<GraphStyle>) -> &'static str {
     match style {
         Some(GraphStyle::Area) => tr!("Area graph"),
@@ -92,10 +101,12 @@ pub const DETAILS: [PopupDetail; 3] = [
     PopupDetail::Detailed,
 ];
 
-pub const WIDGET_STYLES: [WidgetStyle; 3] = [
+pub const WIDGET_STYLES: [WidgetStyle; 5] = [
     WidgetStyle::Sparklines,
     WidgetStyle::Tiles,
     WidgetStyle::Meters,
+    WidgetStyle::Dials,
+    WidgetStyle::CoreWall,
 ];
 
 pub fn widget_style_name(style: WidgetStyle) -> &'static str {
@@ -103,6 +114,8 @@ pub fn widget_style_name(style: WidgetStyle) -> &'static str {
         WidgetStyle::Sparklines => tr!("Sparkline"),
         WidgetStyle::Tiles => tr!("Tile"),
         WidgetStyle::Meters => tr!("Meter"),
+        WidgetStyle::Dials => tr!("Dial"),
+        WidgetStyle::CoreWall => tr!("Core wall"),
     }
 }
 
