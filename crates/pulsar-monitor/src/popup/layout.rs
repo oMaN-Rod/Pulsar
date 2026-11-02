@@ -329,7 +329,7 @@ mod tests {
             .into_iter()
             .map(|kind| pulsar_core::layout::ItemSpec {
                 kind,
-                parts: pulsar_core::layout::default_parts(kind),
+                parts: vec![CellPart::Main],
             })
             .collect();
         let l = compute_layout(&specs, input, &Fixed);
@@ -350,6 +350,50 @@ mod tests {
             "ends at the ↑ cell"
         );
         assert!(item_screen_rect(&l, ItemKind::Gpu, (0, 0)).is_none());
+    }
+
+    #[test]
+    fn the_popup_anchor_covers_every_network_cell_in_each_show_mode() {
+        use pulsar_core::config::{Config, DisplayMode, LabelStyle, NetworkShow};
+        use pulsar_core::layout::{LayoutInput, TextSpacing, compute_layout, item_specs};
+        for show in [
+            NetworkShow::Both,
+            NetworkShow::Download,
+            NetworkShow::Upload,
+        ] {
+            for mode in [DisplayMode::Graph, DisplayMode::Text] {
+                for adapters in [0, 2] {
+                    for bar in [None, Some(80.0)] {
+                        let mut c = Config::default();
+                        c.network.show = show;
+                        c.display.mode = mode;
+                        c.network.adapters = (0..adapters).map(|i| format!("a{i}")).collect();
+                        let input = LayoutInput {
+                            mode,
+                            taskbar_height_px: 48.0,
+                            fit_font: false,
+                            dpi: 96,
+                            font_size_pt: 9.0,
+                            labels: LabelStyle::Full,
+                            icons: false,
+                            graph_inline: false,
+                            upload_on_top: false,
+                            vertical_bar_px: bar,
+                            text_spacing: TextSpacing::default(),
+                        };
+                        let l = compute_layout(&item_specs(&c, &Default::default()), input, &Fixed);
+                        let net = item_screen_rect(&l, ItemKind::Network, (0, 0)).unwrap();
+                        let cells = l.cells.iter().filter(|c| c.kind == ItemKind::Network);
+                        for c in cells {
+                            assert_eq!(l.hit_test(c.rect.x + 1.0, c.rect.y + 1.0), Some(c.kind));
+                            assert!(net.left <= c.rect.x as i32 && net.top <= c.rect.y as i32);
+                            assert!(net.right >= c.rect.right() as i32);
+                            assert!(net.bottom >= (c.rect.y + c.rect.h) as i32);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #[test]

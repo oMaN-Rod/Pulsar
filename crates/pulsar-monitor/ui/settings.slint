@@ -768,6 +768,9 @@ export component SettingsWindow inherits Window {
     in property <bool> network-floor-bits;
     property <[string]> network-floor-units: root.network-floor-bits ? ["bps", "Kbps", "Mbps"] : ["B/s", "KB/s", "MB/s"];
     in-out property <bool> upload-on-top;
+    in-out property <int> network-show;
+    in-out property <bool> network-split-tiles;
+    in-out property <int> network-popup-show;
     in-out property <bool> game-strip;
     in-out property <bool> game-summary;
     in-out property <int> popup-detail;
@@ -1879,6 +1882,38 @@ export component SettingsWindow inherits Window {
                                 checked: adapter.checked;
                                 toggled => { root.adapter-toggled(i, self.checked); }
                             }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Show");
+                        description: @tr("The rates shown on the taskbar.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Download and upload"), @tr("Download only"), @tr("Upload only")];
+                            current-index <=> root.network-show;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.mode == 0 && root.network-show == 0: Divider { }
+                    OptionalRow {
+                        shown: root.mode == 0 && root.network-show == 0;
+                        title: @tr("Separate tiles");
+                        description: @tr("Give download and upload a graph tile each. A wider overlay can cover taskbar buttons.");
+                        Switch {
+                            checked <=> root.network-split-tiles;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Show in popup");
+                        description: @tr("The rates shown in the network popup, whatever the taskbar shows.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Download and upload"), @tr("Download only"), @tr("Upload only")];
+                            current-index <=> root.network-popup-show;
+                            selected => { root.changed(); }
                         }
                     }
                     Divider { }

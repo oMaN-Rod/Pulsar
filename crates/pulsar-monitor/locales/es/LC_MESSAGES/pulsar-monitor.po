@@ -1205,16 +1205,16 @@ msgid "Reserved by hardware"
 msgstr "Reservada por el hardware"
 
 #: src/popup/content.rs
-msgid "Since Pulsar started"
-msgstr "Desde que se inició Pulsar"
-
-#: src/popup/content.rs
 msgid "Received"
 msgstr "Recibido"
 
 #: src/popup/content.rs
 msgid "Sent"
 msgstr "Enviado"
+
+#: src/popup/content.rs
+msgid "Since Pulsar started"
+msgstr "Desde que se inició Pulsar"
 
 #: src/popup/content.rs
 msgid "Free space"
@@ -2047,6 +2047,42 @@ msgstr "Todos los adaptadores físicos"
 #: ui/settings.slint
 msgid "Chosen adapters"
 msgstr "Adaptadores elegidos"
+
+#: ui/settings.slint
+msgid "Show"
+msgstr "Mostrar"
+
+#: ui/settings.slint
+msgid "The rates shown on the taskbar."
+msgstr "Las velocidades que se muestran en la barra de tareas."
+
+#: ui/settings.slint
+msgid "Download and upload"
+msgstr "Descarga y subida"
+
+#: ui/settings.slint
+msgid "Download only"
+msgstr "Solo descarga"
+
+#: ui/settings.slint
+msgid "Upload only"
+msgstr "Solo subida"
+
+#: ui/settings.slint
+msgid "Separate tiles"
+msgstr "Mosaicos separados"
+
+#: ui/settings.slint
+msgid "Give download and upload a graph tile each. A wider overlay can cover taskbar buttons."
+msgstr "Da a la descarga y a la subida un mosaico de gráfica a cada una. Una superposición más ancha puede tapar botones de la barra de tareas."
+
+#: ui/settings.slint
+msgid "Show in popup"
+msgstr "Mostrar en la ventana emergente"
+
+#: ui/settings.slint
+msgid "The rates shown in the network popup, whatever the taskbar shows."
+msgstr "Las velocidades que se muestran en la ventana emergente de red, sea lo que sea lo que muestre la barra de tareas."
 
 #: ui/settings.slint
 msgid "Minimum download speed"

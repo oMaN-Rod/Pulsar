@@ -1206,16 +1206,16 @@ msgid "Reserved by hardware"
 msgstr "硬件保留"
 
 #: src/popup/content.rs
-msgid "Since Pulsar started"
-msgstr "自 Pulsar 启动以来"
-
-#: src/popup/content.rs
 msgid "Received"
 msgstr "已接收"
 
 #: src/popup/content.rs
 msgid "Sent"
 msgstr "已发送"
+
+#: src/popup/content.rs
+msgid "Since Pulsar started"
+msgstr "自 Pulsar 启动以来"
 
 #: src/popup/content.rs
 msgid "Free space"
@@ -2048,6 +2048,42 @@ msgstr "所有物理网卡"
 #: ui/settings.slint
 msgid "Chosen adapters"
 msgstr "所选适配器"
+
+#: ui/settings.slint
+msgid "Show"
+msgstr "显示"
+
+#: ui/settings.slint
+msgid "The rates shown on the taskbar."
+msgstr "任务栏上显示的速率。"
+
+#: ui/settings.slint
+msgid "Download and upload"
+msgstr "下载和上传"
+
+#: ui/settings.slint
+msgid "Download only"
+msgstr "仅下载"
+
+#: ui/settings.slint
+msgid "Upload only"
+msgstr "仅上传"
+
+#: ui/settings.slint
+msgid "Separate tiles"
+msgstr "分开的磁贴"
+
+#: ui/settings.slint
+msgid "Give download and upload a graph tile each. A wider overlay can cover taskbar buttons."
+msgstr "为下载和上传各使用一个图表磁贴。叠加层变宽后可能会遮挡任务栏按钮。"
+
+#: ui/settings.slint
+msgid "Show in popup"
+msgstr "在弹出窗口中显示"
+
+#: ui/settings.slint
+msgid "The rates shown in the network popup, whatever the taskbar shows."
+msgstr "网络弹出窗口中显示的速率，与任务栏显示的内容无关。"
 
 #: ui/settings.slint
 msgid "Minimum download speed"

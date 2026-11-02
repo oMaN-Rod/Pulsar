@@ -1,7 +1,7 @@
 //! Pure layout: turns the enabled items, display mode and taskbar metrics into
 //! rectangles. All values are physical pixels.
 
-use crate::config::{Config, Display, DisplayMode, DriveValue, LabelStyle};
+use crate::config::{Config, Display, DisplayMode, DriveValue, LabelStyle, NetworkShow};
 use crate::format::widest_value;
 use crate::gpu_slots::GpuSlots;
 use crate::metric::{ItemKind, MetricKey};
@@ -33,6 +33,7 @@ impl Rect {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum CellPart {
+    /// The item's whole reading; for network, both directions together.
     Main,
     Down,
     Up,
@@ -41,16 +42,22 @@ pub enum CellPart {
     DriveUsed(u8),
     /// One GPU's load or temperature, by its slot in `GpuSlots`.
     Gpu(u8),
-    /// One adapter's traffic, by its place in `NetworkConfig::adapters`.
+    /// One adapter's traffic in one direction, by its place in
+    /// `NetworkConfig::adapters`.
     AdapterDown(u8),
     AdapterUp(u8),
+    /// Both directions of one adapter.
+    AdapterPair(u8),
 }
 
 impl CellPart {
     /// The part of a combined item this one shares its colour with.
     pub fn base(self) -> CellPart {
         match self {
-            CellPart::DriveActive(_) | CellPart::DriveUsed(_) | CellPart::Gpu(_) => CellPart::Main,
+            CellPart::DriveActive(_)
+            | CellPart::DriveUsed(_)
+            | CellPart::Gpu(_)
+            | CellPart::AdapterPair(_) => CellPart::Main,
             CellPart::AdapterDown(_) => CellPart::Down,
             CellPart::AdapterUp(_) => CellPart::Up,
             p => p,
@@ -178,7 +185,7 @@ pub fn part_metric(kind: ItemKind, part: CellPart) -> MetricKey {
         CellPart::DriveUsed(d) => MetricKey::DriveUsedPercent(d),
         CellPart::Gpu(i) if kind == ItemKind::GpuTemp => MetricKey::GpuAdapterTempC(i),
         CellPart::Gpu(i) => MetricKey::GpuAdapterUtil(i),
-        CellPart::AdapterDown(i) => MetricKey::NetAdapterDownBps(i),
+        CellPart::AdapterDown(i) | CellPart::AdapterPair(i) => MetricKey::NetAdapterDownBps(i),
         CellPart::AdapterUp(i) => MetricKey::NetAdapterUpBps(i),
         CellPart::Main | CellPart::Down => primary_metric(kind),
     }
@@ -195,6 +202,7 @@ pub fn cell_label(kind: ItemKind, part: CellPart, labels: LabelStyle, icons: boo
         CellPart::AdapterDown(i) | CellPart::AdapterUp(i) if icons => number(i).to_string(),
         CellPart::AdapterDown(i) => format!("{}↓", number(i)),
         CellPart::AdapterUp(i) => format!("{}↑", number(i)),
+        CellPart::AdapterPair(i) => number(i).to_string(),
         CellPart::DriveActive(d) | CellPart::DriveUsed(d) => format!("{}:", d as char),
         CellPart::Gpu(i) => {
             let name = match labels {
@@ -278,13 +286,6 @@ struct Labels {
     icons: bool,
 }
 
-pub fn default_parts(kind: ItemKind) -> Vec<CellPart> {
-    match kind {
-        ItemKind::Network => vec![CellPart::Down, CellPart::Up],
-        _ => vec![CellPart::Main],
-    }
-}
-
 /// The network's two directions in the order they are shown.
 pub fn network_parts(upload_on_top: bool) -> [CellPart; 2] {
     if upload_on_top {
@@ -294,20 +295,42 @@ pub fn network_parts(upload_on_top: bool) -> [CellPart; 2] {
     }
 }
 
-/// The two directions a network cell or tile shows, in the order they are
-/// shown: one adapter's, or the combined ones.
-pub fn network_pair(part: CellPart, upload_on_top: bool) -> [CellPart; 2] {
-    match part {
-        CellPart::AdapterDown(i) | CellPart::AdapterUp(i) => {
+/// The two directions a pair part stands for, in the order they are shown;
+/// `None` for a part that shows one reading.
+pub fn network_pair(kind: ItemKind, part: CellPart, upload_on_top: bool) -> Option<[CellPart; 2]> {
+    match (kind, part) {
+        (ItemKind::Network, CellPart::Main) => Some(network_parts(upload_on_top)),
+        (ItemKind::Network, CellPart::AdapterPair(i)) => {
             let (down, up) = (CellPart::AdapterDown(i), CellPart::AdapterUp(i));
-            if upload_on_top {
+            Some(if upload_on_top {
                 [up, down]
             } else {
                 [down, up]
-            }
+            })
         }
-        _ => network_parts(upload_on_top),
+        _ => None,
     }
+}
+
+fn single_parts(kind: ItemKind, part: CellPart, upload_on_top: bool) -> Vec<CellPart> {
+    match network_pair(kind, part, upload_on_top) {
+        Some(pair) => pair.to_vec(),
+        None => vec![part],
+    }
+}
+
+fn with_pairs_split(items: &[ItemSpec], upload_on_top: bool) -> Vec<ItemSpec> {
+    items
+        .iter()
+        .map(|spec| ItemSpec {
+            kind: spec.kind,
+            parts: spec
+                .parts
+                .iter()
+                .flat_map(|&p| single_parts(spec.kind, p, upload_on_top))
+                .collect(),
+        })
+        .collect()
 }
 
 /// The enabled items in order, each with the cells it draws.
@@ -355,7 +378,6 @@ fn gpu_pair(a: &[(ItemKind, CellPart)], b: &[(ItemKind, CellPart)]) -> bool {
 /// The cells `kind` draws; `gpus` are the GPUs with cells of their own.
 fn item_parts(kind: ItemKind, config: &Config, gpus: &[u8]) -> Vec<CellPart> {
     let drives = config.drive_letters();
-    let upload_on_top = config.display.upload_on_top;
     match kind {
         ItemKind::Disk if !drives.is_empty() => drives
             .iter()
@@ -367,13 +389,35 @@ fn item_parts(kind: ItemKind, config: &Config, gpus: &[u8]) -> Vec<CellPart> {
         ItemKind::Gpu | ItemKind::GpuTemp if !gpus.is_empty() => {
             gpus.iter().map(|&i| CellPart::Gpu(i)).collect()
         }
-        // One chosen adapter takes the place of the combined reading.
-        ItemKind::Network if config.network.adapters.len() > 1 => (0..=u8::MAX)
-            .take(config.network.adapters.len())
-            .flat_map(|i| network_pair(CellPart::AdapterDown(i), upload_on_top))
-            .collect(),
-        ItemKind::Network => network_parts(upload_on_top).to_vec(),
-        _ => default_parts(kind),
+        ItemKind::Network => network_item_parts(config),
+        _ => vec![CellPart::Main],
+    }
+}
+
+fn network_item_parts(config: &Config) -> Vec<CellPart> {
+    let upload_on_top = config.display.upload_on_top;
+    let split = config.network.split_tiles && config.display.mode == DisplayMode::Graph;
+    let parts = |pair, down, up| match config.network.show {
+        NetworkShow::Both if split => single_parts(ItemKind::Network, pair, upload_on_top),
+        NetworkShow::Both => vec![pair],
+        NetworkShow::Download => vec![down],
+        NetworkShow::Upload => vec![up],
+    };
+    let count = config.network.adapters.len();
+    // One chosen adapter takes the place of the combined reading.
+    if count > 1 {
+        (0..=u8::MAX)
+            .take(count)
+            .flat_map(|i| {
+                parts(
+                    CellPart::AdapterPair(i),
+                    CellPart::AdapterDown(i),
+                    CellPart::AdapterUp(i),
+                )
+            })
+            .collect()
+    } else {
+        parts(CellPart::Main, CellPart::Down, CellPart::Up)
     }
 }
 
@@ -413,16 +457,18 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
         icons: input.icons,
     };
     if let Some(bar_w) = input.vertical_bar_px {
+        let items = with_pairs_split(items, input.upload_on_top);
         return match input.mode {
             DisplayMode::Text => {
-                stacked_text(items, bar_w, scale, font_px, labels, input.text_spacing, m)
+                stacked_text(&items, bar_w, scale, font_px, labels, input.text_spacing, m)
             }
-            DisplayMode::Graph => stacked_tiles(items, bar_w, scale, font_px, labels, m),
+            DisplayMode::Graph => stacked_tiles(&items, bar_w, scale, font_px, labels, m),
         };
     }
     match input.mode {
         DisplayMode::Text => {
-            text_layout(items, rows, scale, font_px, labels, input.text_spacing, m)
+            let columns = columns(items, rows.count, input.upload_on_top);
+            text_layout(columns, rows, scale, font_px, labels, input.text_spacing, m)
         }
         DisplayMode::Graph => graph_layout(items, height, scale, font_px, labels, input, m),
     }
@@ -475,19 +521,22 @@ fn text_rows(height: f32, grow: bool, gap: f32, padding: f32, line_h: f32) -> Te
 }
 
 /// Packs items into columns of `rows` cells, column-major. An item's parts
-/// (network ↓ and ↑) are kept together when they fit in a column; with
-/// several adapters, each adapter's pair is, and so is each GPU's load and
-/// temperature.
-fn columns(items: &[ItemSpec], rows: usize) -> Vec<Vec<(ItemKind, CellPart)>> {
+/// are kept together when they fit in a column; with several adapters, each
+/// adapter's pair is, and so is each GPU's load and temperature.
+fn columns(items: &[ItemSpec], rows: usize, upload_on_top: bool) -> Vec<Vec<(ItemKind, CellPart)>> {
     let mut groups: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
     for spec in items {
-        let together = if spec.kind == ItemKind::Network {
-            2
-        } else {
-            spec.parts.len()
-        };
+        let paired = spec
+            .parts
+            .iter()
+            .any(|&p| network_pair(spec.kind, p, upload_on_top).is_some());
+        let together = if paired { 1 } else { spec.parts.len() };
         for parts in spec.parts.chunks(together.max(1)) {
-            let group: Vec<_> = parts.iter().map(|&p| (spec.kind, p)).collect();
+            let group: Vec<_> = parts
+                .iter()
+                .flat_map(|&p| single_parts(spec.kind, p, upload_on_top))
+                .map(|p| (spec.kind, p))
+                .collect();
             match groups.last_mut() {
                 Some(last) if gpu_pair(last, &group) => last.extend(group),
                 _ => groups.push(group),
@@ -511,7 +560,7 @@ fn columns(items: &[ItemSpec], rows: usize) -> Vec<Vec<(ItemKind, CellPart)>> {
 }
 
 fn text_layout(
-    items: &[ItemSpec],
+    columns: Vec<Vec<(ItemKind, CellPart)>>,
     rows: TextRows,
     scale: f32,
     font_px: f32,
@@ -532,7 +581,7 @@ fn text_layout(
 
     let mut cells = Vec::new();
     let mut x = padding;
-    for column in columns(items, rows) {
+    for column in columns {
         let label_w = column
             .iter()
             .map(|&(k, p)| label_width(k, p, labels.style, labels.icons, font_px, m))
@@ -652,8 +701,8 @@ fn stacked_text(
     }
 }
 
-/// A full-width graph tile per part for a vertical taskbar; network splits
-/// into one tile per direction because both will not fit on one line.
+/// A full-width graph tile per single-reading part for a vertical taskbar,
+/// where both network directions will not fit on one line.
 fn stacked_tiles(
     items: &[ItemSpec],
     bar_w: f32,
@@ -706,8 +755,8 @@ fn stacked_tiles(
     }
 }
 
-/// Widest text a graph tile draws: network shows `↓ value` / `↑ value`,
-/// other tiles a label line and a value line.
+/// Widest text a graph tile draws: a pair shows `↓ value` / `↑ value`, other
+/// tiles a label line and a value line.
 fn graph_text_width(
     kind: ItemKind,
     part: CellPart,
@@ -717,11 +766,9 @@ fn graph_text_width(
 ) -> f32 {
     let widest = widest_value(part_metric(kind, part).unit());
     let label = |part| label_width(kind, part, labels.style, labels.icons, font_px, m);
-    match kind {
-        ItemKind::Network => {
-            label(network_pair(part, false)[0]) + icon_gap(font_px) + m.width(widest, font_px)
-        }
-        _ => label(part).max(m.width(widest, font_px)),
+    match network_pair(kind, part, false) {
+        Some([first, _]) => label(first) + icon_gap(font_px) + m.width(widest, font_px),
+        None => label(part).max(m.width(widest, font_px)),
     }
 }
 
@@ -753,10 +800,7 @@ pub fn inline_slots(
     m: &dyn TextMeasure,
 ) -> (Vec<InlineSlot>, f32) {
     let TileText { labels, icons, .. } = text;
-    let parts = match kind {
-        ItemKind::Network => network_pair(part, text.upload_on_top).to_vec(),
-        _ => vec![part],
-    };
+    let parts = single_parts(kind, part, text.upload_on_top);
     let gap = INLINE_GAP_DIP * scale;
     let mut slots = Vec::with_capacity(parts.len());
     let mut x = 0.0;
@@ -792,24 +836,7 @@ fn graph_layout(
     let mut cells = Vec::with_capacity(items.len());
     let mut x = padding;
     for spec in items {
-        // Network draws both directions in one tile, one per adapter when
-        // there are several; other items get a tile per part.
-        let tiles = if spec.kind == ItemKind::Network {
-            let adapters: Vec<CellPart> = spec
-                .parts
-                .iter()
-                .filter(|p| matches!(p, CellPart::AdapterDown(_)))
-                .copied()
-                .collect();
-            if adapters.is_empty() {
-                vec![CellPart::Main]
-            } else {
-                adapters
-            }
-        } else {
-            spec.parts.clone()
-        };
-        for part in tiles {
+        for &part in &spec.parts {
             let text_w = if inline {
                 let text_px = font_px * GRAPH_FONT_SCALE;
                 let text = TileText {
@@ -850,7 +877,7 @@ fn graph_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{Config, DriveValue, LabelStyle};
+    use crate::config::{Config, DriveValue, LabelStyle, NetworkShow};
 
     /// Every character is half the font size wide; lines are 1.25× the font size.
     struct Fixed;
@@ -1327,7 +1354,7 @@ mod tests {
             .iter()
             .map(|&kind| ItemSpec {
                 kind,
-                parts: default_parts(kind),
+                parts: vec![CellPart::Main],
             })
             .collect()
     }
@@ -1534,13 +1561,355 @@ mod tests {
 
     #[test]
     fn upload_on_top_puts_the_upload_cell_on_top() {
+        let mut i = input(DisplayMode::Text, 48.0, 96);
+        i.upload_on_top = true;
+        let l = compute_layout(&specs(&[ItemKind::Network]), i, &Fixed);
+        let parts: Vec<CellPart> = l.cells.iter().map(|c| c.part).collect();
+        assert_eq!(parts, [CellPart::Up, CellPart::Down]);
+    }
+
+    fn network_cells(edit: impl Fn(&mut Config), i: LayoutInput) -> Vec<CellPart> {
         let mut c = Config::default();
-        c.display.upload_on_top = true;
-        let net = item_specs(&c, &GpuSlots::new())
-            .into_iter()
-            .find(|s| s.kind == ItemKind::Network)
-            .unwrap();
-        assert_eq!(net.parts, [CellPart::Up, CellPart::Down]);
+        c.display.mode = i.mode;
+        c.display.upload_on_top = i.upload_on_top;
+        edit(&mut c);
+        let l = compute_layout(&item_specs(&c, &GpuSlots::new()), i, &Fixed);
+        assert_no_overlap(&l);
+        assert_inside(&l);
+        for cell in &l.cells {
+            let (x, y) = (cell.rect.x + 0.5, cell.rect.y + 0.5);
+            assert_eq!(l.hit_test(x, y), Some(cell.kind), "{cell:?}");
+        }
+        l.cells
+            .iter()
+            .filter(|c| c.kind == ItemKind::Network)
+            .map(|c| c.part)
+            .collect()
+    }
+
+    /// Text, graph, inline graph, vertical text and vertical graph.
+    fn every_mode(upload_on_top: bool) -> [(&'static str, LayoutInput); 5] {
+        let up = |i: LayoutInput| LayoutInput { upload_on_top, ..i };
+        [
+            ("text", up(input(DisplayMode::Text, 48.0, 96))),
+            ("graph", up(input(DisplayMode::Graph, 48.0, 96))),
+            (
+                "inline",
+                LayoutInput {
+                    graph_inline: true,
+                    ..up(input(DisplayMode::Graph, 48.0, 96))
+                },
+            ),
+            ("vertical text", up(vertical(DisplayMode::Text, 120.0))),
+            ("vertical graph", up(vertical(DisplayMode::Graph, 120.0))),
+        ]
+    }
+
+    fn tiles_keep_pairs(name: &str) -> bool {
+        matches!(name, "graph" | "inline")
+    }
+
+    fn two_adapters(c: &mut Config) {
+        c.network.adapters = vec!["eth".into(), "wifi".into()];
+    }
+
+    #[test]
+    fn showing_both_keeps_todays_cells_in_every_mode() {
+        for up_first in [false, true] {
+            for (name, i) in every_mode(up_first) {
+                let order = network_parts(up_first);
+                let want = if tiles_keep_pairs(name) {
+                    vec![CellPart::Main]
+                } else {
+                    order.to_vec()
+                };
+                assert_eq!(network_cells(|_| {}, i), want, "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn one_direction_is_one_cell_in_every_mode() {
+        for up_first in [false, true] {
+            for (name, i) in every_mode(up_first) {
+                let down = |c: &mut Config| c.network.show = NetworkShow::Download;
+                let up = |c: &mut Config| c.network.show = NetworkShow::Upload;
+                assert_eq!(network_cells(down, i), [CellPart::Down], "{name}");
+                assert_eq!(network_cells(up, i), [CellPart::Up], "{name}");
+            }
+        }
+    }
+
+    #[test]
+    fn showing_both_for_each_adapter_pairs_them_in_every_mode() {
+        for up_first in [false, true] {
+            for (name, i) in every_mode(up_first) {
+                let want: Vec<CellPart> = if tiles_keep_pairs(name) {
+                    vec![CellPart::AdapterPair(0), CellPart::AdapterPair(1)]
+                } else {
+                    (0..2)
+                        .flat_map(|a| {
+                            network_pair(ItemKind::Network, CellPart::AdapterPair(a), up_first)
+                                .unwrap()
+                        })
+                        .collect()
+                };
+                assert_eq!(network_cells(two_adapters, i), want, "{name} {up_first}");
+            }
+        }
+    }
+
+    #[test]
+    fn one_direction_for_each_adapter_never_collapses_or_expands() {
+        for up_first in [false, true] {
+            for (name, i) in every_mode(up_first) {
+                let down = |c: &mut Config| {
+                    two_adapters(c);
+                    c.network.show = NetworkShow::Download;
+                };
+                let up = |c: &mut Config| {
+                    two_adapters(c);
+                    c.network.show = NetworkShow::Upload;
+                };
+                assert_eq!(
+                    network_cells(down, i),
+                    [CellPart::AdapterDown(0), CellPart::AdapterDown(1)],
+                    "{name}"
+                );
+                assert_eq!(
+                    network_cells(up, i),
+                    [CellPart::AdapterUp(0), CellPart::AdapterUp(1)],
+                    "{name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn split_tiles_give_graphs_a_tile_per_direction() {
+        for up_first in [false, true] {
+            for (name, i) in every_mode(up_first) {
+                let split = |c: &mut Config| c.network.split_tiles = true;
+                assert_eq!(
+                    network_cells(split, i),
+                    network_parts(up_first),
+                    "{name} {up_first}"
+                );
+            }
+        }
+        let split_adapters = |c: &mut Config| {
+            two_adapters(c);
+            c.network.split_tiles = true;
+        };
+        let i = input(DisplayMode::Graph, 48.0, 96);
+        assert_eq!(
+            network_cells(split_adapters, i),
+            [
+                CellPart::AdapterDown(0),
+                CellPart::AdapterUp(0),
+                CellPart::AdapterDown(1),
+                CellPart::AdapterUp(1)
+            ]
+        );
+    }
+
+    #[test]
+    fn split_tiles_mean_nothing_with_one_direction_or_without_graphs() {
+        let graph = input(DisplayMode::Graph, 48.0, 96);
+        let upload = |c: &mut Config| {
+            c.network.split_tiles = true;
+            c.network.show = NetworkShow::Upload;
+        };
+        assert_eq!(network_cells(upload, graph), [CellPart::Up]);
+
+        let mut plain = Config::default();
+        plain.display.mode = DisplayMode::Text;
+        let mut split = plain.clone();
+        split.network.split_tiles = true;
+        assert_eq!(
+            item_specs(&split, &GpuSlots::new()),
+            item_specs(&plain, &GpuSlots::new())
+        );
+    }
+
+    #[test]
+    fn text_columns_keep_pairs_and_one_direction_together() {
+        // A 2-row bar with CPU first has one free row: a pair moves on whole,
+        // and so does one direction of two adapters, as an item's parts.
+        let at = |edit: &dyn Fn(&mut Config)| {
+            let mut c = Config::default();
+            c.display.mode = DisplayMode::Text;
+            c.items
+                .retain(|i| matches!(i.kind, ItemKind::Cpu | ItemKind::Network));
+            edit(&mut c);
+            compute_layout(
+                &item_specs(&c, &GpuSlots::new()),
+                input(DisplayMode::Text, 48.0, 96),
+                &Fixed,
+            )
+        };
+        let x = |l: &Layout, part| l.cells.iter().find(|c| c.part == part).unwrap().rect.x;
+        let both = at(&two_adapters);
+        assert_eq!(
+            x(&both, CellPart::AdapterDown(0)),
+            x(&both, CellPart::AdapterUp(0))
+        );
+        assert_ne!(
+            x(&both, CellPart::AdapterDown(0)),
+            x(&both, CellPart::AdapterDown(1))
+        );
+        let one = at(&|c: &mut Config| {
+            two_adapters(c);
+            c.network.show = NetworkShow::Upload;
+        });
+        assert_eq!(one.cells.len(), 3);
+        assert_eq!(
+            x(&one, CellPart::AdapterUp(0)),
+            x(&one, CellPart::AdapterUp(1)),
+            "they fill a column between them"
+        );
+        let three = at(&|c: &mut Config| {
+            c.network.adapters = vec!["a".into(), "b".into(), "c".into()];
+            c.network.show = NetworkShow::Download;
+        });
+        assert_eq!(three.cells.len(), 4);
+        assert_no_overlap(&three);
+    }
+
+    #[test]
+    fn a_single_direction_tile_is_narrower_than_a_pair() {
+        let i = input(DisplayMode::Graph, 48.0, 96);
+        let width = |part| {
+            let items = [ItemSpec {
+                kind: ItemKind::Network,
+                parts: vec![part],
+            }];
+            compute_layout(&items, i, &Fixed).cells[0].rect.w
+        };
+        // "99.9 MB/s" (54px) + 2 × 4px padding; a pair adds "↓" and a gap.
+        assert_eq!(width(CellPart::Up), 54.0 + 8.0);
+        assert_eq!(width(CellPart::AdapterDown(0)), 54.0 + 8.0);
+        assert_eq!(width(CellPart::Main), 6.0 + 4.0 + 54.0 + 8.0);
+        assert_eq!(width(CellPart::AdapterPair(0)), 12.0 + 4.0 + 54.0 + 8.0);
+    }
+
+    #[test]
+    fn inline_slots_follow_the_part() {
+        let text = TileText {
+            labels: LabelStyle::Full,
+            icons: false,
+            upload_on_top: true,
+        };
+        let parts = |part| {
+            inline_slots(ItemKind::Network, part, text, 10.0, 1.0, &Fixed)
+                .0
+                .iter()
+                .map(|s| s.part)
+                .collect::<Vec<_>>()
+        };
+        for single in [
+            CellPart::Down,
+            CellPart::Up,
+            CellPart::AdapterDown(1),
+            CellPart::AdapterUp(1),
+        ] {
+            assert_eq!(parts(single), [single]);
+        }
+        assert_eq!(
+            parts(CellPart::AdapterPair(1)),
+            [CellPart::AdapterUp(1), CellPart::AdapterDown(1)]
+        );
+        assert_eq!(parts(CellPart::Main), [CellPart::Up, CellPart::Down]);
+    }
+
+    #[test]
+    fn only_network_main_and_adapter_pairs_are_pairs() {
+        assert!(network_pair(ItemKind::Cpu, CellPart::Main, false).is_none());
+        assert!(network_pair(ItemKind::Network, CellPart::Down, false).is_none());
+        assert!(network_pair(ItemKind::Network, CellPart::AdapterUp(0), false).is_none());
+        assert_eq!(CellPart::AdapterPair(0).base(), CellPart::Main);
+        assert_eq!(
+            part_metric(ItemKind::Network, CellPart::AdapterPair(1)),
+            MetricKey::NetAdapterDownBps(1)
+        );
+    }
+
+    fn geometry(l: &Layout) -> (Vec<[f32; 6]>, f32, f32) {
+        let cells = l
+            .cells
+            .iter()
+            .map(|c| [c.rect.x, c.rect.y, c.rect.w, c.rect.h, c.value_x, c.value_y])
+            .collect();
+        (cells, l.width, l.height)
+    }
+
+    #[test]
+    fn a_config_from_before_the_network_choices_keeps_its_exact_layout() {
+        let c: Config = toml::from_str("[display]\nmode = \"text\"\n").unwrap();
+        let text = compute_layout(
+            &item_specs(&c, &GpuSlots::new()),
+            input(DisplayMode::Text, 48.0, 96),
+            &Fixed,
+        );
+        let parts: Vec<_> = text.cells.iter().map(|c| (c.kind, c.part)).collect();
+        assert_eq!(
+            parts,
+            [
+                (ItemKind::Cpu, CellPart::Main),
+                (ItemKind::Ram, CellPart::Main),
+                (ItemKind::Gpu, CellPart::Main),
+                (ItemKind::Disk, CellPart::Main),
+                (ItemKind::Network, CellPart::Down),
+                (ItemKind::Network, CellPart::Up),
+            ]
+        );
+        assert_eq!(
+            geometry(&text),
+            (
+                vec![
+                    [4.0, 9.0, 46.0, 15.0, 26.0, 9.0],
+                    [4.0, 24.0, 46.0, 15.0, 26.0, 24.0],
+                    [60.0, 9.0, 46.0, 15.0, 82.0, 9.0],
+                    [60.0, 24.0, 46.0, 15.0, 82.0, 24.0],
+                    [116.0, 9.0, 64.0, 15.0, 126.0, 9.0],
+                    [116.0, 24.0, 64.0, 15.0, 126.0, 24.0],
+                ],
+                184.0,
+                48.0
+            )
+        );
+
+        let c: Config = toml::from_str("").unwrap();
+        let graph = compute_layout(
+            &item_specs(&c, &GpuSlots::new()),
+            input(DisplayMode::Graph, 48.0, 96),
+            &Fixed,
+        );
+        let parts: Vec<_> = graph.cells.iter().map(|c| (c.kind, c.part)).collect();
+        assert_eq!(
+            parts,
+            [
+                (ItemKind::Cpu, CellPart::Main),
+                (ItemKind::Ram, CellPart::Main),
+                (ItemKind::Gpu, CellPart::Main),
+                (ItemKind::Disk, CellPart::Main),
+                (ItemKind::Network, CellPart::Main),
+            ]
+        );
+        assert_eq!(
+            geometry(&graph),
+            (
+                vec![
+                    [4.0, 4.0, 44.0, 40.0, 8.0, 4.0],
+                    [52.0, 4.0, 44.0, 40.0, 56.0, 4.0],
+                    [100.0, 4.0, 44.0, 40.0, 104.0, 4.0],
+                    [148.0, 4.0, 44.0, 40.0, 152.0, 4.0],
+                    [196.0, 4.0, 72.0, 40.0, 200.0, 4.0],
+                ],
+                272.0,
+                48.0
+            )
+        );
     }
 
     #[test]
@@ -1697,12 +2066,29 @@ mod tests {
         c.network.adapters = vec!["eth".into()];
         assert_eq!(
             item_parts(ItemKind::Network, &c, &[]),
-            [CellPart::Down, CellPart::Up],
+            [CellPart::Main],
             "one adapter takes the combined cells"
         );
         c.network.adapters.push("wifi".into());
         assert_eq!(
             item_parts(ItemKind::Network, &c, &[]),
+            [CellPart::AdapterPair(0), CellPart::AdapterPair(1)]
+        );
+        let cells = |upload_on_top| {
+            let mut i = input(DisplayMode::Text, 48.0, 96);
+            i.upload_on_top = upload_on_top;
+            let items = [ItemSpec {
+                kind: ItemKind::Network,
+                parts: item_parts(ItemKind::Network, &c, &[]),
+            }];
+            compute_layout(&items, i, &Fixed)
+                .cells
+                .iter()
+                .map(|c| c.part)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            cells(false),
             [
                 CellPart::AdapterDown(0),
                 CellPart::AdapterUp(0),
@@ -1710,9 +2096,8 @@ mod tests {
                 CellPart::AdapterUp(1)
             ]
         );
-        c.display.upload_on_top = true;
         assert_eq!(
-            item_parts(ItemKind::Network, &c, &[])[..2],
+            cells(true)[..2],
             [CellPart::AdapterUp(0), CellPart::AdapterDown(0)]
         );
         assert_eq!(
@@ -1738,9 +2123,7 @@ mod tests {
     fn adapter_specs(n: u8) -> Vec<ItemSpec> {
         vec![ItemSpec {
             kind: ItemKind::Network,
-            parts: (0..n)
-                .flat_map(|i| [CellPart::AdapterDown(i), CellPart::AdapterUp(i)])
-                .collect(),
+            parts: (0..n).map(CellPart::AdapterPair).collect(),
         }]
     }
 
@@ -1763,7 +2146,7 @@ mod tests {
             i.graph_inline = inline;
             let l = compute_layout(&adapter_specs(2), i, &Fixed);
             let parts: Vec<CellPart> = l.cells.iter().map(|c| c.part).collect();
-            assert_eq!(parts, [CellPart::AdapterDown(0), CellPart::AdapterDown(1)]);
+            assert_eq!(parts, [CellPart::AdapterPair(0), CellPart::AdapterPair(1)]);
             assert_no_overlap(&l);
         }
     }

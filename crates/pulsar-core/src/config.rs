@@ -410,9 +410,23 @@ pub struct GpuConfig {
     pub adapters: Vec<String>,
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NetworkShow {
+    #[default]
+    Both,
+    Download,
+    Upload,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct NetworkConfig {
+    pub show: NetworkShow,
+    /// Graph mode: a tile per direction when both are shown.
+    pub split_tiles: bool,
+    /// The directions the popup shows, whatever the overlay does.
+    pub popup_show: NetworkShow,
     /// PDH instance names of the adapters to count. One replaces the
     /// combined reading; more give each adapter its own cells. Empty sums
     /// the hardware adapters.
@@ -1661,6 +1675,49 @@ on = true
         );
         save(&path, &c).unwrap();
         assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn network_directions_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        let mut c = Config::default();
+        c.network.show = NetworkShow::Upload;
+        c.network.split_tiles = true;
+        c.network.popup_show = NetworkShow::Download;
+        save(&path, &c).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("show = \"upload\""), "{text}");
+        assert!(text.contains("popup_show = \"download\""), "{text}");
+        assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn a_config_without_network_directions_shows_both() {
+        for text in ["", "[network]\nadapters = [\"eth\"]\n"] {
+            let c: Config = toml::from_str(text).unwrap();
+            assert_eq!(c.network.show, NetworkShow::Both);
+            assert_eq!(c.network.popup_show, NetworkShow::Both);
+            assert!(!c.network.split_tiles);
+        }
+    }
+
+    #[test]
+    fn network_directions_are_only_the_three_choices() {
+        for bad in ["neither", "none", "Both"] {
+            let text = format!("[network]\nshow = \"{bad}\"\n");
+            assert!(toml::from_str::<Config>(&text).is_err(), "{bad}");
+        }
+    }
+
+    #[test]
+    fn network_directions_do_not_change_sampling() {
+        let base = Config::default();
+        let mut c = base.clone();
+        c.network.show = NetworkShow::Upload;
+        c.network.split_tiles = true;
+        c.network.popup_show = NetworkShow::Download;
+        assert!(!sampling_changed(&base, &c));
     }
 
     #[test]

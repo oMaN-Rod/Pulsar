@@ -466,6 +466,54 @@ mod tests {
     }
 
     #[test]
+    fn changing_the_network_cells_redoes_the_layout() {
+        use pulsar_core::config::NetworkShow;
+        use pulsar_core::layout::CellPart;
+        let mut overlay = overlay();
+        overlay.taskbar.rect = Rect32 {
+            left: 0,
+            top: 1032,
+            right: 1920,
+            bottom: 1080,
+        };
+        let mut config = Config::default();
+        let text = Text::new(None, false).unwrap();
+        let gpus = GpuSlots::new();
+        let mut parts = |config: &Config| {
+            overlay.update_layout(config, &gpus, &text);
+            overlay
+                .layout
+                .cells
+                .iter()
+                .filter(|c| c.kind == pulsar_core::metric::ItemKind::Network)
+                .map(|c| c.part)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(parts(&config), [CellPart::Main]);
+        config.network.show = NetworkShow::Upload;
+        assert_eq!(parts(&config), [CellPart::Up]);
+        config.network.show = NetworkShow::Download;
+        assert_eq!(parts(&config), [CellPart::Down]);
+        config.network.show = NetworkShow::Both;
+        assert_eq!(parts(&config), [CellPart::Main]);
+        config.network.split_tiles = true;
+        assert_eq!(parts(&config), [CellPart::Down, CellPart::Up]);
+        config.display.upload_on_top = true;
+        assert_eq!(parts(&config), [CellPart::Up, CellPart::Down]);
+        config.network.split_tiles = false;
+        config.display.mode = DisplayMode::Text;
+        assert_eq!(parts(&config), [CellPart::Up, CellPart::Down]);
+        config.display.upload_on_top = false;
+        assert_eq!(parts(&config), [CellPart::Down, CellPart::Up]);
+        config.network.adapters = vec!["eth".into(), "wifi".into()];
+        config.network.show = NetworkShow::Upload;
+        assert_eq!(
+            parts(&config),
+            [CellPart::AdapterUp(0), CellPart::AdapterUp(1)]
+        );
+    }
+
+    #[test]
     fn changing_a_text_gap_redoes_the_layout() {
         let mut overlay = overlay();
         overlay.taskbar.rect = Rect32 {

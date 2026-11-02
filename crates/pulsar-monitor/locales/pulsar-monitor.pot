@@ -1203,15 +1203,15 @@ msgid "Reserved by hardware"
 msgstr ""
 
 #: src/popup/content.rs
-msgid "Since Pulsar started"
-msgstr ""
-
-#: src/popup/content.rs
 msgid "Received"
 msgstr ""
 
 #: src/popup/content.rs
 msgid "Sent"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Since Pulsar started"
 msgstr ""
 
 #: src/popup/content.rs
@@ -2044,6 +2044,42 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Chosen adapters"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show"
+msgstr ""
+
+#: ui/settings.slint
+msgid "The rates shown on the taskbar."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Download and upload"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Download only"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Upload only"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Separate tiles"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Give download and upload a graph tile each. A wider overlay can cover taskbar buttons."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show in popup"
+msgstr ""
+
+#: ui/settings.slint
+msgid "The rates shown in the network popup, whatever the taskbar shows."
 msgstr ""
 
 #: ui/settings.slint

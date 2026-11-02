@@ -28,6 +28,9 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Disks: *Each drive*, then *Used space* | One cell per ticked drive; values match Explorer |
 | Network: choose one adapter, then unplug it | Only that adapter is counted; unplugged shows "—" with the reason |
 | Network: tick two adapters | A numbered ↓/↑ pair per adapter (a tile each in graph mode); the popup lists both by number |
+| Network: Show set to Upload only, with one and two adapters, in graphs, single-line graphs and text | One ↑ cell or tile per adapter, and no ↓ anywhere on the taskbar |
+| Network: Separate tiles on, in graph mode | A tile per direction, per adapter; the switch hides in text mode and with one direction |
+| Network: Show in popup set to Download only | The popup's value, graph, adapter rows and totals show download only, whatever the taskbar shows; the widget still shows both |
 | GPU: *Each GPU* on a machine with two or more GPUs, with GPU temperature on | GPU1, GPU2… and TEMP1, TEMP2… roughly match each card in Task Manager; the popup and the details window's cards show each card's load |
 | GPU: *Each GPU* with two or more GPUs, then disable one in Device Manager and enable it again | Its cell goes and the others keep their number and reading within a few seconds; it comes back in the same place, with its graph started over if Windows gave it a new LUID; the details window, opened before or during this, agrees with the taskbar |
 | Ping on, with a bad host | The latency cell shows "—" and the popup names the error |

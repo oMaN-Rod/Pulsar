@@ -168,6 +168,7 @@ Eight built-in themes set the item, label, value, tile and panel colours, each w
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
 - temperatures in °C or °F, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
+- network as download, upload or both, on one graph tile or a tile for each, with a separate choice for the popup
 - each drive as its own item, showing its activity or used space; each GPU with its own load and temperature; and all physical network adapters, one, or several side by side
 
 ## Popups

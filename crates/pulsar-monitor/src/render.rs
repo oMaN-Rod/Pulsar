@@ -331,8 +331,9 @@ impl Renderer {
                     let value_x = x + slot.value_x;
                     self.text_at(text, &small, &value, value_x, y, color(slot.part))?;
                 }
-            } else if cell.kind == ItemKind::Network && !frame.layout.vertical {
-                let [first, second] = network_pair(cell.part, frame.text.upload_on_top);
+            } else if let Some([first, second]) =
+                network_pair(cell.kind, cell.part, frame.text.upload_on_top)
+            {
                 for (part, y) in [(first, top), (second, bottom)] {
                     self.draw_label(text, frame, small_px, cell.kind, part, x, y)?;
                     let (labels, icons) = (frame.text.labels, frame.text.icons);
@@ -351,11 +352,10 @@ impl Renderer {
     }
 
     fn draw_series(&self, frame: &Frame, cell: &Cell, style: GraphStyle, scale: f32) -> Result<()> {
-        let network = network_pair(cell.part, frame.text.upload_on_top);
-        let parts: &[CellPart] = if cell.kind == ItemKind::Network && !frame.layout.vertical {
-            &network
-        } else {
-            std::slice::from_ref(&cell.part)
+        let pair = network_pair(cell.kind, cell.part, frame.text.upload_on_top);
+        let parts: &[CellPart] = match &pair {
+            Some(pair) => pair,
+            None => std::slice::from_ref(&cell.part),
         };
         let histories: Vec<(CellPart, Cow<History>)> = parts
             .iter()
@@ -553,7 +553,7 @@ fn rect_f(r: Rect) -> D2D_RECT_F {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use pulsar_core::config::{Config, DisplayMode};
+    use pulsar_core::config::{Config, DisplayMode, NetworkShow};
     use pulsar_core::layout::{LayoutInput, TextSpacing, compute_layout};
     use pulsar_core::metric::MetricKey;
 
@@ -830,11 +830,21 @@ mod tests {
         up_history: bool,
         up_value: bool,
     ) -> (Vec<Cell>, Vec<Vec<u32>>) {
+        adapter_tiles(&|_| {}, vertical_bar_px, up_history, up_value)
+    }
+
+    fn adapter_tiles(
+        edit: &dyn Fn(&mut Config),
+        vertical_bar_px: Option<f32>,
+        up_history: bool,
+        up_value: bool,
+    ) -> (Vec<Cell>, Vec<Vec<u32>>) {
         let mut config = Config::default();
         for item in &mut config.items {
             item.enabled = item.kind == ItemKind::Network;
         }
         config.network.adapters = vec!["eth".into(), "wifi".into()];
+        edit(&mut config);
         let text = Text::new(None, false).unwrap();
         let items = pulsar_core::layout::item_specs(&config, &Default::default());
         let layout = compute_layout(
@@ -910,7 +920,7 @@ mod tests {
         let (cells, plain) = two_adapter_tiles(None, false, false);
         assert_eq!(
             cells.iter().map(|c| c.part).collect::<Vec<_>>(),
-            [CellPart::AdapterDown(0), CellPart::AdapterDown(1)],
+            [CellPart::AdapterPair(0), CellPart::AdapterPair(1)],
             "one tile per adapter"
         );
         let (_, graphed) = two_adapter_tiles(None, true, false);
@@ -938,6 +948,80 @@ mod tests {
         assert_eq!(graphed[0], plain[0], "no upload graph on the download tile");
         assert_ne!(graphed[1], plain[1], "the upload tile has it");
         let (_, valued) = two_adapter_tiles(bar, false, true);
+        assert_eq!(valued[0], plain[0], "no upload value on the download tile");
+        assert_ne!(valued[1], plain[1], "the upload tile has it");
+    }
+
+    #[test]
+    fn a_horizontal_download_tile_draws_no_upload() {
+        let edit = |c: &mut Config| c.network.show = NetworkShow::Download;
+        let (cells, plain) = adapter_tiles(&edit, None, false, false);
+        assert_eq!(
+            cells.iter().map(|c| c.part).collect::<Vec<_>>(),
+            [CellPart::AdapterDown(0), CellPart::AdapterDown(1)],
+        );
+        let (_, graphed) = adapter_tiles(&edit, None, true, false);
+        assert_eq!(graphed, plain, "no upload graph");
+        let (_, valued) = adapter_tiles(&edit, None, false, true);
+        assert_eq!(valued, plain, "no upload value");
+    }
+
+    #[test]
+    fn a_horizontal_upload_tile_draws_its_own_direction() {
+        let edit = |c: &mut Config| c.network.show = NetworkShow::Upload;
+        let (cells, plain) = adapter_tiles(&edit, None, false, false);
+        assert_eq!(
+            cells.iter().map(|c| c.part).collect::<Vec<_>>(),
+            [CellPart::AdapterUp(0), CellPart::AdapterUp(1)],
+            "upload alone keeps its tiles"
+        );
+        let (_, graphed) = adapter_tiles(&edit, None, true, false);
+        assert_ne!(graphed[0], plain[0], "the upload graph is in its tile");
+        assert_eq!(graphed[1], plain[1], "and not in the other adapter's");
+        let (_, valued) = adapter_tiles(&edit, None, false, true);
+        assert_ne!(valued[0], plain[0], "the upload value is in its tile");
+        assert_eq!(valued[1], plain[1], "and not in the other adapter's");
+    }
+
+    #[test]
+    fn split_tiles_draw_one_direction_each() {
+        let edit = |c: &mut Config| c.network.split_tiles = true;
+        let (cells, plain) = adapter_tiles(&edit, None, false, false);
+        assert_eq!(
+            cells.iter().map(|c| c.part).collect::<Vec<_>>(),
+            [
+                CellPart::AdapterDown(0),
+                CellPart::AdapterUp(0),
+                CellPart::AdapterDown(1),
+                CellPart::AdapterUp(1)
+            ],
+        );
+        let (_, graphed) = adapter_tiles(&edit, None, true, false);
+        assert_eq!(graphed[0], plain[0], "no upload graph on the download tile");
+        assert_ne!(graphed[1], plain[1], "the upload tile has it");
+    }
+
+    #[test]
+    fn inline_tiles_draw_only_their_own_direction() {
+        let edit = |c: &mut Config| {
+            c.network.show = NetworkShow::Download;
+            c.display.graph_inline = true;
+        };
+        let (_, plain) = adapter_tiles(&edit, None, false, false);
+        let (_, valued) = adapter_tiles(&edit, None, false, true);
+        assert_eq!(valued, plain, "no upload value on one line");
+        let both = |c: &mut Config| c.display.graph_inline = true;
+        let (_, plain) = adapter_tiles(&both, None, false, false);
+        let (_, valued) = adapter_tiles(&both, None, false, true);
+        assert_ne!(valued[0], plain[0], "a pair shows upload on one line");
+    }
+
+    #[test]
+    fn inline_vertical_tiles_draw_only_their_own_direction() {
+        let edit = |c: &mut Config| c.display.graph_inline = true;
+        let bar = Some(160.0);
+        let (_, plain) = adapter_tiles(&edit, bar, false, false);
+        let (_, valued) = adapter_tiles(&edit, bar, false, true);
         assert_eq!(valued[0], plain[0], "no upload value on the download tile");
         assert_ne!(valued[1], plain[1], "the upload tile has it");
     }

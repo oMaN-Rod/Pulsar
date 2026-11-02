@@ -1205,16 +1205,16 @@ msgid "Reserved by hardware"
 msgstr "하드웨어 예약"
 
 #: src/popup/content.rs
-msgid "Since Pulsar started"
-msgstr "Pulsar 시작 이후"
-
-#: src/popup/content.rs
 msgid "Received"
 msgstr "받음"
 
 #: src/popup/content.rs
 msgid "Sent"
 msgstr "보냄"
+
+#: src/popup/content.rs
+msgid "Since Pulsar started"
+msgstr "Pulsar 시작 이후"
 
 #: src/popup/content.rs
 msgid "Free space"
@@ -2047,6 +2047,42 @@ msgstr "모든 하드웨어 어댑터"
 #: ui/settings.slint
 msgid "Chosen adapters"
 msgstr "선택한 어댑터"
+
+#: ui/settings.slint
+msgid "Show"
+msgstr "표시"
+
+#: ui/settings.slint
+msgid "The rates shown on the taskbar."
+msgstr "작업 표시줄에 표시할 속도입니다."
+
+#: ui/settings.slint
+msgid "Download and upload"
+msgstr "다운로드 및 업로드"
+
+#: ui/settings.slint
+msgid "Download only"
+msgstr "다운로드만"
+
+#: ui/settings.slint
+msgid "Upload only"
+msgstr "업로드만"
+
+#: ui/settings.slint
+msgid "Separate tiles"
+msgstr "타일 분리"
+
+#: ui/settings.slint
+msgid "Give download and upload a graph tile each. A wider overlay can cover taskbar buttons."
+msgstr "다운로드와 업로드에 각각 그래프 타일을 하나씩 사용합니다. 오버레이가 넓어지면 작업 표시줄 단추를 가릴 수 있습니다."
+
+#: ui/settings.slint
+msgid "Show in popup"
+msgstr "팝업에 표시"
+
+#: ui/settings.slint
+msgid "The rates shown in the network popup, whatever the taskbar shows."
+msgstr "작업 표시줄에 표시되는 내용과 관계없이 네트워크 팝업에 표시할 속도입니다."
 
 #: ui/settings.slint
 msgid "Minimum download speed"

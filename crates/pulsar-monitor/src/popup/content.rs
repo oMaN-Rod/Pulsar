@@ -1,6 +1,6 @@
 //! What a hover popup shows for an item, independent of how it is drawn.
 
-use pulsar_core::config::{Config, PopupDetail};
+use pulsar_core::config::{Config, NetworkShow, PopupDetail};
 use pulsar_core::format::format_value;
 use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::history::HistoryStore;
@@ -55,6 +55,7 @@ pub struct Options<'a> {
     /// The letters shown as separate disk cells.
     pub drives: Vec<u8>,
     pub upload_on_top: bool,
+    pub network_show: NetworkShow,
     /// Names for physical drives by number, for drive temperatures.
     pub disk_names: &'a [(u8, String)],
     /// Graphics cards by slot; listed one by one when there are several.
@@ -74,6 +75,7 @@ impl<'a> Options<'a> {
             ping_host: &config.ping.host,
             drives: config.drive_letters(),
             upload_on_top: config.display.upload_on_top,
+            network_show: config.network.popup_show,
             disk_names: &[],
             gpus,
             adapters: match config.network.adapters.len() {
@@ -307,7 +309,7 @@ fn detailed_rows(kind: ItemKind, history: &HistoryStore) -> Vec<(String, String)
 }
 
 /// What the detailed popup adds to the standard one.
-fn detailed_blocks(kind: ItemKind, snapshot: &Snapshot) -> Vec<Block> {
+fn detailed_blocks(kind: ItemKind, snapshot: &Snapshot, show: NetworkShow) -> Vec<Block> {
     match kind {
         ItemKind::Cpu => vec![Block::Rows {
             heading: Some(tr!("System")),
@@ -338,16 +340,19 @@ fn detailed_blocks(kind: ItemKind, snapshot: &Snapshot) -> Vec<Block> {
                 ),
             }])
             .collect(),
-        ItemKind::Network => vec![Block::Rows {
-            heading: Some(tr!("Since Pulsar started")),
-            rows: known(
-                snapshot,
-                &[
-                    (tr!("Received"), MetricKey::NetDownTotalBytes),
-                    (tr!("Sent"), MetricKey::NetUpTotalBytes),
-                ],
-            ),
-        }],
+        ItemKind::Network => {
+            let received = (tr!("Received"), MetricKey::NetDownTotalBytes);
+            let sent = (tr!("Sent"), MetricKey::NetUpTotalBytes);
+            let totals = match show {
+                NetworkShow::Both => vec![received, sent],
+                NetworkShow::Download => vec![received],
+                NetworkShow::Upload => vec![sent],
+            };
+            vec![Block::Rows {
+                heading: Some(tr!("Since Pulsar started")),
+                rows: known(snapshot, &totals),
+            }]
+        }
         ItemKind::Battery => vec![Block::Rows {
             heading: Some(tr!("Battery")),
             rows: battery_details(snapshot),
@@ -626,6 +631,7 @@ pub fn build(
         ping_host,
         drives: drives.to_vec(),
         upload_on_top: false,
+        network_show: NetworkShow::Both,
         disk_names: &[],
         gpus: &snapshot.gpus,
         adapters: &[],
@@ -718,13 +724,18 @@ pub fn build_with(
             ],
         ),
         ItemKind::Network => {
-            let order = network_parts(options.upload_on_top);
-            let both = |down: String, up: String| {
+            let series = match options.network_show {
+                NetworkShow::Both => network_parts(options.upload_on_top).to_vec(),
+                NetworkShow::Download => vec![CellPart::Down],
+                NetworkShow::Upload => vec![CellPart::Up],
+            };
+            let rates = |down: String, up: String| {
                 let (down, up) = (format!("↓ {down}"), format!("↑ {up}"));
-                if options.upload_on_top {
-                    format!("{up}  {down}")
-                } else {
-                    format!("{down}  {up}")
+                match options.network_show {
+                    NetworkShow::Both if options.upload_on_top => format!("{up}  {down}"),
+                    NetworkShow::Both => format!("{down}  {up}"),
+                    NetworkShow::Download => down,
+                    NetworkShow::Upload => up,
                 }
             };
             let adapters: Vec<(String, String)> = if options.adapters.is_empty() {
@@ -734,7 +745,7 @@ pub fn build_with(
                     .map(|a| {
                         (
                             a.name.clone(),
-                            both(
+                            rates(
                                 format_value(a.down_bps, Unit::NetworkRate),
                                 format_value(a.up_bps, Unit::NetworkRate),
                             ),
@@ -747,7 +758,7 @@ pub fn build_with(
                     .map(|(i, name)| {
                         (
                             numbered(usize::from(i), name),
-                            both(
+                            rates(
                                 cell_value(kind, CellPart::AdapterDown(i), snapshot),
                                 cell_value(kind, CellPart::AdapterUp(i), snapshot),
                             ),
@@ -757,11 +768,11 @@ pub fn build_with(
             };
             (
                 tr!("Network"),
-                both(
+                rates(
                     floored_cell_value(kind, CellPart::Down, snapshot, options.network_floor),
                     floored_cell_value(kind, CellPart::Up, snapshot, options.network_floor),
                 ),
-                order.to_vec(),
+                series,
                 vec![Block::Rows {
                     heading: Some(tr!("Adapters")),
                     rows: if adapters.is_empty() {
@@ -955,7 +966,10 @@ pub fn build_with(
                 .iter()
                 .position(is_process_list)
                 .unwrap_or(blocks.len());
-            blocks.splice(at..at, detailed_blocks(kind, snapshot));
+            blocks.splice(
+                at..at,
+                detailed_blocks(kind, snapshot, options.network_show),
+            );
         }
     }
     if count == 0 {
@@ -1013,6 +1027,7 @@ mod tests {
             ping_host: "",
             drives: Vec::new(),
             upload_on_top: false,
+            network_show: NetworkShow::Both,
             disk_names: &[],
             gpus: &NO_GPUS,
             adapters: &[],
@@ -1245,6 +1260,65 @@ mod tests {
             ("2 · Marvell".into(), "↓ —  ↑ —".into()),
             "an adapter without a reading still shows"
         );
+    }
+
+    #[test]
+    fn the_popup_can_show_one_direction() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::NetDownBps, 2048.0);
+        s.set(MetricKey::NetUpBps, 512.0);
+        s.set(MetricKey::NetDownTotalBytes, 2048.0);
+        s.set(MetricKey::NetUpTotalBytes, 512.0);
+        s.set(MetricKey::NetAdapterDownBps(0), 2048.0);
+        s.set(MetricKey::NetAdapterUpBps(0), 512.0);
+        s.adapters = vec![AdapterRate {
+            name: "Realtek".into(),
+            down_bps: 2048.0,
+            up_bps: 512.0,
+        }];
+        let adapters = ["Intel".to_string(), "Marvell".to_string()];
+        let cases = [
+            (
+                NetworkShow::Download,
+                "↓ 2.0 KB/s",
+                CellPart::Down,
+                "Received",
+            ),
+            (NetworkShow::Upload, "↑ 512 B/s", CellPart::Up, "Sent"),
+        ];
+        for (show, value, series, total) in cases {
+            let o = Options {
+                network_show: show,
+                ..options(PopupDetail::Detailed, 0)
+            };
+            let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
+            assert_eq!(c.value, value);
+            assert_eq!(c.series, [series]);
+            assert_eq!(rows_under(&c, "Adapters")[0].1, value);
+            let totals = rows_under(&c, "Since Pulsar started");
+            assert_eq!(totals.len(), 1);
+            assert_eq!(totals[0].0, total);
+
+            let o = Options {
+                adapters: &adapters,
+                ..o
+            };
+            let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
+            assert_eq!(rows_under(&c, "Adapters")[0].1, value);
+        }
+    }
+
+    #[test]
+    fn the_popup_choice_is_separate_from_the_overlays() {
+        let slots = GpuSlots::new();
+        let mut c = Config::default();
+        c.network.show = NetworkShow::Upload;
+        let o = Options::new(&c, ItemKind::Network, &slots);
+        assert_eq!(o.network_show, NetworkShow::Both);
+        c.network.show = NetworkShow::Both;
+        c.network.popup_show = NetworkShow::Download;
+        let o = Options::new(&c, ItemKind::Network, &slots);
+        assert_eq!(o.network_show, NetworkShow::Download);
     }
 
     #[test]

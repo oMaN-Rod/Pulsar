@@ -7,7 +7,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use pulsar_core::alerts::Alerts;
-use pulsar_core::config::{self, Config, Position};
+use pulsar_core::config::{self, Config, NetworkShow, Position};
 use pulsar_core::display::NetworkFloor;
 use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::history::HistoryStore;
@@ -965,6 +965,7 @@ impl App {
             .map(|kind| {
                 let mut options = PopupOptions::new(&self.config, kind, &self.latest.gpus);
                 options.detail = self.config.widget_detail(kind);
+                options.network_show = NetworkShow::Both;
                 options.processes = 0;
                 options.graph = true;
                 options.disk_names = self.disk_names.as_deref().unwrap_or_default();

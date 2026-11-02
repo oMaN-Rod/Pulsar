@@ -329,6 +329,9 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_temperature_unit(i32::from(f.fahrenheit));
     ui.set_network_unit(i32::from(f.network_bits));
     ui.set_upload_on_top(f.upload_on_top);
+    ui.set_network_show(f.network_show);
+    ui.set_network_split_tiles(f.network_split_tiles);
+    ui.set_network_popup_show(f.network_popup_show);
     ui.set_game_strip(f.game_strip);
     ui.set_game_summary(f.game_summary);
     ui.set_popup_detail(f.popup_detail);
@@ -578,6 +581,9 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         fahrenheit: ui.get_temperature_unit() == 1,
         network_bits: ui.get_network_unit() == 1,
         upload_on_top: ui.get_upload_on_top(),
+        network_show: ui.get_network_show(),
+        network_split_tiles: ui.get_network_split_tiles(),
+        network_popup_show: ui.get_network_popup_show(),
         game_strip: ui.get_game_strip(),
         game_summary: ui.get_game_summary(),
         popup_detail: ui.get_popup_detail(),

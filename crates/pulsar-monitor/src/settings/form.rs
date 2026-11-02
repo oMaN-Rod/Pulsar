@@ -4,8 +4,8 @@ use pulsar_core::colors::Rgb;
 #[cfg(test)]
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
-    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, PopupBackground, Position, RateUnit,
-    TemperatureUnit, WidgetLayer, WidgetStyle,
+    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, NetworkShow, PopupBackground,
+    Position, RateUnit, TemperatureUnit, WidgetLayer, WidgetStyle,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -127,6 +127,9 @@ pub struct Form {
     pub hotkey_next_profile: String,
     pub network_bits: bool,
     pub upload_on_top: bool,
+    pub network_show: i32,
+    pub network_split_tiles: bool,
+    pub network_popup_show: i32,
     pub game_strip: bool,
     pub game_summary: bool,
     /// An index into `names::DETAILS`.
@@ -229,6 +232,12 @@ pub fn theme_from(f: &Form, base: &Theme, name: &str) -> Theme {
         color_labels: f.color_labels,
     }
 }
+
+const NETWORK_SHOW: [NetworkShow; 3] = [
+    NetworkShow::Both,
+    NetworkShow::Download,
+    NetworkShow::Upload,
+];
 
 fn index_of<T: PartialEq>(all: &[T], value: &T) -> i32 {
     all.iter().position(|v| v == value).unwrap_or(0) as i32
@@ -340,6 +349,9 @@ pub fn to_form(c: &Config) -> Form {
         hotkey_next_profile: c.hotkeys.next_profile.clone().unwrap_or_default(),
         network_bits: c.units.network == RateUnit::Bits,
         upload_on_top: d.upload_on_top,
+        network_show: index_of(&NETWORK_SHOW, &c.network.show),
+        network_split_tiles: c.network.split_tiles,
+        network_popup_show: index_of(&NETWORK_SHOW, &c.network.popup_show),
         game_strip: c.game.strip,
         game_summary: c.game.summary,
         popup_detail: index_of(&DETAILS, &c.popup.detail),
@@ -566,6 +578,9 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         f.min_up_unit,
         f.network_floor_bits,
     );
+    c.network.show = at(&NETWORK_SHOW, f.network_show).unwrap_or_default();
+    c.network.split_tiles = f.network_split_tiles;
+    c.network.popup_show = at(&NETWORK_SHOW, f.network_popup_show).unwrap_or_default();
     c.frames.monitor = non_empty(&f.frame_monitor);
     c.general.language = non_empty(&f.language);
     c.units.temperature = if f.fahrenheit {
@@ -1075,6 +1090,36 @@ mod tests {
         c.hotkeys.widget = Some("Ctrl+Alt+W".into());
         let c = c.sanitize();
         assert_eq!(to_config(&to_form(&c), &c), c);
+    }
+
+    #[test]
+    fn network_directions_round_trip_through_the_form() {
+        for show in NETWORK_SHOW {
+            for popup_show in NETWORK_SHOW {
+                for split_tiles in [false, true] {
+                    let mut c = Config::default();
+                    c.network.show = show;
+                    c.network.popup_show = popup_show;
+                    c.network.split_tiles = split_tiles;
+                    let c = c.sanitize();
+                    assert_eq!(to_config(&to_form(&c), &c), c);
+                }
+            }
+        }
+        let f = to_form(&Config::default());
+        assert_eq!((f.network_show, f.network_popup_show), (0, 0));
+        assert!(!f.network_split_tiles);
+    }
+
+    #[test]
+    fn a_split_choice_survives_while_the_switch_is_hidden() {
+        let mut c = Config::default();
+        c.network.split_tiles = true;
+        c.network.show = NetworkShow::Upload;
+        c.display.mode = DisplayMode::Text;
+        let out = to_config(&to_form(&c), &c);
+        assert!(out.network.split_tiles);
+        assert_eq!(out.network.show, NetworkShow::Upload);
     }
 
     #[test]
