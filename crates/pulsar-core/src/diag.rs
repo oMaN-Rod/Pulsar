@@ -15,6 +15,8 @@ use crate::sources::{ProcessSort, top_by};
 /// Rate counters need two readings this far apart.
 const SETTLE: Duration = Duration::from_secs(1);
 
+const COST_ROUNDS: u32 = 3;
+
 pub const ARG: &str = "--diag";
 const FILE_NAME: &str = "diagnostics.txt";
 
@@ -47,7 +49,13 @@ pub fn report(config: &Config, header: &str) -> String {
     std::thread::sleep(SETTLE);
     sampler.sample();
     std::thread::sleep(SETTLE);
-    describe(&sampler.sample(), header)
+    let mut out = describe(&sampler.sample(), header);
+    std::thread::sleep(SETTLE);
+    let _ = writeln!(out, "\nTime per reading:");
+    for (id, cost) in sampler.source_costs(COST_ROUNDS, SETTLE) {
+        let _ = writeln!(out, "  {id:?}: {:.2} ms", cost.as_secs_f64() * 1000.0);
+    }
+    out
 }
 
 pub fn describe(snapshot: &Snapshot, header: &str) -> String {

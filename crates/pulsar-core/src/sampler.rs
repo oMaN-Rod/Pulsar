@@ -220,6 +220,36 @@ impl Sampler {
         }
     }
 
+    /// How long each source takes per reading, averaged over `rounds`.
+    pub fn source_costs(&mut self, rounds: u32, settle: Duration) -> Vec<(SourceId, Duration)> {
+        let mut costs: Vec<(SourceId, Duration)> = Vec::new();
+        for round in 0..rounds {
+            if round > 0 {
+                std::thread::sleep(settle);
+            }
+            let sources = self
+                .sources
+                .iter_mut()
+                .chain(self.extras.iter_mut().flatten())
+                .chain(self.processes.iter_mut());
+            // Shared, as fallback sources skip what earlier sources provided.
+            let mut snapshot = Snapshot::default();
+            for (i, source) in sources.enumerate() {
+                let start = Instant::now();
+                run(source.as_mut(), &mut snapshot);
+                let spent = start.elapsed();
+                match costs.get_mut(i) {
+                    Some((_, total)) => *total += spent,
+                    None => costs.push((source.id(), spent)),
+                }
+            }
+        }
+        for (_, total) in &mut costs {
+            *total /= rounds.max(1);
+        }
+        costs
+    }
+
     pub fn sample(&mut self) -> Snapshot {
         let mut snapshot = Snapshot::default();
         for source in &mut self.sources {
@@ -478,6 +508,15 @@ mod tests {
         assert!(paused.load(Ordering::Relaxed));
         sampler.set_paused(false);
         assert!(!paused.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn source_costs_list_each_source_once_whatever_the_rounds() {
+        let flag = Arc::<AtomicBool>::default();
+        let mut sampler = Sampler::new(vec![Box::new(PauseAware(flag))], None);
+        let costs = sampler.source_costs(3, Duration::ZERO);
+        assert_eq!(costs.len(), 1);
+        assert_eq!(costs[0].0, SourceId::Ping);
     }
 
     #[test]
