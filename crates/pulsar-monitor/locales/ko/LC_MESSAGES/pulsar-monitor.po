@@ -1473,6 +1473,18 @@ msgid "Not set"
 msgstr "설정 안 됨"
 
 #: ui/settings.slint
+msgid "Moderate from"
+msgstr "보통 시작 값"
+
+#: ui/settings.slint
+msgid "High from"
+msgstr "높음 시작 값"
+
+#: ui/settings.slint
+msgid "Critical from"
+msgstr "위험 시작 값"
+
+#: ui/settings.slint
 msgid "Use default"
 msgstr "기본값 사용"
 
@@ -1597,8 +1609,28 @@ msgid "Color by load thresholds"
 msgstr "부하에 따른 색 임계값"
 
 #: ui/settings.slint
-msgid "An item set to color by load is green, then turns yellow, orange and red as its value reaches each threshold below, left to right. Other values keep the item color."
-msgstr "부하에 따른 색을 사용하는 항목은 녹색으로 표시되다가 값이 아래의 각 임계값(왼쪽에서 오른쪽 순)에 도달하면 노란색, 주황색, 빨간색으로 바뀝니다. 다른 값은 항목 색을 유지합니다."
+msgid "An item set to color by load changes color as its value reaches each threshold. Drag a handle, or focus it and use the arrow keys. Other values keep the item color."
+msgstr "부하별 색상 항목은 값이 각 임계값에 도달하면 색이 바뀝니다. 핸들을 끌거나 선택한 후 화살표 키를 사용하세요. 다른 값은 항목 색상을 유지합니다."
+
+#: ui/settings.slint
+msgid "Presets"
+msgstr "프리셋"
+
+#: ui/settings.slint
+msgid "Balanced is the default."
+msgstr "기본값은 균형입니다."
+
+#: ui/settings.slint
+msgid "Balanced"
+msgstr "균형"
+
+#: ui/settings.slint
+msgid "Relaxed"
+msgstr "여유"
+
+#: ui/settings.slint
+msgid "Strict"
+msgstr "엄격"
 
 #: ui/settings.slint
 msgid "Percent (%)"
@@ -1631,6 +1663,38 @@ msgstr "핑(ms)"
 #: ui/settings.slint
 msgid "Default: 50, 100, 200"
 msgstr "기본값: 50, 100, 200"
+
+#: ui/settings.slint
+msgid "Low color"
+msgstr "낮음 색상"
+
+#: ui/settings.slint
+msgid "Below the first threshold. Empty uses green."
+msgstr "첫 번째 임계값 미만. 비워 두면 녹색을 사용합니다."
+
+#: ui/settings.slint
+msgid "Moderate color"
+msgstr "보통 색상"
+
+#: ui/settings.slint
+msgid "From the first threshold. Empty uses yellow."
+msgstr "첫 번째 임계값부터. 비워 두면 노란색을 사용합니다."
+
+#: ui/settings.slint
+msgid "High color"
+msgstr "높음 색상"
+
+#: ui/settings.slint
+msgid "From the second threshold. Empty uses orange."
+msgstr "두 번째 임계값부터. 비워 두면 주황색을 사용합니다."
+
+#: ui/settings.slint
+msgid "Critical color"
+msgstr "위험 색상"
+
+#: ui/settings.slint
+msgid "From the third threshold. Empty uses red."
+msgstr "세 번째 임계값부터. 비워 두면 빨간색을 사용합니다."
 
 #: ui/settings.slint
 msgid "Mode"

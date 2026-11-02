@@ -334,6 +334,218 @@ component ThemeGrid inherits Rectangle {
     }
 }
 
+// Three thresholds on the color by load scale: drag a handle, or focus one and
+// use the arrow keys. A handle stops at its neighbours, so they stay in order.
+component LoadThresholdRibbon inherits Rectangle {
+    in-out property <int> moderate;
+    in-out property <int> high;
+    in-out property <int> critical;
+    in property <int> minimum: 1;
+    in property <int> maximum;
+    in property <bool> logarithmic;
+    in property <color> low-color;
+    in property <color> moderate-color;
+    in property <color> high-color;
+    in property <color> critical-color;
+    callback edited();
+    property <int> active: 0;
+    property <bool> dragging;
+    property <length> inset: 8px;
+    property <length> span: self.width - 2 * self.inset;
+    pure function fraction(value: int) -> float {
+        if (root.logarithmic) {
+            return Math.log(value / root.minimum, 10) / Math.log(root.maximum / root.minimum, 10);
+        }
+        return (value - root.minimum) / (root.maximum - root.minimum);
+    }
+    pure function position(value: int) -> length {
+        return root.inset + root.span * root.fraction(value);
+    }
+    pure function value-at(x: length) -> int {
+        let at = Math.clamp((x - root.inset) / root.span, 0, 1);
+        if (root.logarithmic) {
+            return Math.round(root.minimum * Math.pow(root.maximum / root.minimum, at));
+        }
+        return Math.round(root.minimum + at * (root.maximum - root.minimum));
+    }
+    pure function pick(x: length) -> int {
+        let a = Math.abs(x - root.position(root.moderate));
+        let b = Math.abs(x - root.position(root.high));
+        let c = Math.abs(x - root.position(root.critical));
+        let best = Math.min(a, b, c);
+        // Handles on one spot: the one that is free to move towards the pointer.
+        if (x >= root.position(root.critical) && c == best) {
+            return 2;
+        }
+        if (x >= root.position(root.high) && b == best) {
+            return 1;
+        }
+        if (a == best) {
+            return 0;
+        }
+        if (b == best) {
+            return 1;
+        }
+        return 2;
+    }
+    function move(handle: int, value: int) {
+        if (handle == 0) {
+            root.moderate = Math.clamp(value, root.minimum, root.high);
+        } else if (handle == 1) {
+            root.high = Math.clamp(value, root.moderate, root.critical);
+        } else {
+            root.critical = Math.clamp(value, root.high, root.maximum);
+        }
+    }
+    function nudge(handle: int, event: KeyEvent) -> EventResult {
+        let step = event.modifiers.shift ? 10 : 1;
+        let current = handle == 0 ? root.moderate : handle == 1 ? root.high : root.critical;
+        if (event.text == Key.LeftArrow) {
+            root.move(handle, current - step);
+        } else if (event.text == Key.RightArrow) {
+            root.move(handle, current + step);
+        } else {
+            return reject;
+        }
+        root.edited();
+        return accept;
+    }
+    width: 300px;
+    height: 58px;
+    Rectangle {
+        x: root.inset;
+        y: 23px;
+        width: root.span;
+        height: 12px;
+        border-radius: 6px;
+        clip: true;
+        Rectangle {
+            x: 0;
+            width: root.position(root.moderate) - root.inset;
+            background: root.low-color;
+        }
+        Rectangle {
+            x: root.position(root.moderate) - root.inset;
+            width: root.position(root.high) - root.position(root.moderate);
+            background: root.moderate-color;
+        }
+        Rectangle {
+            x: root.position(root.high) - root.inset;
+            width: root.position(root.critical) - root.position(root.high);
+            background: root.high-color;
+        }
+        Rectangle {
+            x: root.position(root.critical) - root.inset;
+            width: root.span - self.x;
+            background: root.critical-color;
+        }
+    }
+    touch := TouchArea {
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.cancel && root.dragging) {
+                root.dragging = false;
+                root.edited();
+                return;
+            }
+            if (event.button != PointerEventButton.left) {
+                return;
+            }
+            if (event.kind == PointerEventKind.down) {
+                root.dragging = true;
+                root.active = root.pick(self.mouse-x);
+                if (root.active == 0) {
+                    moderate-focus.focus();
+                } else if (root.active == 1) {
+                    high-focus.focus();
+                } else {
+                    critical-focus.focus();
+                }
+                root.move(root.active, root.value-at(self.mouse-x));
+            } else if (event.kind == PointerEventKind.up && root.dragging) {
+                root.dragging = false;
+                root.edited();
+            }
+        }
+        moved => {
+            if (root.dragging) {
+                root.move(root.active, root.value-at(self.mouse-x));
+            }
+        }
+    }
+    Text {
+        x: root.position(root.moderate) - self.width / 2;
+        y: 2px;
+        text: root.moderate;
+        font-size: 12px;
+    }
+    Rectangle {
+        x: root.position(root.moderate) - 5px;
+        y: 19px;
+        width: 10px;
+        height: 20px;
+        border-radius: 3px;
+        background: Palette.foreground;
+        border-width: moderate-focus.has-focus ? 2px : 1px;
+        border-color: moderate-focus.has-focus ? Palette.accent-background : Palette.background;
+        accessible-role: slider;
+        accessible-value: root.moderate;
+        accessible-value-minimum: root.minimum;
+        accessible-value-maximum: root.high;
+        accessible-label: @tr("Moderate from");
+        moderate-focus := FocusScope {
+            key-pressed(event) => { return root.nudge(0, event); }
+        }
+    }
+    Text {
+        x: root.position(root.high) - self.width / 2;
+        y: 41px;
+        text: root.high;
+        font-size: 12px;
+    }
+    Rectangle {
+        x: root.position(root.high) - 5px;
+        y: 19px;
+        width: 10px;
+        height: 20px;
+        border-radius: 3px;
+        background: Palette.foreground;
+        border-width: high-focus.has-focus ? 2px : 1px;
+        border-color: high-focus.has-focus ? Palette.accent-background : Palette.background;
+        accessible-role: slider;
+        accessible-value: root.high;
+        accessible-value-minimum: root.moderate;
+        accessible-value-maximum: root.critical;
+        accessible-label: @tr("High from");
+        high-focus := FocusScope {
+            key-pressed(event) => { return root.nudge(1, event); }
+        }
+    }
+    Text {
+        x: root.position(root.critical) - self.width / 2;
+        y: 2px;
+        text: root.critical;
+        font-size: 12px;
+    }
+    Rectangle {
+        x: root.position(root.critical) - 5px;
+        y: 19px;
+        width: 10px;
+        height: 20px;
+        border-radius: 3px;
+        background: Palette.foreground;
+        border-width: critical-focus.has-focus ? 2px : 1px;
+        border-color: critical-focus.has-focus ? Palette.accent-background : Palette.background;
+        accessible-role: slider;
+        accessible-value: root.critical;
+        accessible-value-minimum: root.high;
+        accessible-value-maximum: root.maximum;
+        accessible-label: @tr("Critical from");
+        critical-focus := FocusScope {
+            key-pressed(event) => { return root.nudge(2, event); }
+        }
+    }
+}
+
 // A setting: title and description on the left, its control on the right.
 component SettingRow inherits HorizontalLayout {
     in property <string> title;
@@ -525,49 +737,6 @@ component SaturationValueArea inherits Rectangle {
 }
 
 // Where a reading turns yellow, orange and red. Each edit keeps them in order.
-component LoadThresholdFields inherits HorizontalLayout {
-    in-out property <int> moderate;
-    in-out property <int> high;
-    in-out property <int> critical;
-    in property <int> minimum: 1;
-    in property <int> maximum;
-    callback edited();
-    spacing: 8px;
-    SpinBox {
-        width: 96px;
-        minimum: root.minimum;
-        maximum: root.maximum;
-        value <=> root.moderate;
-        edited(value) => {
-            root.high = Math.max(root.high, value);
-            root.critical = Math.max(root.critical, value);
-            root.edited();
-        }
-    }
-    SpinBox {
-        width: 96px;
-        minimum: root.minimum;
-        maximum: root.maximum;
-        value <=> root.high;
-        edited(value) => {
-            root.moderate = Math.min(root.moderate, value);
-            root.critical = Math.max(root.critical, value);
-            root.edited();
-        }
-    }
-    SpinBox {
-        width: 96px;
-        minimum: root.minimum;
-        maximum: root.maximum;
-        value <=> root.critical;
-        edited(value) => {
-            root.moderate = Math.min(root.moderate, value);
-            root.high = Math.min(root.high, value);
-            root.edited();
-        }
-    }
-}
-
 // A color setting: a swatch that opens a picker, and the hex text.
 component ColorField inherits HorizontalLayout {
     in-out property <string> text;
@@ -741,6 +910,18 @@ component Page inherits ScrollView {
 }
 
 export component SettingsWindow inherits Window {
+    function load-preset(pm: int, ph: int, pc: int, tm: int, th: int, tc: int, nm: int, nh: int, nc: int) {
+        root.load-percent-moderate = pm;
+        root.load-percent-high = ph;
+        root.load-percent-critical = pc;
+        root.load-temperature-moderate = root.alert-fahrenheit ? Math.round(tm * 9 / 5 + 32) : tm;
+        root.load-temperature-high = root.alert-fahrenheit ? Math.round(th * 9 / 5 + 32) : th;
+        root.load-temperature-critical = root.alert-fahrenheit ? Math.round(tc * 9 / 5 + 32) : tc;
+        root.load-ping-moderate = nm;
+        root.load-ping-high = nh;
+        root.load-ping-critical = nc;
+        root.changed();
+    }
     in property <string> window-title;
     title: root.window-title;
     icon: @image-url("../assets/pulsar-64.png");
@@ -803,6 +984,18 @@ export component SettingsWindow inherits Window {
     in-out property <int> alert-drives-limit;
     // The unit the temperature limits were filled in.
     in property <bool> alert-fahrenheit;
+    in-out property <string> load-low-color;
+    in-out property <string> load-moderate-color;
+    in-out property <string> load-high-color;
+    in-out property <string> load-critical-color;
+    in property <color> load-low-swatch;
+    in property <color> load-moderate-swatch;
+    in property <color> load-high-swatch;
+    in property <color> load-critical-swatch;
+    property <color> load-low-shown: root.load-low-swatch.to-hsv().alpha > 0 ? root.load-low-swatch : #6CCB5F;
+    property <color> load-moderate-shown: root.load-moderate-swatch.to-hsv().alpha > 0 ? root.load-moderate-swatch : #FFD33D;
+    property <color> load-high-shown: root.load-high-swatch.to-hsv().alpha > 0 ? root.load-high-swatch : #FF8C1A;
+    property <color> load-critical-shown: root.load-critical-swatch.to-hsv().alpha > 0 ? root.load-critical-swatch : #FF4D4F;
     in-out property <int> load-percent-moderate;
     in-out property <int> load-percent-high;
     in-out property <int> load-percent-critical;
@@ -1319,15 +1512,36 @@ export component SettingsWindow inherits Window {
                 }
                 SectionTitle { text: @tr("Color by load thresholds"); }
                 Text {
-                    text: @tr("An item set to color by load is green, then turns yellow, orange and red as its value reaches each threshold below, left to right. Other values keep the item color.");
+                    text: @tr("An item set to color by load changes color as its value reaches each threshold. Drag a handle, or focus it and use the arrow keys. Other values keep the item color.");
                     color: Palette.foreground.transparentize(0.35);
                     wrap: word-wrap;
                 }
                 Card {
                     SettingRow {
+                        title: @tr("Presets");
+                        description: @tr("Balanced is the default.");
+                        Button {
+                            text: @tr("Balanced");
+                            clicked => { root.load-preset(50, 75, 90, 70, 80, 90, 50, 100, 200); }
+                        }
+                        Button {
+                            text: @tr("Relaxed");
+                            clicked => { root.load-preset(70, 85, 95, 80, 90, 95, 100, 200, 400); }
+                        }
+                        Button {
+                            text: @tr("Strict");
+                            clicked => { root.load-preset(30, 55, 80, 60, 70, 80, 30, 60, 120); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
                         title: @tr("Percent (%)");
                         description: @tr("Default: 50, 75, 90");
-                        LoadThresholdFields {
+                        LoadThresholdRibbon {
+                            low-color: root.load-low-shown;
+                            moderate-color: root.load-moderate-shown;
+                            high-color: root.load-high-shown;
+                            critical-color: root.load-critical-shown;
                             maximum: 100;
                             moderate <=> root.load-percent-moderate;
                             high <=> root.load-percent-high;
@@ -1339,7 +1553,11 @@ export component SettingsWindow inherits Window {
                     SettingRow {
                         title: root.alert-fahrenheit ? @tr("Temperature (°F)") : @tr("Temperature (°C)");
                         description: root.alert-fahrenheit ? @tr("Default: 158, 176, 194") : @tr("Default: 70, 80, 90");
-                        LoadThresholdFields {
+                        LoadThresholdRibbon {
+                            low-color: root.load-low-shown;
+                            moderate-color: root.load-moderate-shown;
+                            high-color: root.load-high-shown;
+                            critical-color: root.load-critical-shown;
                             minimum: root.alert-fahrenheit ? 34 : 1;
                             maximum: root.alert-fahrenheit ? 302 : 150;
                             moderate <=> root.load-temperature-moderate;
@@ -1352,11 +1570,60 @@ export component SettingsWindow inherits Window {
                     SettingRow {
                         title: @tr("Ping (ms)");
                         description: @tr("Default: 50, 100, 200");
-                        LoadThresholdFields {
+                        LoadThresholdRibbon {
+                            low-color: root.load-low-shown;
+                            moderate-color: root.load-moderate-shown;
+                            high-color: root.load-high-shown;
+                            critical-color: root.load-critical-shown;
+                            logarithmic: true;
                             maximum: 5000;
                             moderate <=> root.load-ping-moderate;
                             high <=> root.load-ping-high;
                             critical <=> root.load-ping-critical;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Low color");
+                        description: @tr("Below the first threshold. Empty uses green.");
+                        ColorField {
+                            text <=> root.load-low-color;
+                            swatch: root.load-low-swatch;
+                            fallback: #6CCB5F;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Moderate color");
+                        description: @tr("From the first threshold. Empty uses yellow.");
+                        ColorField {
+                            text <=> root.load-moderate-color;
+                            swatch: root.load-moderate-swatch;
+                            fallback: #FFD33D;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("High color");
+                        description: @tr("From the second threshold. Empty uses orange.");
+                        ColorField {
+                            text <=> root.load-high-color;
+                            swatch: root.load-high-swatch;
+                            fallback: #FF8C1A;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Critical color");
+                        description: @tr("From the third threshold. Empty uses red.");
+                        ColorField {
+                            text <=> root.load-critical-color;
+                            swatch: root.load-critical-swatch;
+                            fallback: #FF4D4F;
                             edited => { root.changed(); }
                         }
                     }

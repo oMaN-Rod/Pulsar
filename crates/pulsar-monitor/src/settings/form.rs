@@ -4,9 +4,9 @@ use pulsar_core::colors::Rgb;
 #[cfg(test)]
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
-    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadThresholds, NetworkShow, NoRoom,
-    PopupBackground, Position, RateUnit, RemoveFrom, TemperatureUnit, WidgetLayer, WidgetStyle,
-    sanitize_label,
+    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadColors, LoadThresholds,
+    NetworkShow, NoRoom, PopupBackground, Position, RateUnit, RemoveFrom, TemperatureUnit,
+    WidgetLayer, WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -136,6 +136,8 @@ pub struct Form {
     pub alert_drives: bool,
     pub alert_drives_limit: i32,
     pub alert_fahrenheit: bool,
+    /// Low to critical; empty uses the default.
+    pub load_colors: [String; 4],
     /// Color by load thresholds; temperatures as with the alerts.
     pub load_percent: [i32; 3],
     pub load_temperature: [i32; 3],
@@ -383,6 +385,12 @@ pub fn to_form(c: &Config) -> Form {
         alert_drives: c.alerts.drives.on,
         alert_drives_limit: c.alerts.drives.limit as i32,
         alert_fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
+        load_colors: [
+            c.display.load_colors.low.clone().unwrap_or_default(),
+            c.display.load_colors.moderate.clone().unwrap_or_default(),
+            c.display.load_colors.high.clone().unwrap_or_default(),
+            c.display.load_colors.critical.clone().unwrap_or_default(),
+        ],
         load_percent: c.display.load_thresholds.percent.map(|v| v as i32),
         load_temperature: c.display.load_thresholds.celsius.map(|v| shown_temp(v, c)),
         load_ping: c.display.load_thresholds.millis.map(|v| v as i32),
@@ -515,6 +523,12 @@ fn rate_or_base(base: u64, amount: i32, unit: i32, bits: bool) -> u64 {
 
 pub fn to_config(f: &Form, base: &Config) -> Config {
     let mut c = base.clone();
+    c.display.load_colors = LoadColors {
+        low: non_empty(&f.load_colors[0]),
+        moderate: non_empty(&f.load_colors[1]),
+        high: non_empty(&f.load_colors[2]),
+        critical: non_empty(&f.load_colors[3]),
+    };
     c.display.load_thresholds = LoadThresholds {
         percent: f.load_percent.map(|v| v.max(0) as u32),
         celsius: f.load_temperature.map(|v| celsius(v, f.alert_fahrenheit)),
@@ -998,6 +1012,20 @@ mod tests {
         );
         assert!(!out.items[1].graph, "the last style is text only");
         assert_eq!(to_form(&out).items[1].style, 4);
+    }
+
+    #[test]
+    fn load_colors_map_both_ways_and_empty_is_the_default() {
+        let c = Config::default();
+        let mut f = to_form(&c);
+        assert!(f.load_colors.iter().all(String::is_empty));
+        f.load_colors[1] = "#ABCDEF".into();
+        let out = to_config(&f, &c);
+        assert_eq!(out.display.load_colors.moderate.as_deref(), Some("#ABCDEF"));
+        assert_eq!(out.display.load_colors.low, None);
+        assert_eq!(to_form(&out).load_colors[1], "#ABCDEF");
+        apply_theme(&mut f, &Theme::windows());
+        assert_eq!(f.load_colors[1], "#ABCDEF", "a theme leaves them alone");
     }
 
     #[test]

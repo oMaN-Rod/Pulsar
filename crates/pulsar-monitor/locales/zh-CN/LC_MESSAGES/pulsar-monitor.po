@@ -1474,6 +1474,18 @@ msgid "Not set"
 msgstr "未设置"
 
 #: ui/settings.slint
+msgid "Moderate from"
+msgstr "中等起始值"
+
+#: ui/settings.slint
+msgid "High from"
+msgstr "高起始值"
+
+#: ui/settings.slint
+msgid "Critical from"
+msgstr "严重起始值"
+
+#: ui/settings.slint
 msgid "Use default"
 msgstr "使用默认"
 
@@ -1598,8 +1610,28 @@ msgid "Color by load thresholds"
 msgstr "按负载着色阈值"
 
 #: ui/settings.slint
-msgid "An item set to color by load is green, then turns yellow, orange and red as its value reaches each threshold below, left to right. Other values keep the item color."
-msgstr "设为按负载着色的项目显示为绿色，当数值达到下方从左到右的各个阈值时，依次变为黄色、橙色和红色。其他数值保持项目颜色。"
+msgid "An item set to color by load changes color as its value reaches each threshold. Drag a handle, or focus it and use the arrow keys. Other values keep the item color."
+msgstr "按负载着色的项目在数值达到各阈值时改变颜色。拖动滑块，或选中后使用方向键调整。其他数值保持项目颜色。"
+
+#: ui/settings.slint
+msgid "Presets"
+msgstr "预设"
+
+#: ui/settings.slint
+msgid "Balanced is the default."
+msgstr "“均衡”为默认值。"
+
+#: ui/settings.slint
+msgid "Balanced"
+msgstr "均衡"
+
+#: ui/settings.slint
+msgid "Relaxed"
+msgstr "宽松"
+
+#: ui/settings.slint
+msgid "Strict"
+msgstr "严格"
 
 #: ui/settings.slint
 msgid "Percent (%)"
@@ -1632,6 +1664,38 @@ msgstr "Ping (ms)"
 #: ui/settings.slint
 msgid "Default: 50, 100, 200"
 msgstr "默认：50, 100, 200"
+
+#: ui/settings.slint
+msgid "Low color"
+msgstr "低负载颜色"
+
+#: ui/settings.slint
+msgid "Below the first threshold. Empty uses green."
+msgstr "低于第一个阈值。留空时使用绿色。"
+
+#: ui/settings.slint
+msgid "Moderate color"
+msgstr "中等负载颜色"
+
+#: ui/settings.slint
+msgid "From the first threshold. Empty uses yellow."
+msgstr "从第一个阈值起。留空时使用黄色。"
+
+#: ui/settings.slint
+msgid "High color"
+msgstr "高负载颜色"
+
+#: ui/settings.slint
+msgid "From the second threshold. Empty uses orange."
+msgstr "从第二个阈值起。留空时使用橙色。"
+
+#: ui/settings.slint
+msgid "Critical color"
+msgstr "严重负载颜色"
+
+#: ui/settings.slint
+msgid "From the third threshold. Empty uses red."
+msgstr "从第三个阈值起。留空时使用红色。"
 
 #: ui/settings.slint
 msgid "Mode"

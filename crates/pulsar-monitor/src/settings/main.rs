@@ -308,6 +308,10 @@ fn refresh_swatches(ui: &SettingsWindow) {
     ui.set_value_swatch(swatch(&ui.get_value_color()));
     ui.set_label_light_swatch(swatch(&ui.get_label_color_light()));
     ui.set_value_light_swatch(swatch(&ui.get_value_color_light()));
+    ui.set_load_low_swatch(swatch(&ui.get_load_low_color()));
+    ui.set_load_moderate_swatch(swatch(&ui.get_load_moderate_color()));
+    ui.set_load_high_swatch(swatch(&ui.get_load_high_color()));
+    ui.set_load_critical_swatch(swatch(&ui.get_load_critical_color()));
 }
 
 fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
@@ -480,6 +484,10 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
         })
         .collect();
     ui.set_items(ModelRc::new(VecModel::from(rows)));
+    ui.set_load_low_color(f.load_colors[0].as_str().into());
+    ui.set_load_moderate_color(f.load_colors[1].as_str().into());
+    ui.set_load_high_color(f.load_colors[2].as_str().into());
+    ui.set_load_critical_color(f.load_colors[3].as_str().into());
     refresh_swatches(ui);
     ui.set_ping_host(f.ping_host.as_str().into());
     ui.set_ping_interval_ms(f.ping_interval_ms);
@@ -590,6 +598,12 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         alert_drives: ui.get_alert_drives(),
         alert_drives_limit: ui.get_alert_drives_limit(),
         alert_fahrenheit: ui.get_alert_fahrenheit(),
+        load_colors: [
+            ui.get_load_low_color().to_string(),
+            ui.get_load_moderate_color().to_string(),
+            ui.get_load_high_color().to_string(),
+            ui.get_load_critical_color().to_string(),
+        ],
         load_percent: [
             ui.get_load_percent_moderate(),
             ui.get_load_percent_high(),

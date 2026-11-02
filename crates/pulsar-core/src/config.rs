@@ -206,7 +206,17 @@ pub struct Config {
     pub session_items: Vec<ItemKind>,
 }
 
-/// Where color by load turns yellow, orange and red, per unit of reading.
+/// `#RRGGBB` for each band of color by load, on any taskbar; `None` uses the default.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LoadColors {
+    pub low: Option<String>,
+    pub moderate: Option<String>,
+    pub high: Option<String>,
+    pub critical: Option<String>,
+}
+
+/// Where color by load changes band, per unit of reading.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct LoadThresholds {
@@ -406,6 +416,7 @@ pub struct Display {
     /// Draw each label in its item's color.
     pub color_labels: bool,
     pub load_thresholds: LoadThresholds,
+    pub load_colors: LoadColors,
     /// None uses Segoe UI Variable.
     pub font_family: Option<String>,
     pub font_bold: bool,
@@ -688,6 +699,7 @@ impl Default for Display {
             upload_on_top: false,
             color_labels: false,
             load_thresholds: LoadThresholds::default(),
+            load_colors: LoadColors::default(),
             font_family: None,
             font_bold: false,
             hide_in_fullscreen: true,
@@ -766,6 +778,10 @@ impl Config {
             &mut d.value_color,
             &mut d.label_color_light,
             &mut d.value_color_light,
+            &mut d.load_colors.low,
+            &mut d.load_colors.moderate,
+            &mut d.load_colors.high,
+            &mut d.load_colors.critical,
         ] {
             if color.as_deref().is_some_and(|c| !is_hex_color(c)) {
                 *color = None;
@@ -1423,6 +1439,21 @@ sample_interval_ms = 1
         assert_eq!(c.display.load_thresholds.percent, [50, 75, 90]);
         save(&path, &c).unwrap();
         assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn load_colors_default_when_absent_and_drop_bad_values() {
+        let c: Config = toml::from_str("[display]\nmode = \"graph\"\n").unwrap();
+        assert_eq!(c.display.load_colors, LoadColors::default());
+        let mut c = Config::default();
+        c.display.load_colors.high = Some("#123456".into());
+        c.display.load_colors.critical = Some("red".into());
+        let c = c.sanitize();
+        assert_eq!(c.display.load_colors.high.as_deref(), Some("#123456"));
+        assert_eq!(c.display.load_colors.critical, None);
+        let saved = toml::to_string(&c).unwrap();
+        let back: Config = toml::from_str(&saved).unwrap();
+        assert_eq!(back.display.load_colors.high.as_deref(), Some("#123456"));
     }
 
     #[test]

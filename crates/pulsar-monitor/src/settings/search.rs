@@ -349,9 +349,14 @@ mod tests {
         assert_eq!(
             plain,
             [
+                "row/0/Presets",
                 "row/0/Percent (%)",
                 "row/0/Temperature (°C)",
-                "row/0/Ping (ms)"
+                "row/0/Ping (ms)",
+                "row/0/Low color",
+                "row/0/Moderate color",
+                "row/0/High color",
+                "row/0/Critical color"
             ]
         );
         let found = ids(&matches(&all, "thresholds"));

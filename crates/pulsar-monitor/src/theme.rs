@@ -69,6 +69,8 @@ pub struct Palette {
     /// Items colored by how high their value is.
     by_load: Vec<ItemKind>,
     load_thresholds: LoadThresholds,
+    /// Custom colors, low to critical.
+    load_colors: [Option<Color>; 4],
     light: bool,
     color_labels: bool,
 }
@@ -130,6 +132,7 @@ impl Palette {
             by_load: Vec::new(),
             light: back.r + back.g + back.b > 1.5,
             load_thresholds: LoadThresholds::default(),
+            load_colors: [None; 4],
             color_labels: false,
         })
     }
@@ -228,6 +231,12 @@ impl Palette {
             by_load,
             light: light_taskbar,
             load_thresholds: d.load_thresholds,
+            load_colors: [
+                custom(&d.load_colors.low),
+                custom(&d.load_colors.moderate),
+                custom(&d.load_colors.high),
+                custom(&d.load_colors.critical),
+            ],
             color_labels: d.color_labels,
         }
     }
@@ -236,7 +245,17 @@ impl Palette {
     /// without a graph show their load too; otherwise the value color.
     pub fn value_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
         let level = self.load_level(kind, part, value);
-        level.map_or(self.text, |level| rgb(colors::load_rgb(level, self.light)))
+        level.map_or(self.text, |level| self.load_color(level))
+    }
+
+    fn load_color(&self, level: colors::Load) -> Color {
+        let band = match level {
+            colors::Load::Low => 0,
+            colors::Load::Moderate => 1,
+            colors::Load::High => 2,
+            colors::Load::Critical => 3,
+        };
+        self.load_colors[band].unwrap_or_else(|| rgb(colors::load_rgb(level, self.light)))
     }
 
     fn load_level(
@@ -259,7 +278,7 @@ impl Palette {
     /// is colored by load and the value has a scale, else `graph`.
     pub fn graph_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
         match self.load_level(kind, part, value) {
-            Some(level) => rgb(colors::load_rgb(level, self.light)),
+            Some(level) => self.load_color(level),
             None => self.graph(kind, part),
         }
     }
@@ -342,6 +361,21 @@ pub fn accent_color() -> Option<Color> {
 mod tests {
     use super::*;
     use pulsar_core::config::ItemConfig;
+
+    #[test]
+    fn custom_load_colors_replace_only_their_own_band() {
+        let mut config = Config::default();
+        config.item_mut(ItemKind::Cpu).unwrap().color_mode = ColorMode::Load;
+        config.display.load_colors.critical = Some("#102030".into());
+        let palette = Palette::new(false, &config, None, &Theme::windows());
+        let at = |v| palette.graph_at(ItemKind::Cpu, CellPart::Main, Some(v));
+        assert_eq!(at(99.0), Color::rgb(0x10, 0x20, 0x30));
+        assert_eq!(
+            palette.value_at(ItemKind::Cpu, CellPart::Main, Some(99.0)),
+            Color::rgb(0x10, 0x20, 0x30)
+        );
+        assert_eq!(at(10.0), rgb(colors::load_rgb(colors::Load::Low, false)));
+    }
 
     #[test]
     fn parses_hex_colors() {
