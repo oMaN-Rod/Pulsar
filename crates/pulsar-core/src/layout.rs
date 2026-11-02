@@ -6,6 +6,8 @@ use crate::format::widest_value;
 use crate::gpu_slots::GpuSlots;
 use crate::metric::{ItemKind, MetricKey};
 
+pub mod fit;
+
 pub trait TextMeasure {
     fn width(&self, text: &str, font_px: f32) -> f32;
     fn line_height(&self, font_px: f32) -> f32;
@@ -312,7 +314,7 @@ pub fn network_pair(kind: ItemKind, part: CellPart, upload_on_top: bool) -> Opti
     }
 }
 
-fn single_parts(kind: ItemKind, part: CellPart, upload_on_top: bool) -> Vec<CellPart> {
+pub fn single_parts(kind: ItemKind, part: CellPart, upload_on_top: bool) -> Vec<CellPart> {
     match network_pair(kind, part, upload_on_top) {
         Some(pair) => pair.to_vec(),
         None => vec![part],

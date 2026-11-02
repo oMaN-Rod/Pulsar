@@ -1282,10 +1282,6 @@ msgid "More in the details window"
 msgstr "更多内容见详细信息窗口"
 
 #: src/settings/main.rs
-msgid "The app in front"
-msgstr "前台应用"
-
-#: src/settings/main.rs
 msgid "Monitor: {}"
 msgstr "显示器：{}"
 
@@ -1304,6 +1300,14 @@ msgstr "默认"
 #: src/settings/main.rs
 msgid "not installed"
 msgstr "未安装"
+
+#: src/settings/main.rs
+msgid "Primary monitor"
+msgstr "主显示器"
+
+#: src/settings/main.rs
+msgid "The app in front"
+msgstr "前台应用"
 
 #: src/settings/main.rs
 msgid "Same as other items"
@@ -1700,6 +1704,78 @@ msgstr "所有任务栏"
 #: ui/settings.slint
 msgid "Also show on the taskbars of other monitors."
 msgstr "同时显示在其他显示器的任务栏上。"
+
+#: ui/settings.slint
+msgid "Taskbar"
+msgstr "任务栏"
+
+#: ui/settings.slint
+msgid "Which monitor's taskbar to use. If that monitor is not connected, the primary one is used."
+msgstr "使用哪个显示器的任务栏。如果该显示器未连接,则使用主显示器。"
+
+#: ui/settings.slint
+msgid "When the taskbar is full"
+msgstr "任务栏已满时"
+
+#: ui/settings.slint
+msgid "Fit to the taskbar"
+msgstr "适应任务栏"
+
+#: ui/settings.slint
+msgid "Leaves items as they are until they would cover taskbar buttons. Then items get more compact, are removed one at a time, and finally follow the choice below."
+msgstr "在项目遮挡任务栏按钮之前保持原样。之后项目会变得更紧凑,再逐个移除,最后按下面的选择处理。"
+
+#: ui/settings.slint
+msgid "Remove items starting from"
+msgstr "移除项目的起始方向"
+
+#: ui/settings.slint
+msgid "The side items go from first, in the order they are shown."
+msgstr "按显示顺序,先从哪一侧移除项目。"
+
+#: ui/settings.slint
+msgid "The right"
+msgstr "右侧"
+
+#: ui/settings.slint
+msgid "The left"
+msgstr "左侧"
+
+#: ui/settings.slint
+msgid "When no item fits"
+msgstr "没有项目能放下时"
+
+#: ui/settings.slint
+msgid "A tray icon shows the first item's value; its tooltip lists the rest."
+msgstr "托盘图标显示第一个项目的值;其工具提示列出其余项目。"
+
+#: ui/settings.slint
+msgid "Float above the taskbar"
+msgstr "浮动在任务栏上方"
+
+#: ui/settings.slint
+msgid "Show in the tray icon"
+msgstr "显示在托盘图标中"
+
+#: ui/settings.slint
+msgid "Stay hidden"
+msgstr "保持隐藏"
+
+#: ui/settings.slint
+msgid "Use the other side first"
+msgstr "先使用另一侧"
+
+#: ui/settings.slint
+msgid "On a centred taskbar, moves items to the other side of the buttons before making them smaller."
+msgstr "在居中的任务栏上,先将项目移到按钮的另一侧,然后才缩小它们。"
+
+#: ui/settings.slint
+msgid "If the taskbar cannot be read"
+msgstr "无法读取任务栏时"
+
+#: ui/settings.slint
+msgid "Some custom taskbars do not report their buttons, and Windows may not answer for a while. Items then stay in their usual place at full size, where they can cover taskbar buttons."
+msgstr "某些自定义任务栏不报告其按钮,Windows 也可能暂时没有响应。此时项目以完整大小保留在通常位置,可能会遮挡任务栏按钮。"
 
 #: ui/settings.slint
 msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."

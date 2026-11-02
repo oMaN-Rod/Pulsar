@@ -1279,10 +1279,6 @@ msgid "More in the details window"
 msgstr ""
 
 #: src/settings/main.rs
-msgid "The app in front"
-msgstr ""
-
-#: src/settings/main.rs
 msgid "Monitor: {}"
 msgstr ""
 
@@ -1300,6 +1296,14 @@ msgstr ""
 
 #: src/settings/main.rs
 msgid "not installed"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Primary monitor"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "The app in front"
 msgstr ""
 
 #: src/settings/main.rs
@@ -1696,6 +1700,78 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Also show on the taskbars of other monitors."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Which monitor's taskbar to use. If that monitor is not connected, the primary one is used."
+msgstr ""
+
+#: ui/settings.slint
+msgid "When the taskbar is full"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Fit to the taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Leaves items as they are until they would cover taskbar buttons. Then items get more compact, are removed one at a time, and finally follow the choice below."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Remove items starting from"
+msgstr ""
+
+#: ui/settings.slint
+msgid "The side items go from first, in the order they are shown."
+msgstr ""
+
+#: ui/settings.slint
+msgid "The right"
+msgstr ""
+
+#: ui/settings.slint
+msgid "The left"
+msgstr ""
+
+#: ui/settings.slint
+msgid "When no item fits"
+msgstr ""
+
+#: ui/settings.slint
+msgid "A tray icon shows the first item's value; its tooltip lists the rest."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Float above the taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show in the tray icon"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Stay hidden"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Use the other side first"
+msgstr ""
+
+#: ui/settings.slint
+msgid "On a centred taskbar, moves items to the other side of the buttons before making them smaller."
+msgstr ""
+
+#: ui/settings.slint
+msgid "If the taskbar cannot be read"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Some custom taskbars do not report their buttons, and Windows may not answer for a while. Items then stay in their usual place at full size, where they can cover taskbar buttons."
 msgstr ""
 
 #: ui/settings.slint

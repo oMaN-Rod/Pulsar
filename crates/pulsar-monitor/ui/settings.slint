@@ -713,6 +713,12 @@ export component SettingsWindow inherits Window {
     in-out property <int> text-label-gap;
     in-out property <int> text-row-gap;
     in-out property <bool> show-on-all-taskbars;
+    in property <[string]> taskbar-monitors;
+    in-out property <int> taskbar-monitor-index;
+    in-out property <bool> fit-to-taskbar;
+    in-out property <int> fit-remove-from;
+    in-out property <int> fit-no-room;
+    in-out property <bool> fit-other-side;
     in-out property <bool> accent-graphs;
     in-out property <string> tile-color;
     in property <color> tile-swatch;
@@ -1343,6 +1349,69 @@ export component SettingsWindow inherits Window {
                             checked <=> root.show-on-all-taskbars;
                             toggled => { root.changed(); }
                         }
+                    }
+                    if root.position != 2 && !root.show-on-all-taskbars: Divider { }
+                    OptionalRow {
+                        shown: root.position != 2 && !root.show-on-all-taskbars;
+                        title: @tr("Taskbar");
+                        description: @tr("Which monitor's taskbar to use. If that monitor is not connected, the primary one is used.");
+                        ComboBox {
+                            width: 200px;
+                            model: root.taskbar-monitors;
+                            current-index <=> root.taskbar-monitor-index;
+                            selected => { root.changed(); }
+                        }
+                    }
+                }
+                if root.position != 2: SectionTitle { text: @tr("When the taskbar is full"); }
+                if root.position != 2: Card {
+                    SettingRow {
+                        title: @tr("Fit to the taskbar");
+                        description: @tr("Leaves items as they are until they would cover taskbar buttons. Then items get more compact, are removed one at a time, and finally follow the choice below.");
+                        Switch {
+                            checked <=> root.fit-to-taskbar;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    if root.fit-to-taskbar: Divider { }
+                    OptionalRow {
+                        shown: root.fit-to-taskbar;
+                        title: @tr("Remove items starting from");
+                        description: @tr("The side items go from first, in the order they are shown.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("The right"), @tr("The left")];
+                            current-index <=> root.fit-remove-from;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.fit-to-taskbar: Divider { }
+                    OptionalRow {
+                        shown: root.fit-to-taskbar;
+                        title: @tr("When no item fits");
+                        description: @tr("A tray icon shows the first item's value; its tooltip lists the rest.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Float above the taskbar"), @tr("Show in the tray icon"), @tr("Stay hidden")];
+                            current-index <=> root.fit-no-room;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.fit-to-taskbar: Divider { }
+                    OptionalRow {
+                        shown: root.fit-to-taskbar;
+                        title: @tr("Use the other side first");
+                        description: @tr("On a centred taskbar, moves items to the other side of the buttons before making them smaller.");
+                        Switch {
+                            checked <=> root.fit-other-side;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    if root.fit-to-taskbar: Divider { }
+                    OptionalRow {
+                        shown: root.fit-to-taskbar;
+                        title: @tr("If the taskbar cannot be read");
+                        description: @tr("Some custom taskbars do not report their buttons, and Windows may not answer for a while. Items then stay in their usual place at full size, where they can cover taskbar buttons.");
                     }
                 }
             }

@@ -4,8 +4,8 @@ use pulsar_core::colors::Rgb;
 #[cfg(test)]
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
-    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, NetworkShow, PopupBackground,
-    Position, RateUnit, TemperatureUnit, WidgetLayer, WidgetStyle,
+    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, NetworkShow, NoRoom, PopupBackground,
+    Position, RateUnit, RemoveFrom, TemperatureUnit, WidgetLayer, WidgetStyle,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -73,6 +73,14 @@ pub struct Form {
     pub text_label_gap: i32,
     pub text_row_gap: i32,
     pub show_on_all_taskbars: bool,
+    /// A monitor's device path, or empty for the primary taskbar.
+    pub taskbar_monitor: String,
+    pub fit_to_taskbar: bool,
+    /// 0 from the right, 1 from the left.
+    pub fit_remove_from: i32,
+    /// 0 float, 1 tray icon, 2 stay hidden.
+    pub fit_no_room: i32,
+    pub fit_other_side: bool,
     pub accent_graphs: bool,
     /// A theme id; empty for Windows default.
     pub theme: String,
@@ -293,6 +301,18 @@ pub fn to_form(c: &Config) -> Form {
         text_label_gap: d.text_label_gap,
         text_row_gap: d.text_row_gap,
         show_on_all_taskbars: d.show_on_all_taskbars,
+        taskbar_monitor: d.taskbar_monitor.clone().unwrap_or_default(),
+        fit_to_taskbar: d.fit_to_taskbar,
+        fit_remove_from: match d.fit_remove_from {
+            RemoveFrom::Right => 0,
+            RemoveFrom::Left => 1,
+        },
+        fit_no_room: match d.fit_no_room {
+            NoRoom::Float => 0,
+            NoRoom::Tray => 1,
+            NoRoom::Hide => 2,
+        },
+        fit_other_side: d.fit_other_side,
         accent_graphs: d.accent_graphs,
         tile_color: d.tile_color.clone().unwrap_or_default(),
         tile_opacity_custom: d.tile_opacity.is_some(),
@@ -528,6 +548,18 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     d.text_label_gap = f.text_label_gap;
     d.text_row_gap = f.text_row_gap;
     d.show_on_all_taskbars = f.show_on_all_taskbars;
+    d.taskbar_monitor = non_empty(&f.taskbar_monitor);
+    d.fit_to_taskbar = f.fit_to_taskbar;
+    d.fit_remove_from = match f.fit_remove_from {
+        1 => RemoveFrom::Left,
+        _ => RemoveFrom::Right,
+    };
+    d.fit_no_room = match f.fit_no_room {
+        1 => NoRoom::Tray,
+        2 => NoRoom::Hide,
+        _ => NoRoom::Float,
+    };
+    d.fit_other_side = f.fit_other_side;
     d.accent_graphs = f.accent_graphs;
     d.tile_color = non_empty(&f.tile_color);
     d.tile_opacity = f.tile_opacity_custom.then(|| clamp_u8(f.tile_opacity));
@@ -1123,6 +1155,15 @@ mod tests {
     }
 
     #[test]
+    fn every_no_room_choice_round_trips() {
+        for choice in [NoRoom::Float, NoRoom::Tray, NoRoom::Hide] {
+            let mut c = Config::default();
+            c.display.fit_no_room = choice;
+            assert_eq!(to_config(&to_form(&c), &c).display.fit_no_room, choice);
+        }
+    }
+
+    #[test]
     fn new_fields_round_trip_through_the_form() {
         let mut c = Config::default();
         c.display.labels = LabelStyle::None;
@@ -1138,6 +1179,11 @@ mod tests {
         c.display.float_position = Some([10, 20]);
         c.display.lock_position = true;
         c.display.graph_inline = true;
+        c.display.taskbar_monitor = Some(r"\\?\DISPLAY#DEL5678#5&1&UID2".into());
+        c.display.fit_to_taskbar = false;
+        c.display.fit_remove_from = RemoveFrom::Left;
+        c.display.fit_no_room = NoRoom::Tray;
+        c.display.fit_other_side = false;
         c.general.tray_icon = false;
         c.disk.drives = vec!["C".into(), "D".into()];
         c.disk.value = DriveValue::Used;

@@ -7,12 +7,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use pulsar_core::alerts::Alerts;
-use pulsar_core::config::{self, Config, NetworkShow, Position};
-use pulsar_core::display::NetworkFloor;
+use pulsar_core::config::{self, Config, NetworkShow, NoRoom, Position};
+use pulsar_core::display::{NetworkFloor, floored_cell_value};
 use pulsar_core::gpu_slots::GpuSlots;
+use pulsar_core::hardware::displays;
 use pulsar_core::history::HistoryStore;
 use pulsar_core::hotkey::Hotkey;
 use pulsar_core::ipc;
+use pulsar_core::layout::{CellPart, single_parts};
 use pulsar_core::metric::{ItemKind, Snapshot};
 use pulsar_core::recording::Recorder;
 use pulsar_core::update::{self as release, Outcome, UpdateState};
@@ -58,12 +60,16 @@ use crate::render::{Frame, Renderer, graph_styles};
 use crate::sampler_thread::SamplerThread;
 use crate::taskbar::hooks::{self, Hooks};
 use crate::taskbar::placement::{
-    HideReason, Placement, PlacementInput, Rect32, place, place_floating, tray_is_laid_out,
+    HideReason, Placement, PlacementInput, Rect32, is_auto_hide, place_floating, scaled,
+    tray_is_laid_out,
+};
+use crate::taskbar::space::{
+    PACE_ACTIVE, PACE_HIDDEN, PACE_SLACK, PACE_UNKNOWN, Space, Target, Tracker,
 };
 use crate::taskbar::{self, Taskbar};
 use crate::text::Text;
 use crate::theme::Palette;
-use crate::tray::Tray;
+use crate::tray::{Metric, Tray, icon_text};
 use crate::update;
 use crate::watchdog::Watchdog;
 use crate::widget::{self, Widget};
@@ -86,6 +92,9 @@ const FULLSCREEN_DELAY: Duration = Duration::from_millis(300);
 const VALIDATE_MS: u32 = 2000;
 /// Explorer lays out the tray some time after announcing the taskbar.
 const RETRY_MS: [u32; 4] = [100, 250, 500, 1000];
+
+/// This much more room than needed means the taskbar need not be read as often.
+const SLACK_DIP: i32 = 200;
 
 const HOVER_MS: u32 = 300;
 /// `NIN_SELECT | NINF_KEY`: the tray icon was activated from the keyboard.
@@ -147,6 +156,11 @@ pub struct App {
     latest: Snapshot,
     sampler: SamplerThread,
     overlays: Vec<Overlay>,
+    space: Space,
+    /// Tells readings of a taskbar apart from those of the one it replaced.
+    taskbar_generation: u64,
+    /// The saved monitor path, and its current GDI name if it is connected.
+    chosen_monitor: Option<(String, Option<String>)>,
     tray: Tray,
     hooks: Option<(u32, Hooks)>,
     fullscreen: Debounce<Vec<Rect32>>,
@@ -209,6 +223,7 @@ impl Paint<'_> {
         let hwnd = o.hwnd;
         let alpha = o.alpha;
         let layout = o.layout.clone();
+        let tier = o.tier_style();
         let target = o.present_target(x, y);
         if !o.alive() {
             return Ok(());
@@ -216,6 +231,9 @@ impl Paint<'_> {
         let surface = o.surface()?;
         let styles = graph_styles(self.config);
         let d = &self.config.display;
+        let (labels, icons, graph_inline) = tier.map_or((d.labels, d.icons, d.graph_inline), |t| {
+            (t.labels, t.icons, t.graph_inline)
+        });
         let frame = Frame {
             layout: &layout,
             mode: d.mode,
@@ -224,11 +242,11 @@ impl Paint<'_> {
             history: self.history,
             dpi,
             text: pulsar_core::layout::TileText {
-                labels: d.labels,
-                icons: d.icons,
+                labels,
+                icons,
                 upload_on_top: d.upload_on_top,
             },
-            graph_inline: d.graph_inline && !layout.vertical,
+            graph_inline: graph_inline && !layout.vertical,
             styles: &styles,
             network_floor: NetworkFloor::new(&self.config.network),
         };
@@ -303,6 +321,9 @@ impl App {
                 ..Snapshot::default()
             },
             overlays: Vec::new(),
+            space: Space::new(),
+            taskbar_generation: 0,
+            chosen_monitor: None,
             tray,
             hooks: None,
             fullscreen: Debounce::new(Vec::new()),
@@ -411,9 +432,19 @@ impl App {
 
     fn refresh(&mut self) {
         let floating = self.floating();
-        let mut found = taskbar::discover(self.config.display.show_on_all_taskbars && !floating);
+        let every = self.config.display.show_on_all_taskbars && !floating;
+        let chosen = if every || floating {
+            None
+        } else {
+            self.chosen_monitor_name()
+        };
+        let mut found = taskbar::discover(every || chosen.is_some());
         if floating {
             found.truncate(1);
+        } else if chosen.is_some() {
+            found = taskbar::select_taskbar(found, chosen.as_deref(), |t| {
+                displays::gdi_name_of(t.hwnd)
+            });
         }
         let before = self.overlays.len();
         self.overlays.retain(|o| {
@@ -426,7 +457,10 @@ impl App {
             match self.overlays.iter_mut().find(|o| o.taskbar.hwnd == tb.hwnd) {
                 Some(o) => o.taskbar = tb,
                 None => {
-                    if let Ok(o) = Overlay::create(self.instance, tb) {
+                    if let Ok(mut o) = Overlay::create(self.instance, tb) {
+                        self.taskbar_generation += 1;
+                        o.tracker = Tracker::new(self.taskbar_generation);
+                        self.space.taskbar_changed();
                         self.overlays.push(o);
                     }
                 }
@@ -463,6 +497,124 @@ impl App {
             self.close_popup();
         }
         self.show_widget();
+        self.sync_space();
+        self.show_tray_metric();
+    }
+
+    /// The saved monitor's current name; displays are asked only when the
+    /// choice or the set of displays has changed.
+    fn chosen_monitor_name(&mut self) -> Option<String> {
+        let Some(path) = self.config.display.taskbar_monitor.clone() else {
+            self.chosen_monitor = None;
+            return None;
+        };
+        if let Some((known, name)) = &self.chosen_monitor
+            && *known == path
+        {
+            return name.clone();
+        }
+        let name = displays::active()
+            .into_iter()
+            .find(|d| d.path == path)
+            .map(|d| d.gdi_name);
+        self.chosen_monitor = Some((path, name.clone()));
+        name
+    }
+
+    fn sync_space(&mut self) {
+        let targets = self
+            .overlays
+            .iter()
+            .filter(|o| o.alive())
+            .filter_map(|o| {
+                o.pace.map(|pace| Target {
+                    hwnd: key(o.taskbar.hwnd),
+                    generation: o.tracker.generation(),
+                    pace,
+                })
+            })
+            .collect();
+        self.space.set_targets(targets);
+    }
+
+    /// Picks up what the worker has read. Costs the UI thread no wait; anything
+    /// that changes what the overlays should do goes through `refresh`.
+    fn poll_space(&mut self) {
+        let now = Instant::now();
+        let polled = self.space.poll(now);
+        let mut changed = false;
+        if polled.abandoned {
+            for o in &mut self.overlays {
+                o.tracker.forget();
+            }
+            changed = true;
+        }
+        for m in polled.measurements {
+            if let Some(o) = self
+                .overlays
+                .iter_mut()
+                .find(|o| key(o.taskbar.hwnd) == m.hwnd)
+            {
+                let known = o.tracker.current().is_some();
+                changed |= o.tracker.accept(m, now);
+                if known != o.tracker.current().is_some() {
+                    log::info!("the taskbar's buttons can be read: {}", !known);
+                }
+            }
+        }
+        for o in &mut self.overlays {
+            if o.pace.is_some() && o.tracker.expire(now) {
+                log::info!("the taskbar's buttons can be read: false");
+                changed = true;
+            }
+            changed |= o.grow_due(now);
+        }
+        if changed {
+            self.refresh();
+        }
+    }
+
+    /// With no room on the taskbar, the first item stands in as the tray icon.
+    fn show_tray_metric(&self) {
+        let showing = (self.config.display.fit_no_room == NoRoom::Tray && !self.hidden)
+            .then(|| self.overlays.iter().find(|o| o.no_room))
+            .flatten();
+        let floor = NetworkFloor::new(&self.config.network);
+        let upload_on_top = self.config.display.upload_on_top;
+        let metric = showing.and_then(|o| {
+            let readings: Vec<(ItemKind, CellPart)> = o
+                .full_layout()
+                .cells
+                .iter()
+                .flat_map(|c| {
+                    single_parts(c.kind, c.part, upload_on_top)
+                        .into_iter()
+                        .map(|part| (c.kind, part))
+                })
+                .collect();
+            let value = |&(kind, part): &(ItemKind, CellPart)| {
+                floored_cell_value(kind, part, &self.latest, floor)
+            };
+            let first = readings.first()?;
+            let tip: Vec<String> = readings
+                .iter()
+                .map(|reading| {
+                    let label = pulsar_core::layout::cell_label(
+                        reading.0,
+                        reading.1,
+                        pulsar_core::config::LabelStyle::Full,
+                        false,
+                    );
+                    format!("{label} {}", value(reading))
+                })
+                .collect();
+            Some(Metric {
+                text: icon_text(&value(first)),
+                tip: tip.join("\n"),
+                light_taskbar: self.palette.light(),
+            })
+        });
+        self.tray.set_metric(metric);
     }
 
     fn install_hooks(&mut self) {
@@ -508,7 +660,10 @@ impl App {
         o.update_layout(&self.config, &self.latest.gpus, &self.text);
         let (w, h) = o.size();
         let dpi = o.dpi();
-        let tb: &Taskbar = &o.taskbar;
+        let d = &self.config.display;
+        let tb: Taskbar = o.taskbar.clone();
+        let now = Instant::now();
+        let auto_hide = is_auto_hide(&tb.rect, &tb.work);
         let (placement, monitor) = if floating {
             let (monitor, work) = taskbar::monitor_near(probe.0, probe.1);
             let placement = if w <= 0 {
@@ -519,35 +674,70 @@ impl App {
             };
             (placement, monitor)
         } else {
-            let placement = place(&PlacementInput {
-                taskbar: tb.rect,
-                tray: tb.tray_rect,
-                monitor: tb.monitor,
-                overlay_w: w,
-                overlay_h: h,
-                position: self.config.display.position,
-                offset_px: self.config.display.offset_px,
-                fallback_margin_px: self.config.display.fallback_margin_px,
-                dpi: tb.dpi,
-            });
+            let measured = o.tracker.current().filter(|_| !auto_hide).cloned();
+            let placement = o.fit_to(
+                &PlacementInput {
+                    taskbar: tb.rect,
+                    tray: tb.tray_rect,
+                    monitor: tb.monitor,
+                    overlay_w: w,
+                    overlay_h: h,
+                    position: d.position,
+                    offset_px: d.offset_px,
+                    fallback_margin_px: d.fallback_margin_px,
+                    dpi: tb.dpi,
+                },
+                measured.as_ref(),
+                d.fit_other_side,
+                now,
+            );
             (placement, tb.monitor)
         };
-        let covered = self.hidden
-            || (self.config.display.hide_in_fullscreen
-                && self.fullscreen.current().contains(&monitor));
-        let wanted = self.attach_allowed && self.config.display.attach_to_taskbar && !floating;
+        let floated = o.no_room && d.fit_no_room == NoRoom::Float;
+        let placement = if floated {
+            o.hold_off_attaching();
+            let (x, y) = place_floating(None, o.size(), tb.work, Some(tb.rect), tb.dpi);
+            Placement::At { x, y }
+        } else {
+            placement
+        };
+        let (bar_w, bar_h) = (tb.rect.width(), tb.rect.height());
+        let (full_w, full_h) = o.full_size();
+        let fullscreen = self.fullscreen.current().contains(&monitor);
+        let covered = self.hidden || (d.hide_in_fullscreen && fullscreen);
+        let readable = d.fit_to_taskbar
+            && !floating
+            && !auto_hide
+            && !self.hidden
+            && !fullscreen
+            && !matches!(
+                placement,
+                Placement::Hidden(HideReason::Empty | HideReason::AutoHidden)
+            );
+        let pace = readable.then(|| {
+            if o.tracker.current().is_none() {
+                PACE_UNKNOWN
+            } else if o.no_room {
+                PACE_HIDDEN
+            } else if o.tier_is_full() && o.slack.is_some_and(|s| s >= scaled(SLACK_DIP, tb.dpi)) {
+                PACE_SLACK
+            } else {
+                PACE_ACTIVE
+            }
+        });
+        if pace.is_some() && o.pace.is_none() {
+            o.tracker.resume(now);
+        }
+        o.pace = pace;
+        let wanted = self.attach_allowed && d.attach_to_taskbar && !floating;
         if !wanted {
             self.set_attached(i, false);
         }
         match placement {
             Placement::At { x, y } if !covered => {
                 // The taskbar clips its children, so an overlay larger than it stays separate.
-                let fits = self.overlays[i].taskbar.rect.covers(&Rect32 {
-                    left: x,
-                    top: y,
-                    right: x + w,
-                    bottom: y + h,
-                });
+                // Judged with every item showing, so that dropping one never reparents.
+                let fits = !floated && full_w <= bar_w && full_h <= bar_h;
                 self.set_attached(i, wanted && fits);
                 let o = &mut self.overlays[i];
                 if o.fade_target == 0 {
@@ -1077,6 +1267,7 @@ impl App {
         }
         if received {
             self.redraw();
+            self.show_tray_metric();
             if let (Some((kind, _)), Some(owner)) = (self.popup.open, self.popup_owner) {
                 self.open_popup(owner, kind);
             }
@@ -1243,10 +1434,12 @@ impl App {
             .shown_at
             .and_then(|origin| item_screen_rect(&o.layout, kind, origin))
         else {
+            self.hover.disarm(key(overlay));
             self.close_popup();
             return;
         };
-        let anchor = match (self.floating(), o.shown_at) {
+        let floated = o.no_room && self.config.display.fit_no_room == NoRoom::Float;
+        let anchor = match (self.floating() || floated, o.shown_at) {
             // Floating: the popup goes above or below the overlay itself.
             (true, Some((x, y))) => {
                 let (w, h) = o.size();
@@ -1324,6 +1517,7 @@ impl App {
         if self.reload_failed {
             self.reload_config();
         }
+        self.poll_space();
         let fullscreen = taskbar::fullscreen_monitors();
         let leaving = fullscreen.is_empty();
         if self
@@ -1428,6 +1622,13 @@ impl App {
         self.tray.restore();
         self.widget.rearrange();
         self.retry_step = 0;
+        self.chosen_monitor = None;
+        self.space.taskbar_changed();
+        for o in &mut self.overlays {
+            self.taskbar_generation += 1;
+            o.tracker = Tracker::new(self.taskbar_generation);
+            o.reset_fit();
+        }
         self.refresh();
         self.schedule_retry();
     }
@@ -1769,7 +1970,10 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
             }
         }
         WM_DISPLAYCHANGE => {
-            with_app(App::refresh);
+            with_app(|a| {
+                a.chosen_monitor = None;
+                a.refresh();
+            });
         }
         WM_HOTKEY => {
             with_app(|a| a.on_hotkey(wp.0));

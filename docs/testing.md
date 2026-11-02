@@ -18,6 +18,11 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Graph and text mode; labels Full, Short and None, with and without icons | Every combination lays out without overlap |
 | Graph mode with *Single-line graphs* on, on a short taskbar if available | Icon, label and value share one centred line in every tile; network shows ↓ and ↑ side by side |
 | Floating: drag it, lock it, restart Pulsar, then *Reset position* | It moves and stays locked, reopens where it was left, and reset centres it above the taskbar |
+| Open windows until the taskbar buttons reach the items, then close them | Items never cover a button: they first get more compact, then go one at a time from the chosen side; they come back about two seconds after the room does |
+| A full taskbar, with each *When no item fits* choice | Float sits above the taskbar, Tray icon shows the first item's value with the rest in its tooltip, Stay hidden shows nothing; items return when room does |
+| Centred taskbar filling up on the tray side, with *Use the other side first* on, then off | Items move to the far side of the buttons before shrinking; off, they shrink |
+| Settings → Layout → *Taskbar*, on two monitors; then unplug the chosen one | Items move to that monitor's taskbar and stay there as windows change; unplugged, they go to the primary and come back on replugging |
+| Taskbar restyled by a third-party tool | Items stay where they always did; `pulsar.log` says whether the buttons can be read |
 
 ## Items
 
@@ -85,6 +90,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 
 ## Known limits
 
+- Fitting to the taskbar has not been tested on a taskbar that has overflowed. To record what one reports, see [Recording an overflowed taskbar](taskbar-probe.md).
 - A saved GPU is its name, not a particular card. `RTX 4090 #2` means the second card of that model Pulsar finds when it starts, so after a restart with a card removed, or if Windows lists identical cards in another order, the name can land on the other card. While Pulsar runs, a card keeps its name and slot.
 - Settings numbers the GPUs it lists as of when it opened; after a card has changed while Pulsar runs, its numbers can differ from the taskbar's until Pulsar restarts.
 

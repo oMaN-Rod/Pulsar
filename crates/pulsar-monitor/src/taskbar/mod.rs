@@ -1,5 +1,6 @@
 pub mod hooks;
 pub mod placement;
+pub mod space;
 
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
@@ -31,6 +32,7 @@ pub struct Taskbar {
     pub rect: Rect32,
     pub tray_rect: Option<Rect32>,
     pub monitor: Rect32,
+    pub work: Rect32,
     pub dpi: u32,
 }
 
@@ -78,7 +80,8 @@ pub fn monitor_near(x: i32, y: i32) -> (Rect32, Rect32) {
     (rect32(info.rcMonitor), rect32(info.rcWork))
 }
 
-pub fn monitor_of(hwnd: HWND) -> Rect32 {
+/// The monitor showing most of a window, and its work area.
+fn monitor_and_work(hwnd: HWND) -> (Rect32, Rect32) {
     let mut info = MONITORINFO {
         cbSize: size_of::<MONITORINFO>() as u32,
         ..Default::default()
@@ -86,24 +89,42 @@ pub fn monitor_of(hwnd: HWND) -> Rect32 {
     unsafe {
         let _ = GetMonitorInfoW(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), &mut info);
     }
-    let m = info.rcMonitor;
-    Rect32 {
-        left: m.left,
-        top: m.top,
-        right: m.right,
-        bottom: m.bottom,
-    }
+    (rect32(info.rcMonitor), rect32(info.rcWork))
+}
+
+pub fn monitor_of(hwnd: HWND) -> Rect32 {
+    monitor_and_work(hwnd).0
 }
 
 fn describe(hwnd: HWND, tray: Option<HWND>) -> Option<Taskbar> {
+    let (monitor, work) = monitor_and_work(hwnd);
     Some(Taskbar {
         hwnd,
         tray,
         rect: rect_of(hwnd)?,
         tray_rect: tray.and_then(rect_of),
-        monitor: monitor_of(hwnd),
+        monitor,
+        work,
         dpi: unsafe { GetDpiForWindow(hwnd) }.max(96),
     })
+}
+
+/// The taskbar on the monitor called `chosen`, whatever order the taskbars were
+/// found in; the primary comes first in `found` and stands in for a monitor
+/// that has gone.
+pub fn select_taskbar(
+    found: Vec<Taskbar>,
+    chosen: Option<&str>,
+    monitor_name: impl Fn(&Taskbar) -> Option<String>,
+) -> Vec<Taskbar> {
+    let at = chosen
+        .and_then(|name| {
+            found
+                .iter()
+                .position(|t| monitor_name(t).as_deref() == Some(name))
+        })
+        .unwrap_or(0);
+    found.into_iter().skip(at).take(1).collect()
 }
 
 pub fn class_name(hwnd: HWND) -> String {
@@ -320,6 +341,50 @@ mod tests {
         right: 1920,
         bottom: 1080,
     };
+
+    fn bar(id: usize) -> Taskbar {
+        Taskbar {
+            hwnd: HWND(id as *mut _),
+            tray: None,
+            rect: MONITOR,
+            tray_rect: None,
+            monitor: MONITOR,
+            work: MONITOR,
+            dpi: 96,
+        }
+    }
+
+    fn name(t: &Taskbar) -> Option<String> {
+        match t.hwnd.0 as usize {
+            1 => Some("primary".into()),
+            2 => Some("left".into()),
+            3 => Some("right".into()),
+            _ => None,
+        }
+    }
+
+    fn selected(found: &[usize], chosen: Option<&str>) -> Vec<usize> {
+        let found = found.iter().map(|&id| bar(id)).collect();
+        select_taskbar(found, chosen, name)
+            .iter()
+            .map(|t| t.hwnd.0 as usize)
+            .collect()
+    }
+
+    #[test]
+    fn the_chosen_monitors_taskbar_is_found_in_any_z_order() {
+        assert_eq!(selected(&[1, 2, 3], Some("right")), [3]);
+        assert_eq!(selected(&[1, 3, 2], Some("right")), [3]);
+        assert_eq!(selected(&[1, 3, 2], Some("left")), [2]);
+        assert_eq!(selected(&[1, 2, 3], Some("primary")), [1]);
+    }
+
+    #[test]
+    fn no_choice_or_a_gone_monitor_means_the_primary() {
+        assert_eq!(selected(&[1, 2, 3], None), [1]);
+        assert_eq!(selected(&[1, 2], Some("right")), [1]);
+        assert_eq!(selected(&[], Some("right")), Vec::<usize>::new());
+    }
 
     #[test]
     fn fullscreen_requires_covering_the_monitor() {

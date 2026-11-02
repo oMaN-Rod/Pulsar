@@ -72,6 +72,8 @@ struct Choices {
     monitors: Vec<Display>,
     /// Device paths in the order of the frame rate picker.
     monitor_values: Vec<String>,
+    /// Device paths in the order of the taskbar picker.
+    taskbar_values: Vec<String>,
     /// Theme ids in the order of the theme picker.
     theme_values: Vec<String>,
     /// The selected theme, for the colour fields' fallbacks.
@@ -111,10 +113,13 @@ fn picker(
     (names, values, index as i32)
 }
 
-/// The foreground app, then each monitor, then the chosen one if it is
-/// not connected.
-fn monitor_picker(monitors: &[Display], current: &str) -> (Vec<SharedString>, Vec<String>, i32) {
-    let mut names: Vec<SharedString> = vec![tr!("The app in front").into()];
+/// `first`, then each monitor, then the chosen one if it is not connected.
+fn monitor_picker(
+    first: &str,
+    monitors: &[Display],
+    current: &str,
+) -> (Vec<SharedString>, Vec<String>, i32) {
+    let mut names: Vec<SharedString> = vec![first.into()];
     let mut values = vec![String::new()];
     for m in monitors {
         names.push(tr!("Monitor: {}", m.name).into());
@@ -388,7 +393,20 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_min_down_unit(f.min_down_unit);
     ui.set_min_up(f.min_up);
     ui.set_min_up_unit(f.min_up_unit);
-    let (names, values, index) = monitor_picker(&choices.monitors, &f.frame_monitor);
+    let (names, values, index) = monitor_picker(
+        tr!("Primary monitor"),
+        &choices.monitors,
+        &f.taskbar_monitor,
+    );
+    ui.set_taskbar_monitors(strings(names));
+    ui.set_taskbar_monitor_index(index);
+    choices.taskbar_values = values;
+    ui.set_fit_to_taskbar(f.fit_to_taskbar);
+    ui.set_fit_remove_from(f.fit_remove_from);
+    ui.set_fit_no_room(f.fit_no_room);
+    ui.set_fit_other_side(f.fit_other_side);
+    let (names, values, index) =
+        monitor_picker(tr!("The app in front"), &choices.monitors, &f.frame_monitor);
     ui.set_frame_monitors(strings(names));
     ui.set_frame_monitor_index(index);
     choices.monitor_values = values;
@@ -509,6 +527,11 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         text_label_gap: ui.get_text_label_gap(),
         text_row_gap: ui.get_text_row_gap(),
         show_on_all_taskbars: ui.get_show_on_all_taskbars(),
+        taskbar_monitor: chosen(&choices.taskbar_values, ui.get_taskbar_monitor_index()),
+        fit_to_taskbar: ui.get_fit_to_taskbar(),
+        fit_remove_from: ui.get_fit_remove_from(),
+        fit_no_room: ui.get_fit_no_room(),
+        fit_other_side: ui.get_fit_other_side(),
         accent_graphs: ui.get_accent_graphs(),
         tile_color: ui.get_tile_color().to_string(),
         tile_opacity_custom: ui.get_tile_opacity_custom(),

@@ -1281,10 +1281,6 @@ msgid "More in the details window"
 msgstr "Más en la ventana de detalles"
 
 #: src/settings/main.rs
-msgid "The app in front"
-msgstr "La aplicación en primer plano"
-
-#: src/settings/main.rs
 msgid "Monitor: {}"
 msgstr "Monitor: {}"
 
@@ -1303,6 +1299,14 @@ msgstr "Predeterminada"
 #: src/settings/main.rs
 msgid "not installed"
 msgstr "no instalada"
+
+#: src/settings/main.rs
+msgid "Primary monitor"
+msgstr "Monitor principal"
+
+#: src/settings/main.rs
+msgid "The app in front"
+msgstr "La aplicación en primer plano"
 
 #: src/settings/main.rs
 msgid "Same as other items"
@@ -1699,6 +1703,78 @@ msgstr "Todas las barras de tareas"
 #: ui/settings.slint
 msgid "Also show on the taskbars of other monitors."
 msgstr "Mostrar también en las barras de tareas de otros monitores."
+
+#: ui/settings.slint
+msgid "Taskbar"
+msgstr "Barra de tareas"
+
+#: ui/settings.slint
+msgid "Which monitor's taskbar to use. If that monitor is not connected, the primary one is used."
+msgstr "De qué monitor usar la barra de tareas. Si ese monitor no está conectado, se usa el principal."
+
+#: ui/settings.slint
+msgid "When the taskbar is full"
+msgstr "Cuando la barra de tareas está llena"
+
+#: ui/settings.slint
+msgid "Fit to the taskbar"
+msgstr "Ajustar a la barra de tareas"
+
+#: ui/settings.slint
+msgid "Leaves items as they are until they would cover taskbar buttons. Then items get more compact, are removed one at a time, and finally follow the choice below."
+msgstr "Deja los elementos como están hasta que tapen botones de la barra de tareas. Entonces se compactan, se quitan de uno en uno y, por último, siguen la opción de abajo."
+
+#: ui/settings.slint
+msgid "Remove items starting from"
+msgstr "Quitar elementos empezando por"
+
+#: ui/settings.slint
+msgid "The side items go from first, in the order they are shown."
+msgstr "El lado del que se quitan primero los elementos, en el orden en que se muestran."
+
+#: ui/settings.slint
+msgid "The right"
+msgstr "La derecha"
+
+#: ui/settings.slint
+msgid "The left"
+msgstr "La izquierda"
+
+#: ui/settings.slint
+msgid "When no item fits"
+msgstr "Cuando no cabe ningún elemento"
+
+#: ui/settings.slint
+msgid "A tray icon shows the first item's value; its tooltip lists the rest."
+msgstr "Un icono de la bandeja muestra el valor del primer elemento; su información sobre herramientas enumera el resto."
+
+#: ui/settings.slint
+msgid "Float above the taskbar"
+msgstr "Flotar sobre la barra de tareas"
+
+#: ui/settings.slint
+msgid "Show in the tray icon"
+msgstr "Mostrar en el icono de la bandeja"
+
+#: ui/settings.slint
+msgid "Stay hidden"
+msgstr "Permanecer oculto"
+
+#: ui/settings.slint
+msgid "Use the other side first"
+msgstr "Usar antes el otro lado"
+
+#: ui/settings.slint
+msgid "On a centred taskbar, moves items to the other side of the buttons before making them smaller."
+msgstr "En una barra de tareas centrada, mueve los elementos al otro lado de los botones antes de reducirlos."
+
+#: ui/settings.slint
+msgid "If the taskbar cannot be read"
+msgstr "Si no se puede leer la barra de tareas"
+
+#: ui/settings.slint
+msgid "Some custom taskbars do not report their buttons, and Windows may not answer for a while. Items then stay in their usual place at full size, where they can cover taskbar buttons."
+msgstr "Algunas barras de tareas personalizadas no informan de sus botones, y Windows puede tardar en responder. Los elementos se quedan entonces en su lugar habitual a tamaño completo, donde pueden tapar botones de la barra de tareas."
 
 #: ui/settings.slint
 msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."

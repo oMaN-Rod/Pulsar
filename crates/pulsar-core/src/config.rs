@@ -373,6 +373,31 @@ pub struct Display {
     /// Top-left corner in physical screen pixels; None centres it above the taskbar.
     pub float_position: Option<[i32; 2]>,
     pub lock_position: bool,
+    /// Adapts only once the taskbar reports that the items would cover its buttons.
+    pub fit_to_taskbar: bool,
+    pub fit_remove_from: RemoveFrom,
+    pub fit_no_room: NoRoom,
+    /// A centred taskbar has room on both sides: use the other before shrinking.
+    pub fit_other_side: bool,
+    /// The device path of the monitor whose taskbar to use; `None` for the primary.
+    pub taskbar_monitor: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RemoveFrom {
+    Left,
+    #[default]
+    Right,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NoRoom {
+    Hide,
+    Tray,
+    #[default]
+    Float,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -584,6 +609,11 @@ impl Default for Display {
             attach_to_taskbar: true,
             float_position: None,
             lock_position: false,
+            fit_to_taskbar: true,
+            fit_remove_from: RemoveFrom::default(),
+            fit_no_room: NoRoom::default(),
+            fit_other_side: true,
+            taskbar_monitor: None,
         }
     }
 }
@@ -636,6 +666,7 @@ impl Config {
         d.offset_px = d.offset_px.clamp(-2000, 2000);
         d.tile_opacity = d.tile_opacity.map(|o| o.min(100));
         d.panel_opacity = d.panel_opacity.map(|o| o.min(100));
+        d.taskbar_monitor = d.taskbar_monitor.take().filter(|m| !m.is_empty());
         if d.theme
             .as_deref()
             .is_some_and(|t| !crate::theme::valid_id(t))
@@ -1451,6 +1482,11 @@ panel_opacity = 60
             (None, None, None)
         );
         assert_eq!(d.float_position, None);
+        assert!(d.fit_to_taskbar);
+        assert_eq!(d.fit_remove_from, RemoveFrom::Right);
+        assert_eq!(d.fit_no_room, NoRoom::Float);
+        assert!(d.fit_other_side);
+        assert_eq!(d.taskbar_monitor, None);
         assert!(c.disk.drives.is_empty());
         assert_eq!(c.disk.value, DriveValue::Activity);
         assert!(c.network.adapters.is_empty());

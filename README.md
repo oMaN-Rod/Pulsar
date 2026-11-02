@@ -110,6 +110,10 @@ Detach Pulsar from the taskbar, drag it anywhere and lock it in place, here with
 
 ![Floating mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-floating.png)
 
+### On a full taskbar
+
+Pulsar stays where you put it until it would cover a taskbar button. Then its items get more compact and go one at a time, from the side you choose. With no room for any, it floats above the taskbar, shows a reading in its tray icon, or stays hidden, as you prefer; items return once there is room. Pulsar asks Windows where the buttons are and never touches the taskbar itself, so a custom taskbar that does not report them keeps Pulsar in its usual place, where it can cover them.
+
 ### Desktop widget
 
 A panel on the desktop with a section per item, like a popup that stays open. It sits behind your windows and comes forward when you show the desktop, or stays on top if you prefer. Choose sparklines, tiles or meters and how much detail it shows, for all items or per item, and drag it anywhere. Turn it on in *Settings → Widget* or from the menu.
