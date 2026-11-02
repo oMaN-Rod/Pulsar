@@ -1035,7 +1035,7 @@ msgid "Level meter"
 msgstr ""
 
 #: src/names.rs
-msgid "Item colour"
+msgid "Item color"
 msgstr ""
 
 #: src/names.rs
@@ -1043,7 +1043,7 @@ msgid "Windows accent"
 msgstr ""
 
 #: src/names.rs
-msgid "Colour by load"
+msgid "Color by load"
 msgstr ""
 
 #: src/names.rs
@@ -1527,7 +1527,7 @@ msgid "No settings match your search."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
 msgstr ""
 
 #: ui/settings.slint
@@ -1579,7 +1579,7 @@ msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is
 msgstr ""
 
 #: ui/settings.slint
-msgid "Colour"
+msgid "Color"
 msgstr ""
 
 #: ui/settings.slint
@@ -1591,7 +1591,7 @@ msgid "Popup graph height"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgid "Color by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item color."
 msgstr ""
 
 #: ui/settings.slint
@@ -1819,7 +1819,7 @@ msgid "Some custom taskbars do not report their buttons, and Windows may not ans
 msgstr ""
 
 #: ui/settings.slint
-msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
+msgid "A theme sets item, label, value, tile and panel colors, with a variant for light taskbars. Choosing one clears the custom colors below."
 msgstr ""
 
 #: ui/settings.slint
@@ -1827,7 +1827,7 @@ msgid "Save as a theme"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Keeps the current colours as a new theme in the themes folder."
+msgid "Keeps the current colors as a new theme in the themes folder."
 msgstr ""
 
 #: ui/settings.slint
@@ -1851,11 +1851,11 @@ msgid "Open"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Custom colours"
+msgid "Custom colors"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Label colour"
+msgid "Label color"
 msgstr ""
 
 #: ui/settings.slint
@@ -1863,39 +1863,39 @@ msgid "Empty uses the theme."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Value colour"
+msgid "Value color"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Label colour on a light taskbar"
+msgid "Label color on a light taskbar"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Empty uses the label colour above."
+msgid "Empty uses the label color above."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Value colour on a light taskbar"
+msgid "Value color on a light taskbar"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Empty uses the value colour above."
+msgid "Empty uses the value color above."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Colour labels by item"
+msgid "Color labels by item"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Draw each label in its item's colour."
+msgid "Draw each label in its item's color."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Accent colour graphs"
+msgid "Accent color graphs"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Draw graphs in your Windows accent colour."
+msgid "Draw graphs in your Windows accent color."
 msgstr ""
 
 #: ui/settings.slint
@@ -1903,7 +1903,7 @@ msgid "Background"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Tile colour"
+msgid "Tile color"
 msgstr ""
 
 #: ui/settings.slint
@@ -1923,7 +1923,7 @@ msgid "Using the theme default."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Panel colour"
+msgid "Panel color"
 msgstr ""
 
 #: ui/settings.slint
@@ -2039,7 +2039,7 @@ msgid "Tiles show the value and graph only."
 msgstr ""
 
 #: ui/settings.slint
-msgid "How much each item shows. Colours follow the theme."
+msgid "How much each item shows. Colors follow the theme."
 msgstr ""
 
 #: ui/settings.slint

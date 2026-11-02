@@ -85,7 +85,7 @@ type SetCompositionAttribute = unsafe extern "system" fn(HWND, *mut CompositionD
 
 const WCA_ACCENT_POLICY: u32 = 19;
 const ACCENT_ENABLE_ACRYLICBLURBEHIND: u32 = 4;
-/// How much the popup's background colour covers the blur.
+/// How much the popup's background color covers the blur.
 const TINT_ALPHA: f32 = 0.6;
 
 /// Blurs what is behind the window under `tint`. The system backdrop
@@ -533,7 +533,7 @@ fn draw(
 }
 
 /// The accent fading out part by part; the last part, what is left over,
-/// takes the track colour.
+/// takes the track color.
 fn share_color(accent: Color, track: Color, index: usize, count: usize) -> Color {
     if index + 1 == count && count > 1 {
         return track.with_alpha((track.a * 2.5).min(1.0));

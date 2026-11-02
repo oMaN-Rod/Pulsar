@@ -69,7 +69,7 @@ pub fn recent(history: &History, count: usize, key: MetricKey) -> Paths {
     paths(values.into_iter(), count, graph_max(key.unit(), &[history]))
 }
 
-/// What the overlay draws a series in: the item's own colour, the Windows
+/// What the overlay draws a series in: the item's own color, the Windows
 /// accent when asked for, or the default.
 pub fn series_color(
     config: &Config,
@@ -236,7 +236,7 @@ mod tests {
     }
 
     #[test]
-    fn colours_follow_the_overlay() {
+    fn colors_follow_the_overlay() {
         let mut config = Config::default();
         let cpu = series_color(&config, None, ItemKind::Cpu, CellPart::Main);
         assert_eq!(cpu, Color::from_rgb_u8(0x4C, 0xC2, 0xFF));

@@ -64,7 +64,7 @@ pub fn icon_text(value: &str) -> String {
 }
 
 /// White text over black gives each pixel's coverage, which becomes the alpha
-/// of a single colour.
+/// of a single color.
 fn metric_icon(text: &str, size: i32, light_taskbar: bool) -> Option<HICON> {
     let (r, g, b): (u32, u32, u32) = if light_taskbar {
         (0, 0, 0)

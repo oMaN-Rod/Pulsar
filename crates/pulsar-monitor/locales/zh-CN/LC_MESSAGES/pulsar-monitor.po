@@ -1038,7 +1038,7 @@ msgid "Level meter"
 msgstr "电平条"
 
 #: src/names.rs
-msgid "Item colour"
+msgid "Item color"
 msgstr "监控项颜色"
 
 #: src/names.rs
@@ -1046,7 +1046,7 @@ msgid "Windows accent"
 msgstr "Windows 主题色"
 
 #: src/names.rs
-msgid "Colour by load"
+msgid "Color by load"
 msgstr "按负载着色"
 
 #: src/names.rs
@@ -1530,7 +1530,7 @@ msgid "No settings match your search."
 msgstr "没有符合搜索条件的设置。"
 
 #: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
 msgstr "选择叠加层显示的内容、顺序以及每项的颜色（留空则使用默认颜色）。打开某一项的选项可设置其图表样式、着色方式和弹出窗口。在任务栏上右键单击某一项也可使用相同选项。"
 
 #: ui/settings.slint
@@ -1582,7 +1582,7 @@ msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is
 msgstr "关闭即为自动。在任务栏上，磁贴不会超出任务栏并居中显示；浮动叠加层会变大以容纳磁贴。"
 
 #: ui/settings.slint
-msgid "Colour"
+msgid "Color"
 msgstr "颜色"
 
 #: ui/settings.slint
@@ -1594,7 +1594,7 @@ msgid "Popup graph height"
 msgstr "弹出窗口图表高度"
 
 #: ui/settings.slint
-msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgid "Color by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item color."
 msgstr "按负载着色会随数值升高将监控项显示为绿色、黄色、橙色或红色：分界为 50、75 和 90 %，70、80 和 90 °C，延迟为 50、100 和 200 ms。其他数值保持监控项颜色。"
 
 #: ui/settings.slint
@@ -1822,7 +1822,7 @@ msgid "Some custom taskbars do not report their buttons, and Windows may not ans
 msgstr "某些自定义任务栏不报告其按钮,Windows 也可能暂时没有响应。此时项目以完整大小保留在通常位置,可能会遮挡任务栏按钮。"
 
 #: ui/settings.slint
-msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
+msgid "A theme sets item, label, value, tile and panel colors, with a variant for light taskbars. Choosing one clears the custom colors below."
 msgstr "主题设置项目、标签、数值、底块和面板的颜色，并带有适用于浅色任务栏的版本。选择主题会清除下方的自定义颜色。"
 
 #: ui/settings.slint
@@ -1830,7 +1830,7 @@ msgid "Save as a theme"
 msgstr "另存为主题"
 
 #: ui/settings.slint
-msgid "Keeps the current colours as a new theme in the themes folder."
+msgid "Keeps the current colors as a new theme in the themes folder."
 msgstr "将当前颜色保存为主题文件夹中的新主题。"
 
 #: ui/settings.slint
@@ -1854,11 +1854,11 @@ msgid "Open"
 msgstr "打开"
 
 #: ui/settings.slint
-msgid "Custom colours"
+msgid "Custom colors"
 msgstr "自定义颜色"
 
 #: ui/settings.slint
-msgid "Label colour"
+msgid "Label color"
 msgstr "标签颜色"
 
 #: ui/settings.slint
@@ -1866,39 +1866,39 @@ msgid "Empty uses the theme."
 msgstr "留空则使用主题颜色。"
 
 #: ui/settings.slint
-msgid "Value colour"
+msgid "Value color"
 msgstr "数值颜色"
 
 #: ui/settings.slint
-msgid "Label colour on a light taskbar"
+msgid "Label color on a light taskbar"
 msgstr "浅色任务栏上的标签颜色"
 
 #: ui/settings.slint
-msgid "Empty uses the label colour above."
+msgid "Empty uses the label color above."
 msgstr "留空则使用上方的标签颜色。"
 
 #: ui/settings.slint
-msgid "Value colour on a light taskbar"
+msgid "Value color on a light taskbar"
 msgstr "浅色任务栏上的数值颜色"
 
 #: ui/settings.slint
-msgid "Empty uses the value colour above."
+msgid "Empty uses the value color above."
 msgstr "留空则使用上方的数值颜色。"
 
 #: ui/settings.slint
-msgid "Colour labels by item"
+msgid "Color labels by item"
 msgstr "标签按监控项着色"
 
 #: ui/settings.slint
-msgid "Draw each label in its item's colour."
+msgid "Draw each label in its item's color."
 msgstr "每个标签使用其监控项的颜色。"
 
 #: ui/settings.slint
-msgid "Accent colour graphs"
+msgid "Accent color graphs"
 msgstr "使用强调色绘制图表"
 
 #: ui/settings.slint
-msgid "Draw graphs in your Windows accent colour."
+msgid "Draw graphs in your Windows accent color."
 msgstr "用 Windows 强调色绘制图表。"
 
 #: ui/settings.slint
@@ -1906,7 +1906,7 @@ msgid "Background"
 msgstr "背景"
 
 #: ui/settings.slint
-msgid "Tile colour"
+msgid "Tile color"
 msgstr "底块颜色"
 
 #: ui/settings.slint
@@ -1926,7 +1926,7 @@ msgid "Using the theme default."
 msgstr "使用主题默认值。"
 
 #: ui/settings.slint
-msgid "Panel colour"
+msgid "Panel color"
 msgstr "面板颜色"
 
 #: ui/settings.slint
@@ -2042,7 +2042,7 @@ msgid "Tiles show the value and graph only."
 msgstr "磁贴只显示数值和图表。"
 
 #: ui/settings.slint
-msgid "How much each item shows. Colours follow the theme."
+msgid "How much each item shows. Colors follow the theme."
 msgstr "每个项目显示的内容多少。颜色跟随主题。"
 
 #: ui/settings.slint

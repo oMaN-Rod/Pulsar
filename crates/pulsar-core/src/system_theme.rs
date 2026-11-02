@@ -31,7 +31,7 @@ pub fn taskbar_is_light() -> bool {
     .is_some_and(|v| v != 0)
 }
 
-/// DWM's accent colour as `0xAABBGGRR`.
+/// DWM's accent color as `0xAABBGGRR`.
 pub fn accent_abgr() -> Option<u32> {
     read_dword(w!(r"Software\Microsoft\Windows\DWM"), w!("AccentColor"))
 }

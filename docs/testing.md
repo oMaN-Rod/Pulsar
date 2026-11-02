@@ -13,7 +13,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | A second monitor, with *Every taskbar* on, then unplug it | One overlay per taskbar; unplugging leaves the primary one working |
 | A fullscreen game or video | The overlay fades out after a moment and returns as soon as fullscreen ends |
 | Task View, Alt+Tab, Start, Search | The overlay does not hide |
-| Light and dark Windows mode | Colours follow the taskbar theme |
+| Light and dark Windows mode | Colors follow the taskbar theme |
 | Small taskbar icons (if available) or a custom taskbar such as TranslucentTB | Still readable; the tile and panel backgrounds help on translucent taskbars |
 | Graph and text mode; labels Full, Short and None, with and without icons | Every combination lays out without overlap |
 | Graph mode with *Single-line graphs* on, on a short taskbar if available | Icon, label and value share one centred line in every tile; network shows ↓ and ↑ side by side |

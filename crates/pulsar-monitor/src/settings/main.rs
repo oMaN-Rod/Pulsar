@@ -76,7 +76,7 @@ struct Choices {
     taskbar_values: Vec<String>,
     /// Theme ids in the order of the theme picker.
     theme_values: Vec<String>,
-    /// The selected theme, for the colour fields' fallbacks.
+    /// The selected theme, for the color fields' fallbacks.
     theme: Option<Theme>,
     theme_id: String,
 }
@@ -213,13 +213,13 @@ fn rgb((r, g, b): pulsar_core::colors::Rgb) -> Color {
     Color::from_rgb_u8(r, g, b)
 }
 
-/// Swatch for a background colour field; empty or half-typed shows as
-/// transparent, meaning the theme's colour.
+/// Swatch for a background color field; empty or half-typed shows as
+/// transparent, meaning the theme's color.
 fn swatch(hex: &str) -> Color {
     form::parse_hex(hex).map_or(Color::from_argb_u8(0, 0, 0, 0), rgb)
 }
 
-/// The caption colour to match: the page background and whether it is dark.
+/// The caption color to match: the page background and whether it is dark.
 type Caption = ((u8, u8, u8), bool);
 
 /// Matches the title bar to the page, again whenever the theme changes it.
@@ -231,7 +231,7 @@ fn refresh_caption(ui: &SettingsWindow, applied: &Cell<Option<Caption>>) {
     }
 }
 
-/// Sets up the colour pickers: hex formatting and quick swatches.
+/// Sets up the color pickers: hex formatting and quick swatches.
 fn init_color_pickers(ui: &SettingsWindow) {
     let util = ui.global::<ColorUtil>();
     util.on_hex(|c| form::to_hex((c.red(), c.green(), c.blue())).into());
@@ -270,7 +270,7 @@ fn theme_card(name: &str, theme: &Theme, light: bool) -> ThemeCard {
     }
 }
 
-/// Fills the theme picker and the colours empty fields fall back to.
+/// Fills the theme picker and the colors empty fields fall back to.
 fn push_theme(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     let dir = theme::themes_dir();
     let entries = theme::list(dir.as_deref());
@@ -1481,7 +1481,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let caption = Rc::new(Cell::new(None));
-    // The window appears a few frames after the event loop starts; colour its
+    // The window appears a few frames after the event loop starts; color its
     // caption as soon as it exists rather than on the next watch tick.
     let first_caption = Rc::new(Timer::default());
     first_caption.start(TimerMode::Repeated, CAPTION_RETRY, {

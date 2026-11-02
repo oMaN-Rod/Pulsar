@@ -1,7 +1,7 @@
-//! Named colour themes: the built-in ones and TOML files in the themes
+//! Named color themes: the built-in ones and TOML files in the themes
 //! folder next to the config file.
 //!
-//! A theme supplies the overlay's default colours; colours set in the config
+//! A theme supplies the overlay's default colors; colors set in the config
 //! still win. Each theme has a dark and a light variant. A file that only
 //! describes the dark one gets a light one derived from it.
 
@@ -25,7 +25,7 @@ const MAX_FILE_BYTES: u64 = 64 * 1024;
 /// a light taskbar unchanged.
 const OWN_BACKGROUND_OPACITY: u8 = 50;
 
-/// Item colours derived for a light taskbar keep at least this contrast
+/// Item colors derived for a light taskbar keep at least this contrast
 /// against it.
 const LIGHT_ITEM_CONTRAST: f64 = 3.0;
 
@@ -68,7 +68,7 @@ const BUILTIN: [(&str, &str, &str); 8] = [
     ),
 ];
 
-/// One variant's colours.
+/// One variant's colors.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Colors {
     pub text: Rgb,
@@ -109,7 +109,7 @@ impl Colors {
         self.items.push((kind, color));
     }
 
-    /// The item's colour when the theme sets one.
+    /// The item's color when the theme sets one.
     pub fn item_override(&self, kind: ItemKind) -> Option<Rgb> {
         self.items.iter().find(|(k, _)| *k == kind).map(|(_, c)| *c)
     }
@@ -138,7 +138,7 @@ impl Colors {
         }
     }
 
-    /// Windows' light colours with this variant's item colours, darkened
+    /// Windows' light colors with this variant's item colors, darkened
     /// until they read on a light taskbar.
     fn derive_light(&self) -> Self {
         if self.panel_opacity >= OWN_BACKGROUND_OPACITY {
@@ -182,7 +182,7 @@ pub struct Theme {
     pub name: String,
     pub dark: Colors,
     pub light: Colors,
-    /// Applying the theme turns on "Colour labels by item".
+    /// Applying the theme turns on "Color labels by item".
     pub color_labels: bool,
 }
 
@@ -468,7 +468,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_builtin_loads_with_a_name_and_item_colours() {
+    fn every_builtin_loads_with_a_name_and_item_colors() {
         for entry in list(None) {
             let theme = load(None, Some(&entry.id));
             assert_eq!(theme.id, entry.id);

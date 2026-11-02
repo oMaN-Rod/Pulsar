@@ -1,4 +1,4 @@
-//! Default item colours, shared by the overlay and the settings window.
+//! Default item colors, shared by the overlay and the settings window.
 
 use crate::layout::CellPart;
 use crate::metric::{ItemKind, Unit};
@@ -25,7 +25,7 @@ pub fn default_rgb(kind: ItemKind, part: CellPart) -> Rgb {
     }
 }
 
-/// How high a reading is, for colouring by load.
+/// How high a reading is, for coloring by load.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Load {
     Low,
@@ -71,7 +71,7 @@ pub fn load_rgb(load: Load, light_taskbar: bool) -> Rgb {
     }
 }
 
-/// The overlay's colours when no custom colour is set.
+/// The overlay's colors when no custom color is set.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ThemeRgb {
     pub text: Rgb,
@@ -111,7 +111,7 @@ mod tests {
     }
 
     #[test]
-    fn items_have_distinct_default_colours() {
+    fn items_have_distinct_default_colors() {
         let all: Vec<Rgb> = ItemKind::ALL
             .into_iter()
             .map(|k| default_rgb(k, CellPart::Main))
@@ -135,7 +135,7 @@ mod tests {
     }
 
     #[test]
-    fn load_colours_differ_by_level_and_taskbar() {
+    fn load_colors_differ_by_level_and_taskbar() {
         let levels = [Load::Low, Load::Moderate, Load::High, Load::Critical];
         for light in [false, true] {
             let all: Vec<Rgb> = levels.iter().map(|&l| load_rgb(l, light)).collect();

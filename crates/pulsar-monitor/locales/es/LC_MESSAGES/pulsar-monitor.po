@@ -1037,7 +1037,7 @@ msgid "Level meter"
 msgstr "Medidor de nivel"
 
 #: src/names.rs
-msgid "Item colour"
+msgid "Item color"
 msgstr "Color del elemento"
 
 #: src/names.rs
@@ -1045,7 +1045,7 @@ msgid "Windows accent"
 msgstr "Énfasis de Windows"
 
 #: src/names.rs
-msgid "Colour by load"
+msgid "Color by load"
 msgstr "Color según la carga"
 
 #: src/names.rs
@@ -1529,7 +1529,7 @@ msgid "No settings match your search."
 msgstr "Ninguna opción coincide con la búsqueda."
 
 #: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
 msgstr "Elige qué muestra la superposición, su orden y el color de cada elemento (vacío usa el predeterminado). Abre las opciones de un elemento para su estilo de gráfica, coloreado y ventana emergente. Haz clic derecho en un elemento de la barra de tareas para ver las mismas opciones."
 
 #: ui/settings.slint
@@ -1581,7 +1581,7 @@ msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is
 msgstr "Desactívalo para usar el modo automático. En la barra de tareas, un mosaico no sobresale de la barra y queda centrado; una superposición flotante crece para que quepa."
 
 #: ui/settings.slint
-msgid "Colour"
+msgid "Color"
 msgstr "Color"
 
 #: ui/settings.slint
@@ -1593,7 +1593,7 @@ msgid "Popup graph height"
 msgstr "Alto de la gráfica de la ventana emergente"
 
 #: ui/settings.slint
-msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgid "Color by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item color."
 msgstr "Color según la carga pone un elemento en verde, amarillo, naranja o rojo a medida que sube su valor: desde 50, 75 y 90 %, 70, 80 y 90 °C, y 50, 100 y 200 ms para el ping. Los demás valores conservan el color del elemento."
 
 #: ui/settings.slint
@@ -1821,7 +1821,7 @@ msgid "Some custom taskbars do not report their buttons, and Windows may not ans
 msgstr "Algunas barras de tareas personalizadas no informan de sus botones, y Windows puede tardar en responder. Los elementos se quedan entonces en su lugar habitual a tamaño completo, donde pueden tapar botones de la barra de tareas."
 
 #: ui/settings.slint
-msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
+msgid "A theme sets item, label, value, tile and panel colors, with a variant for light taskbars. Choosing one clears the custom colors below."
 msgstr "Un tema define los colores de elementos, etiquetas, valores, fondos y panel, con una variante para barras de tareas claras. Al elegir uno se borran los colores personalizados de abajo."
 
 #: ui/settings.slint
@@ -1829,7 +1829,7 @@ msgid "Save as a theme"
 msgstr "Guardar como tema"
 
 #: ui/settings.slint
-msgid "Keeps the current colours as a new theme in the themes folder."
+msgid "Keeps the current colors as a new theme in the themes folder."
 msgstr "Guarda los colores actuales como un tema nuevo en la carpeta de temas."
 
 #: ui/settings.slint
@@ -1853,11 +1853,11 @@ msgid "Open"
 msgstr "Abrir"
 
 #: ui/settings.slint
-msgid "Custom colours"
+msgid "Custom colors"
 msgstr "Colores personalizados"
 
 #: ui/settings.slint
-msgid "Label colour"
+msgid "Label color"
 msgstr "Color de las etiquetas"
 
 #: ui/settings.slint
@@ -1865,39 +1865,39 @@ msgid "Empty uses the theme."
 msgstr "Vacío usa el tema."
 
 #: ui/settings.slint
-msgid "Value colour"
+msgid "Value color"
 msgstr "Color de los valores"
 
 #: ui/settings.slint
-msgid "Label colour on a light taskbar"
+msgid "Label color on a light taskbar"
 msgstr "Color de las etiquetas con barra de tareas clara"
 
 #: ui/settings.slint
-msgid "Empty uses the label colour above."
+msgid "Empty uses the label color above."
 msgstr "Vacío usa el color de las etiquetas de arriba."
 
 #: ui/settings.slint
-msgid "Value colour on a light taskbar"
+msgid "Value color on a light taskbar"
 msgstr "Color de los valores con barra de tareas clara"
 
 #: ui/settings.slint
-msgid "Empty uses the value colour above."
+msgid "Empty uses the value color above."
 msgstr "Vacío usa el color de los valores de arriba."
 
 #: ui/settings.slint
-msgid "Colour labels by item"
+msgid "Color labels by item"
 msgstr "Colorear etiquetas por elemento"
 
 #: ui/settings.slint
-msgid "Draw each label in its item's colour."
+msgid "Draw each label in its item's color."
 msgstr "Dibuja cada etiqueta con el color de su elemento."
 
 #: ui/settings.slint
-msgid "Accent colour graphs"
+msgid "Accent color graphs"
 msgstr "Gráficas en color de énfasis"
 
 #: ui/settings.slint
-msgid "Draw graphs in your Windows accent colour."
+msgid "Draw graphs in your Windows accent color."
 msgstr "Dibuja las gráficas con el color de énfasis de Windows."
 
 #: ui/settings.slint
@@ -1905,7 +1905,7 @@ msgid "Background"
 msgstr "Fondo"
 
 #: ui/settings.slint
-msgid "Tile colour"
+msgid "Tile color"
 msgstr "Color de los mosaicos"
 
 #: ui/settings.slint
@@ -1925,7 +1925,7 @@ msgid "Using the theme default."
 msgstr "Se usa el valor del tema."
 
 #: ui/settings.slint
-msgid "Panel colour"
+msgid "Panel color"
 msgstr "Color del panel"
 
 #: ui/settings.slint
@@ -2041,7 +2041,7 @@ msgid "Tiles show the value and graph only."
 msgstr "Los mosaicos solo muestran el valor y el gráfico."
 
 #: ui/settings.slint
-msgid "How much each item shows. Colours follow the theme."
+msgid "How much each item shows. Colors follow the theme."
 msgstr "Cuánto muestra cada elemento. Los colores siguen el tema."
 
 #: ui/settings.slint

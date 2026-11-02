@@ -56,7 +56,7 @@ pub enum CellPart {
 }
 
 impl CellPart {
-    /// The part of a combined item this one shares its colour with.
+    /// The part of a combined item this one shares its color with.
     pub fn base(self) -> CellPart {
         match self {
             CellPart::DriveActive(_)

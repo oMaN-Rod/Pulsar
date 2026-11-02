@@ -316,7 +316,7 @@ mod tests {
         "Graph style",
         "Tile width",
         "Tile height",
-        "Colour",
+        "Color",
         "Popup detail",
         "Popup width",
         "Popup graph height",
@@ -416,9 +416,9 @@ mod tests {
         let all = entries(&items(), false, english);
         let found = ids(&matches(&all, "memory popup width"));
         assert_eq!(found, ["item/Ram/Popup width"]);
-        let found = ids(&matches(&all, "cpu colour"));
-        assert_eq!(found[0], "item/Cpu/Colour");
-        assert!(!found.contains(&"item/Ram/Colour".to_string()));
+        let found = ids(&matches(&all, "cpu color"));
+        assert_eq!(found[0], "item/Cpu/Color");
+        assert!(!found.contains(&"item/Ram/Color".to_string()));
     }
 
     #[test]

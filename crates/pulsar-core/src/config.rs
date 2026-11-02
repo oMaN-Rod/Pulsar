@@ -33,7 +33,7 @@ pub enum GraphStyle {
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ColorMode {
-    /// The item's own colour, or the accent with `accent_graphs`.
+    /// The item's own color, or the accent with `accent_graphs`.
     #[default]
     Item,
     Accent,
@@ -360,12 +360,12 @@ pub struct Display {
     /// `#RRGGBB` overrides for label and value text; `None` follows the theme.
     pub label_color: Option<String>,
     pub value_color: Option<String>,
-    /// Overrides for a light taskbar; `None` uses the colours above.
+    /// Overrides for a light taskbar; `None` uses the colors above.
     pub label_color_light: Option<String>,
     pub value_color_light: Option<String>,
     /// Network shows the upload rate before the download rate.
     pub upload_on_top: bool,
-    /// Draw each label in its item's colour.
+    /// Draw each label in its item's color.
     pub color_labels: bool,
     /// None uses Segoe UI Variable.
     pub font_family: Option<String>,
@@ -1395,7 +1395,7 @@ sample_interval_ms = 1
         assert_eq!(kinds.len(), ItemKind::ALL.len());
         assert!(c.items[0].enabled, "first duplicate wins");
         assert_eq!(c.items[0].color.as_deref(), Some("#00FF00"));
-        assert_eq!(c.items[1].color, None, "invalid colour dropped");
+        assert_eq!(c.items[1].color, None, "invalid color dropped");
         assert!(!c.items[2].enabled, "items added by repair start disabled");
     }
 
@@ -1455,7 +1455,7 @@ panel_opacity = 60
     }
 
     #[test]
-    fn sanitize_clamps_opacity_and_drops_bad_background_colours() {
+    fn sanitize_clamps_opacity_and_drops_bad_background_colors() {
         let mut c = Config::default();
         c.display.tile_color = Some("grey".into());
         c.display.tile_opacity = Some(250);
@@ -2193,7 +2193,7 @@ kind = \"cpu\"
     }
 
     #[test]
-    fn sanitize_caps_popup_processes_and_drops_bad_light_colours() {
+    fn sanitize_caps_popup_processes_and_drops_bad_light_colors() {
         let mut c = Config::default();
         c.popup.processes = 200;
         c.display.value_color_light = Some("white".into());

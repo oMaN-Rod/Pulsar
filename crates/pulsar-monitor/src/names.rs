@@ -50,9 +50,9 @@ pub const COLOR_MODES: [ColorMode; 3] = [ColorMode::Item, ColorMode::Accent, Col
 
 pub fn color_mode_name(mode: ColorMode) -> &'static str {
     match mode {
-        ColorMode::Item => tr!("Item colour"),
+        ColorMode::Item => tr!("Item color"),
         ColorMode::Accent => tr!("Windows accent"),
-        ColorMode::Load => tr!("Colour by load"),
+        ColorMode::Load => tr!("Color by load"),
     }
 }
 

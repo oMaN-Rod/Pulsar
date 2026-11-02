@@ -32,7 +32,7 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 
 ## Highlights
 
-- **Graphs or text**, with a graph style, colour and popup detail chosen per item.
+- **Graphs or text**, with a graph style, color and popup detail chosen per item.
 - **Hover popups** at three levels of detail, with a translucent background that blurs what is behind them.
 - **A system details window**: processor, memory modules, graphics, drives, network, motherboard and every live sensor.
 - **GPU monitoring for any vendor**, read the way Task Manager does, with no drivers or vendor SDKs.
@@ -81,9 +81,9 @@ Pulsar sits beside the tray or at the left edge of the taskbar, nudged by an off
 | **Text, one-letter labels** | ![Text mode with one-letter labels](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-short.png) |
 | **Text, icons alone** | ![Text mode with icons alone](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-icons.png) |
 
-### A style and colour per item
+### A style and color per item
 
-Each item draws an area graph, a line, bars, a level meter, or just its text. It can use its own colour, your Windows accent colour, or a colour that turns green, yellow, orange and red as its load rises.
+Each item draws an area graph, a line, bars, a level meter, or just its text. It can use its own color, your Windows accent color, or a color that turns green, yellow, orange and red as its load rises.
 
 | | |
 |---|---|
@@ -92,11 +92,11 @@ Each item draws an area graph, a line, bars, a level meter, or just its text. It
 | **Bars** | ![Bar graphs](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-bars.png) |
 | **Level meter** | ![Level meters](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-meter.png) |
 | **Mixed**: area, line, meter, bars and text only | ![A different style per item](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-mixed.png) |
-| **Colour by load** | ![Graphs coloured by load](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-color-load.png) |
-| **Colour by load, text** | ![Text coloured by load](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-load.png) |
+| **Color by load** | ![Graphs colored by load](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-color-load.png) |
+| **Color by load, text** | ![Text colored by load](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-load.png) |
 
 > [!TIP]
-> Right-click an item on the taskbar to change its style, colour and popup detail, swap it with its neighbour, or hide it.
+> Right-click an item on the taskbar to change its style, color and popup detail, swap it with its neighbour, or hide it.
 
 ### Every item
 
@@ -162,13 +162,13 @@ Save the current setup as a named profile in *Settings → Profiles*, such as on
 
 ### Themes
 
-Eight built-in themes set the item, label, value, tile and panel colours, each with a variant for light taskbars. Click one in *Settings → Theme* to apply it, change any colour on top, and save the result as your own theme: a small file in `%APPDATA%\Pulsar\themes` you can share.
+Eight built-in themes set the item, label, value, tile and panel colors, each with a variant for light taskbars. Click one in *Settings → Theme* to apply it, change any color on top, and save the result as your own theme: a small file in `%APPDATA%\Pulsar\themes` you can share.
 
 <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-theme.png" width="600" alt="Settings, Theme">
 
 ### Make it yours
 
-- label, value and item colours, with separate label and value colours for a light taskbar
+- label, value and item colors, with separate label and value colors for a light taskbar
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
 - temperatures in °C or °F, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
@@ -312,7 +312,7 @@ Every option, applied as you change it.
 <details>
 <summary><b>Settings pages</b></summary>
 
-**Items:** which items show, their order and colour, and each item's graph style, colouring and popup detail
+**Items:** which items show, their order and color, and each item's graph style, coloring and popup detail
 
 ![Settings, Items](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-items.png)
 
@@ -320,7 +320,7 @@ Every option, applied as you change it.
 
 ![Settings, Layout](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-layout.png)
 
-**Theme:** themes, custom colours, and tile and panel backgrounds
+**Theme:** themes, custom colors, and tile and panel backgrounds
 
 ![Settings, Theme](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-theme.png)
 

@@ -17,7 +17,7 @@ use crate::names::{COLOR_MODES, DETAILS, STYLES, WIDGET_STYLES};
 pub struct ItemRow {
     pub kind: ItemKind,
     pub enabled: bool,
-    /// `#RRGGBB`, or empty for the default colour.
+    /// `#RRGGBB`, or empty for the default color.
     pub color: String,
     /// An index into `names::STYLES`.
     pub style: i32,
@@ -64,10 +64,10 @@ pub struct Form {
     /// 0 full, 1 short, 2 none (icons only).
     pub labels: i32,
     pub icons: bool,
-    /// Empty for the theme colour.
+    /// Empty for the theme color.
     pub label_color: String,
     pub value_color: String,
-    /// Empty uses the colours above on a light taskbar too.
+    /// Empty uses the colors above on a light taskbar too.
     pub label_color_light: String,
     pub value_color_light: String,
     pub color_labels: bool,
@@ -97,7 +97,7 @@ pub struct Form {
     /// Off means the theme's opacity; `tile_opacity` is then ignored.
     pub tile_opacity_custom: bool,
     pub tile_opacity: i32,
-    /// Empty for the theme colour.
+    /// Empty for the theme color.
     pub panel_color: String,
     /// Off means the theme's panel; `panel_opacity` is then ignored.
     pub panel_opacity_custom: bool,
@@ -175,7 +175,7 @@ pub struct Form {
     pub widget_items: Vec<ItemKind>,
 }
 
-/// `#RRGGBB` → `(r, g, b)`, for the colour swatches; anything else is `None`.
+/// `#RRGGBB` → `(r, g, b)`, for the color swatches; anything else is `None`.
 pub fn parse_hex(s: &str) -> Option<Rgb> {
     let hex = s.trim().strip_prefix('#').filter(|h| h.len() == 6)?;
     let byte = |i: usize| u8::from_str_radix(hex.get(i..i + 2)?, 16).ok();
@@ -186,12 +186,12 @@ pub fn to_hex((r, g, b): Rgb) -> String {
     format!("#{r:02X}{g:02X}{b:02X}")
 }
 
-/// The colour an item is drawn in: its valid custom colour, else the default.
+/// The color an item is drawn in: its valid custom color, else the default.
 pub fn item_rgb(kind: ItemKind, hex: &str, theme: &Colors) -> Rgb {
     parse_hex(hex).unwrap_or_else(|| theme.item(kind, CellPart::Main))
 }
 
-/// Selects `theme` and clears the colours that would hide it.
+/// Selects `theme` and clears the colors that would hide it.
 pub fn apply_theme(f: &mut Form, theme: &Theme) {
     f.theme = theme.id.clone();
     for row in &mut f.items {
@@ -212,7 +212,7 @@ pub fn apply_theme(f: &mut Form, theme: &Theme) {
     f.color_labels = theme.color_labels;
 }
 
-/// `base` with the form's custom colours for a dark taskbar folded in, to
+/// `base` with the form's custom colors for a dark taskbar folded in, to
 /// save as a new theme.
 pub fn theme_from(f: &Form, base: &Theme, name: &str) -> Theme {
     let mut dark = base.dark.clone();
@@ -761,7 +761,7 @@ mod tests {
     }
 
     #[test]
-    fn empty_colours_mean_default_and_invalid_ones_are_dropped() {
+    fn empty_colors_mean_default_and_invalid_ones_are_dropped() {
         let c = Config::default();
         let mut f = to_form(&c);
         f.tile_color = "  ".into();
@@ -842,7 +842,7 @@ mod tests {
     }
 
     #[test]
-    fn parses_complete_hex_colours_only() {
+    fn parses_complete_hex_colors_only() {
         assert_eq!(parse_hex("#FF8000"), Some((255, 128, 0)));
         assert_eq!(parse_hex(" #ff8000 "), Some((255, 128, 0)));
         assert_eq!(parse_hex("#FF80"), None, "half-typed");
@@ -859,7 +859,7 @@ mod tests {
     }
 
     #[test]
-    fn item_swatch_falls_back_to_the_theme_colour() {
+    fn item_swatch_falls_back_to_the_theme_color() {
         let windows = Theme::windows();
         assert_eq!(item_rgb(ItemKind::Cpu, "#010203", &windows.dark), (1, 2, 3));
         assert_eq!(
@@ -922,7 +922,7 @@ mod tests {
     }
 
     #[test]
-    fn applying_a_theme_selects_it_and_clears_custom_colours() {
+    fn applying_a_theme_selects_it_and_clears_custom_colors() {
         let c = Config::default();
         let mut f = to_form(&c);
         f.items[0].color = "#FF0000".into();
@@ -939,7 +939,7 @@ mod tests {
     }
 
     #[test]
-    fn a_saved_theme_keeps_custom_colours() {
+    fn a_saved_theme_keeps_custom_colors() {
         let mut f = to_form(&Config::default());
         f.items[0].color = "#010203".into();
         f.value_color = "#0A0B0C".into();
@@ -960,7 +960,7 @@ mod tests {
     }
 
     #[test]
-    fn item_styles_colours_and_popups_map_both_ways() {
+    fn item_styles_colors_and_popups_map_both_ways() {
         use pulsar_core::config::{ColorMode, GraphStyle, PopupDetail};
         let c = Config::default();
         let mut f = to_form(&c);

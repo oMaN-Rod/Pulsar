@@ -1037,7 +1037,7 @@ msgid "Level meter"
 msgstr "레벨 미터"
 
 #: src/names.rs
-msgid "Item colour"
+msgid "Item color"
 msgstr "항목 색"
 
 #: src/names.rs
@@ -1045,7 +1045,7 @@ msgid "Windows accent"
 msgstr "Windows 강조 색"
 
 #: src/names.rs
-msgid "Colour by load"
+msgid "Color by load"
 msgstr "부하에 따른 색"
 
 #: src/names.rs
@@ -1529,7 +1529,7 @@ msgid "No settings match your search."
 msgstr "검색과 일치하는 설정이 없습니다."
 
 #: ui/settings.slint
-msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."
+msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
 msgstr "오버레이에 표시할 항목과 순서, 항목별 색(비워 두면 기본값)을 선택합니다. 항목의 옵션을 열어 그래프 스타일, 색 지정, 팝업을 설정합니다. 작업 표시줄에서 항목을 마우스 오른쪽 단추로 클릭해도 같은 옵션을 사용할 수 있습니다."
 
 #: ui/settings.slint
@@ -1581,7 +1581,7 @@ msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is
 msgstr "끄면 자동으로 설정됩니다. 작업 표시줄에서는 타일이 표시줄 안에서 가운데에 놓이고, 떠 있는 오버레이는 타일에 맞게 커집니다."
 
 #: ui/settings.slint
-msgid "Colour"
+msgid "Color"
 msgstr "색"
 
 #: ui/settings.slint
@@ -1593,7 +1593,7 @@ msgid "Popup graph height"
 msgstr "팝업 그래프 높이"
 
 #: ui/settings.slint
-msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
+msgid "Color by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item color."
 msgstr "부하에 따른 색을 사용하면 값이 오를수록 항목이 녹색, 노란색, 주황색, 빨간색으로 바뀝니다. 기준은 50, 75, 90%, 70, 80, 90°C, Ping은 50, 100, 200ms입니다. 그 밖의 값은 항목 색을 유지합니다."
 
 #: ui/settings.slint
@@ -1821,7 +1821,7 @@ msgid "Some custom taskbars do not report their buttons, and Windows may not ans
 msgstr "일부 사용자 지정 작업 표시줄은 단추 정보를 제공하지 않으며, Windows가 한동안 응답하지 않을 수도 있습니다. 이 경우 항목은 전체 크기로 평소 위치에 남아 있어 작업 표시줄 단추를 가릴 수 있습니다."
 
 #: ui/settings.slint
-msgid "A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below."
+msgid "A theme sets item, label, value, tile and panel colors, with a variant for light taskbars. Choosing one clears the custom colors below."
 msgstr "테마는 항목, 레이블, 값, 타일, 패널 색을 정하며 밝은 작업 표시줄용 변형도 포함합니다. 테마를 선택하면 아래 사용자 지정 색이 지워집니다."
 
 #: ui/settings.slint
@@ -1829,7 +1829,7 @@ msgid "Save as a theme"
 msgstr "테마로 저장"
 
 #: ui/settings.slint
-msgid "Keeps the current colours as a new theme in the themes folder."
+msgid "Keeps the current colors as a new theme in the themes folder."
 msgstr "현재 색을 테마 폴더에 새 테마로 저장합니다."
 
 #: ui/settings.slint
@@ -1853,11 +1853,11 @@ msgid "Open"
 msgstr "열기"
 
 #: ui/settings.slint
-msgid "Custom colours"
+msgid "Custom colors"
 msgstr "사용자 지정 색"
 
 #: ui/settings.slint
-msgid "Label colour"
+msgid "Label color"
 msgstr "레이블 색"
 
 #: ui/settings.slint
@@ -1865,39 +1865,39 @@ msgid "Empty uses the theme."
 msgstr "비워 두면 테마를 따릅니다."
 
 #: ui/settings.slint
-msgid "Value colour"
+msgid "Value color"
 msgstr "값 색"
 
 #: ui/settings.slint
-msgid "Label colour on a light taskbar"
+msgid "Label color on a light taskbar"
 msgstr "밝은 작업 표시줄의 레이블 색"
 
 #: ui/settings.slint
-msgid "Empty uses the label colour above."
+msgid "Empty uses the label color above."
 msgstr "비워 두면 위의 레이블 색을 사용합니다."
 
 #: ui/settings.slint
-msgid "Value colour on a light taskbar"
+msgid "Value color on a light taskbar"
 msgstr "밝은 작업 표시줄의 값 색"
 
 #: ui/settings.slint
-msgid "Empty uses the value colour above."
+msgid "Empty uses the value color above."
 msgstr "비워 두면 위의 값 색을 사용합니다."
 
 #: ui/settings.slint
-msgid "Colour labels by item"
+msgid "Color labels by item"
 msgstr "항목 색으로 레이블 표시"
 
 #: ui/settings.slint
-msgid "Draw each label in its item's colour."
+msgid "Draw each label in its item's color."
 msgstr "각 레이블을 해당 항목의 색으로 표시합니다."
 
 #: ui/settings.slint
-msgid "Accent colour graphs"
+msgid "Accent color graphs"
 msgstr "강조 색 그래프"
 
 #: ui/settings.slint
-msgid "Draw graphs in your Windows accent colour."
+msgid "Draw graphs in your Windows accent color."
 msgstr "그래프를 Windows 강조 색으로 표시합니다."
 
 #: ui/settings.slint
@@ -1905,7 +1905,7 @@ msgid "Background"
 msgstr "배경"
 
 #: ui/settings.slint
-msgid "Tile colour"
+msgid "Tile color"
 msgstr "타일 색"
 
 #: ui/settings.slint
@@ -1925,7 +1925,7 @@ msgid "Using the theme default."
 msgstr "테마 기본값을 사용합니다."
 
 #: ui/settings.slint
-msgid "Panel colour"
+msgid "Panel color"
 msgstr "패널 색"
 
 #: ui/settings.slint
@@ -2041,7 +2041,7 @@ msgid "Tiles show the value and graph only."
 msgstr "타일에는 값과 그래프만 표시됩니다."
 
 #: ui/settings.slint
-msgid "How much each item shows. Colours follow the theme."
+msgid "How much each item shows. Colors follow the theme."
 msgstr "각 항목에 표시할 정보의 양입니다. 색은 테마를 따릅니다."
 
 #: ui/settings.slint

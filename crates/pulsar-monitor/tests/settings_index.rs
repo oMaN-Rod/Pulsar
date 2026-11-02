@@ -117,7 +117,7 @@ fn the_rows_of_the_item_template_belong_to_every_item() {
             "Graph style",
             "Tile width",
             "Tile height",
-            "Colour",
+            "Color",
             "Popup detail",
             "Popup width",
             "Popup graph height"

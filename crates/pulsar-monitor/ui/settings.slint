@@ -6,7 +6,7 @@ export struct ItemRow {
     enabled: bool,
     color: string,
     swatch: color,
-    // Indexes into the styles, colour-modes and item-popup-details lists.
+    // Indexes into the styles, color-modes and item-popup-details lists.
     style: int,
     color-mode: int,
     popup: int,
@@ -24,7 +24,7 @@ export struct ItemRow {
     expanded: bool,
 }
 
-// A theme picker card: its name and the colours its preview is drawn in.
+// A theme picker card: its name and the colors its preview is drawn in.
 export struct ThemeCard {
     name: string,
     taskbar: color,
@@ -243,7 +243,7 @@ component NavGroup inherits Rectangle {
     }
 }
 
-// A miniature overlay in the theme's colours: graph tiles with a label line
+// A miniature overlay in the theme's colors: graph tiles with a label line
 // and a value line on a strip of taskbar.
 component ThemeTile inherits Rectangle {
     in property <ThemeCard> theme;
@@ -524,12 +524,12 @@ component SaturationValueArea inherits Rectangle {
     }
 }
 
-// A colour setting: a swatch that opens a picker, and the hex text.
+// A color setting: a swatch that opens a picker, and the hex text.
 component ColorField inherits HorizontalLayout {
     in-out property <string> text;
     // Transparent when the text is empty or half-typed.
     in property <color> swatch;
-    // Where the picker starts when there is no valid colour.
+    // Where the picker starts when there is no valid color.
     in property <color> fallback;
     in property <string> placeholder: "#RRGGBB";
     in property <length> field-width: 140px;
@@ -702,7 +702,7 @@ export component SettingsWindow inherits Window {
     min-width: 720px;
     min-height: 480px;
     background: Palette.background;
-    // Read by the app to colour the native title bar to match.
+    // Read by the app to color the native title bar to match.
     out property <brush> backdrop: Palette.background;
     out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
     // Set per language by the app.
@@ -874,7 +874,7 @@ export component SettingsWindow inherits Window {
     callback changed();
     callback item-enabled(int, bool);
     callback item-color(int, string);
-    // Row, field (0 style, 1 colour mode, 2 popup) and the chosen index.
+    // Row, field (0 style, 1 color mode, 2 popup) and the chosen index.
     callback item-choice(int, int, int);
     callback limit-label(string) -> string;
     callback item-expanded(int, bool);
@@ -1026,7 +1026,7 @@ export component SettingsWindow inherits Window {
             if root.tab == 0: Page {
                 title: @tr("Items");
                 Text {
-                    text: @tr("Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options.");
+                    text: @tr("Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options.");
                     color: Palette.foreground.transparentize(0.35);
                     wrap: word-wrap;
                 }
@@ -1187,8 +1187,8 @@ export component SettingsWindow inherits Window {
                                 }
                             }
                             SettingRow {
-                                title: @tr("Colour");
-                                search-key: row.id + "/Colour";
+                                title: @tr("Color");
+                                search-key: row.id + "/Color";
                                 padding-top: 4px;
                                 padding-bottom: 4px;
                                 ComboBox {
@@ -1262,7 +1262,7 @@ export component SettingsWindow inherits Window {
                     }
                 }
                 Text {
-                    text: @tr("Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour.");
+                    text: @tr("Color by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item color.");
                     color: Palette.foreground.transparentize(0.35);
                     wrap: word-wrap;
                 }
@@ -1548,14 +1548,14 @@ export component SettingsWindow inherits Window {
                     clicked(i) => { root.apply-theme(i); }
                 }
                 Text {
-                    text: @tr("A theme sets item, label, value, tile and panel colours, with a variant for light taskbars. Choosing one clears the custom colours below.");
+                    text: @tr("A theme sets item, label, value, tile and panel colors, with a variant for light taskbars. Choosing one clears the custom colors below.");
                     color: Palette.foreground.transparentize(0.35);
                     wrap: word-wrap;
                 }
                 Card {
                     SettingRow {
                         title: @tr("Save as a theme");
-                        description: root.theme-status != "" ? root.theme-status : @tr("Keeps the current colours as a new theme in the themes folder.");
+                        description: root.theme-status != "" ? root.theme-status : @tr("Keeps the current colors as a new theme in the themes folder.");
                         LineEdit {
                             width: 160px;
                             placeholder-text: @tr("Name");
@@ -1580,10 +1580,10 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
-                SectionTitle { text: @tr("Custom colours"); }
+                SectionTitle { text: @tr("Custom colors"); }
                 Card {
                     SettingRow {
-                        title: @tr("Label colour");
+                        title: @tr("Label color");
                         description: @tr("Empty uses the theme.");
                         ColorField {
                             text <=> root.label-color;
@@ -1594,7 +1594,7 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Value colour");
+                        title: @tr("Value color");
                         description: @tr("Empty uses the theme.");
                         ColorField {
                             text <=> root.value-color;
@@ -1605,8 +1605,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Label colour on a light taskbar");
-                        description: @tr("Empty uses the label colour above.");
+                        title: @tr("Label color on a light taskbar");
+                        description: @tr("Empty uses the label color above.");
                         ColorField {
                             text <=> root.label-color-light;
                             swatch: root.label-light-swatch;
@@ -1616,8 +1616,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Value colour on a light taskbar");
-                        description: @tr("Empty uses the value colour above.");
+                        title: @tr("Value color on a light taskbar");
+                        description: @tr("Empty uses the value color above.");
                         ColorField {
                             text <=> root.value-color-light;
                             swatch: root.value-light-swatch;
@@ -1627,8 +1627,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Colour labels by item");
-                        description: @tr("Draw each label in its item's colour.");
+                        title: @tr("Color labels by item");
+                        description: @tr("Draw each label in its item's color.");
                         Switch {
                             checked <=> root.color-labels;
                             toggled => { root.changed(); }
@@ -1636,8 +1636,8 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Accent colour graphs");
-                        description: @tr("Draw graphs in your Windows accent colour.");
+                        title: @tr("Accent color graphs");
+                        description: @tr("Draw graphs in your Windows accent color.");
                         Switch {
                             checked <=> root.accent-graphs;
                             toggled => { root.changed(); }
@@ -1647,7 +1647,7 @@ export component SettingsWindow inherits Window {
                 SectionTitle { text: @tr("Background"); }
                 Card {
                     SettingRow {
-                        title: @tr("Tile colour");
+                        title: @tr("Tile color");
                         description: @tr("Empty uses the theme tint.");
                         ColorField {
                             text <=> root.tile-color;
@@ -1675,7 +1675,7 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Panel colour");
+                        title: @tr("Panel color");
                         description: @tr("A panel behind the whole overlay. Empty uses the theme.");
                         ColorField {
                             text <=> root.panel-color;
@@ -1854,7 +1854,7 @@ export component SettingsWindow inherits Window {
                     Divider { }
                     SettingRow {
                         title: @tr("Detail");
-                        description: root.widget-style == 1 ? @tr("Tiles show the value and graph only.") : @tr("How much each item shows. Colours follow the theme.");
+                        description: root.widget-style == 1 ? @tr("Tiles show the value and graph only.") : @tr("How much each item shows. Colors follow the theme.");
                         ComboBox {
                             width: 200px;
                             model: root.popup-details;

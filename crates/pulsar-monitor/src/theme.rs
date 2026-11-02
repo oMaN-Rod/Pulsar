@@ -43,7 +43,7 @@ impl Color {
         Some(Self::rgb(byte(0)?, byte(2)?, byte(4)?))
     }
 
-    /// DWM stores the accent colour as `0xAABBGGRR`.
+    /// DWM stores the accent color as `0xAABBGGRR`.
     pub fn from_abgr(value: u32) -> Self {
         Self::rgb(value as u8, (value >> 8) as u8, (value >> 16) as u8)
     }
@@ -66,7 +66,7 @@ pub struct Palette {
     pub popup_border: Color,
     pub warning: Color,
     items: Vec<(ItemKind, CellPart, Color)>,
-    /// Items coloured by how high their value is.
+    /// Items colored by how high their value is.
     by_load: Vec<ItemKind>,
     light: bool,
     color_labels: bool,
@@ -74,7 +74,7 @@ pub struct Palette {
 
 impl Palette {
     /// The palette for the current Windows settings and `config`'s theme.
-    /// High contrast replaces every colour with the system's.
+    /// High contrast replaces every color with the system's.
     pub fn current(config: &Config) -> Self {
         if let Some(p) = Self::high_contrast() {
             return p;
@@ -191,8 +191,8 @@ impl Palette {
                 items.push((kind, part, color));
             }
         }
-        // Each GPU's load and temperature share a colour of its own, turned
-        // from the GPU colour by the card's place in the adapter list.
+        // Each GPU's load and temperature share a color of its own, turned
+        // from the GPU color by the card's place in the adapter list.
         let gpu = items
             .iter()
             .find(|(k, _, _)| *k == ItemKind::Gpu)
@@ -229,8 +229,8 @@ impl Palette {
         }
     }
 
-    /// Value text: the load colour for an item coloured by load, so items
-    /// without a graph show their load too; otherwise the value colour.
+    /// Value text: the load color for an item colored by load, so items
+    /// without a graph show their load too; otherwise the value color.
     pub fn value_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
         let level = value
             .filter(|_| self.by_load.contains(&kind))
@@ -242,8 +242,8 @@ impl Palette {
         self.light
     }
 
-    /// The colour for a reading of `value`: its load colour when the item
-    /// is coloured by load and the value has a scale, else `graph`.
+    /// The color for a reading of `value`: its load color when the item
+    /// is colored by load and the value has a scale, else `graph`.
     pub fn graph_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
         let level = value
             .filter(|_| self.by_load.contains(&kind))
@@ -266,7 +266,7 @@ impl Palette {
             .unwrap_or(self.text)
     }
 
-    /// Network arrows always take their series colour; other labels do when
+    /// Network arrows always take their series color; other labels do when
     /// `color_labels` is on.
     pub fn label_for(&self, kind: ItemKind, part: CellPart) -> Color {
         if self.color_labels || kind == ItemKind::Network {
@@ -334,7 +334,7 @@ mod tests {
     use pulsar_core::config::ItemConfig;
 
     #[test]
-    fn parses_hex_colours() {
+    fn parses_hex_colors() {
         assert_eq!(Color::parse_hex("#FF8000"), Some(Color::rgb(255, 128, 0)));
         assert_eq!(Color::parse_hex("#ff8000"), Some(Color::rgb(255, 128, 0)));
         assert_eq!(Color::parse_hex("FF8000"), None);
@@ -361,7 +361,7 @@ mod tests {
     }
 
     #[test]
-    fn custom_colour_beats_accent_beats_default() {
+    fn custom_color_beats_accent_beats_default() {
         let accent = Color::rgb(1, 2, 3);
         let mut config = Config::default();
         config.display.accent_graphs = true;
@@ -392,7 +392,7 @@ mod tests {
     }
 
     #[test]
-    fn tile_colour_and_opacity_come_from_config() {
+    fn tile_color_and_opacity_come_from_config() {
         let mut config = Config::default();
         config.display.tile_color = Some("#102030".into());
         config.display.tile_opacity = Some(50);
@@ -424,7 +424,7 @@ mod tests {
         assert_eq!(
             Palette::new(true, &config, None, &Theme::windows()).panel,
             Some(Color::rgb(0xF3, 0xF3, 0xF3).with_alpha(0.6)),
-            "theme panel colour on a light taskbar"
+            "theme panel color on a light taskbar"
         );
     }
 
@@ -448,7 +448,7 @@ mod tests {
     }
 
     #[test]
-    fn label_and_value_colours_override_the_theme() {
+    fn label_and_value_colors_override_the_theme() {
         let mut c = Config::default();
         c.display.label_color = Some("#112233".into());
         c.display.value_color = Some("#445566".into());
@@ -458,7 +458,7 @@ mod tests {
     }
 
     #[test]
-    fn light_taskbar_colours_override_only_on_a_light_taskbar() {
+    fn light_taskbar_colors_override_only_on_a_light_taskbar() {
         let mut c = Config::default();
         c.display.label_color = Some("#EEEEEE".into());
         c.display.label_color_light = Some("#111111".into());
@@ -474,7 +474,7 @@ mod tests {
         assert_eq!(
             Palette::new(true, &c, None, &Theme::windows()).label,
             Color::rgb(0xEE, 0xEE, 0xEE),
-            "without a light colour the one colour applies to both"
+            "without a light color the one color applies to both"
         );
     }
 
@@ -499,12 +499,12 @@ mod tests {
         assert_eq!(
             p.graph_at(ItemKind::Cpu, CellPart::Main, None),
             p.graph(ItemKind::Cpu, CellPart::Main),
-            "no reading keeps the item colour"
+            "no reading keeps the item color"
         );
         assert_eq!(
             p.graph_at(ItemKind::Ram, CellPart::Main, Some(95.0)),
             accent,
-            "only items set to load change colour"
+            "only items set to load change color"
         );
         assert_eq!(
             p.value_at(ItemKind::Cpu, CellPart::Main, Some(95.0)),
@@ -517,20 +517,20 @@ mod tests {
     }
 
     #[test]
-    fn labels_can_take_the_item_colour() {
+    fn labels_can_take_the_item_color() {
         let mut c = Config::default();
         let plain = Palette::new(false, &c, None, &Theme::windows());
         assert_eq!(plain.label_for(ItemKind::Cpu, CellPart::Main), plain.label);
         c.display.color_labels = true;
-        let coloured = Palette::new(false, &c, None, &Theme::windows());
+        let colored = Palette::new(false, &c, None, &Theme::windows());
         assert_eq!(
-            coloured.label_for(ItemKind::Cpu, CellPart::Main),
+            colored.label_for(ItemKind::Cpu, CellPart::Main),
             default_color(ItemKind::Cpu, CellPart::Main)
         );
     }
 
     #[test]
-    fn drive_cells_use_the_disk_colour() {
+    fn drive_cells_use_the_disk_color() {
         let p = Palette::new(false, &Config::default(), None, &Theme::windows());
         assert_eq!(
             p.graph(ItemKind::Disk, CellPart::DriveUsed(b'D')),
@@ -539,7 +539,7 @@ mod tests {
     }
 
     #[test]
-    fn each_gpu_card_has_one_colour_for_load_and_temperature() {
+    fn each_gpu_card_has_one_color_for_load_and_temperature() {
         let p = Palette::new(false, &Config::default(), None, &Theme::windows());
         let card = |kind, i| p.graph(kind, CellPart::Gpu(i));
         assert_eq!(
@@ -573,7 +573,7 @@ mod tests {
     }
 
     #[test]
-    fn popups_keep_theme_text_whatever_the_overlay_colours() {
+    fn popups_keep_theme_text_whatever_the_overlay_colors() {
         let plain = Palette::new(true, &Config::default(), None, &Theme::windows());
         let mut c = Config::default();
         c.display.label_color = Some("#F8FAFC".into());

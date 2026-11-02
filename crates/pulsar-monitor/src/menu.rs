@@ -358,7 +358,7 @@ impl Drop for Menu {
     }
 }
 
-/// Style, colour, popup and position for the item that was right-clicked.
+/// Style, color, popup and position for the item that was right-clicked.
 fn item_menu(config: &Config, kind: ItemKind) -> Option<Menu> {
     let item = config.item(kind)?;
     let menu = Menu::new()?;
