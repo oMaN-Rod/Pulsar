@@ -97,6 +97,70 @@ fn optional_and_conditional_rows_are_listed() {
 }
 
 #[test]
+fn the_rows_of_the_item_template_belong_to_every_item() {
+    let per_item: Vec<String> = rows()
+        .into_iter()
+        .filter(|r| r.per_item)
+        .map(|r| r.title)
+        .collect();
+    assert_eq!(
+        per_item,
+        [
+            "Graph style",
+            "Colour",
+            "Popup detail",
+            "Popup width",
+            "Popup graph height"
+        ]
+    );
+    assert!(rows().iter().all(|r| !r.per_item || r.tab == 0));
+    assert!(!rows().iter().any(|r| r.per_item && r.is_page));
+}
+
+#[test]
+fn the_rows_of_the_item_template_answer_to_their_search_ids() {
+    for row in rows().into_iter().filter(|r| r.per_item) {
+        let key = format!("search-key: row.id + \"/{}\";", row.title);
+        assert!(SOURCE.contains(&key), "{key}");
+    }
+}
+
+#[test]
+fn only_the_item_template_makes_rows_per_item() {
+    let source = r#"
+        export component SettingsWindow inherits Window {
+            if root.tab == 0: Page {
+                title: @tr("Items");
+                SettingRow { title: @tr("Before"); }
+                for row[i] in root.items: VerticalLayout {
+                    if row.expanded: VerticalLayout {
+                        SettingRow { title: @tr("Inside"); }
+                    }
+                }
+                SettingRow { title: @tr("After"); }
+                for other[i] in root.others: VerticalLayout {
+                    SettingRow { title: @tr("Elsewhere"); }
+                }
+            }
+        }
+    "#;
+    let found: Vec<(String, bool)> = scan(source)
+        .into_iter()
+        .filter(|r| !r.is_page)
+        .map(|r| (r.title, r.per_item))
+        .collect();
+    assert_eq!(
+        found,
+        [
+            ("Before".to_string(), false),
+            ("Inside".to_string(), true),
+            ("After".to_string(), false),
+            ("Elsewhere".to_string(), false),
+        ]
+    );
+}
+
+#[test]
 fn rows_without_a_literal_title_are_left_to_the_code() {
     let source = r#"
         export component SettingsWindow inherits Window {
@@ -173,4 +237,5 @@ fn the_generated_code_escapes_its_text() {
     }]);
     assert!(code.contains(r#"title: "say \"hi\"""#));
     assert!(code.contains(r#"when: Some(("root.a", false))"#));
+    assert!(code.contains("per_item: false"));
 }

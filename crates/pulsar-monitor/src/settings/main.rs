@@ -439,6 +439,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
         .map(|r| {
             let name: SharedString = names::item_name(r.kind).into();
             ItemRow {
+                id: item_id(r.kind).into(),
                 expanded: open.contains(&name),
                 name,
                 enabled: r.enabled,
@@ -695,13 +696,22 @@ fn open_search_result(ui: &SettingsWindow, kinds: &[ItemKind], id: &str) {
     let Some(entry) = entries.iter().find(|e| e.id == id) else {
         return;
     };
-    let row = kinds.iter().position(|&kind| item_id(kind) == id);
+    let row = entry
+        .owner
+        .as_ref()
+        .and_then(|owner| kinds.iter().position(|&kind| item_id(kind) == *owner));
     if let Some(row) = row {
         update_row(ui, row as i32, |r| r.expanded = true);
     }
+    let (title, key) = match &entry.owner {
+        Some(_) => ("", id),
+        None if entry.is_row => (entry.title, ""),
+        None => ("", ""),
+    };
     let jump = ui.global::<SearchJump>();
     jump.set_tab(entry.tab);
-    jump.set_title(if entry.is_row { entry.title } else { "" }.into());
+    jump.set_title(title.into());
+    jump.set_key(key.into());
     jump.set_missing(false);
     jump.set_pending(entry.is_row);
     ui.set_tab(entry.tab);
@@ -840,12 +850,10 @@ fn check_for_update() -> Availability {
         Err(e) => Outcome::Failed(e.to_string()),
     };
     if let Some(path) = update::state_path() {
-        let before = UpdateState::load(&path);
-        let mut state = before.clone();
-        update::note_manual_check(&mut state, &outcome, update::current(), update::now());
-        if state != before
-            && let Err(e) = state.save(&path)
-        {
+        let (_, saved) = UpdateState::change_saved(&path, |state| {
+            update::note_manual_check(state, &outcome, update::current(), update::now());
+        });
+        if let Err(e) = saved {
             log::warn!("could not save the update check state: {e}");
         }
     }

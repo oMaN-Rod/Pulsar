@@ -1,6 +1,7 @@
 import { Button, CheckBox, ComboBox, LineEdit, Palette, ScrollView, Slider, SpinBox, Switch } from "std-widgets.slint";
 
 export struct ItemRow {
+    id: string,
     name: string,
     enabled: bool,
     color: string,
@@ -95,6 +96,8 @@ export struct SearchResult {
 export global SearchJump {
     in-out property <int> tab;
     in-out property <string> title;
+    // Set instead of the title for a row whose title is not unique on its page.
+    in-out property <string> key;
     // Waiting for the row to report where it is.
     in-out property <bool> pending;
     // The row did not report: another option hides it right now.
@@ -328,7 +331,10 @@ component SettingRow inherits HorizontalLayout {
     in property <string> title;
     in property <string> description;
     in property <bool> available: true;
-    property <bool> targeted: root.available && root.title != "" && root.title == SearchJump.title;
+    in property <string> search-key;
+    property <bool> targeted: root.available && (root.search-key != ""
+        ? root.search-key == SearchJump.key
+        : root.title != "" && root.title == SearchJump.title);
     padding-left: 16px;
     padding-right: 16px;
     padding-top: 12px;
@@ -829,14 +835,18 @@ export component SettingsWindow inherits Window {
     changed tab => {
         if (root.tab != SearchJump.tab) {
             SearchJump.title = "";
+            SearchJump.key = "";
             SearchJump.pending = false;
             SearchJump.missing = false;
         }
     }
     Timer {
         interval: 3s;
-        running: SearchJump.title != "";
-        triggered => { SearchJump.title = ""; }
+        running: SearchJump.title != "" || SearchJump.key != "";
+        triggered => {
+            SearchJump.title = "";
+            SearchJump.key = "";
+        }
     }
 
     // Any edit; the app saves shortly after the last one.
@@ -1003,6 +1013,7 @@ export component SettingsWindow inherits Window {
                         if i > 0: Divider { }
                         SettingRow {
                             title: row.name;
+                            search-key: row.id;
                             IconButton {
                                 icon: Icons.options;
                                 clicked => { root.item-expanded(i, !row.expanded); }
@@ -1035,6 +1046,7 @@ export component SettingsWindow inherits Window {
                             padding-bottom: 4px;
                             if root.mode == 0: SettingRow {
                                 title: @tr("Graph style");
+                                search-key: row.id + "/Graph style";
                                 padding-top: 4px;
                                 padding-bottom: 4px;
                                 ComboBox {
@@ -1046,6 +1058,7 @@ export component SettingsWindow inherits Window {
                             }
                             SettingRow {
                                 title: @tr("Colour");
+                                search-key: row.id + "/Colour";
                                 padding-top: 4px;
                                 padding-bottom: 4px;
                                 ComboBox {
@@ -1057,6 +1070,7 @@ export component SettingsWindow inherits Window {
                             }
                             SettingRow {
                                 title: @tr("Popup detail");
+                                search-key: row.id + "/Popup detail";
                                 padding-top: 4px;
                                 padding-bottom: 4px;
                                 ComboBox {
@@ -1068,6 +1082,7 @@ export component SettingsWindow inherits Window {
                             }
                             SettingRow {
                                 title: @tr("Popup width");
+                                search-key: row.id + "/Popup width";
                                 padding-top: 4px;
                                 padding-bottom: 4px;
                                 item-width := SpinBox {
@@ -1091,6 +1106,7 @@ export component SettingsWindow inherits Window {
                             }
                             SettingRow {
                                 title: @tr("Popup graph height");
+                                search-key: row.id + "/Popup graph height";
                                 padding-top: 4px;
                                 padding-bottom: 4px;
                                 item-graph := SpinBox {

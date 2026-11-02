@@ -10,6 +10,8 @@ pub struct IndexRow {
     pub descriptions: &'static [&'static str],
     pub keywords: &'static [&'static str],
     pub is_page: bool,
+    /// Every item has this row, under its options.
+    pub per_item: bool,
 }
 
 const INDEX: &[IndexRow] = include!(concat!(env!("OUT_DIR"), "/settings_index.rs"));
@@ -17,6 +19,8 @@ const INDEX: &[IndexRow] = include!(concat!(env!("OUT_DIR"), "/settings_index.rs
 /// The one condition the index may carry; [`entries`] resolves it.
 const FAHRENHEIT: &str = "root.alert-fahrenheit";
 const SEPARATOR: &str = " › ";
+/// The worst [`rank`] of a match in an entry's title.
+const TITLE_RANK: u32 = 1;
 
 /// An item row of the Items page; it takes its name from code, not the `.slint` file.
 pub struct Item {
@@ -33,9 +37,14 @@ pub struct Entry {
     pub description: &'static str,
     /// False for a whole page, which has no row to bring into view.
     pub is_row: bool,
+    /// The id of the item whose row this is. Such a row is found by its id,
+    /// because every item repeats the same titles.
+    pub owner: Option<String>,
     title_text: String,
     place_text: String,
     other_text: String,
+    /// The owning item's name, on a row under an item's options.
+    item_text: String,
 }
 
 /// Lower case without Latin accents, so `energia` finds `energía`.
@@ -77,6 +86,7 @@ pub fn entries(
 ) -> Vec<Entry> {
     let mut found: Vec<Entry> = INDEX
         .iter()
+        .filter(|row| !row.per_item)
         .filter(|row| match row.when {
             Some((FAHRENHEIT, wanted)) => wanted == fahrenheit,
             _ => true,
@@ -93,12 +103,35 @@ pub fn entries(
             path: translate(page).to_string(),
             description: "",
             is_row: true,
+            owner: Some(item.id.clone()),
             title_text: texts([&item.name], &translate),
             place_text: texts([&page], &translate),
             other_text: String::new(),
+            item_text: String::new(),
         });
+        found.extend(
+            INDEX
+                .iter()
+                .filter(|row| row.per_item)
+                .map(|row| item_row_entry(row, item, &translate)),
+        );
     }
     found
+}
+
+fn item_row_entry(
+    row: &IndexRow,
+    item: &Item,
+    translate: &impl Fn(&'static str) -> &'static str,
+) -> Entry {
+    Entry {
+        id: format!("{}/{}", item.id, row.title),
+        path: format!("{}{SEPARATOR}{}", translate(row.page), translate(item.name)),
+        owner: Some(item.id.clone()),
+        place_text: texts([&row.page, &item.name], translate),
+        item_text: texts([&item.name], translate),
+        ..index_entry(row, translate)
+    }
 }
 
 fn index_entry(row: &IndexRow, translate: &impl Fn(&'static str) -> &'static str) -> Entry {
@@ -131,9 +164,11 @@ fn index_entry(row: &IndexRow, translate: &impl Fn(&'static str) -> &'static str
         path,
         description,
         is_row: !row.is_page,
+        owner: None,
         title_text: texts([&row.title], translate),
         place_text: texts([&row.page, &row.section], translate),
         other_text: texts(row.descriptions.iter().chain(row.keywords), translate),
+        item_text: String::new(),
     }
 }
 
@@ -163,21 +198,31 @@ fn rank(entry: &Entry, token: &str) -> Option<u32> {
 
 /// The entries holding every word of `query`, best first. Scripts written
 /// without spaces match as a substring of the title, so `字体` finds `字体大小`.
+/// A row under an item's options needs a word of its own title, so naming an
+/// item doesn't list all its rows, and comes last unless the query names its item.
 pub fn matches<'a>(entries: &'a [Entry], query: &str) -> Vec<&'a Entry> {
     let query = fold(query);
     let tokens: Vec<&str> = query.split_whitespace().collect();
     if tokens.is_empty() {
         return Vec::new();
     }
-    let mut ranked: Vec<(u32, &Entry)> = entries
+    let mut ranked: Vec<(bool, u32, &Entry)> = entries
         .iter()
         .filter_map(|entry| {
-            let ranks: Option<Vec<u32>> = tokens.iter().map(|t| rank(entry, t)).collect();
-            Some((ranks?.iter().sum(), entry))
+            let ranks: Vec<u32> = tokens
+                .iter()
+                .map(|t| rank(entry, t))
+                .collect::<Option<_>>()?;
+            let under_item = !entry.item_text.is_empty();
+            if under_item && ranks.iter().all(|&rank| rank > TITLE_RANK) {
+                return None;
+            }
+            let unnamed = under_item && !tokens.iter().any(|t| entry.item_text.contains(t));
+            Some((unnamed, ranks.iter().sum(), entry))
         })
         .collect();
-    ranked.sort_by_key(|&(rank, entry)| (rank, entry.title.chars().count()));
-    ranked.into_iter().map(|(_, entry)| entry).collect()
+    ranked.sort_by_key(|&(unnamed, rank, entry)| (unnamed, rank, entry.title.chars().count()));
+    ranked.into_iter().map(|(_, _, entry)| entry).collect()
 }
 
 #[cfg(test)]
@@ -263,6 +308,80 @@ mod tests {
         assert!(found[0].is_row);
         assert_eq!(found[0].tab, 0);
         assert_eq!(found[0].path, "Items");
+    }
+
+    const ITEM_ROWS: [&str; 5] = [
+        "Graph style",
+        "Colour",
+        "Popup detail",
+        "Popup width",
+        "Popup graph height",
+    ];
+
+    #[test]
+    fn every_item_has_each_of_its_rows() {
+        let all = entries(&items(), false, english);
+        for item in items() {
+            for title in ITEM_ROWS {
+                let id = format!("{}/{title}", item.id);
+                let entry = all.iter().find(|e| e.id == id).expect(&id);
+                assert_eq!(entry.title, title);
+                assert_eq!(entry.path, format!("Items › {}", item.name));
+                assert_eq!(entry.tab, 0);
+                assert!(entry.is_row);
+                assert_eq!(entry.owner.as_ref(), Some(&item.id));
+            }
+        }
+        assert!(all.iter().all(|e| !e.id.starts_with("row/0/")));
+    }
+
+    #[test]
+    fn rows_of_the_other_pages_keep_their_ids_and_have_no_owner() {
+        let all = entries(&items(), false, english);
+        let row = all.iter().find(|e| e.id == "row/3/Width").unwrap();
+        assert_eq!(row.owner, None);
+        assert!(row.path.starts_with("Popups"), "{}", row.path);
+    }
+
+    #[test]
+    fn naming_an_item_does_not_list_its_rows() {
+        let all = entries(&items(), false, english);
+        for query in ["memory", "items", "items memory"] {
+            let found = ids(&matches(&all, query));
+            assert!(
+                !found.iter().any(|id| id.starts_with("item/Ram/")),
+                "{query}: {found:?}"
+            );
+        }
+        assert_eq!(ids(&matches(&all, "memory"))[0], "item/Ram");
+    }
+
+    #[test]
+    fn a_word_of_the_title_finds_the_row_of_every_item() {
+        let all = entries(&items(), false, english);
+        let found = ids(&matches(&all, "graph style"));
+        assert!(found.contains(&"item/Cpu/Graph style".to_string()));
+        assert!(found.contains(&"item/Ram/Graph style".to_string()));
+    }
+
+    #[test]
+    fn naming_the_item_narrows_a_row_to_it() {
+        let all = entries(&items(), false, english);
+        let found = ids(&matches(&all, "memory popup width"));
+        assert_eq!(found, ["item/Ram/Popup width"]);
+        let found = ids(&matches(&all, "cpu colour"));
+        assert_eq!(found[0], "item/Cpu/Colour");
+        assert!(!found.contains(&"item/Ram/Colour".to_string()));
+    }
+
+    #[test]
+    fn rows_under_items_come_after_the_other_results() {
+        let all = entries(&items(), false, english);
+        let found = matches(&all, "popup width");
+        assert_eq!(found[0].id, "row/3/Width");
+        let first = found.iter().position(|e| e.owner.is_some()).unwrap();
+        assert!(found[first..].iter().all(|e| e.owner.is_some()));
+        assert_eq!(found.len() - first, items().len());
     }
 
     #[test]
@@ -359,10 +478,38 @@ mod tests {
             assert_ne!(row.title, "Font", "{code}");
 
             let mut seen: HashMap<(i32, &str), &str> = HashMap::new();
-            for entry in all.iter().filter(|e| e.is_row) {
+            for entry in all.iter().filter(|e| e.is_row && e.owner.is_none()) {
                 let other = seen.insert((entry.tab, entry.title), &entry.id);
                 assert_eq!(other, None, "{code}: {} on tab {}", entry.title, entry.tab);
             }
+        }
+
+        for (code, query, item_query) in [
+            ("es", "ancho de la ventana", "memoria ancho de la ventana"),
+            ("zh-CN", "弹出窗口宽度", "内存 弹出窗口宽度"),
+            ("ko", "팝업 너비", "메모리 팝업 너비"),
+        ] {
+            l10n::set_language(Some(code));
+            let all = entries(&items(), false, l10n::translate);
+            let row = all.iter().find(|e| e.id == "item/Ram/Popup width").unwrap();
+            assert_ne!(row.title, "Popup width", "{code}");
+            assert_ne!(row.path, "Items › Memory", "{code}");
+            let found = ids(&matches(&all, query));
+            assert!(
+                found.contains(&"item/Cpu/Popup width".to_string()),
+                "{code}: {found:?}"
+            );
+            assert!(
+                found.contains(&"item/Ram/Popup width".to_string()),
+                "{code}"
+            );
+            assert_eq!(
+                ids(&matches(&all, item_query))[0],
+                "item/Ram/Popup width",
+                "{code}"
+            );
+            let english = ids(&matches(&all, "memory popup width"));
+            assert_eq!(english[0], "item/Ram/Popup width", "{code}");
         }
         l10n::set_language(Some("en"));
     }

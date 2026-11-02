@@ -1243,6 +1243,7 @@ impl App {
             .shown_at
             .and_then(|origin| item_screen_rect(&o.layout, kind, origin))
         else {
+            self.close_popup();
             return;
         };
         let anchor = match (self.floating(), o.shown_at) {
@@ -1392,8 +1393,9 @@ impl App {
         let Some(path) = release::state_path() else {
             return;
         };
-        let mut state = UpdateState::load(&path);
-        let announcement = release::apply(&mut state, &outcome, update::current(), update::now());
+        let (announcement, saved) = UpdateState::change_saved(&path, |state| {
+            release::apply(state, &outcome, update::current(), update::now())
+        });
         match (&outcome, &announcement) {
             (_, Some(a)) => log::info!("Pulsar {} is available: {}", a.version, a.url),
             (Outcome::Failed(reason), _) => log::warn!("update check failed: {reason}"),
@@ -1402,7 +1404,7 @@ impl App {
                 log::info!("update check: latest release is {}", r.tag_name)
             }
         }
-        if let Err(e) = state.save(&path) {
+        if let Err(e) = saved {
             log::warn!("could not save the update check state: {e}");
         }
         if let Some(a) = announcement {

@@ -161,6 +161,24 @@ impl UpdateState {
             let _ = fs::remove_file(&tmp);
         })
     }
+
+    /// Applies `change` to the saved state and writes the file only if that
+    /// changed something, so a check with nothing to record cannot overwrite
+    /// what another process saved after the load.
+    pub fn change_saved<T>(
+        path: &Path,
+        change: impl FnOnce(&mut Self) -> T,
+    ) -> (T, io::Result<()>) {
+        let before = Self::load(path);
+        let mut state = before.clone();
+        let result = change(&mut state);
+        let saved = if state == before {
+            Ok(())
+        } else {
+            state.save(path)
+        };
+        (result, saved)
+    }
 }
 
 pub fn state_path() -> Option<PathBuf> {
@@ -456,6 +474,70 @@ mod tests {
         let failed = Outcome::Failed("offline".into());
         assert_eq!(apply(&mut state, &failed, Version(0, 1, 0), 5000), None);
         assert_eq!(state.last_check, 100);
+    }
+
+    #[test]
+    fn a_failed_check_changes_no_field() {
+        let before = UpdateState {
+            last_check: 100,
+            announced: Some("v0.2.0".into()),
+        };
+        let mut state = before.clone();
+        let failed = Outcome::Failed("offline".into());
+        assert_eq!(apply(&mut state, &failed, Version(0, 1, 0), 5000), None);
+        assert_eq!(state, before);
+    }
+
+    #[test]
+    fn a_failed_check_does_not_overwrite_a_newer_saved_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("update.toml");
+        let older = UpdateState {
+            last_check: 100,
+            announced: None,
+        };
+        older.save(&path).unwrap();
+        let newer = UpdateState {
+            last_check: 200,
+            announced: None,
+        };
+        let failed = Outcome::Failed("offline".into());
+        let (announcement, saved) = UpdateState::change_saved(&path, |state| {
+            newer.save(&path).unwrap();
+            apply(state, &failed, Version(0, 1, 0), 5000)
+        });
+        assert_eq!(announcement, None);
+        saved.unwrap();
+        assert_eq!(UpdateState::load(&path), newer);
+    }
+
+    #[test]
+    fn a_failed_check_writes_no_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("update.toml");
+        let failed = Outcome::Failed("offline".into());
+        let (_, saved) =
+            UpdateState::change_saved(&path, |state| apply(state, &failed, Version(0, 1, 0), 5000));
+        saved.unwrap();
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn a_finished_check_is_saved() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("update.toml");
+        let found = Outcome::Found(release("v0.2.0", URL));
+        let (announcement, saved) =
+            UpdateState::change_saved(&path, |state| apply(state, &found, Version(0, 1, 0), 5000));
+        assert!(announcement.is_some());
+        saved.unwrap();
+        assert_eq!(
+            UpdateState::load(&path),
+            UpdateState {
+                last_check: 5000,
+                announced: Some("v0.2.0".into()),
+            }
+        );
     }
 
     #[test]

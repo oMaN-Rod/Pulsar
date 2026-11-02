@@ -335,7 +335,13 @@ fn with_pairs_split(items: &[ItemSpec], upload_on_top: bool) -> Vec<ItemSpec> {
 
 /// The enabled items in order, each with the cells it draws.
 pub fn item_specs(config: &Config, gpus: &GpuSlots) -> Vec<ItemSpec> {
-    specs_with(config, &config.gpu_indexes(gpus))
+    let chosen = config.gpu_indexes(gpus);
+    let mut specs = specs_with(config, &chosen);
+    // An empty table knows nothing yet, so the combined reading still stands in.
+    if chosen.is_empty() && !config.gpu.adapters.is_empty() && !gpus.is_empty() {
+        specs.retain(|s| !matches!(s.kind, ItemKind::Gpu | ItemKind::GpuTemp));
+    }
+    specs
 }
 
 /// `item_specs` with `gpus`, the GPUs with cells of their own, already known.
@@ -2007,6 +2013,106 @@ mod tests {
             "2",
             "the number stays"
         );
+    }
+
+    use crate::gpu_slots::adapter;
+
+    fn gpu_config(chosen: &[&str]) -> Config {
+        let mut c = Config::default();
+        c.gpu.adapters = chosen.iter().map(ToString::to_string).collect();
+        for kind in [ItemKind::Gpu, ItemKind::GpuTemp] {
+            c.item_mut(kind).unwrap().enabled = true;
+        }
+        c
+    }
+
+    fn gpu_cells(specs: &[ItemSpec]) -> Vec<(ItemKind, Vec<CellPart>)> {
+        specs
+            .iter()
+            .filter(|s| matches!(s.kind, ItemKind::Gpu | ItemKind::GpuTemp))
+            .map(|s| (s.kind, s.parts.clone()))
+            .collect()
+    }
+
+    #[test]
+    fn a_chosen_gpu_absent_from_a_known_table_has_no_cell() {
+        let c = gpu_config(&["RTX 4090"]);
+        let gpus = GpuSlots::listing(&[adapter("Radeon", 1)]);
+        let specs = item_specs(&c, &gpus);
+        assert_eq!(gpu_cells(&specs), []);
+        assert_eq!(
+            specs.iter().map(|s| s.kind).collect::<Vec<_>>(),
+            c.enabled_items()
+                .into_iter()
+                .filter(|k| !matches!(k, ItemKind::Gpu | ItemKind::GpuTemp))
+                .collect::<Vec<_>>(),
+            "the other items stay"
+        );
+    }
+
+    #[test]
+    fn the_combined_reading_stands_in_until_the_table_is_known() {
+        let c = gpu_config(&["RTX 4090"]);
+        assert_eq!(
+            gpu_cells(&item_specs(&c, &GpuSlots::new())),
+            [
+                (ItemKind::Gpu, vec![CellPart::Main]),
+                (ItemKind::GpuTemp, vec![CellPart::Main]),
+            ]
+        );
+    }
+
+    #[test]
+    fn without_chosen_gpus_a_known_table_keeps_the_combined_reading() {
+        let c = gpu_config(&[]);
+        let gpus = GpuSlots::listing(&[adapter("Radeon", 1)]);
+        assert_eq!(
+            gpu_cells(&item_specs(&c, &gpus)),
+            [
+                (ItemKind::Gpu, vec![CellPart::Main]),
+                (ItemKind::GpuTemp, vec![CellPart::Main]),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_chosen_gpu_leaving_takes_its_cell_and_returning_brings_it_back() {
+        let c = gpu_config(&["RTX 4090"]);
+        let card = [adapter("RTX 4090", 1)];
+        let mut gpus = GpuSlots::listing(&card);
+        let present = gpu_cells(&item_specs(&c, &gpus));
+        assert_eq!(present[0], (ItemKind::Gpu, vec![CellPart::Gpu(0)]));
+        gpus.update(&[]);
+        assert_eq!(gpu_cells(&item_specs(&c, &gpus)), []);
+        gpus.update(&card);
+        assert_eq!(gpu_cells(&item_specs(&c, &gpus)), present);
+    }
+
+    #[test]
+    fn a_chosen_gpu_still_there_keeps_its_cell_when_another_is_absent() {
+        let c = gpu_config(&["Gone", "Radeon"]);
+        let gpus = GpuSlots::listing(&[adapter("Radeon", 1)]);
+        assert_eq!(
+            gpu_cells(&item_specs(&c, &gpus)),
+            [
+                (ItemKind::Gpu, vec![CellPart::Gpu(0)]),
+                (ItemKind::GpuTemp, vec![CellPart::Gpu(0)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_overlay_of_only_absent_gpus_has_no_width() {
+        let mut c = gpu_config(&["RTX 4090"]);
+        for item in &mut c.items {
+            item.enabled = matches!(item.kind, ItemKind::Gpu | ItemKind::GpuTemp);
+        }
+        let gpus = GpuSlots::listing(&[adapter("Radeon", 1)]);
+        let specs = item_specs(&c, &gpus);
+        assert!(specs.is_empty());
+        let l = compute_layout(&specs, input(DisplayMode::Text, 48.0, 96), &Fixed);
+        assert_eq!(l.width, 0.0);
+        assert!(l.cells.is_empty());
     }
 
     #[test]

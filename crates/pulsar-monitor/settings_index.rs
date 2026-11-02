@@ -4,6 +4,7 @@
 
 const TRANSLATED: &str = "@tr(";
 const WINDOW: &str = "export component SettingsWindow";
+const ITEM_TEMPLATE: &str = "for row[i] in root.items:";
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Scanned {
@@ -17,10 +18,13 @@ pub struct Scanned {
     /// Other text in the row, such as its choices and buttons.
     pub keywords: Vec<String>,
     pub is_page: bool,
+    /// In the template repeated for every item, so each item has this row.
+    pub per_item: bool,
 }
 
 enum Frame {
     Page,
+    Items,
     Row,
     Section,
     Text,
@@ -32,6 +36,7 @@ struct Scan {
     rows: Vec<Scanned>,
     frames: Vec<Frame>,
     page: Option<usize>,
+    in_items: bool,
     section: String,
     /// The titles of the open row, with the condition choosing between them.
     titles: Vec<(String, Option<(String, bool)>)>,
@@ -40,6 +45,11 @@ struct Scan {
 
 impl Scan {
     fn open(&mut self, header: &str) {
+        if self.page.is_some() && header.starts_with(ITEM_TEMPLATE) {
+            self.in_items = true;
+            self.frames.push(Frame::Items);
+            return;
+        }
         let name = header.rsplit([' ', ':', '=']).next().unwrap_or_default();
         let frame = match name {
             "Page" => match tab_of(header).filter(|&tab| tab >= 0) {
@@ -70,6 +80,7 @@ impl Scan {
     fn close(&mut self) {
         match self.frames.pop() {
             Some(Frame::Page) => self.page = None,
+            Some(Frame::Items) => self.in_items = false,
             Some(Frame::Row) => self.finish_row(),
             _ => {}
         }
@@ -88,6 +99,7 @@ impl Scan {
                 section: self.section.clone(),
                 title,
                 when,
+                per_item: self.in_items,
                 ..row.clone()
             });
         }
@@ -246,8 +258,8 @@ pub fn generate(rows: &[Scanned]) -> String {
             None => "None".to_string(),
         };
         out.push_str(&format!(
-            "    IndexRow {{ tab: {}, page: {:?}, section: {:?}, title: {:?}, when: {when}, descriptions: &{:?}, keywords: &{:?}, is_page: {} }},\n",
-            row.tab, row.page, row.section, row.title, row.descriptions, row.keywords, row.is_page,
+            "    IndexRow {{ tab: {}, page: {:?}, section: {:?}, title: {:?}, when: {when}, descriptions: &{:?}, keywords: &{:?}, is_page: {}, per_item: {} }},\n",
+            row.tab, row.page, row.section, row.title, row.descriptions, row.keywords, row.is_page, row.per_item,
         ));
     }
     out.push_str("]\n");
