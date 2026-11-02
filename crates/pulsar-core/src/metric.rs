@@ -173,9 +173,13 @@ pub enum MetricKey {
     GpuUtil,
     GpuEngine(GpuEngineKind),
     GpuDedicatedBytes,
+    GpuDedicatedTotalBytes,
     GpuSharedBytes,
+    /// The fullest card's.
+    GpuMemoryPercent,
     /// By slot in `GpuSlots`.
     GpuAdapterUtil(u8),
+    GpuAdapterMemoryPercent(u8),
     GpuAdapterDedicatedBytes(u8),
     GpuAdapterSharedBytes(u8),
     GpuAdapterTempC(u8),
@@ -290,6 +294,7 @@ impl MetricKey {
         use MetricKey::*;
         match self {
             GpuAdapterUtil(slot)
+            | GpuAdapterMemoryPercent(slot)
             | GpuAdapterDedicatedBytes(slot)
             | GpuAdapterSharedBytes(slot)
             | GpuAdapterTempC(slot) => Some(slot),
@@ -315,6 +320,8 @@ impl MetricKey {
             | GpuUtil
             | GpuEngine(_)
             | GpuAdapterUtil(_)
+            | GpuMemoryPercent
+            | GpuAdapterMemoryPercent(_)
             | PingLossPercent
             | GpuPowerPercent
             | CpuThrottling
@@ -336,6 +343,7 @@ impl MetricKey {
             | VolumeFreeBytes(_)
             | VolumeTotalBytes(_)
             | GpuDedicatedBytes
+            | GpuDedicatedTotalBytes
             | GpuSharedBytes
             | GpuAdapterDedicatedBytes(_)
             | GpuAdapterSharedBytes(_)

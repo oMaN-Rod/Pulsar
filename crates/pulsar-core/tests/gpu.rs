@@ -11,6 +11,9 @@ fn gpu_reports_or_is_cleanly_unavailable() {
             let snap = sample_twice(&mut gpu);
             percent(&snap, MetricKey::GpuUtil);
             assert!(snap.get(MetricKey::GpuDedicatedBytes).unwrap() >= 0.0);
+            if let Some(used) = snap.get(MetricKey::GpuMemoryPercent) {
+                assert!((0.0..=100.0).contains(&used), "{used}");
+            }
         }
         Err(SourceError::Unavailable(msg)) => assert_eq!(msg, "GPU counters unavailable"),
         Err(other) => panic!("unexpected error: {other}"),

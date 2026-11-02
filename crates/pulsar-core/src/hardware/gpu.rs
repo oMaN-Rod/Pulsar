@@ -1,11 +1,16 @@
 //! Graphics adapters as DirectX lists them.
 
+use std::collections::HashMap;
+
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_FEATURE_ARCHITECTURE, D3D12_FEATURE_DATA_ARCHITECTURE, D3D12CreateDevice, ID3D12Device,
 };
 
 use windows::Win32::Foundation::LUID;
+use windows::Win32::Graphics::DXCore::{
+    DXCoreCreateAdapterFactory, IDXCoreAdapter, IDXCoreAdapterFactory, IsIntegrated,
+};
 use windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory1, DXGI_ADAPTER_DESC1, DXGI_ADAPTER_FLAG_SOFTWARE, IDXGIAdapter1, IDXGIDevice,
     IDXGIFactory1,
@@ -15,6 +20,7 @@ use windows::core::Interface;
 use crate::gpu_slots::{GpuAdapter, GpuSlots};
 
 const MICROSOFT: u32 = 0x1414;
+const INTEGRATED_BELOW_BYTES: u64 = 512 * 1024 * 1024;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct GpuInfo {
@@ -33,7 +39,28 @@ impl GpuInfo {
     /// Integrated parts carve their memory from system RAM.
     pub fn integrated(&self) -> bool {
         self.unified_memory
-            .unwrap_or(self.dedicated_bytes < 512 * 1024 * 1024)
+            .unwrap_or(self.dedicated_bytes < INTEGRATED_BELOW_BYTES)
+    }
+}
+
+/// How much memory an adapter has.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct AdapterMemory {
+    pub dedicated: u64,
+    pub shared: u64,
+    pub integrated: bool,
+}
+
+impl AdapterMemory {
+    /// How full the adapter's memory is. An integrated part's carve-out says
+    /// little, as it spills into system RAM, so both kinds count for it.
+    pub fn percent_used(self, dedicated_used: f64, shared_used: f64) -> Option<f64> {
+        let (used, total) = if self.integrated {
+            (dedicated_used + shared_used, self.dedicated + self.shared)
+        } else {
+            (dedicated_used, self.dedicated)
+        };
+        (total > 0).then(|| (used / total as f64 * 100.0).clamp(0.0, 100.0))
     }
 }
 
@@ -139,6 +166,40 @@ pub fn adapters() -> Vec<GpuAdapter> {
         .collect()
 }
 
+/// Asks DXCore because it needs no device; creating one for the D3D12 check
+/// would wake a sleeping discrete GPU.
+fn reports_integrated(factory: Option<&IDXCoreAdapterFactory>, luid: LUID) -> Option<bool> {
+    let adapter: IDXCoreAdapter = unsafe { factory?.GetAdapterByLuid(&luid) }.ok()?;
+    let mut integrated = false;
+    unsafe {
+        adapter.GetProperty(
+            IsIntegrated,
+            size_of::<bool>(),
+            (&raw mut integrated).cast(),
+        )
+    }
+    .ok()?;
+    Some(integrated)
+}
+
+/// Each adapter's memory, by LUID.
+pub fn memory() -> HashMap<u64, AdapterMemory> {
+    let factory = unsafe { DXCoreCreateAdapterFactory::<IDXCoreAdapterFactory>() }.ok();
+    enumerate()
+        .into_iter()
+        .map(|(_, desc, _)| {
+            let dedicated = desc.DedicatedVideoMemory as u64;
+            let memory = AdapterMemory {
+                dedicated,
+                shared: desc.SharedSystemMemory as u64,
+                integrated: reports_integrated(factory.as_ref(), desc.AdapterLuid)
+                    .unwrap_or(dedicated < INTEGRATED_BELOW_BYTES),
+            };
+            (luid_key(desc.AdapterLuid), memory)
+        })
+        .collect()
+}
+
 pub fn slots() -> GpuSlots {
     GpuSlots::listing(&adapters())
 }
@@ -175,6 +236,41 @@ pub fn read() -> Vec<GpuInfo> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const GIB: u64 = 1024 * 1024 * 1024;
+
+    #[test]
+    fn a_card_is_as_full_as_its_dedicated_memory() {
+        let card = AdapterMemory {
+            dedicated: 8 * GIB,
+            shared: 16 * GIB,
+            integrated: false,
+        };
+        let used = card.percent_used(2.0 * GIB as f64, 8.0 * GIB as f64);
+        assert_eq!(used, Some(25.0));
+    }
+
+    #[test]
+    fn an_integrated_part_counts_shared_memory_too() {
+        let part = AdapterMemory {
+            dedicated: 4 * GIB,
+            shared: 12 * GIB,
+            integrated: true,
+        };
+        let used = part.percent_used(GIB as f64, 3.0 * GIB as f64);
+        assert_eq!(used, Some(25.0), "a large carve-out is still integrated");
+    }
+
+    #[test]
+    fn memory_percent_stays_in_range_and_needs_a_capacity() {
+        let card = AdapterMemory {
+            dedicated: GIB,
+            shared: 0,
+            integrated: false,
+        };
+        assert_eq!(card.percent_used(2.0 * GIB as f64, 0.0), Some(100.0));
+        assert_eq!(AdapterMemory::default().percent_used(1.0, 1.0), None);
+    }
 
     #[test]
     #[ignore = "reads this machine's adapters"]

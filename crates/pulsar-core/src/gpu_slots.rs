@@ -141,6 +141,10 @@ impl GpuSlots {
             );
             set(MetricKey::GpuAdapterSharedBytes(slot), &readings.shared);
             set(MetricKey::GpuAdapterTempC(slot), &readings.temp_c);
+            set(
+                MetricKey::GpuAdapterMemoryPercent(slot),
+                &readings.memory_percent,
+            );
         }
     }
 }
@@ -155,6 +159,7 @@ pub struct GpuReadings {
     pub dedicated: HashMap<u64, f64>,
     pub shared: HashMap<u64, f64>,
     pub temp_c: HashMap<u64, f64>,
+    pub memory_percent: HashMap<u64, f64>,
 }
 
 #[cfg(test)]
@@ -276,11 +281,13 @@ mod tests {
             dedicated: HashMap::from([(1, 8.0), (2, 2.0)]),
             shared: HashMap::from([(2, 3.0)]),
             temp_c: HashMap::from([(1, 80.0), (2, 40.0)]),
+            memory_percent: HashMap::from([(1, 75.0), (2, 25.0)]),
         };
         let mut s = Snapshot::default();
         slots.publish(&readings, &mut s);
         for key in [
             MetricKey::GpuAdapterUtil(0),
+            MetricKey::GpuAdapterMemoryPercent(0),
             MetricKey::GpuAdapterDedicatedBytes(0),
             MetricKey::GpuAdapterTempC(0),
         ] {
@@ -290,6 +297,7 @@ mod tests {
         assert_eq!(s.get(MetricKey::GpuAdapterDedicatedBytes(1)), Some(2.0));
         assert_eq!(s.get(MetricKey::GpuAdapterSharedBytes(1)), Some(3.0));
         assert_eq!(s.get(MetricKey::GpuAdapterTempC(1)), Some(40.0));
+        assert_eq!(s.get(MetricKey::GpuAdapterMemoryPercent(1)), Some(25.0));
     }
 
     #[test]

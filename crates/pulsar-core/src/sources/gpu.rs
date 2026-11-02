@@ -1,7 +1,13 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
+use std::time::{Duration, Instant};
 
+use crate::hardware::gpu::{self, AdapterMemory};
 use crate::metric::{GpuEngineKind, MetricKey, Snapshot, Source, SourceError, SourceId};
 use crate::pdh::{Counter, PdhError, Query};
+
+/// How soon to list adapters again when one with counters has no capacity.
+/// Windows' basic render adapter never does, so this must stay cheap.
+const MEMORY_RETRY: Duration = Duration::from_secs(30);
 
 pub const ENGINE_COUNTER: &str = r"\GPU Engine(*)\Utilization Percentage";
 
@@ -16,6 +22,9 @@ pub struct GpuSource {
     engines: Counter,
     dedicated: Counter,
     shared: Counter,
+    memory: HashMap<u64, AdapterMemory>,
+    listed: BTreeSet<u64>,
+    listed_at: Option<Instant>,
 }
 
 impl GpuSource {
@@ -38,6 +47,9 @@ impl GpuSource {
             engines,
             dedicated,
             shared,
+            memory: HashMap::new(),
+            listed: BTreeSet::new(),
+            listed_at: None,
         })
     }
 }
@@ -53,7 +65,7 @@ impl Source for GpuSource {
 }
 
 impl GpuSource {
-    fn sample_counters(&self, out: &mut Snapshot) -> Result<(), PdhError> {
+    fn sample_counters(&mut self, out: &mut Snapshot) -> Result<(), PdhError> {
         self.query.collect()?;
         let usage = aggregate_engines(&self.engines.array()?);
         out.set(MetricKey::GpuUtil, usage.util);
@@ -64,13 +76,62 @@ impl GpuSource {
         let shared = per_adapter(&self.shared.array()?);
         out.set(MetricKey::GpuDedicatedBytes, dedicated.values().sum());
         out.set(MetricKey::GpuSharedBytes, shared.values().sum());
+        let seen: BTreeSet<u64> = dedicated.keys().chain(shared.keys()).copied().collect();
+        let age = self.listed_at.map(|at| at.elapsed());
+        if should_list_memory(&seen, &self.listed, &self.memory, age) {
+            self.memory = gpu::memory();
+            self.listed.clone_from(&seen);
+            self.listed_at = Some(Instant::now());
+        }
+        let percents = memory_percents(&self.memory, &dedicated, &shared);
+        if let Some(fullest) = percents.values().copied().reduce(f64::max) {
+            out.set(MetricKey::GpuMemoryPercent, fullest);
+        }
+        let total: u64 = self
+            .memory
+            .iter()
+            .filter(|(luid, _)| seen.contains(luid))
+            .map(|(_, memory)| memory.dedicated)
+            .sum();
+        if total > 0 {
+            out.set(MetricKey::GpuDedicatedTotalBytes, total as f64);
+        }
         let readings = &mut out.gpu_readings;
-        readings.seen.extend(dedicated.keys().chain(shared.keys()));
+        readings.seen.extend(seen);
+        readings.memory_percent = percents;
         readings.load = Some(usage.per_adapter);
         readings.dedicated = dedicated;
         readings.shared = shared;
         Ok(())
     }
+}
+
+fn should_list_memory(
+    seen: &BTreeSet<u64>,
+    listed: &BTreeSet<u64>,
+    memory: &HashMap<u64, AdapterMemory>,
+    age: Option<Duration>,
+) -> bool {
+    let Some(age) = age else {
+        return true;
+    };
+    seen != listed || (age >= MEMORY_RETRY && seen.iter().any(|luid| !memory.contains_key(luid)))
+}
+
+/// How full each adapter with a reading is.
+fn memory_percents(
+    memory: &HashMap<u64, AdapterMemory>,
+    dedicated: &HashMap<u64, f64>,
+    shared: &HashMap<u64, f64>,
+) -> HashMap<u64, f64> {
+    memory
+        .iter()
+        .filter(|(luid, _)| dedicated.contains_key(luid) || shared.contains_key(luid))
+        .filter_map(|(&luid, memory)| {
+            let used = |values: &HashMap<u64, f64>| values.get(&luid).copied().unwrap_or(0.0);
+            Some((luid, memory.percent_used(used(dedicated), used(shared))?))
+        })
+        .collect()
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -166,6 +227,33 @@ pub(crate) mod tests {
 
     fn s(name: &str, v: f64) -> (String, f64) {
         (name.to_string(), v)
+    }
+
+    #[test]
+    fn memory_is_listed_first_on_a_change_and_retried_while_incomplete() {
+        let soon = Some(Duration::from_secs(1));
+        let later = Some(MEMORY_RETRY);
+        let seen = BTreeSet::from([1]);
+        let empty = HashMap::new();
+        let known = HashMap::from([(1, AdapterMemory::default())]);
+        assert!(should_list_memory(&seen, &seen, &known, None), "first");
+        assert!(should_list_memory(&seen, &BTreeSet::new(), &known, soon));
+        assert!(!should_list_memory(&seen, &seen, &empty, soon), "not yet");
+        assert!(should_list_memory(&seen, &seen, &empty, later), "retried");
+        assert!(!should_list_memory(&seen, &seen, &known, later), "complete");
+    }
+
+    #[test]
+    fn only_listed_adapters_with_a_reading_have_a_memory_percent() {
+        let card = AdapterMemory {
+            dedicated: 8 << 30,
+            shared: 16 << 30,
+            integrated: false,
+        };
+        let memory = HashMap::from([(1, card), (2, card)]);
+        let dedicated = HashMap::from([(1, (2u64 << 30) as f64), (3, 1.0)]);
+        let percents = memory_percents(&memory, &dedicated, &HashMap::new());
+        assert_eq!(percents, HashMap::from([(1, 25.0)]));
     }
 
     #[test]
