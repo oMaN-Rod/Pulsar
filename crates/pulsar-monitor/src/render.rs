@@ -2209,8 +2209,12 @@ mod tests {
             .find(|c| c.kind == ItemKind::Cpu)
             .unwrap();
         let bottom = cpu.rect.y + cpu.rect.h - 5.0;
-        let last = alpha_at(&surface, cpu.rect.right() - 5.0, bottom);
-        assert!(last > 0x40, "no bar at the right edge ({last})");
+        // Bar width and placement depend on the host's thread count and core types.
+        let right = cpu.rect.right() as i32;
+        let lit = (right - 40..right)
+            .filter(|&x| alpha_at(&surface, x as f32, bottom) > 0x40)
+            .count();
+        assert!(lit >= 8, "too few bar columns right of the text ({lit})");
     }
 
     #[test]
