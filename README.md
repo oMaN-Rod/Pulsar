@@ -77,13 +77,14 @@ Pulsar sits beside the tray or at the left edge of the taskbar, nudged by an off
 | **Graphs with icons** | ![Graph mode with icons](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-graph-icons.png) |
 | **One-letter labels** | ![Graph mode with one-letter labels](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-graph-short.png) |
 | **Single-line graphs**, for short taskbars | ![Single-line graphs](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-graph-inline.png) |
+| **Vertical labels**, with the value beside them | Settings → Layout → *Vertical labels* |
 | **Text** | ![Text mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text.png) |
 | **Text, one-letter labels** | ![Text mode with one-letter labels](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-short.png) |
 | **Text, icons alone** | ![Text mode with icons alone](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-icons.png) |
 
 ### A style and color per item
 
-Each item draws an area graph, a line, bars, a level meter, or just its text. It can use its own color, your Windows accent color, or a color that turns green, yellow, orange and red as its load rises, at thresholds you can set.
+Each item draws an area graph, a line, bars, a level meter, a segment meter, a spark underline, a ring, or just its text. The CPU can also show a bar or a heat cell per core, with peak marks and efficient cores set apart on the bars. It can use its own color, your Windows accent color, or a color that turns green, yellow, orange and red as its load rises, at thresholds you can set.
 
 | | |
 |---|---|

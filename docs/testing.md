@@ -16,6 +16,15 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Light and dark Windows mode | Colors follow the taskbar theme |
 | Small taskbar icons (if available) or a custom taskbar such as TranslucentTB | Still readable; the tile and panel backgrounds help on translucent taskbars |
 | Graph and text mode; labels Full, Short and None, with and without icons | Every combination lays out without overlap |
+| *Vertical labels* on, in graph and text mode, with and without icons, on horizontal and vertical taskbars | Letters stack upright beside a one-line value; nothing is clipped or overlaps |
+| CPU item: *Ring* and *Core bars*; another item: *Ring*, with no *Core bars* in its list | The ring shows load with temperature inside once sensors report it; one bar per logical processor, moving with Task Manager's per-core view |
+| CPU item: *Core bars* on a hybrid CPU, then a burst of load | Efficient cores sit apart and darker; a mark holds each core's peak for about ten samples |
+| CPU item: *Heat cells*, with custom color thresholds | One cell per logical processor; colors follow the thresholds whatever the item's color mode |
+| *Segment meter* and *Spark underline*, each with *Single-line graphs* and on Network | Under the text on one reading; beside the text on a single line or a network pair |
+| Widget: style *Dials*; CPU item's widget style *Core wall* | Rows of three rings with the value inside; Network on its own row; tall core bars with peak marks, and P-core and E-core counts on hybrid CPUs |
+| Settings → Items: graph style picker, by mouse and by Tab then Enter | The chosen tile is outlined and the overlay updates; only the CPU lists core styles |
+| Settings → Items: *Low*, *Moderate*, *High* and *Critical color*, then empty them again | The ribbons, load-colored items and heat cells take each color on dark and light taskbars; empty restores the default; choosing a theme leaves them alone |
+| Settings → Items: threshold ribbons, by dragging, arrow keys, and each preset; all handles dragged onto one spot | Handles stop at their neighbours and can still be separated; values survive reopening Settings; °F shows converted presets |
 | Graph mode with *Single-line graphs* on, on a short taskbar if available | Icon, label and value share one centred line in every tile; network shows ↓ and ↑ side by side |
 | Floating: drag it, lock it, restart Pulsar, then *Reset position* | It moves and stays locked, reopens where it was left, and reset centres it above the taskbar |
 | Open windows until the taskbar buttons reach the items, then close them | Items never cover a button: they first get more compact, then go one at a time from the chosen side; they come back about two seconds after the room does |
