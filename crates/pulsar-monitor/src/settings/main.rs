@@ -300,11 +300,13 @@ fn push_theme(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_value_default(rgb(colors.text));
     ui.set_tile_default(rgb(colors.tile));
     ui.set_panel_default(rgb(colors.panel));
+    ui.set_widget_background_default(rgb(colors.panel));
 }
 
 fn refresh_swatches(ui: &SettingsWindow) {
     ui.set_tile_swatch(swatch(&ui.get_tile_color()));
     ui.set_panel_swatch(swatch(&ui.get_panel_color()));
+    ui.set_widget_background_swatch(swatch(&ui.get_widget_background()));
     ui.set_label_swatch(swatch(&ui.get_label_color()));
     ui.set_value_swatch(swatch(&ui.get_value_color()));
     ui.set_label_light_swatch(swatch(&ui.get_label_color_light()));
@@ -365,10 +367,19 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_widget_opacity(f.widget_opacity as f32);
     ui.set_widget_hide_in_fullscreen(f.widget_hide_in_fullscreen);
     ui.set_widget_own_items(f.widget_own_items);
-    let widget_rows: Vec<WidgetItemRow> = f
-        .items
-        .iter()
+    ui.set_widget_background(f.widget_background.as_str().into());
+    ui.set_widget_order_custom(!f.widget_order.is_empty());
+    let mut in_widget_order: Vec<&form::ItemRow> = f.items.iter().collect();
+    in_widget_order.sort_by_key(|r| {
+        f.widget_order
+            .iter()
+            .position(|k| *k == r.kind)
+            .unwrap_or(usize::MAX)
+    });
+    let widget_rows: Vec<WidgetItemRow> = in_widget_order
+        .into_iter()
         .map(|r| WidgetItemRow {
+            id: item_id(r.kind).into(),
             name: names::item_name(r.kind).into(),
             checked: f.widget_items.contains(&r.kind),
             style: r.widget_style,
@@ -524,6 +535,13 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
 }
 
 fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
+    let widget_rows: Vec<WidgetItemRow> = ui.get_widget_items().iter().collect();
+    let widget_row = |kind: ItemKind| {
+        widget_rows
+            .iter()
+            .find(|r| r.id.as_str() == item_id(kind).as_str())
+            .cloned()
+    };
     let chosen = |values: &[String], index: i32| {
         values
             .get(index.max(0) as usize)
@@ -578,9 +596,9 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         items: ui
             .get_items()
             .iter()
-            .zip(ui.get_widget_items().iter())
             .zip(kinds)
-            .map(|((r, w), &kind)| form::ItemRow {
+            .map(|(r, &kind)| (r, kind, widget_row(kind)))
+            .map(|(r, kind, w)| form::ItemRow {
                 kind,
                 enabled: r.enabled,
                 color: r.color.to_string(),
@@ -594,8 +612,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 tile_height: r.tile_height,
                 label: r.label.to_string(),
                 short_label: r.short_label.to_string(),
-                widget_style: w.style,
-                widget_detail: w.detail,
+                widget_style: w.as_ref().map_or(0, |w| w.style),
+                widget_detail: w.as_ref().map_or(0, |w| w.detail),
             })
             .collect(),
         ping_host: ui.get_ping_host().to_string(),
@@ -689,13 +707,25 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         widget_opacity: ui.get_widget_opacity().round() as i32,
         widget_hide_in_fullscreen: ui.get_widget_hide_in_fullscreen(),
         widget_own_items: ui.get_widget_own_items(),
-        widget_items: ui
-            .get_widget_items()
+        widget_items: kinds
             .iter()
-            .zip(kinds)
-            .filter(|(r, _)| r.checked)
-            .map(|(_, &kind)| kind)
+            .copied()
+            .filter(|&kind| widget_row(kind).is_some_and(|r| r.checked))
             .collect(),
+        widget_order: if ui.get_widget_order_custom() {
+            widget_rows
+                .iter()
+                .filter_map(|r| {
+                    kinds
+                        .iter()
+                        .copied()
+                        .find(|&k| item_id(k).as_str() == r.id.as_str())
+                })
+                .collect()
+        } else {
+            Vec::new()
+        },
+        widget_background: ui.get_widget_background().to_string(),
     }
 }
 
@@ -1293,6 +1323,24 @@ fn main() -> Result<(), Box<dyn Error>> {
             ui.invoke_changed();
         }
     });
+    ui.on_drop_item({
+        let (weak, state) = (ui.as_weak(), state.clone());
+        move |from, target, after| {
+            let Some(ui) = weak.upgrade() else { return };
+            let mut s = state.borrow_mut();
+            let mut f = pull(&ui, &s.kinds, &s.choices);
+            pulsar_core::reorder::reposition(
+                &mut f.items,
+                from.max(0) as usize,
+                target.max(0) as usize,
+                after,
+            );
+            s.kinds = f.items.iter().map(|r| r.kind).collect();
+            push(&ui, &f, &mut s.choices);
+            drop(s);
+            ui.invoke_changed();
+        }
+    });
     ui.on_apply_theme({
         let (weak, state) = (ui.as_weak(), state.clone());
         move |index| {
@@ -1501,6 +1549,41 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 rows.set_row_data(index.max(0) as usize, row);
             }
+            ui.invoke_changed();
+        }
+    });
+    ui.on_move_widget_item({
+        let weak = ui.as_weak();
+        move |index, up| {
+            let Some(ui) = weak.upgrade() else { return };
+            let mut rows: Vec<WidgetItemRow> = ui.get_widget_items().iter().collect();
+            let index = index.max(0) as usize;
+            let other = if up {
+                index.checked_sub(1)
+            } else {
+                Some(index + 1)
+            };
+            if let Some(other) = other.filter(|&o| o < rows.len() && index < rows.len()) {
+                rows.swap(index, other);
+                ui.set_widget_items(ModelRc::new(VecModel::from(rows)));
+                ui.set_widget_order_custom(true);
+                ui.invoke_changed();
+            }
+        }
+    });
+    ui.on_drop_widget_item({
+        let weak = ui.as_weak();
+        move |from, target, after| {
+            let Some(ui) = weak.upgrade() else { return };
+            let mut rows: Vec<WidgetItemRow> = ui.get_widget_items().iter().collect();
+            pulsar_core::reorder::reposition(
+                &mut rows,
+                from.max(0) as usize,
+                target.max(0) as usize,
+                after,
+            );
+            ui.set_widget_items(ModelRc::new(VecModel::from(rows)));
+            ui.set_widget_order_custom(true);
             ui.invoke_changed();
         }
     });

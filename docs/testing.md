@@ -35,6 +35,12 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | The same with an alert on or while recording | Sampling goes on, so the alert still fires and the CSV has no gap; the overlay is drawn again on return |
 | A laptop with *Update interval on battery* set, unplugged and plugged in | The graphs slow down and speed up without a restart; a game session's times stay right |
 | Task Manager's Details tab, *Power throttling* column, while Pulsar runs; hover popups and dragging the floating overlay | Throttling is enabled for pulsar.exe; hover and drag still feel immediate |
+| Drag a tile along the taskbar, in graph and text modes, then release over itself and off the overlay; then plain-click a tile | The dragged tile lifts and a line marks the drop; the order changes only on a drop beside another item; a plain click still opens Task Manager and hover popups still open |
+| Floating: drag, then Shift+drag; then lock it and drag | Plain drag moves the overlay and Shift+drag reorders; locked, a plain drag reorders |
+| Widget: drag, Shift+drag, then lock it and drag | Same as floating; the taskbar's order stays as it was |
+| Settings → Items and Settings → Widget: drag a row's handle up and down, past the visible rows, with an expanded row in the list | The row is highlighted and a line marks the drop; the page scrolls near its edges; the order applies live; rows keep their options |
+| Settings → Widget: *Background color*, then empty it, with opacity at 100% and 30% | The panel takes the color at that opacity; empty restores the theme's panel color |
+| A game with the strip on, over a bright scene | One line of text on a panel in the top-left corner; clicks pass through; graph styles and labels set for the taskbar do not change it |
 | Widget: style *Dials*; CPU item's widget style *Core wall* | Rows of three rings with the value inside; Network on its own row; tall core bars with peak marks, and P-core and E-core counts on hybrid CPUs |
 | Settings → Items: graph style picker, by mouse and by Tab then Enter | The chosen tile is outlined and the overlay updates; only the CPU lists core styles |
 | Settings → Items: *Low*, *Moderate*, *High* and *Critical color*, then empty them again | The ribbons, load-colored items and heat cells take each color on dark and light taskbars; empty restores the default; choosing a theme leaves them alone |

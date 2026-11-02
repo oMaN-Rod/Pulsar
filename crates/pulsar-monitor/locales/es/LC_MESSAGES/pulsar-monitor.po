@@ -2257,6 +2257,14 @@ msgid "Pixels at 100 % scaling."
 msgstr "Píxeles con escala al 100 %."
 
 #: ui/settings.slint
+msgid "Background color"
+msgstr "Color de fondo"
+
+#: ui/settings.slint
+msgid "Empty uses the theme's panel color."
+msgstr "Vacío usa el color de panel del tema."
+
+#: ui/settings.slint
 msgid "Background opacity"
 msgstr "Opacidad del fondo"
 
@@ -2265,8 +2273,8 @@ msgid "Choose items"
 msgstr "Elegir elementos"
 
 #: ui/settings.slint
-msgid "Off shows the same items as the taskbar."
-msgstr "Desactivado muestra los mismos elementos que la barra de tareas."
+msgid "Off shows the same items as the taskbar. To reorder, drag a handle here or Shift+drag an item on the widget."
+msgstr "Desactivado muestra los mismos elementos que la barra de tareas. Para reordenar, arrastra un asa aquí o arrastra un elemento del widget con Mayús pulsado."
 
 #: ui/settings.slint
 msgid "Temperatures and power"

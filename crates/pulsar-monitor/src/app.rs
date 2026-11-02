@@ -14,9 +14,10 @@ use pulsar_core::hardware::displays;
 use pulsar_core::history::HistoryStore;
 use pulsar_core::hotkey::Hotkey;
 use pulsar_core::ipc;
-use pulsar_core::layout::{CellPart, ItemNames, single_parts};
+use pulsar_core::layout::{CellPart, ItemNames, Rect, single_parts};
 use pulsar_core::metric::{ItemKind, Snapshot};
 use pulsar_core::recording::Recorder;
+use pulsar_core::reorder::{self, Slot};
 use pulsar_core::update::{self as release, Outcome, UpdateState};
 use pulsar_core::{crash, games, paths, profile, sampler, tr};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
@@ -32,8 +33,8 @@ use windows::Win32::UI::Shell::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
-    GetForegroundWindow, GetMessageW, GetSystemMetrics, IDC_ARROW, KillTimer, LoadCursorW,
-    MA_NOACTIVATE, MSG, PBT_POWERSETTINGCHANGE, PostQuitMessage, RegisterClassW,
+    GetForegroundWindow, GetMessageW, GetSystemMetrics, IDC_ARROW, IDC_SIZEALL, KillTimer,
+    LoadCursorW, MA_NOACTIVATE, MSG, PBT_POWERSETTINGCHANGE, PostQuitMessage, RegisterClassW,
     RegisterWindowMessageW, SM_CXDRAG, SetCoalescableTimer, SetCursor, SetTimer, TranslateMessage,
     WM_APPCOMMAND, WM_CAPTURECHANGED, WM_CHANGEUISTATE, WM_CONTEXTMENU, WM_DESTROY,
     WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE, WM_MOUSEHWHEEL,
@@ -58,7 +59,7 @@ use crate::popup::content::{Options as PopupOptions, needs_processes};
 use crate::popup::layout::item_screen_rect;
 use crate::popup::{self, Anchor, Popup, Style as PopupStyle};
 use crate::power::{self, Presence};
-use crate::render::{Frame, Renderer, graph_styles, trend_items};
+use crate::render::{Frame, Renderer, Reorder, graph_styles, trend_items};
 use crate::sampler_thread::SamplerThread;
 use crate::taskbar::hooks::{self, Hooks};
 use crate::taskbar::placement::{
@@ -70,7 +71,7 @@ use crate::taskbar::space::{
 };
 use crate::taskbar::{self, Taskbar};
 use crate::text::Text;
-use crate::theme::Palette;
+use crate::theme::{Color, Palette};
 use crate::tray::{Metric, Tray, icon_text};
 use crate::update;
 use crate::watchdog::Watchdog;
@@ -81,6 +82,7 @@ const TIMER_VALIDATE: usize = 2;
 const TIMER_RETRY: usize = 3;
 const TIMER_FADE: usize = 5;
 const TIMER_PRESENCE: usize = 6;
+const REORDER_MARKER_DIP: f32 = 2.0;
 const PRESENCE_RETRY_MS: u32 = 250;
 const TIMER_UPDATE: usize = 4;
 /// The first check waits for startup to settle; after that an hourly tick asks
@@ -203,6 +205,7 @@ pub struct App {
     widget: Widget,
     /// The widget being moved with the mouse.
     widget_drag: Option<Drag>,
+    item_drag: Option<ItemDrag>,
     /// Sampled for the game in progress, on top of what the settings ask for.
     session_items: Vec<ItemKind>,
     /// The games Windows knows, and when they were read.
@@ -233,6 +236,24 @@ struct Paint<'a> {
     palette: &'a Palette,
     snapshot: &'a Snapshot,
     history: &'a HistoryStore,
+    item_drag: Option<&'a ItemDrag>,
+}
+
+struct ItemDrag {
+    window: HWND,
+    kind: ItemKind,
+    start: (i32, i32),
+    active: bool,
+    slot: Option<Slot>,
+}
+
+impl ItemDrag {
+    fn reorder(&self, window: HWND) -> Option<Reorder> {
+        (self.active && self.window == window).then_some(Reorder {
+            dragged: self.kind,
+            marker: self.slot.map(|s| s.marker),
+        })
+    }
 }
 
 impl Paint<'_> {
@@ -277,6 +298,7 @@ impl Paint<'_> {
             graph_inline: graph_inline && !layout.vertical && !d.vertical_labels,
             styles: &styles,
             trends: &trends,
+            reorder: self.item_drag.and_then(|d| d.reorder(hwnd)),
             network_floor: NetworkFloor::new(&self.config.network),
         };
         self.renderer.draw(surface, &frame, self.text)?;
@@ -369,6 +391,7 @@ impl App {
             watchdog: Watchdog::new(host),
             widget: Widget::create(instance)?,
             widget_drag: None,
+            item_drag: None,
             session_items: Vec::new(),
             known_games: HashSet::new(),
             games_read: None,
@@ -870,6 +893,7 @@ impl App {
             palette: &self.palette,
             snapshot: &self.latest,
             history: &self.history,
+            item_drag: self.item_drag.as_ref(),
         };
         paint.overlay(&mut self.overlays[i], x, y)
     }
@@ -892,6 +916,7 @@ impl App {
             palette: &palette,
             snapshot: &self.latest,
             history: &self.history,
+            item_drag: None,
         };
         if let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut())
             && let Some((x, y)) = strip.shown_at
@@ -1025,6 +1050,7 @@ impl App {
             palette: &palette,
             snapshot: &self.latest,
             history: &self.history,
+            item_drag: None,
         };
         let Some(strip) = self.game.as_mut().and_then(|g| g.strip.as_mut()) else {
             return;
@@ -1189,6 +1215,11 @@ impl App {
             max_h: work.height() as f32 - 2.0 * widget::EDGE_GAP * scale,
             font_px: self.config.display.font_size_pt * dpi as f32 / 72.0,
             opacity: f32::from(w.opacity) / 100.0,
+            background: w.background.as_deref().and_then(Color::parse_hex),
+            reorder: self
+                .item_drag
+                .as_ref()
+                .and_then(|d| d.reorder(self.widget.hwnd)),
             scale,
             network_floor: NetworkFloor::new(&self.config.network),
         };
@@ -1231,8 +1262,9 @@ impl App {
             .arrange(w.layer, unsafe { GetForegroundWindow() });
     }
 
-    fn on_widget_button_down(&mut self) {
-        if self.config.widget.lock_position {
+    fn on_widget_button_down(&mut self, x: i32, y: i32, shift: bool) {
+        if self.config.widget.lock_position || shift {
+            self.start_item_drag(self.widget.hwnd, x, y);
             return;
         }
         if let Some(pos) = self.widget.shown_at {
@@ -1241,7 +1273,10 @@ impl App {
         }
     }
 
-    fn on_widget_drag_move(&mut self) {
+    fn on_widget_drag_move(&mut self, x: i32, y: i32) {
+        if self.on_item_drag_move(self.widget.hwnd, x, y) {
+            return;
+        }
         let Some(drag) = self.widget_drag.as_mut() else {
             return;
         };
@@ -1256,6 +1291,9 @@ impl App {
     }
 
     fn on_widget_button_up(&mut self) {
+        if self.finish_item_drag(self.widget.hwnd) {
+            return;
+        }
         let Some(drag) = self.widget_drag.take() else {
             return;
         };
@@ -1412,8 +1450,118 @@ impl App {
         self.close_popup();
     }
 
-    fn on_button_down(&mut self, overlay: HWND) {
-        if !self.floating() || self.config.display.lock_position {
+    fn start_item_drag(&mut self, window: HWND, x: i32, y: i32) {
+        let cells = self.item_cells(window);
+        if let Some(kind) = reorder::nearest(&cells, x as f32, y as f32) {
+            self.item_drag = Some(ItemDrag {
+                window,
+                kind,
+                start: cursor(),
+                active: false,
+                slot: None,
+            });
+            unsafe { SetCapture(window) };
+        }
+    }
+
+    fn item_cells(&self, window: HWND) -> Vec<(Rect, ItemKind)> {
+        if window == self.widget.hwnd {
+            return self.widget.cells().to_vec();
+        }
+        self.overlays
+            .iter()
+            .find(|o| o.hwnd == window)
+            .map_or_else(Vec::new, |o| {
+                o.layout.cells.iter().map(|c| (c.rect, c.kind)).collect()
+            })
+    }
+
+    fn redraw_window(&mut self, window: HWND) {
+        if window == self.widget.hwnd {
+            self.show_widget();
+        } else if let Some(i) = self.overlays.iter().position(|o| o.hwnd == window)
+            && let Some((x, y)) = self.overlays[i].shown_at
+            && self.draw(i, x, y).is_err()
+        {
+            self.overlays[i].hide();
+        }
+    }
+
+    fn window_scale(&self, window: HWND) -> f32 {
+        let dpi = if window == self.widget.hwnd {
+            self.widget.dpi()
+        } else {
+            self.overlays
+                .iter()
+                .find(|o| o.hwnd == window)
+                .map_or(96, Overlay::dpi)
+        };
+        dpi as f32 / 96.0
+    }
+
+    /// Follows a dragged item; returns whether one is held in `window`.
+    fn on_item_drag_move(&mut self, window: HWND, x: i32, y: i32) -> bool {
+        let Some(drag) = self.item_drag.as_ref().filter(|d| d.window == window) else {
+            return false;
+        };
+        let (kind, start, was_active, old_slot) = (drag.kind, drag.start, drag.active, drag.slot);
+        let at = cursor();
+        let threshold = unsafe { GetSystemMetrics(SM_CXDRAG) };
+        if !was_active && (at.0 - start.0).abs() < threshold && (at.1 - start.1).abs() < threshold {
+            return true;
+        }
+        let thickness = (REORDER_MARKER_DIP * self.window_scale(window)).round();
+        let cells = self.item_cells(window);
+        let slot = reorder::slot(&cells, kind, x as f32, y as f32, thickness);
+        if !was_active {
+            self.close_popup();
+            unsafe { SetCursor(LoadCursorW(None, IDC_SIZEALL).ok()) };
+        }
+        if let Some(drag) = self.item_drag.as_mut() {
+            drag.active = true;
+            drag.slot = slot;
+        }
+        if !was_active || slot != old_slot {
+            self.redraw_window(window);
+        }
+        true
+    }
+
+    /// Drops a held item; returns whether the press was a drag, not a click.
+    fn finish_item_drag(&mut self, window: HWND) -> bool {
+        let Some(drag) = self.item_drag.take().filter(|d| d.window == window) else {
+            return false;
+        };
+        unsafe {
+            let _ = ReleaseCapture();
+        }
+        if !drag.active {
+            return false;
+        }
+        match drag.slot {
+            Some(slot) if window == self.widget.hwnd => self.change_config(|c| {
+                c.move_widget_item_beside(drag.kind, slot.target, slot.after);
+            }),
+            Some(slot) => self.change_config(|c| {
+                c.move_item_beside(drag.kind, slot.target, slot.after);
+            }),
+            None => {}
+        }
+        self.redraw_window(window);
+        true
+    }
+
+    fn cancel_item_drag(&mut self) {
+        if let Some(drag) = self.item_drag.take()
+            && drag.active
+        {
+            self.redraw_window(drag.window);
+        }
+    }
+
+    fn on_button_down(&mut self, overlay: HWND, x: i32, y: i32, shift: bool) {
+        if !self.floating() || self.config.display.lock_position || shift {
+            self.start_item_drag(overlay, x, y);
             return;
         }
         let Some(pos) = self
@@ -1996,6 +2144,10 @@ fn ctrl_held(wp: WPARAM) -> bool {
     wp.0 & 0x0008 != 0
 }
 
+fn shift_held(wp: WPARAM) -> bool {
+    wp.0 & 0x0004 != 0
+}
+
 fn cursor() -> (i32, i32) {
     let mut pt = POINT::default();
     unsafe {
@@ -2112,18 +2264,22 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
         WM_MOUSEMOVE => {
             let (x, y) = signed_words(lp.0 as usize);
             with_app(|a| {
-                if !a.on_drag_move(hwnd) {
+                if !a.on_drag_move(hwnd) && !a.on_item_drag_move(hwnd, x, y) {
                     a.on_mouse_move(hwnd, x, y);
                 }
             });
             LRESULT(0)
         }
         WM_LBUTTONDOWN => {
-            with_app(|a| a.on_button_down(hwnd));
+            let (x, y) = signed_words(lp.0 as usize);
+            with_app(|a| a.on_button_down(hwnd, x, y, shift_held(wp)));
             LRESULT(0)
         }
         WM_CAPTURECHANGED => {
-            with_app(|a| a.drag = None);
+            with_app(|a| {
+                a.drag = None;
+                a.cancel_item_drag();
+            });
             LRESULT(0)
         }
         WM_MOUSEHOVER => {
@@ -2136,7 +2292,8 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
             LRESULT(0)
         }
         WM_LBUTTONUP => {
-            let dragged = with_app(|a| a.on_button_up(hwnd)).unwrap_or(false);
+            let dragged =
+                with_app(|a| a.on_button_up(hwnd) || a.finish_item_drag(hwnd)).unwrap_or(false);
             if !dragged {
                 let (x, y) = signed_words(lp.0 as usize);
                 let ctrl = ctrl_held(wp);
@@ -2167,11 +2324,13 @@ unsafe extern "system" fn widget_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPAR
             LRESULT(1)
         }
         WM_LBUTTONDOWN => {
-            with_app(App::on_widget_button_down);
+            let (x, y) = signed_words(lp.0 as usize);
+            with_app(|a| a.on_widget_button_down(x, y, shift_held(wp)));
             LRESULT(0)
         }
         WM_MOUSEMOVE => {
-            with_app(App::on_widget_drag_move);
+            let (x, y) = signed_words(lp.0 as usize);
+            with_app(|a| a.on_widget_drag_move(x, y));
             LRESULT(0)
         }
         WM_LBUTTONUP => {
@@ -2179,7 +2338,10 @@ unsafe extern "system" fn widget_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPAR
             LRESULT(0)
         }
         WM_CAPTURECHANGED => {
-            with_app(|a| a.widget_drag = None);
+            with_app(|a| {
+                a.widget_drag = None;
+                a.cancel_item_drag();
+            });
             LRESULT(0)
         }
         WM_RBUTTONUP => {

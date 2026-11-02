@@ -21,6 +21,7 @@ pub mod pdh;
 pub mod profile;
 pub mod project;
 pub mod recording;
+pub mod reorder;
 pub mod sampler;
 pub mod sensors;
 pub mod single_instance;

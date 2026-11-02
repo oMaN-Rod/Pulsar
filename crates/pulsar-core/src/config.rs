@@ -180,11 +180,15 @@ pub struct WidgetConfig {
     pub click_through: bool,
     /// Empty shows the taskbar's items.
     pub items: Vec<ItemKind>,
+    /// Empty keeps the taskbar's order.
+    pub order: Vec<ItemKind>,
     pub detail: PopupDetail,
     /// Logical pixels.
     pub width: u16,
     /// Background opacity, 0–100.
     pub opacity: u8,
+    /// `#RRGGBB`; `None` uses the theme's panel color.
+    pub background: Option<String>,
     pub hide_in_fullscreen: bool,
     /// Top-left corner in physical screen pixels; `None` is the top right
     /// of the primary monitor.
@@ -202,9 +206,11 @@ impl Default for WidgetConfig {
             lock_position: false,
             click_through: false,
             items: Vec::new(),
+            order: Vec::new(),
             detail: PopupDetail::Simple,
             width: 280,
             opacity: 90,
+            background: None,
             hide_in_fullscreen: true,
             position: None,
         }
@@ -879,12 +885,17 @@ impl Config {
         let w = &mut self.widget;
         w.width = w.width.clamp(*WIDGET_WIDTHS.start(), *WIDGET_WIDTHS.end());
         w.opacity = w.opacity.min(100);
-        let mut seen = Vec::new();
-        w.items.retain(|k| {
-            let new = !seen.contains(k);
-            seen.push(*k);
-            new
-        });
+        if w.background.as_deref().is_some_and(|c| !is_hex_color(c)) {
+            w.background = None;
+        }
+        for list in [&mut w.items, &mut w.order] {
+            let mut seen = Vec::new();
+            list.retain(|k| {
+                let new = !seen.contains(k);
+                seen.push(*k);
+                new
+            });
+        }
         for item in &mut self.items {
             let drawable = match item.style {
                 GraphStyle::MirrorBars => item.kind == ItemKind::Network,
@@ -1018,14 +1029,23 @@ impl Config {
         if !w.enabled {
             return Vec::new();
         }
-        if w.items.is_empty() {
-            return self.enabled_items();
-        }
-        self.items
-            .iter()
-            .map(|i| i.kind)
-            .filter(|k| w.items.contains(k))
-            .collect()
+        let items = if w.items.is_empty() {
+            self.enabled_items()
+        } else {
+            self.items
+                .iter()
+                .map(|i| i.kind)
+                .filter(|k| w.items.contains(k))
+                .collect()
+        };
+        self.in_widget_order(items)
+    }
+
+    /// `kinds` in the widget's order; those it has no place for keep theirs, last.
+    pub fn in_widget_order(&self, mut kinds: Vec<ItemKind>) -> Vec<ItemKind> {
+        let order = &self.widget.order;
+        kinds.sort_by_key(|k| order.iter().position(|o| o == k).unwrap_or(usize::MAX));
+        kinds
     }
 
     /// Items the sampler reads: those on the taskbar or the widget.
@@ -1086,6 +1106,24 @@ impl Config {
             let item = self.items.remove(from);
             self.items.insert(to, item);
         }
+    }
+
+    pub fn move_item_beside(&mut self, kind: ItemKind, target: ItemKind, after: bool) {
+        let at = |c: &Self, k| c.items.iter().position(|i| i.kind == k);
+        if let (Some(from), Some(to)) = (at(self, kind), at(self, target)) {
+            crate::reorder::reposition(&mut self.items, from, to, after);
+        }
+    }
+
+    /// Moves `kind` to just before or after `target` on the widget, from then
+    /// on keeping an order of its own.
+    pub fn move_widget_item_beside(&mut self, kind: ItemKind, target: ItemKind, after: bool) {
+        let mut order = self.in_widget_order(self.items.iter().map(|i| i.kind).collect());
+        let at = |k| order.iter().position(|o| *o == k);
+        if let (Some(from), Some(to)) = (at(kind), at(target)) {
+            crate::reorder::reposition(&mut order, from, to, after);
+        }
+        self.widget.order = order;
     }
 
     /// How much the popup for `kind` shows.
@@ -1865,6 +1903,50 @@ panel_opacity = 60
         assert_eq!(c.drive_letters(), [b'C', b'D']);
         assert_eq!(c.network.adapters, ["eth"]);
         assert_eq!(c.gpu.adapters.len(), MAX_GPUS);
+    }
+
+    #[test]
+    fn dropping_an_item_moves_it_beside_the_target() {
+        let mut c = Config::default();
+        c.move_item_beside(ItemKind::Cpu, ItemKind::Ram, true);
+        let enabled = c.enabled_items();
+        let at = |k| enabled.iter().position(|e| *e == k).unwrap();
+        assert_eq!(at(ItemKind::Cpu), at(ItemKind::Ram) + 1);
+        let before = c.items.iter().map(|i| i.kind).collect::<Vec<_>>();
+        c.move_item_beside(ItemKind::Cpu, ItemKind::Cpu, true);
+        assert_eq!(c.items.iter().map(|i| i.kind).collect::<Vec<_>>(), before);
+    }
+
+    #[test]
+    fn the_widget_keeps_its_own_order_and_leaves_the_taskbars_alone() {
+        let mut c = Config::default();
+        c.widget.enabled = true;
+        let taskbar = c.enabled_items();
+        c.move_widget_item_beside(taskbar[0], *taskbar.last().unwrap(), true);
+        let shown = c.widget_items();
+        assert_eq!(shown.last(), Some(&taskbar[0]));
+        assert_eq!(shown[0], taskbar[1]);
+        assert_eq!(c.enabled_items(), taskbar);
+
+        c.item_mut(ItemKind::Ping).unwrap().enabled = true;
+        assert!(c.widget_items().contains(&ItemKind::Ping));
+        assert_eq!(c.widget_items().len(), taskbar.len() + 1);
+    }
+
+    #[test]
+    fn sanitize_repairs_the_widgets_order_and_background() {
+        let mut c = Config::default();
+        c.widget.order = vec![ItemKind::Ram, ItemKind::Cpu, ItemKind::Ram];
+        c.widget.background = Some("red".into());
+        let c = c.sanitize();
+        assert_eq!(c.widget.order, [ItemKind::Ram, ItemKind::Cpu]);
+        assert_eq!(c.widget.background, None);
+        let mut kept = Config::default();
+        kept.widget.background = Some("#102030".into());
+        assert_eq!(
+            kept.sanitize().widget.background.as_deref(),
+            Some("#102030")
+        );
     }
 
     #[test]

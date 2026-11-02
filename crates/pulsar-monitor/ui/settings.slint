@@ -78,6 +78,7 @@ component HotkeyField inherits Rectangle {
 }
 
 export struct WidgetItemRow {
+    id: string,
     name: string,
     checked: bool,
     // 0 follows the widget; otherwise one more than an index into the
@@ -133,6 +134,7 @@ global Icons {
     out property <string> list: "\u{EA37}";
     out property <string> info: "\u{E946}";
     out property <string> up: "\u{E70E}";
+    out property <string> grip: "\u{E76F}";
     out property <string> down: "\u{E70D}";
     out property <string> folder: "\u{E8B7}";
     out property <string> chart: "\u{E9D9}";
@@ -168,6 +170,41 @@ component IconButton inherits Rectangle {
     touch := TouchArea {
         enabled: root.enabled;
         clicked => { root.clicked(); }
+    }
+}
+
+// The list whose row is being dragged: 0 none, 1 Items, 2 widget items.
+global RowDrag {
+    in-out property <int> list;
+    in-out property <int> from;
+    in-out property <int> over;
+    in-out property <bool> after;
+    in-out property <length> pointer-y;
+}
+
+component DragHandle inherits Rectangle {
+    callback started(length);
+    callback dragged(length);
+    callback released();
+    width: 24px;
+    height: 32px;
+    border-radius: 6px;
+    background: touch.has-hover ? Palette.foreground.transparentize(0.9) : transparent;
+    Icon {
+        text: Icons.grip;
+        font-size: 12px;
+        color: Palette.foreground.transparentize(0.3);
+    }
+    touch := TouchArea {
+        mouse-cursor: self.pressed ? grabbing : grab;
+        changed pressed => {
+            if (self.pressed) {
+                root.started(root.absolute-position.y + self.pressed-y);
+            } else {
+                root.released();
+            }
+        }
+        moved => { root.dragged(root.absolute-position.y + self.mouse-y); }
     }
 }
 
@@ -963,6 +1000,16 @@ component ColorField inherits HorizontalLayout {
 component Page inherits ScrollView {
     in property <string> title;
     property <int> arrivals: SearchJump.arrivals;
+    // Scrolls to rows beyond the view while one is dragged.
+    Timer {
+        interval: 30ms;
+        running: RowDrag.list != 0;
+        triggered => {
+            let y = RowDrag.pointer-y - root.absolute-position.y;
+            let step = y < 40px ? 12px : y > root.visible-height - 40px ? -12px : 0px;
+            root.content-y = Math.clamp(root.content-y + step, Math.min(0px, root.visible-height - root.content-height), 0px);
+        }
+    }
     changed arrivals => {
         let top = SearchJump.row-top - root.absolute-position.y - root.content-y;
         let centred = (root.visible-height - SearchJump.row-height) / 2 - top;
@@ -1190,6 +1237,10 @@ export component SettingsWindow inherits Window {
     in-out property <bool> widget-hide-in-fullscreen;
     in-out property <bool> widget-own-items;
     in-out property <[WidgetItemRow]> widget-items;
+    in-out property <bool> widget-order-custom;
+    in-out property <string> widget-background;
+    in property <color> widget-background-swatch;
+    in property <color> widget-background-default;
     in property <[string]> widget-item-styles;
     in property <[string]> cpu-widget-item-styles;
     in property <[string]> widget-item-details;
@@ -1227,6 +1278,8 @@ export component SettingsWindow inherits Window {
     callback limit-label(string) -> string;
     callback item-expanded(int, bool);
     callback move-item(int, bool);
+    callback drop-item(int, int, bool);
+    callback drop-widget-item(int, int, bool);
     callback save-diagnostics();
     callback open-config-folder();
     callback open-logs-folder();
@@ -1245,6 +1298,7 @@ export component SettingsWindow inherits Window {
     callback gpu-toggled(int, bool);
     callback adapter-toggled(int, bool);
     callback widget-item-toggled(int, bool);
+    callback move-widget-item(int, bool);
     // Row, which choice (0 style, 1 detail), new index.
     callback widget-item-choice(int, int, int);
     callback per-drive-selected();
@@ -1379,7 +1433,16 @@ export component SettingsWindow inherits Window {
                     wrap: word-wrap;
                 }
                 Card {
-                    for row[i] in root.items: VerticalLayout {
+                    for row[i] in root.items: Rectangle {
+                            property <int> drop-side: RowDrag.list == 1 && RowDrag.pointer-y >= self.absolute-position.y && RowDrag.pointer-y < self.absolute-position.y + self.height
+                                ? (RowDrag.pointer-y > self.absolute-position.y + self.height / 2 ? 2 : 1) : 0;
+                            changed drop-side => {
+                                if (self.drop-side != 0) {
+                                    RowDrag.over = i;
+                                    RowDrag.after = self.drop-side == 2;
+                                }
+                            }
+                        VerticalLayout {
                         if i > 0: Divider { }
                         SettingRow {
                             title: row.name;
@@ -1395,6 +1458,20 @@ export component SettingsWindow inherits Window {
                                 placeholder: @tr("Default");
                                 field-width: 120px;
                                 edited(text) => { root.item-color(i, text); }
+                            }
+                            DragHandle {
+                                started(y) => {
+                                    RowDrag.from = i;
+                                    RowDrag.over = i;
+                                    RowDrag.after = false;
+                                    RowDrag.pointer-y = y;
+                                    RowDrag.list = 1;
+                                }
+                                dragged(y) => { RowDrag.pointer-y = y; }
+                                released => {
+                                    RowDrag.list = 0;
+                                    root.drop-item(RowDrag.from, RowDrag.over, RowDrag.after);
+                                }
                             }
                             IconButton {
                                 icon: Icons.up;
@@ -1629,6 +1706,17 @@ export component SettingsWindow inherits Window {
                                     }
                                 }
                             }
+                        }
+                        }
+                        Rectangle {
+                            visible: RowDrag.list == 1 && RowDrag.from == i;
+                            background: Palette.foreground.transparentize(0.92);
+                        }
+                        Rectangle {
+                            visible: RowDrag.list == 1 && RowDrag.over == i && RowDrag.from != i;
+                            y: RowDrag.after ? parent.height - 2px : 0;
+                            height: 2px;
+                            background: Palette.accent-background;
                         }
                     }
                 }
@@ -2371,6 +2459,17 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
+                        title: @tr("Background color");
+                        description: @tr("Empty uses the theme's panel color.");
+                        ColorField {
+                            text <=> root.widget-background;
+                            swatch: root.widget-background-swatch;
+                            fallback: root.widget-background-default;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
                         title: @tr("Background opacity");
                         description: "\{Math.round(root.widget-opacity)}%";
                         Slider {
@@ -2386,24 +2485,57 @@ export component SettingsWindow inherits Window {
                 Card {
                     SettingRow {
                         title: @tr("Choose items");
-                        description: @tr("Off shows the same items as the taskbar.");
+                        description: @tr("Off shows the same items as the taskbar. To reorder, drag a handle here or Shift+drag an item on the widget.");
                         Switch {
                             checked <=> root.widget-own-items;
                             toggled => { root.changed(); }
                         }
                     }
-                    for row[i] in root.widget-items: VerticalLayout {
+                    for row[i] in root.widget-items: Rectangle {
+                            property <int> drop-side: RowDrag.list == 2 && RowDrag.pointer-y >= self.absolute-position.y && RowDrag.pointer-y < self.absolute-position.y + self.height
+                                ? (RowDrag.pointer-y > self.absolute-position.y + self.height / 2 ? 2 : 1) : 0;
+                            changed drop-side => {
+                                if (self.drop-side != 0) {
+                                    RowDrag.over = i;
+                                    RowDrag.after = self.drop-side == 2;
+                                }
+                            }
+                        VerticalLayout {
                         Divider { }
                         SettingRow {
                             title: row.name;
+                            DragHandle {
+                                started(y) => {
+                                    RowDrag.from = i;
+                                    RowDrag.over = i;
+                                    RowDrag.after = false;
+                                    RowDrag.pointer-y = y;
+                                    RowDrag.list = 2;
+                                }
+                                dragged(y) => { RowDrag.pointer-y = y; }
+                                released => {
+                                    RowDrag.list = 0;
+                                    root.drop-widget-item(RowDrag.from, RowDrag.over, RowDrag.after);
+                                }
+                            }
+                            IconButton {
+                                icon: Icons.up;
+                                enabled: i > 0;
+                                clicked => { root.move-widget-item(i, true); }
+                            }
+                            IconButton {
+                                icon: Icons.down;
+                                enabled: i < root.widget-items.length - 1;
+                                clicked => { root.move-widget-item(i, false); }
+                            }
                             ComboBox {
-                                width: 150px;
+                                width: 130px;
                                 model: row.is-cpu ? root.cpu-widget-item-styles : root.widget-item-styles;
                                 current-index: row.style;
                                 selected => { root.widget-item-choice(i, 0, self.current-index); }
                             }
                             ComboBox {
-                                width: 150px;
+                                width: 110px;
                                 model: root.widget-item-details;
                                 current-index: row.detail;
                                 selected => { root.widget-item-choice(i, 1, self.current-index); }
@@ -2413,6 +2545,17 @@ export component SettingsWindow inherits Window {
                                 checked: row.checked;
                                 toggled => { root.widget-item-toggled(i, self.checked); }
                             }
+                        }
+                        }
+                        Rectangle {
+                            visible: RowDrag.list == 2 && RowDrag.from == i;
+                            background: Palette.foreground.transparentize(0.92);
+                        }
+                        Rectangle {
+                            visible: RowDrag.list == 2 && RowDrag.over == i && RowDrag.from != i;
+                            y: RowDrag.after ? parent.height - 2px : 0;
+                            height: 2px;
+                            background: Palette.accent-background;
                         }
                     }
                 }

@@ -2257,6 +2257,14 @@ msgid "Pixels at 100 % scaling."
 msgstr "배율 100% 기준 픽셀입니다."
 
 #: ui/settings.slint
+msgid "Background color"
+msgstr "배경색"
+
+#: ui/settings.slint
+msgid "Empty uses the theme's panel color."
+msgstr "비워 두면 테마의 패널 색을 사용합니다."
+
+#: ui/settings.slint
 msgid "Background opacity"
 msgstr "배경 불투명도"
 
@@ -2265,8 +2273,8 @@ msgid "Choose items"
 msgstr "항목 선택"
 
 #: ui/settings.slint
-msgid "Off shows the same items as the taskbar."
-msgstr "끄면 작업 표시줄과 같은 항목을 표시합니다."
+msgid "Off shows the same items as the taskbar. To reorder, drag a handle here or Shift+drag an item on the widget."
+msgstr "끄면 작업 표시줄과 같은 항목을 표시합니다. 순서를 바꾸려면 여기에서 핸들을 끌거나 위젯에서 Shift를 누른 채 항목을 끄세요."
 
 #: ui/settings.slint
 msgid "Temperatures and power"

@@ -49,6 +49,7 @@ const MIN_COMPANION_RING_DIP: f32 = 24.0;
 const SEGMENTS: usize = 10;
 const SEGMENT_DIP: f32 = 6.0;
 const BOLT_DIP: f32 = 10.0;
+const DRAGGED_ALPHA: f32 = 0.2;
 const CORE_LETTER_DIP: f32 = 8.0;
 const MIN_CORE_LETTER_PITCH_DIP: f32 = 6.0;
 /// A charging bolt, as fractions of its box.
@@ -140,6 +141,7 @@ pub struct Frame<'a> {
     pub styles: &'a [(ItemKind, Option<GraphStyle>)],
     /// Graph mode: items that show a trend arrow.
     pub trends: &'a [ItemKind],
+    pub reorder: Option<Reorder>,
     pub network_floor: NetworkFloor,
 }
 
@@ -169,6 +171,12 @@ impl Frame<'_> {
             .map(|v| self.network_floor.value(key, v));
         self.palette.value_at(kind, part, value)
     }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Reorder {
+    pub dragged: ItemKind,
+    pub marker: Option<Rect>,
 }
 
 pub fn trend_items(config: &pulsar_core::config::Config) -> Vec<ItemKind> {
@@ -241,8 +249,29 @@ impl Renderer {
             match frame.mode {
                 DisplayMode::Graph => r.draw_graph_cells(frame, text),
                 DisplayMode::Text => r.draw_text_cells(frame, text),
+            }?;
+            if let Some(reorder) = frame.reorder {
+                let cells = frame.layout.cells.iter().map(|c| (c.rect, c.kind));
+                r.draw_reorder(frame.palette, cells, reorder)?;
             }
+            Ok(())
         })
+    }
+
+    /// Lifts the dragged item's cells and marks where it would go.
+    pub fn draw_reorder(
+        &self,
+        palette: &Palette,
+        cells: impl Iterator<Item = (Rect, ItemKind)>,
+        reorder: Reorder,
+    ) -> Result<()> {
+        for (rect, _) in cells.filter(|(_, kind)| *kind == reorder.dragged) {
+            self.fill_rect(rect, palette.text.with_alpha(DRAGGED_ALPHA))?;
+        }
+        if let Some(marker) = reorder.marker {
+            self.fill_rect(marker, palette.text)?;
+        }
+        Ok(())
     }
 
     /// Binds `surface`, clears it to `clear`, runs `draw`, and ends the frame,
@@ -1508,6 +1537,7 @@ mod tests {
             graph_inline: config.display.graph_inline && !config.display.vertical_labels,
             styles: &graph_styles(config),
             trends: &trend_items(config),
+            reorder: None,
             network_floor: NetworkFloor::new(&config.network),
         };
         renderer.draw(&surface, &frame, &text).unwrap();
@@ -1713,6 +1743,7 @@ mod tests {
             graph_inline: config.display.graph_inline && !layout.vertical,
             styles: &graph_styles(&config),
             trends: &trend_items(&config),
+            reorder: None,
             network_floor: NetworkFloor::new(&config.network),
         };
         Renderer::new()
@@ -1914,6 +1945,7 @@ mod tests {
             graph_inline: config.display.graph_inline,
             styles: &graph_styles(&config),
             trends: &trend_items(&config),
+            reorder: None,
             network_floor: NetworkFloor::default(),
         };
         Renderer::new()

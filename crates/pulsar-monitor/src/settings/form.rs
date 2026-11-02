@@ -184,6 +184,9 @@ pub struct Form {
     /// Off shows the taskbar's items.
     pub widget_own_items: bool,
     pub widget_items: Vec<ItemKind>,
+    /// Empty keeps the taskbar's order.
+    pub widget_order: Vec<ItemKind>,
+    pub widget_background: String,
 }
 
 /// `#RRGGBB` → `(r, g, b)`, for the color swatches; anything else is `None`.
@@ -442,6 +445,8 @@ pub fn to_form(c: &Config) -> Form {
         widget_opacity: i32::from(c.widget.opacity),
         widget_hide_in_fullscreen: c.widget.hide_in_fullscreen,
         widget_own_items: !c.widget.items.is_empty(),
+        widget_order: c.widget.order.clone(),
+        widget_background: c.widget.background.clone().unwrap_or_default(),
         // Choosing items starts from the taskbar's.
         widget_items: if c.widget.items.is_empty() {
             c.enabled_items()
@@ -730,6 +735,13 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     } else {
         Vec::new()
     };
+    w.background = non_empty(&f.widget_background);
+    let taskbar_order = f.items.iter().map(|r| r.kind);
+    w.order = if f.widget_order.iter().copied().eq(taskbar_order) {
+        Vec::new()
+    } else {
+        f.widget_order.clone()
+    };
     c.sanitize()
 }
 
@@ -970,6 +982,21 @@ mod tests {
         assert_eq!(out.widget.items, [ItemKind::Ping]);
         assert_eq!(out.widget.width, 600);
         assert_eq!(to_form(&out).widget_items, [ItemKind::Ping]);
+        assert_eq!(out.widget.background, None);
+        assert!(out.widget.order.is_empty());
+
+        let mut f = to_form(&out);
+        f.widget_background = "#102030".into();
+        f.widget_order = f.items.iter().rev().map(|r| r.kind).collect();
+        let reordered = to_config(&f, &out);
+        assert_eq!(reordered.widget.background.as_deref(), Some("#102030"));
+        assert_eq!(reordered.widget.order, f.widget_order);
+
+        f.widget_order = f.items.iter().map(|r| r.kind).collect();
+        assert!(
+            to_config(&f, &out).widget.order.is_empty(),
+            "the taskbar's own order goes back to following it"
+        );
     }
 
     #[test]

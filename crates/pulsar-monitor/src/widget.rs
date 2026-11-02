@@ -26,6 +26,7 @@ use windows::core::{BOOL, Result, w};
 
 use crate::popup::content::{Block, PopupContent};
 use crate::popup::layout::ellipsize;
+use crate::render::Reorder;
 use crate::render::{CoreMarks, Renderer, Surface};
 use crate::taskbar::placement::Rect32;
 use crate::text::Text;
@@ -170,7 +171,9 @@ impl Widget {
             r.fill_rounded(
                 inner,
                 7.0 * d.scale,
-                p.popup.with_alpha(look.opacity.max(1.0 / 255.0)),
+                look.background
+                    .unwrap_or(p.popup)
+                    .with_alpha(look.opacity.max(1.0 / 255.0)),
             )?;
             for placed in &plan.placed {
                 ctx.section(r, &sections[placed.index], placed.rect, placed.value_w)?;
@@ -184,6 +187,13 @@ impl Widget {
                     r.fill_rounded(line, 0.0, p.popup_border)?;
                 }
             }
+            if let Some(reorder) = look.reorder {
+                let cells = plan
+                    .placed
+                    .iter()
+                    .map(|c| (c.rect, sections[c.index].content.kind));
+                r.draw_reorder(p, cells, reorder)?;
+            }
             Ok(())
         })?;
         let (x, y) = at(w, h);
@@ -195,6 +205,10 @@ impl Widget {
         }
         self.shown_at = Some((x, y));
         Ok(())
+    }
+
+    pub fn cells(&self) -> &[(Rect, ItemKind)] {
+        &self.hits
     }
 
     /// The item drawn at a point in the window.
@@ -307,6 +321,9 @@ pub struct Look {
     pub max_h: f32,
     pub font_px: f32,
     pub opacity: f32,
+    /// `None` uses the theme's panel color.
+    pub background: Option<Color>,
+    pub reorder: Option<Reorder>,
     pub scale: f32,
     pub network_floor: NetworkFloor,
 }
@@ -1127,6 +1144,8 @@ mod tests {
             max_h: 1000.0,
             font_px: 12.0,
             opacity: 1.0,
+            background: None,
+            reorder: None,
             scale: 1.0,
             network_floor: NetworkFloor::default(),
         };

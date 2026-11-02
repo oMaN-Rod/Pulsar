@@ -2258,6 +2258,14 @@ msgid "Pixels at 100 % scaling."
 msgstr "100% 缩放时的像素。"
 
 #: ui/settings.slint
+msgid "Background color"
+msgstr "背景颜色"
+
+#: ui/settings.slint
+msgid "Empty uses the theme's panel color."
+msgstr "留空则使用主题的面板颜色。"
+
+#: ui/settings.slint
 msgid "Background opacity"
 msgstr "背景不透明度"
 
@@ -2266,8 +2274,8 @@ msgid "Choose items"
 msgstr "选择项目"
 
 #: ui/settings.slint
-msgid "Off shows the same items as the taskbar."
-msgstr "关闭时显示与任务栏相同的项目。"
+msgid "Off shows the same items as the taskbar. To reorder, drag a handle here or Shift+drag an item on the widget."
+msgstr "关闭时显示与任务栏相同的项目。要调整顺序，请在此处拖动手柄，或在小组件上按住 Shift 拖动项目。"
 
 #: ui/settings.slint
 msgid "Temperatures and power"

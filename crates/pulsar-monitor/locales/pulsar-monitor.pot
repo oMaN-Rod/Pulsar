@@ -2255,6 +2255,14 @@ msgid "Pixels at 100 % scaling."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Background color"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Empty uses the theme's panel color."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Background opacity"
 msgstr ""
 
@@ -2263,7 +2271,7 @@ msgid "Choose items"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Off shows the same items as the taskbar."
+msgid "Off shows the same items as the taskbar. To reorder, drag a handle here or Shift+drag an item on the widget."
 msgstr ""
 
 #: ui/settings.slint
