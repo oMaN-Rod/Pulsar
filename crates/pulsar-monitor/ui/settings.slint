@@ -605,10 +605,13 @@ component ColorField inherits HorizontalLayout {
                 hue <=> root.hue;
                 edited => { root.picked(); }
             }
-            HorizontalLayout {
-                spacing: 6px;
-                alignment: start;
-                for c in ColorUtil.swatches: Rectangle {
+            Rectangle {
+                property <int> columns: 9;
+                property <length> step: 27px;
+                height: Math.ceil(ColorUtil.swatches.length / self.columns) * self.step - 7px;
+                for c[i] in ColorUtil.swatches: Rectangle {
+                    x: Math.mod(i, parent.columns) * parent.step;
+                    y: Math.floor(i / parent.columns) * parent.step;
                     width: 20px;
                     height: 20px;
                     border-radius: 4px;
