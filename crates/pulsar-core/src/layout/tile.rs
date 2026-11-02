@@ -44,6 +44,7 @@ pub enum TileGraphic {
     Cores(u16),
     /// One cell per logical processor.
     Heat(u16),
+    /// A level or sample strip under or beside the text.
     Segments,
     Spark,
 }
@@ -54,11 +55,16 @@ impl TileGraphic {
             GraphStyle::Ring => Self::Ring,
             GraphStyle::Cores => Self::Cores(cores.saturating_add(u16::from(hybrid))),
             GraphStyle::Heat => Self::Heat(cores),
-            GraphStyle::Segments => Self::Segments,
+            GraphStyle::Segments
+            | GraphStyle::HeatStrip
+            | GraphStyle::Bullet
+            | GraphStyle::RangeRail => Self::Segments,
             GraphStyle::Spark => Self::Spark,
-            GraphStyle::Area | GraphStyle::Line | GraphStyle::Bars | GraphStyle::Meter => {
-                Self::Behind
-            }
+            GraphStyle::Area
+            | GraphStyle::Line
+            | GraphStyle::Bars
+            | GraphStyle::Meter
+            | GraphStyle::DotMatrix => Self::Behind,
         }
     }
 }

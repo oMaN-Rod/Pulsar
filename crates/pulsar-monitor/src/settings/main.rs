@@ -473,7 +473,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 color: r.color.as_str().into(),
                 swatch: rgb(form::item_rgb(r.kind, &r.color, choices.theme())),
                 style: r.style,
-                is_cpu: r.kind == ItemKind::Cpu,
+                style_set: names::style_set(r.kind) as i32,
                 color_mode: r.color_mode,
                 popup: r.popup,
                 popup_width: r.popup_width,
@@ -713,6 +713,18 @@ fn style_thumb(style: Option<GraphStyle>) -> &'static str {
         Some(GraphStyle::Heat) => {
             "M4 6 L12 6 M18 6 L26 6 M32 6 L40 6 M46 6 L54 6 M4 17 L12 17 M18 17 L26 17 M32 17 L40 17 M46 17 L54 17 M4 28 L12 28 M18 28 L26 28 M32 28 L40 28 M46 28 L54 28"
         }
+        Some(GraphStyle::HeatStrip) => {
+            "M4 11 L4 23 M11 11 L11 23 M18 11 L18 23 M25 11 L25 23 M32 11 L32 23 M39 11 L39 23 M46 11 L46 23 M53 11 L53 23 M60 11 L60 23"
+        }
+        Some(GraphStyle::DotMatrix) => {
+            "M6 28 L6 31 M6 22 L6 25 M16 28 L16 31 M16 22 L16 25 M16 16 L16 19 M16 10 L16 13 M26 28 L26 31 M36 28 L36 31 M36 22 L36 25 M36 16 L36 19 M46 28 L46 31 M46 22 L46 25 M46 16 L46 19 M46 10 L46 13 M46 4 L46 7 M56 28 L56 31 M56 22 L56 25"
+        }
+        Some(GraphStyle::Bullet) => {
+            "M2 12 L62 12 L62 22 L2 22 Z M2 12 L38 12 L38 22 L2 22 Z M50 7 L53 7 L53 27 L50 27 Z"
+        }
+        Some(GraphStyle::RangeRail) => {
+            "M2 16 L62 16 L62 18 L2 18 Z M16 12 L48 12 L48 22 L16 22 Z M38 8 L40 8 L40 26 L38 26 Z"
+        }
         None => "",
     }
 }
@@ -728,24 +740,33 @@ fn style_stroke(style: Option<GraphStyle>) -> (f32, bool) {
         Some(GraphStyle::Ring) => (4.0, false),
         Some(GraphStyle::Cores) => (5.0, false),
         Some(GraphStyle::Heat) => (8.0, false),
+        Some(GraphStyle::HeatStrip) => (4.0, false),
+        Some(GraphStyle::DotMatrix) => (4.0, false),
+        Some(GraphStyle::Bullet | GraphStyle::RangeRail) => (1.0, true),
         None => (0.0, false),
     }
 }
 
-fn style_choices(kind: ItemKind) -> slint::ModelRc<StyleChoice> {
-    let choices: Vec<StyleChoice> = names::styles_for(kind)
+fn style_sets() -> slint::ModelRc<slint::ModelRc<StyleChoice>> {
+    let sets: Vec<slint::ModelRc<StyleChoice>> = names::STYLE_SETS
         .iter()
-        .map(|&style| {
-            let (stroke, filled) = style_stroke(style);
-            StyleChoice {
-                name: names::style_name(style).into(),
-                thumb: style_thumb(style).into(),
-                stroke,
-                filled,
-            }
+        .map(|set| {
+            let choices: Vec<StyleChoice> = set
+                .iter()
+                .map(|&style| {
+                    let (stroke, filled) = style_stroke(style);
+                    StyleChoice {
+                        name: names::style_name(style).into(),
+                        thumb: style_thumb(style).into(),
+                        stroke,
+                        filled,
+                    }
+                })
+                .collect();
+            slint::ModelRc::new(slint::VecModel::from(choices))
         })
         .collect();
-    slint::ModelRc::new(slint::VecModel::from(choices))
+    slint::ModelRc::new(slint::VecModel::from(sets))
 }
 
 fn widget_style_names(kind: ItemKind) -> slint::ModelRc<SharedString> {
@@ -764,8 +785,7 @@ fn widget_style_names(kind: ItemKind) -> slint::ModelRc<SharedString> {
 fn localize(ui: &SettingsWindow) {
     ui.set_window_title(ipc::settings_title().into());
     ui.set_ui_font(language::ui_font().into());
-    ui.set_style_choices(style_choices(ItemKind::Ram));
-    ui.set_cpu_style_choices(style_choices(ItemKind::Cpu));
+    ui.set_style_sets(style_sets());
     ui.set_color_modes(strings(
         names::COLOR_MODES
             .iter()

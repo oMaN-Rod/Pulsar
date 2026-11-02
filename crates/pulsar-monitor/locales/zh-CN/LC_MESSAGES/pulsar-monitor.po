@@ -1066,6 +1066,22 @@ msgid "Heat cells"
 msgstr "热力格"
 
 #: src/names.rs
+msgid "Heat strip"
+msgstr "热度条"
+
+#: src/names.rs
+msgid "Dot matrix"
+msgstr "点阵"
+
+#: src/names.rs
+msgid "Bullet meter"
+msgstr "带标记的电平表"
+
+#: src/names.rs
+msgid "Range rail"
+msgstr "范围轨道"
+
+#: src/names.rs
 msgid "Item color"
 msgstr "监控项颜色"
 

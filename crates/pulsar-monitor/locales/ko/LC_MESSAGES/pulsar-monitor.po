@@ -1065,6 +1065,22 @@ msgid "Heat cells"
 msgstr "히트 셀"
 
 #: src/names.rs
+msgid "Heat strip"
+msgstr "히트 스트립"
+
+#: src/names.rs
+msgid "Dot matrix"
+msgstr "도트 매트릭스"
+
+#: src/names.rs
+msgid "Bullet meter"
+msgstr "불릿 미터"
+
+#: src/names.rs
+msgid "Range rail"
+msgstr "범위 레일"
+
+#: src/names.rs
 msgid "Item color"
 msgstr "항목 색"
 

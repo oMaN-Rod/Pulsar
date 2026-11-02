@@ -183,6 +183,64 @@ pub fn bar_rects(
 }
 
 /// How full a level meter is for `value` against `max`, 0–1.
+pub fn heat_strip_cells(history: &History, rect: Rect, w: f32, gap: f32) -> Vec<(Rect, f64)> {
+    bar_rects(history, rect, 1.0, w, gap)
+        .into_iter()
+        .map(|(bar, value)| {
+            let cell = Rect {
+                y: rect.y,
+                h: rect.h,
+                ..bar
+            };
+            (cell, value)
+        })
+        .collect()
+}
+
+/// The lit cells with their rows from the bottom, and how many rows there are.
+pub fn dot_cells(
+    history: &History,
+    rect: Rect,
+    max: f64,
+    pitch: f32,
+    cell: f32,
+    max_rows: usize,
+) -> (Vec<(Rect, usize)>, usize) {
+    if history.is_empty() || max <= 0.0 || rect.w < cell || rect.h < cell {
+        return (Vec::new(), 0);
+    }
+    let gap = pitch - cell;
+    let columns = (((rect.w + gap) / pitch).floor() as usize).min(history.capacity().max(1));
+    let rows = (((rect.h + gap) / pitch).floor() as usize).clamp(1, max_rows.max(1));
+    let values: Vec<f64> = history.iter().collect();
+    let shown = &values[values.len().saturating_sub(columns)..];
+    let (right, bottom) = ((rect.x + rect.w).round(), (rect.y + rect.h).round());
+    let mut cells = Vec::with_capacity(shown.len() * rows);
+    for (from_right, &value) in shown.iter().rev().enumerate() {
+        let lit = (meter_fraction(value, max) * rows as f32).round() as usize;
+        for row in 0..lit {
+            let area = Rect {
+                x: right - cell - from_right as f32 * pitch,
+                y: bottom - cell - row as f32 * pitch,
+                w: cell,
+                h: cell,
+            };
+            cells.push((area, row));
+        }
+    }
+    (cells, rows)
+}
+
+pub fn history_range(history: &History) -> Option<(f64, f64)> {
+    history
+        .iter()
+        .filter(|v| !v.is_nan())
+        .fold(None, |range, v| match range {
+            None => Some((v, v)),
+            Some((low, high)) => Some((f64::min(low, v), f64::max(high, v))),
+        })
+}
+
 pub fn meter_fraction(value: f64, max: f64) -> f32 {
     if max <= 0.0 || !value.is_finite() {
         return 0.0;
@@ -801,6 +859,60 @@ mod tests {
         };
         assert_eq!(bar_rects(&h, rect, 100.0, 2.0, 1.0).len(), 1);
         assert!(bar_rects(&History::new(5), rect, 100.0, 2.0, 1.0).is_empty());
+    }
+
+    fn history_of(samples: &[f64]) -> History {
+        History::from_samples(samples.len().max(1), samples.iter().copied())
+    }
+
+    const DOT_AREA: Rect = Rect {
+        x: 0.0,
+        y: 0.0,
+        w: 15.0,
+        h: 15.0,
+    };
+
+    #[test]
+    fn a_heat_strip_has_a_full_height_cell_per_reading() {
+        let area = Rect {
+            x: 0.0,
+            y: 10.0,
+            w: 8.0,
+            h: 6.0,
+        };
+        let cells = heat_strip_cells(&history_of(&[5.0, f64::NAN, 90.0]), area, 2.0, 1.0);
+        assert_eq!(cells.len(), 2);
+        for (cell, _) in &cells {
+            assert_eq!((cell.y, cell.h), (10.0, 6.0));
+        }
+        assert_eq!(cells[1].1, 90.0);
+    }
+
+    #[test]
+    fn a_dot_matrix_lights_only_as_many_cells_as_the_load_needs() {
+        let history = history_of(&[0.0, 50.0, 100.0]);
+        let (cells, rows) = dot_cells(&history, DOT_AREA, 100.0, 4.0, 3.0, 8);
+        assert_eq!(rows, 4);
+        assert_eq!(cells.len(), 2 + 4);
+        let newest = cells[0].0;
+        assert_eq!((newest.x, newest.y), (12.0, 12.0));
+    }
+
+    #[test]
+    fn a_dot_matrix_stops_at_its_row_limit_and_skips_gaps() {
+        let (cells, rows) = dot_cells(&history_of(&[100.0]), DOT_AREA, 100.0, 4.0, 3.0, 2);
+        assert_eq!((cells.len(), rows), (2, 2));
+        let (cells, _) = dot_cells(&history_of(&[f64::NAN]), DOT_AREA, 100.0, 4.0, 3.0, 8);
+        assert!(cells.is_empty());
+    }
+
+    #[test]
+    fn history_range_ignores_gaps() {
+        assert_eq!(
+            history_range(&history_of(&[40.0, f64::NAN, 10.0, 70.0])),
+            Some((10.0, 70.0))
+        );
+        assert_eq!(history_range(&history_of(&[f64::NAN])), None);
     }
 
     #[test]

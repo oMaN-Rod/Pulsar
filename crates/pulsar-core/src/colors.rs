@@ -1,7 +1,7 @@
 //! Default item colors, shared by the overlay and the settings window.
 
 use crate::config::LoadThresholds;
-use crate::layout::CellPart;
+use crate::layout::{CellPart, part_metric};
 use crate::metric::{ItemKind, Unit};
 
 pub type Rgb = (u8, u8, u8);
@@ -39,13 +39,7 @@ pub enum Load {
 /// The load a value represents; `None` for units without a natural scale,
 /// such as transfer rates.
 pub fn load_level(unit: Unit, value: f64, thresholds: &LoadThresholds) -> Option<Load> {
-    let [moderate, high, critical] = match unit {
-        Unit::Percent => thresholds.percent,
-        Unit::Celsius => thresholds.celsius,
-        Unit::Millis => thresholds.millis,
-        _ => return None,
-    }
-    .map(f64::from);
+    let [moderate, high, critical] = levels(unit, thresholds)?;
     if !value.is_finite() {
         return None;
     }
@@ -58,6 +52,26 @@ pub fn load_level(unit: Unit, value: f64, thresholds: &LoadThresholds) -> Option
     } else {
         Load::Low
     })
+}
+
+pub fn levels(unit: Unit, thresholds: &LoadThresholds) -> Option<[f64; 3]> {
+    let levels = match unit {
+        Unit::Percent => thresholds.percent,
+        Unit::Celsius => thresholds.celsius,
+        Unit::Millis => thresholds.millis,
+        _ => return None,
+    };
+    Some(levels.map(f64::from))
+}
+
+/// Whether a higher reading of `kind` means more load. A full battery does not.
+pub fn has_thresholds(kind: ItemKind) -> bool {
+    kind != ItemKind::Battery
+        && levels(
+            part_metric(kind, CellPart::Main).unit(),
+            &LoadThresholds::default(),
+        )
+        .is_some()
 }
 
 /// Green to red, darker on a light taskbar so it stays readable.
@@ -122,6 +136,15 @@ mod tests {
         for (i, a) in all.iter().enumerate() {
             assert!(!all[i + 1..].contains(a), "{a:?} repeats");
         }
+    }
+
+    #[test]
+    fn only_items_where_more_means_busier_have_thresholds() {
+        assert!(has_thresholds(ItemKind::Cpu));
+        assert!(has_thresholds(ItemKind::CpuTemp));
+        assert!(has_thresholds(ItemKind::Ping));
+        assert!(!has_thresholds(ItemKind::Network));
+        assert!(!has_thresholds(ItemKind::Battery));
     }
 
     #[test]

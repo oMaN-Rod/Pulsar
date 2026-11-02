@@ -38,6 +38,14 @@ pub enum GraphStyle {
     Cores,
     /// A cell per logical processor, colored by load, beside the text; CPU only.
     Heat,
+    /// A cell per sample, colored by load, under or beside the text.
+    HeatStrip,
+    /// Bars of lit cells behind the text.
+    DotMatrix,
+    /// A level with its recent peak and thresholds, under or beside the text.
+    Bullet,
+    /// The recent low to high with the latest value, under or beside the text.
+    RangeRail,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]

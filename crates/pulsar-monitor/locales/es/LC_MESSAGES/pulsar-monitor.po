@@ -1065,6 +1065,22 @@ msgid "Heat cells"
 msgstr "Celdas de calor"
 
 #: src/names.rs
+msgid "Heat strip"
+msgstr "Franja de calor"
+
+#: src/names.rs
+msgid "Dot matrix"
+msgstr "Matriz de puntos"
+
+#: src/names.rs
+msgid "Bullet meter"
+msgstr "Medidor con marcas"
+
+#: src/names.rs
+msgid "Range rail"
+msgstr "Riel de rango"
+
+#: src/names.rs
 msgid "Item color"
 msgstr "Color del elemento"
 

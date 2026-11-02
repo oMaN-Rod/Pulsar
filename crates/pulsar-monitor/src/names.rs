@@ -28,8 +28,7 @@ pub fn item_msgid(kind: ItemKind) -> &'static str {
     }
 }
 
-/// Graph styles in menu order; `None` is text only.
-pub const STYLES: [Option<GraphStyle>; 10] = [
+const CPU_STYLES: [Option<GraphStyle>; 14] = [
     Some(GraphStyle::Area),
     Some(GraphStyle::Line),
     Some(GraphStyle::Bars),
@@ -39,11 +38,14 @@ pub const STYLES: [Option<GraphStyle>; 10] = [
     Some(GraphStyle::Ring),
     Some(GraphStyle::Cores),
     Some(GraphStyle::Heat),
+    Some(GraphStyle::HeatStrip),
+    Some(GraphStyle::DotMatrix),
+    Some(GraphStyle::Bullet),
+    Some(GraphStyle::RangeRail),
     None,
 ];
 
-/// `STYLES` without the ones only the CPU can draw.
-const SHARED_STYLES: [Option<GraphStyle>; 8] = [
+const PLAIN_STYLES: [Option<GraphStyle>; 12] = [
     Some(GraphStyle::Area),
     Some(GraphStyle::Line),
     Some(GraphStyle::Bars),
@@ -51,15 +53,25 @@ const SHARED_STYLES: [Option<GraphStyle>; 8] = [
     Some(GraphStyle::Segments),
     Some(GraphStyle::Spark),
     Some(GraphStyle::Ring),
+    Some(GraphStyle::HeatStrip),
+    Some(GraphStyle::DotMatrix),
+    Some(GraphStyle::Bullet),
+    Some(GraphStyle::RangeRail),
     None,
 ];
 
-pub fn styles_for(kind: ItemKind) -> &'static [Option<GraphStyle>] {
-    if kind == ItemKind::Cpu {
-        &STYLES
-    } else {
-        &SHARED_STYLES
+/// In menu order; `None` is text only.
+pub const STYLE_SETS: [&[Option<GraphStyle>]; 2] = [&CPU_STYLES, &PLAIN_STYLES];
+
+pub fn style_set(kind: ItemKind) -> usize {
+    match kind {
+        ItemKind::Cpu => 0,
+        _ => 1,
     }
+}
+
+pub fn styles_for(kind: ItemKind) -> &'static [Option<GraphStyle>] {
+    STYLE_SETS[style_set(kind)]
 }
 
 /// The widget's styles for `kind`; the first four are for every item.
@@ -82,6 +94,10 @@ pub fn style_name(style: Option<GraphStyle>) -> &'static str {
         Some(GraphStyle::Spark) => tr!("Spark underline"),
         Some(GraphStyle::Cores) => tr!("Core bars"),
         Some(GraphStyle::Heat) => tr!("Heat cells"),
+        Some(GraphStyle::HeatStrip) => tr!("Heat strip"),
+        Some(GraphStyle::DotMatrix) => tr!("Dot matrix"),
+        Some(GraphStyle::Bullet) => tr!("Bullet meter"),
+        Some(GraphStyle::RangeRail) => tr!("Range rail"),
         None => tr!("Text only"),
     }
 }
@@ -133,12 +149,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn items_list_only_the_styles_they_can_draw() {
+        let lists = |kind, style| styles_for(kind).contains(&Some(style));
+        assert!(!lists(ItemKind::Ram, GraphStyle::Heat));
+    }
+
+    #[test]
     fn every_item_and_choice_has_a_name() {
         for kind in ItemKind::ALL {
             assert!(!item_name(kind).is_empty());
         }
-        for style in STYLES {
-            assert!(!style_name(style).is_empty());
+        for style in STYLE_SETS.into_iter().flatten() {
+            assert!(!style_name(*style).is_empty());
         }
         for mode in COLOR_MODES {
             assert!(!color_mode_name(mode).is_empty());

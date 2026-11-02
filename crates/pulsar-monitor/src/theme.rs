@@ -302,6 +302,23 @@ impl Palette {
         }
     }
 
+    /// `value`'s load color whatever the item's color mode, if it has a scale.
+    pub fn level_color(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Option<Color> {
+        if !colors::has_thresholds(kind) {
+            return None;
+        }
+        let unit = metric_for(kind, part).unit();
+        let level = colors::load_level(unit, value?, &self.load_thresholds)?;
+        Some(self.load_color(level))
+    }
+
+    pub fn level_marks(&self, kind: ItemKind, part: CellPart) -> Option<[f64; 3]> {
+        if !colors::has_thresholds(kind) {
+            return None;
+        }
+        colors::levels(metric_for(kind, part).unit(), &self.load_thresholds)
+    }
+
     pub fn graph(&self, kind: ItemKind, part: CellPart) -> Color {
         let find = |part| {
             self.items

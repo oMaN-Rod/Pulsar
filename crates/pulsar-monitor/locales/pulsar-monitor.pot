@@ -1063,6 +1063,22 @@ msgid "Heat cells"
 msgstr ""
 
 #: src/names.rs
+msgid "Heat strip"
+msgstr ""
+
+#: src/names.rs
+msgid "Dot matrix"
+msgstr ""
+
+#: src/names.rs
+msgid "Bullet meter"
+msgstr ""
+
+#: src/names.rs
+msgid "Range rail"
+msgstr ""
+
+#: src/names.rs
 msgid "Item color"
 msgstr ""
 

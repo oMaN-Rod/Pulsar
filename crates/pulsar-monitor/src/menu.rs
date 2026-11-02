@@ -16,8 +16,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::{HSTRING, PCSTR, PCWSTR, w};
 
 use crate::names::{
-    COLOR_MODES, DETAILS, STYLES, WIDGET_STYLES, color_mode_name, detail_name, item_name,
-    style_name, styles_for, widget_style_name, widget_styles_for,
+    COLOR_MODES, DETAILS, WIDGET_STYLES, color_mode_name, detail_name, item_name, style_name,
+    styles_for, widget_style_name, widget_styles_for,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -162,6 +162,24 @@ pub fn apply_edit(c: &mut Config, e: Edit) {
     }
 }
 
+/// In menu order; `None` is text only.
+const STYLES: [Option<GraphStyle>; 14] = [
+    Some(GraphStyle::Area),
+    Some(GraphStyle::Line),
+    Some(GraphStyle::Bars),
+    Some(GraphStyle::Meter),
+    Some(GraphStyle::Segments),
+    Some(GraphStyle::Spark),
+    Some(GraphStyle::Ring),
+    Some(GraphStyle::Cores),
+    Some(GraphStyle::Heat),
+    Some(GraphStyle::HeatStrip),
+    Some(GraphStyle::DotMatrix),
+    Some(GraphStyle::Bullet),
+    Some(GraphStyle::RangeRail),
+    None,
+];
+
 const ID_GRAPHS: usize = 1;
 const ID_TEXT: usize = 2;
 const ID_TASK_MANAGER: usize = 3;
@@ -202,18 +220,18 @@ const ID_SHOW_ITEM: usize = 100;
 /// Plus `ITEM_IDS` times the item's index into `ItemKind::ALL`, plus one
 /// of the offsets below.
 const ID_ITEM: usize = 1000;
-const ITEM_IDS: usize = 36;
+const ITEM_IDS: usize = 44;
 const ITEM_STYLE: usize = 0;
-const ITEM_COLOR: usize = 12;
-const ITEM_POPUP_DEFAULT: usize = 16;
-const ITEM_POPUP: usize = 17;
-const ITEM_EARLIER: usize = 20;
-const ITEM_LATER: usize = 21;
-const ITEM_HIDE: usize = 22;
-const ITEM_WIDGET_STYLE_DEFAULT: usize = 23;
-const ITEM_WIDGET_STYLE: usize = 24;
-const ITEM_WIDGET_DETAIL_DEFAULT: usize = 29;
-const ITEM_WIDGET_DETAIL: usize = 30;
+const ITEM_COLOR: usize = 20;
+const ITEM_POPUP_DEFAULT: usize = 24;
+const ITEM_POPUP: usize = 25;
+const ITEM_EARLIER: usize = 28;
+const ITEM_LATER: usize = 29;
+const ITEM_HIDE: usize = 30;
+const ITEM_WIDGET_STYLE_DEFAULT: usize = 31;
+const ITEM_WIDGET_STYLE: usize = 32;
+const ITEM_WIDGET_DETAIL_DEFAULT: usize = 37;
+const ITEM_WIDGET_DETAIL: usize = 38;
 
 const PROCESS_COUNTS: [u8; 6] = [0, 3, 5, 8, 10, 15];
 const INTERVALS_MS: [u32; 4] = [500, 1000, 2000, 5000];
@@ -846,6 +864,9 @@ mod tests {
         let unused = ITEM_WIDGET_DETAIL + DETAILS.len();
         assert_eq!(command_for(item_id(ItemKind::Cpu, unused)), None);
         assert!(STYLES.len() <= ITEM_COLOR && ITEM_POPUP + DETAILS.len() <= ITEM_EARLIER);
+        for set in crate::names::STYLE_SETS {
+            assert!(set.iter().all(|style| STYLES.contains(style)));
+        }
         assert!(ID_SHOW_ITEM + ItemKind::ALL.len() <= ID_ITEM);
     }
 

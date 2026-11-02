@@ -37,15 +37,18 @@ use windows_numerics::Vector2;
 use crate::text::Text;
 use crate::theme::{Color, Palette};
 use pulsar_core::display::{
-    CoreLoad, NetworkFloor, area_points, bar_rects, core_bars, core_loads, floored_cell_value,
-    graph_max, heat_cells, lit_segments, meter_fraction, metric_for, ring_arc, ring_companion,
-    segment_rects,
+    CoreLoad, NetworkFloor, area_points, bar_rects, core_bars, core_loads, dot_cells,
+    floored_cell_value, graph_max, heat_cells, heat_strip_cells, history_range, lit_segments,
+    meter_fraction, metric_for, ring_arc, ring_companion, segment_rects,
 };
 
 /// Below this a tile's ring has no room for a second ring inside it, in DIPs.
 const MIN_COMPANION_RING_DIP: f32 = 24.0;
 const SEGMENTS: usize = 10;
 const SEGMENT_DIP: f32 = 6.0;
+const DOT_PITCH_DIP: f32 = 4.0;
+/// Keeps a full dot matrix to about a hundred cells on a default tile.
+const DOT_MAX_ROWS: usize = 8;
 /// Efficient cores are drawn a little darker than performance cores.
 const EFFICIENT_ALPHA: f32 = 0.72;
 
@@ -441,6 +444,24 @@ impl Renderer {
                         self.draw_spark(frame, cell, area, scale)?;
                     }
                 }
+                (Some(GraphStyle::HeatStrip), ..) => {
+                    if let Some(area) = regions.strip {
+                        self.draw_heat_strip(frame, cell, area, scale)?;
+                    }
+                }
+                (Some(GraphStyle::Bullet), ..) => {
+                    if let Some(area) = regions.strip {
+                        self.draw_bullet(frame, cell, area, scale)?;
+                    }
+                }
+                (Some(GraphStyle::RangeRail), ..) => {
+                    if let Some(area) = regions.strip {
+                        self.draw_rail(frame, cell, area, scale)?;
+                    }
+                }
+                (Some(GraphStyle::DotMatrix), ..) => {
+                    self.draw_dots(frame, cell, regions.graph, scale)?;
+                }
                 (Some(style), ..) => self.draw_series(frame, cell, style, regions.graph, scale)?,
                 (None, ..) => {}
             }
@@ -528,6 +549,12 @@ impl Renderer {
             &histories.iter().map(|(_, h)| &**h).collect::<Vec<_>>(),
         );
         (histories, max)
+    }
+
+    fn cell_reading(frame: &Frame, cell: &Cell, history: &History) -> Option<f64> {
+        history
+            .latest()
+            .filter(|v| v.is_finite() && frame.snapshot.item_error(cell.kind).is_none())
     }
 
     /// The reading's ring, with its temperature inside when there is room,
@@ -693,20 +720,10 @@ impl Renderer {
     fn draw_segments(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
         let palette = frame.palette;
         let (histories, max) = Self::cell_series(frame, cell);
-        let rows = histories.len().max(1) as f32;
-        let height = (SEGMENT_DIP * scale)
-            .min(area.h / rows - scale)
-            .round()
-            .max(1.0);
-        let pitch = area.h / rows;
         let unlit = palette.text.with_alpha(0.14);
         let gap = scale.round().max(1.0);
         for (row, (part, history)) in histories.iter().enumerate() {
-            let band = Rect {
-                y: (area.y + row as f32 * pitch + (pitch - height) / 2.0).round(),
-                h: height,
-                ..area
-            };
+            let band = strip_band(area, row, histories.len(), scale);
             let latest = history.latest();
             let segments = segment_rects(band, SEGMENTS, gap);
             let fraction = meter_fraction(latest.unwrap_or(f64::NAN), max);
@@ -730,6 +747,112 @@ impl Renderer {
         for (part, history) in &histories {
             let color = frame.palette.graph_at(cell.kind, *part, history.latest());
             self.series(&area_points(history, area, max), color, false, 1.25 * scale)?;
+        }
+        Ok(())
+    }
+
+    fn draw_heat_strip(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let (histories, max) = Self::cell_series(frame, cell);
+        for (row, (part, history)) in histories.iter().enumerate() {
+            let band = strip_band(area, row, histories.len(), scale);
+            let plain = palette.graph(cell.kind, *part);
+            for (rect, value) in heat_strip_cells(history, band, 2.0 * scale, scale) {
+                let color = palette
+                    .level_color(cell.kind, *part, Some(value))
+                    .unwrap_or_else(|| plain.with_alpha(0.25 + 0.75 * meter_fraction(value, max)));
+                self.fill_rect(rect, color)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn draw_bullet(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let (histories, max) = Self::cell_series(frame, cell);
+        let line = scale.round().max(1.0);
+        for (row, (part, history)) in histories.iter().enumerate() {
+            let band = strip_band(area, row, histories.len(), scale);
+            self.fill_rect(band, palette.text.with_alpha(0.14))?;
+            let latest = Self::cell_reading(frame, cell, history);
+            let fill = Rect {
+                w: band.w * meter_fraction(latest.unwrap_or(f64::NAN), max),
+                ..band
+            };
+            self.fill_rect(fill, palette.graph_at(cell.kind, *part, latest))?;
+            for level in palette.level_marks(cell.kind, *part).into_iter().flatten() {
+                let mark = Rect {
+                    x: (band.x + band.w * meter_fraction(level, max)).round(),
+                    w: line,
+                    ..band
+                };
+                self.fill_rect(mark, palette.text.with_alpha(0.55))?;
+            }
+            if let Some((_, high)) = history_range(history) {
+                let tick = strip_tick(band, area, meter_fraction(high, max), scale);
+                self.fill_rect(tick, palette.text.with_alpha(0.85))?;
+            }
+        }
+        Ok(())
+    }
+
+    fn draw_rail(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let (histories, max) = Self::cell_series(frame, cell);
+        let line = (2.0 * scale).round().max(1.0);
+        for (row, (part, history)) in histories.iter().enumerate() {
+            let band = strip_band(area, row, histories.len(), scale);
+            let rail = Rect {
+                y: (band.y + (band.h - line) / 2.0).round(),
+                h: line,
+                ..band
+            };
+            self.fill_rect(rail, palette.text.with_alpha(0.2))?;
+            let latest = Self::cell_reading(frame, cell, history);
+            let color = palette.graph_at(cell.kind, *part, latest);
+            if let Some((low, high)) = history_range(history) {
+                let (low, high) = (meter_fraction(low, max), meter_fraction(high, max));
+                let span = Rect {
+                    x: band.x + band.w * low,
+                    w: band.w * (high - low),
+                    ..band
+                };
+                self.fill_rect(span, color.with_alpha(0.45))?;
+            }
+            if let Some(value) = latest {
+                let tick = strip_tick(band, area, meter_fraction(value, max), scale);
+                self.fill_rect(tick, color)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn draw_dots(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let (histories, max) = Self::cell_series(frame, cell);
+        let pitch = (DOT_PITCH_DIP * scale).round().max(2.0);
+        let size = pitch - scale.round().max(1.0);
+        let band_h = area.h / histories.len().max(1) as f32;
+        for (i, (part, history)) in histories.iter().enumerate() {
+            let band = Rect {
+                y: area.y + i as f32 * band_h,
+                h: band_h,
+                ..area
+            };
+            let (cells, rows) = dot_cells(history, band, max, pitch, size, DOT_MAX_ROWS);
+            let plain = palette.graph(cell.kind, *part);
+            let row_colors: Vec<Color> = (1..=rows)
+                .map(|row| {
+                    let value = max * row as f64 / rows as f64;
+                    palette
+                        .level_color(cell.kind, *part, Some(value))
+                        .unwrap_or(plain)
+                        .with_alpha(0.6)
+                })
+                .collect();
+            for (rect, row) in cells {
+                self.fill_rect(rect, row_colors[row])?;
+            }
         }
         Ok(())
     }
@@ -897,6 +1020,31 @@ fn create_target(factory: &ID2D1Factory) -> Result<ID2D1DCRenderTarget> {
 
 fn create_brush(target: &ID2D1DCRenderTarget) -> Result<ID2D1SolidColorBrush> {
     unsafe { target.CreateSolidColorBrush(&d2d(Color::rgb(0, 0, 0)), None) }
+}
+
+fn strip_band(area: Rect, row: usize, rows: usize, scale: f32) -> Rect {
+    let pitch = area.h / rows.max(1) as f32;
+    let height = (SEGMENT_DIP * scale).min(pitch - scale).round().max(1.0);
+    Rect {
+        y: (area.y + row as f32 * pitch + (pitch - height) / 2.0).round(),
+        h: height,
+        ..area
+    }
+}
+
+fn strip_tick(band: Rect, area: Rect, fraction: f32, scale: f32) -> Rect {
+    let w = (2.0 * scale).round().max(1.0);
+    let rise = scale.round().max(1.0);
+    let top = (band.y - rise).max(area.y);
+    let bottom = (band.y + band.h + rise).min(area.y + area.h);
+    Rect {
+        x: (band.x + band.w * fraction - w / 2.0)
+            .round()
+            .clamp(band.x, (band.right() - w).max(band.x)),
+        y: top,
+        w,
+        h: bottom - top,
+    }
 }
 
 fn d2d(c: Color) -> D2D1_COLOR_F {
@@ -1726,11 +1874,54 @@ mod tests {
     }
 
     #[test]
+    fn one_brush_keeps_each_fill_in_its_own_color() {
+        let mut renderer = Renderer::new().unwrap();
+        let surface = Surface::new(20, 10).unwrap();
+        let square = |x| Rect {
+            x,
+            y: 0.0,
+            w: 10.0,
+            h: 10.0,
+        };
+        renderer
+            .paint(&surface, Color::rgb(0, 0, 0).with_alpha(0.0), |r| {
+                r.fill_rect(square(0.0), Color::rgb(255, 0, 0))?;
+                r.fill_rect(square(10.0), Color::rgb(0, 0, 255))
+            })
+            .unwrap();
+        let all = pixels(&surface);
+        assert_eq!(all[5], 0xFFFF_0000);
+        assert_eq!(all[15], 0xFF00_00FF);
+    }
+
+    fn graphed_with(style: GraphStyle, kind: ItemKind, samples: &[f64]) -> (Surface, Layout) {
+        let mut config = Config::default();
+        config.display.tile_opacity = Some(0);
+        config.item_mut(kind).unwrap().style = style;
+        render_with(DisplayMode::Graph, samples, &config)
+    }
+
+    #[test]
+    fn a_dot_matrix_draws_more_when_busier() {
+        let inked = |samples: &[f64]| {
+            let (surface, layout) = graphed_with(GraphStyle::DotMatrix, ItemKind::Cpu, samples);
+            tile_pixels(&surface, &layout, ItemKind::Cpu)
+                .iter()
+                .filter(|p| *p >> 24 > 0x40)
+                .count()
+        };
+        assert!(inked(&[100.0; 60]) > inked(&[10.0; 60]));
+    }
+
+    #[test]
     fn heat_segment_and_spark_styles_draw_beside_or_under_the_text() {
         for (style, below) in [
             (GraphStyle::Heat, false),
             (GraphStyle::Segments, true),
             (GraphStyle::Spark, true),
+            (GraphStyle::HeatStrip, true),
+            (GraphStyle::Bullet, true),
+            (GraphStyle::RangeRail, true),
         ] {
             let mut config = Config::default();
             config.display.tile_opacity = Some(0);

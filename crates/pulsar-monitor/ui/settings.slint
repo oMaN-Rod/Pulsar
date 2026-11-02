@@ -16,7 +16,7 @@ export struct ItemRow {
     swatch: color,
     // Indexes into the styles, color-modes and item-popup-details lists.
     style: int,
-    is-cpu: bool,
+    style-set: int,
     color-mode: int,
     popup: int,
     // 0 follows the Popups page.
@@ -1150,8 +1150,7 @@ export component SettingsWindow inherits Window {
     in-out property <int> popup-processes;
     in-out property <int> popup-width;
     in-out property <int> popup-graph-height;
-    in property <[StyleChoice]> style-choices;
-    in property <[StyleChoice]> cpu-style-choices;
+    in property <[[StyleChoice]]> style-sets;
     in property <[string]> color-modes;
     in property <[string]> popup-details;
     in property <[string]> item-popup-details;
@@ -1480,7 +1479,7 @@ export component SettingsWindow inherits Window {
                                         padding-right: 16px;
                                         padding-bottom: 4px;
                                         StylePicker {
-                                            choices: row.is-cpu ? root.cpu-style-choices : root.style-choices;
+                                            choices: root.style-sets[row.style-set];
                                             selected: row.style;
                                             tint: row.swatch;
                                             picked(index) => { root.item-choice(i, 0, index); }
