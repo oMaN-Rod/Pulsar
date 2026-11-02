@@ -67,6 +67,7 @@ impl Source for PingSource {
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
         let state = self.state.lock().unwrap();
+        out.ping_attempts = state.recent.iter().copied().collect();
         if let Some(error) = &state.error {
             return Err(SourceError::Unavailable(error.clone()));
         }
@@ -181,6 +182,22 @@ fn echo(handle: HANDLE, ip: Ipv4Addr) -> Option<f64> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn attempts_reach_the_snapshot_even_during_an_outage() {
+        let mut state = PingState::default();
+        state.record(Some(20.0));
+        state.record(None);
+        state.error = Some("down".into());
+        let mut source = PingSource {
+            state: Arc::new(Mutex::new(state)),
+            stop: Arc::default(),
+            paused: Arc::default(),
+        };
+        let mut out = Snapshot::default();
+        assert!(source.sample(&mut out).is_err());
+        assert_eq!(out.ping_attempts, [Some(20.0), None]);
+    }
 
     #[test]
     fn only_the_latest_attempts_are_kept() {

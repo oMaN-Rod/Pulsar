@@ -17,6 +17,7 @@ export struct ItemRow {
     // Indexes into the styles, color-modes and item-popup-details lists.
     style: int,
     style-set: int,
+    trend: bool,
     color-mode: int,
     popup: int,
     // 0 follows the Popups page.
@@ -1487,6 +1488,17 @@ export component SettingsWindow inherits Window {
                                             picked(index) => { root.item-choice(i, 0, index); }
                                         }
                                     }
+                                }
+                            }
+                            OptionalRow {
+                                title: @tr("Trend arrow");
+                                description: @tr("Shows whether the latest reading is above or below the recent average.");
+                                search-key: row.id + "/Trend arrow";
+                                shown: root.mode == 0;
+                                row-padding: 4px;
+                                Switch {
+                                    checked: row.trend;
+                                    toggled => { root.item-choice(i, 7, self.checked ? 1 : 0); }
                                 }
                             }
                             OptionalRow {

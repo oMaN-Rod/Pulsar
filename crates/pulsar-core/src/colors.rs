@@ -6,6 +6,9 @@ use crate::metric::{ItemKind, Unit};
 
 pub type Rgb = (u8, u8, u8);
 
+const BATTERY_LOW_PERCENT: f64 = 20.0;
+const BATTERY_CRITICAL_PERCENT: f64 = 10.0;
+
 pub fn default_rgb(kind: ItemKind, part: CellPart) -> Rgb {
     match (kind, part) {
         (ItemKind::Cpu, _) => (0x4C, 0xC2, 0xFF),
@@ -74,6 +77,15 @@ pub fn has_thresholds(kind: ItemKind) -> bool {
         .is_some()
 }
 
+/// How worrying a battery's charge is; `None` while it has plenty.
+pub fn battery_load(percent: f64) -> Option<Load> {
+    match percent {
+        p if p <= BATTERY_CRITICAL_PERCENT => Some(Load::Critical),
+        p if p <= BATTERY_LOW_PERCENT => Some(Load::High),
+        _ => None,
+    }
+}
+
 /// Green to red, darker on a light taskbar so it stays readable.
 pub fn load_rgb(load: Load, light_taskbar: bool) -> Rgb {
     match (load, light_taskbar) {
@@ -136,6 +148,13 @@ mod tests {
         for (i, a) in all.iter().enumerate() {
             assert!(!all[i + 1..].contains(a), "{a:?} repeats");
         }
+    }
+
+    #[test]
+    fn a_battery_warns_as_it_falls() {
+        assert_eq!(battery_load(64.0), None);
+        assert_eq!(battery_load(18.0), Some(Load::High));
+        assert_eq!(battery_load(7.0), Some(Load::Critical));
     }
 
     #[test]

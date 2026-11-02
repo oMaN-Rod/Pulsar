@@ -29,7 +29,7 @@ pub fn item_msgid(kind: ItemKind) -> &'static str {
     }
 }
 
-const CPU_STYLES: [Option<GraphStyle>; 16] = [
+const CPU_STYLES: [Option<GraphStyle>; 18] = [
     Some(GraphStyle::Area),
     Some(GraphStyle::Line),
     Some(GraphStyle::Bars),
@@ -45,6 +45,8 @@ const CPU_STYLES: [Option<GraphStyle>; 16] = [
     Some(GraphStyle::RangeRail),
     Some(GraphStyle::Tint),
     Some(GraphStyle::Bubble),
+    Some(GraphStyle::Combined),
+    Some(GraphStyle::CoreTypes),
     None,
 ];
 
@@ -61,6 +63,58 @@ const NETWORK_STYLES: [Option<GraphStyle>; 13] = [
     Some(GraphStyle::Bullet),
     Some(GraphStyle::RangeRail),
     Some(GraphStyle::MirrorBars),
+    None,
+];
+
+const PING_STYLES: [Option<GraphStyle>; 15] = [
+    Some(GraphStyle::Area),
+    Some(GraphStyle::Line),
+    Some(GraphStyle::Bars),
+    Some(GraphStyle::Meter),
+    Some(GraphStyle::Segments),
+    Some(GraphStyle::Spark),
+    Some(GraphStyle::Ring),
+    Some(GraphStyle::HeatStrip),
+    Some(GraphStyle::DotMatrix),
+    Some(GraphStyle::Bullet),
+    Some(GraphStyle::RangeRail),
+    Some(GraphStyle::Tint),
+    Some(GraphStyle::Bubble),
+    Some(GraphStyle::Uptime),
+    None,
+];
+
+const BATTERY_STYLES: [Option<GraphStyle>; 13] = [
+    Some(GraphStyle::Area),
+    Some(GraphStyle::Line),
+    Some(GraphStyle::Bars),
+    Some(GraphStyle::Meter),
+    Some(GraphStyle::Segments),
+    Some(GraphStyle::Spark),
+    Some(GraphStyle::Ring),
+    Some(GraphStyle::HeatStrip),
+    Some(GraphStyle::DotMatrix),
+    Some(GraphStyle::Bullet),
+    Some(GraphStyle::RangeRail),
+    Some(GraphStyle::BatteryCell),
+    None,
+];
+
+const GPU_STYLES: [Option<GraphStyle>; 15] = [
+    Some(GraphStyle::Area),
+    Some(GraphStyle::Line),
+    Some(GraphStyle::Bars),
+    Some(GraphStyle::Meter),
+    Some(GraphStyle::Segments),
+    Some(GraphStyle::Spark),
+    Some(GraphStyle::Ring),
+    Some(GraphStyle::HeatStrip),
+    Some(GraphStyle::DotMatrix),
+    Some(GraphStyle::Bullet),
+    Some(GraphStyle::RangeRail),
+    Some(GraphStyle::Tint),
+    Some(GraphStyle::Bubble),
+    Some(GraphStyle::Combined),
     None,
 ];
 
@@ -97,15 +151,25 @@ const PLAIN_STYLES: [Option<GraphStyle>; 12] = [
 ];
 
 /// In menu order; `None` is text only.
-pub const STYLE_SETS: [&[Option<GraphStyle>]; 4] =
-    [&CPU_STYLES, &NETWORK_STYLES, &LOAD_STYLES, &PLAIN_STYLES];
+pub const STYLE_SETS: [&[Option<GraphStyle>]; 7] = [
+    &CPU_STYLES,
+    &NETWORK_STYLES,
+    &PING_STYLES,
+    &BATTERY_STYLES,
+    &GPU_STYLES,
+    &LOAD_STYLES,
+    &PLAIN_STYLES,
+];
 
 pub fn style_set(kind: ItemKind) -> usize {
     match kind {
         ItemKind::Cpu => 0,
         ItemKind::Network => 1,
-        _ if has_thresholds(kind) => 2,
-        _ => 3,
+        ItemKind::Ping => 2,
+        ItemKind::Battery => 3,
+        ItemKind::Gpu => 4,
+        _ if has_thresholds(kind) => 5,
+        _ => 6,
     }
 }
 
@@ -140,6 +204,10 @@ pub fn style_name(style: Option<GraphStyle>) -> &'static str {
         Some(GraphStyle::Tint) => tr!("Status tint"),
         Some(GraphStyle::Bubble) => tr!("Status bubble"),
         Some(GraphStyle::MirrorBars) => tr!("Mirror bars"),
+        Some(GraphStyle::Uptime) => tr!("Uptime strip"),
+        Some(GraphStyle::BatteryCell) => tr!("Battery cell"),
+        Some(GraphStyle::Combined) => tr!("Load with temperature"),
+        Some(GraphStyle::CoreTypes) => tr!("Core type meters"),
         None => tr!("Text only"),
     }
 }
@@ -200,6 +268,14 @@ mod tests {
         assert!(!lists(ItemKind::Network, GraphStyle::Tint));
         assert!(!lists(ItemKind::Battery, GraphStyle::Bubble));
         assert!(!lists(ItemKind::Ram, GraphStyle::Heat));
+        assert!(lists(ItemKind::Ping, GraphStyle::Uptime));
+        assert!(lists(ItemKind::Battery, GraphStyle::BatteryCell));
+        assert!(lists(ItemKind::Cpu, GraphStyle::Combined));
+        assert!(lists(ItemKind::Gpu, GraphStyle::Combined));
+        assert!(lists(ItemKind::Cpu, GraphStyle::CoreTypes));
+        assert!(!lists(ItemKind::Ram, GraphStyle::Uptime));
+        assert!(!lists(ItemKind::Ram, GraphStyle::Combined));
+        assert!(!lists(ItemKind::Gpu, GraphStyle::CoreTypes));
     }
 
     #[test]

@@ -71,6 +71,7 @@ pub enum Edit {
 pub enum ItemEdit {
     /// `None` shows text only.
     Style(Option<GraphStyle>),
+    Trend,
     Color(ColorMode),
     /// `None` follows the popup setting for every item.
     Popup(Option<PopupDetail>),
@@ -151,6 +152,7 @@ pub fn apply_edit(c: &mut Config, e: Edit) {
                     item.style = style;
                 }
                 ItemEdit::Style(None) => item.graph = false,
+                ItemEdit::Trend => item.trend = !item.trend,
                 ItemEdit::Color(mode) => item.color_mode = mode,
                 ItemEdit::Popup(detail) => item.popup = detail,
                 ItemEdit::WidgetStyle(style) => item.widget_style = style,
@@ -163,7 +165,7 @@ pub fn apply_edit(c: &mut Config, e: Edit) {
 }
 
 /// In menu order; `None` is text only.
-const STYLES: [Option<GraphStyle>; 17] = [
+const STYLES: [Option<GraphStyle>; 21] = [
     Some(GraphStyle::Area),
     Some(GraphStyle::Line),
     Some(GraphStyle::Bars),
@@ -179,7 +181,11 @@ const STYLES: [Option<GraphStyle>; 17] = [
     Some(GraphStyle::RangeRail),
     Some(GraphStyle::Tint),
     Some(GraphStyle::Bubble),
+    Some(GraphStyle::Combined),
+    Some(GraphStyle::CoreTypes),
     Some(GraphStyle::MirrorBars),
+    Some(GraphStyle::Uptime),
+    Some(GraphStyle::BatteryCell),
     None,
 ];
 
@@ -223,18 +229,19 @@ const ID_SHOW_ITEM: usize = 100;
 /// Plus `ITEM_IDS` times the item's index into `ItemKind::ALL`, plus one
 /// of the offsets below.
 const ID_ITEM: usize = 1000;
-const ITEM_IDS: usize = 44;
+const ITEM_IDS: usize = 48;
 const ITEM_STYLE: usize = 0;
-const ITEM_COLOR: usize = 20;
-const ITEM_POPUP_DEFAULT: usize = 24;
-const ITEM_POPUP: usize = 25;
-const ITEM_EARLIER: usize = 28;
-const ITEM_LATER: usize = 29;
-const ITEM_HIDE: usize = 30;
-const ITEM_WIDGET_STYLE_DEFAULT: usize = 31;
-const ITEM_WIDGET_STYLE: usize = 32;
-const ITEM_WIDGET_DETAIL_DEFAULT: usize = 37;
-const ITEM_WIDGET_DETAIL: usize = 38;
+const ITEM_TREND: usize = 22;
+const ITEM_COLOR: usize = 24;
+const ITEM_POPUP_DEFAULT: usize = 28;
+const ITEM_POPUP: usize = 29;
+const ITEM_EARLIER: usize = 32;
+const ITEM_LATER: usize = 33;
+const ITEM_HIDE: usize = 34;
+const ITEM_WIDGET_STYLE_DEFAULT: usize = 35;
+const ITEM_WIDGET_STYLE: usize = 36;
+const ITEM_WIDGET_DETAIL_DEFAULT: usize = 41;
+const ITEM_WIDGET_DETAIL: usize = 42;
 
 const PROCESS_COUNTS: [u8; 6] = [0, 3, 5, 8, 10, 15];
 const INTERVALS_MS: [u32; 4] = [500, 1000, 2000, 5000];
@@ -256,6 +263,7 @@ fn item_command(id: usize) -> Option<Command> {
     let offset = (id - ID_ITEM) % ITEM_IDS;
     let edit = match offset {
         o if o < ITEM_STYLE + STYLES.len() => ItemEdit::Style(STYLES[o - ITEM_STYLE]),
+        ITEM_TREND => ItemEdit::Trend,
         o if (ITEM_COLOR..ITEM_COLOR + COLOR_MODES.len()).contains(&o) => {
             ItemEdit::Color(COLOR_MODES[o - ITEM_COLOR])
         }
@@ -395,6 +403,13 @@ fn item_menu(config: &Config, kind: ItemKind) -> Option<Menu> {
             menu.item(id, style_name(style), current == style, graphs);
         }
     }
+    menu.separator();
+    menu.item(
+        item_id(kind, ITEM_TREND),
+        tr!("Trend arrow"),
+        item.trend,
+        graphs,
+    );
     menu.separator();
     for (i, mode) in COLOR_MODES.into_iter().enumerate() {
         let id = item_id(kind, ITEM_COLOR + i);
@@ -866,7 +881,11 @@ mod tests {
         }
         let unused = ITEM_WIDGET_DETAIL + DETAILS.len();
         assert_eq!(command_for(item_id(ItemKind::Cpu, unused)), None);
-        assert!(STYLES.len() <= ITEM_COLOR && ITEM_POPUP + DETAILS.len() <= ITEM_EARLIER);
+        assert_eq!(
+            command_for(item_id(ItemKind::Cpu, ITEM_TREND)),
+            Some(Command::Edit(Edit::Item(ItemKind::Cpu, ItemEdit::Trend)))
+        );
+        assert!(STYLES.len() <= ITEM_TREND && ITEM_POPUP + DETAILS.len() <= ITEM_EARLIER);
         for set in crate::names::STYLE_SETS {
             assert!(set.iter().all(|style| STYLES.contains(style)));
         }

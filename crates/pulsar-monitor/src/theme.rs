@@ -1,6 +1,6 @@
 use pulsar_core::colors;
 use pulsar_core::config::{ColorMode, Config, LoadThresholds};
-use pulsar_core::display::metric_for;
+use pulsar_core::display::{Trend, metric_for};
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 pub use pulsar_core::theme::Theme;
@@ -248,7 +248,7 @@ impl Palette {
         level.map_or(self.text, |level| self.load_color(level))
     }
 
-    fn load_color(&self, level: colors::Load) -> Color {
+    pub fn load_color(&self, level: colors::Load) -> Color {
         let band = match level {
             colors::Load::Low => 0,
             colors::Load::Moderate => 1,
@@ -299,6 +299,16 @@ impl Palette {
             color.with_alpha(0.25 + 0.75 * (percent / moderate).clamp(0.0, 1.0) as f32)
         } else {
             color
+        }
+    }
+
+    /// Rising load warns and falling load eases; other readings stay neutral.
+    pub fn trend_color(&self, kind: ItemKind, trend: Trend) -> Color {
+        match trend {
+            Trend::Up if colors::has_thresholds(kind) => self.load_color(colors::Load::High),
+            Trend::Down if colors::has_thresholds(kind) => self.load_color(colors::Load::Low),
+            Trend::Up | Trend::Down => self.text.with_alpha(0.85),
+            Trend::Flat => self.text.with_alpha(0.7),
         }
     }
 

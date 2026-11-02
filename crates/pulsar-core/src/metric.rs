@@ -404,6 +404,8 @@ pub struct Snapshot {
     pub metrics: HashMap<MetricKey, f64>,
     pub errors: HashMap<SourceId, String>,
     pub adapters: Vec<AdapterRate>,
+    /// The latest pings, oldest first; `None` was lost.
+    pub ping_attempts: Vec<Option<f64>>,
     pub processes: Vec<ProcessUsage>,
     pub frames: FrameLabels,
     pub gpus: GpuSlots,

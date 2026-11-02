@@ -832,6 +832,10 @@ msgstr "CPU hasta {}"
 msgid "GPU up to {}"
 msgstr "GPU hasta {}"
 
+#: src/menu.rs ui/settings.slint
+msgid "Trend arrow"
+msgstr "Flecha de tendencia"
+
 #: src/menu.rs
 msgid "Same as other items ({})"
 msgstr "Igual que los demás elementos ({})"
@@ -1091,6 +1095,22 @@ msgstr "Burbuja de estado"
 #: src/names.rs
 msgid "Mirror bars"
 msgstr "Barras en espejo"
+
+#: src/names.rs
+msgid "Uptime strip"
+msgstr "Franja de disponibilidad"
+
+#: src/names.rs
+msgid "Battery cell"
+msgstr "Celda de batería"
+
+#: src/names.rs
+msgid "Load with temperature"
+msgstr "Carga con temperatura"
+
+#: src/names.rs
+msgid "Core type meters"
+msgstr "Medidores por tipo de núcleo"
 
 #: src/names.rs
 msgid "Item color"
@@ -1647,6 +1667,10 @@ msgstr "Se usa con etiquetas cortas y cuando la superposición se reduce para ca
 #: ui/settings.slint
 msgid "Graph style"
 msgstr "Estilo de gráfica"
+
+#: ui/settings.slint
+msgid "Shows whether the latest reading is above or below the recent average."
+msgstr "Indica si la última lectura está por encima o por debajo de la media reciente."
 
 #: ui/settings.slint
 msgid "Tile width"

@@ -476,6 +476,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 swatch: rgb(form::item_rgb(r.kind, &r.color, choices.theme())),
                 style: r.style,
                 style_set: names::style_set(r.kind) as i32,
+                trend: r.trend,
                 color_mode: r.color_mode,
                 popup: r.popup,
                 popup_width: r.popup_width,
@@ -588,6 +589,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 popup: r.popup,
                 popup_width: r.popup_width,
                 popup_graph_height: r.popup_graph_height,
+                trend: r.trend,
                 tile_width: r.tile_width,
                 tile_height: r.tile_height,
                 label: r.label.to_string(),
@@ -733,6 +735,18 @@ fn style_thumb(style: Option<GraphStyle>) -> &'static str {
         Some(GraphStyle::Bubble) => {
             "M8 11 L34 11 M8 23 L28 23 M44 17 A8 8 0 1 1 60 17 A8 8 0 1 1 44 17 Z"
         }
+        Some(GraphStyle::Uptime) => {
+            "M4 12 L4 22 M11 12 L11 22 M18 12 L18 22 M25 5 L25 29 M32 12 L32 22 M39 12 L39 22 M46 5 L46 29 M53 12 L53 22 M60 12 L60 22"
+        }
+        Some(GraphStyle::BatteryCell) => {
+            "M6 9 L52 9 L52 25 L6 25 Z M6 9 L34 9 L34 25 L6 25 Z M54 14 L58 14 L58 20 L54 20 Z"
+        }
+        Some(GraphStyle::Combined) => {
+            "M4 32 L4 18 L12 18 L12 26 L20 26 L20 12 L28 12 L28 22 L36 22 L36 16 L44 16 L44 32 Z M50 4 A6 6 0 1 1 62 4 A6 6 0 1 1 50 4 Z"
+        }
+        Some(GraphStyle::CoreTypes) => {
+            "M2 7 L62 7 L62 15 L2 15 Z M2 7 L44 7 L44 15 L2 15 Z M2 19 L62 19 L62 27 L2 27 Z M2 19 L20 19 L20 27 L2 27 Z"
+        }
         Some(GraphStyle::MirrorBars) => {
             "M6 16 L6 8 M6 18 L6 24 M16 16 L16 4 M16 18 L16 26 M26 16 L26 10 M26 18 L26 22 M36 16 L36 2 M36 18 L36 30 M46 16 L46 7 M46 18 L46 25 M56 16 L56 12 M56 18 L56 23"
         }
@@ -755,7 +769,8 @@ fn style_stroke(style: Option<GraphStyle>) -> (f32, bool) {
         Some(GraphStyle::DotMatrix) => (4.0, false),
         Some(GraphStyle::Bullet | GraphStyle::RangeRail | GraphStyle::Tint) => (1.0, true),
         Some(GraphStyle::Bubble) => (2.0, true),
-        Some(GraphStyle::MirrorBars) => (4.0, false),
+        Some(GraphStyle::MirrorBars | GraphStyle::Uptime) => (4.0, false),
+        Some(GraphStyle::BatteryCell | GraphStyle::Combined | GraphStyle::CoreTypes) => (1.0, true),
         None => (0.0, false),
     }
 }
@@ -1235,6 +1250,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     4 => r.popup_graph_height = value,
                     5 => r.tile_width = value,
                     6 => r.tile_height = value,
+                    7 => r.trend = value != 0,
                     _ => r.popup = value,
                 });
                 ui.invoke_changed();

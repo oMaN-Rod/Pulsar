@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use pulsar_core::colors::{Load, battery_load};
 use pulsar_core::config::{DisplayMode, GraphStyle};
 use pulsar_core::hardware::cpu::cached_topology;
 use pulsar_core::history::{History, HistoryStore};
@@ -8,7 +9,7 @@ use pulsar_core::layout::{
     cell_icon, cell_label, heat_rows, icon_gap, inline_slots, label_width, network_pair,
     stacked_label, tile_regions,
 };
-use pulsar_core::metric::{ItemKind, Snapshot};
+use pulsar_core::metric::{ItemKind, MetricKey, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
 use windows::Win32::Graphics::Direct2D::Common::{
     D2D_RECT_F, D2D_SIZE_F, D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_FIGURE_BEGIN_FILLED,
@@ -37,15 +38,28 @@ use windows_numerics::Vector2;
 use crate::text::Text;
 use crate::theme::{Color, Palette};
 use pulsar_core::display::{
-    CoreLoad, NetworkFloor, area_points, bar_rects, core_bars, core_loads, dot_cells,
-    floored_cell_value, graph_max, heat_cells, heat_strip_cells, history_range, lit_segments,
-    meter_fraction, metric_for, ring_arc, ring_companion, segment_rects,
+    CoreLoad, NetworkFloor, Trend, area_points, bar_rects, core_bars, core_loads, core_type_loads,
+    dot_cells, floored_cell_value, graph_max, heat_cells, heat_strip_cells, history_range,
+    lit_segments, meter_fraction, metric_for, ring_arc, ring_companion, segment_rects, trend,
+    uptime_cells,
 };
 
 /// Below this a tile's ring has no room for a second ring inside it, in DIPs.
 const MIN_COMPANION_RING_DIP: f32 = 24.0;
 const SEGMENTS: usize = 10;
 const SEGMENT_DIP: f32 = 6.0;
+const BOLT_DIP: f32 = 10.0;
+const CORE_LETTER_DIP: f32 = 8.0;
+const MIN_CORE_LETTER_PITCH_DIP: f32 = 6.0;
+/// A charging bolt, as fractions of its box.
+const BOLT: [(f32, f32); 6] = [
+    (0.6, 0.0),
+    (0.1, 0.58),
+    (0.45, 0.58),
+    (0.35, 1.0),
+    (0.9, 0.4),
+    (0.55, 0.4),
+];
 const DOT_PITCH_DIP: f32 = 4.0;
 /// Keeps a full dot matrix to about a hundred cells on a default tile.
 const DOT_MAX_ROWS: usize = 8;
@@ -124,6 +138,8 @@ pub struct Frame<'a> {
     pub graph_inline: bool,
     /// Graph mode: how each item draws its graph; `None` draws text only.
     pub styles: &'a [(ItemKind, Option<GraphStyle>)],
+    /// Graph mode: items that show a trend arrow.
+    pub trends: &'a [ItemKind],
     pub network_floor: NetworkFloor,
 }
 
@@ -153,6 +169,15 @@ impl Frame<'_> {
             .map(|v| self.network_floor.value(key, v));
         self.palette.value_at(kind, part, value)
     }
+}
+
+pub fn trend_items(config: &pulsar_core::config::Config) -> Vec<ItemKind> {
+    config
+        .items
+        .iter()
+        .filter(|i| i.trend)
+        .map(|i| i.kind)
+        .collect()
 }
 
 /// Every configured item's graph style, for `Frame::styles`.
@@ -421,6 +446,7 @@ impl Renderer {
                 text: frame.text,
                 inline: frame.graph_inline,
                 vertical_bar: frame.layout.vertical,
+                trend: frame.trends.contains(&cell.kind),
                 scale,
             };
             let graphic = style.map_or(TileGraphic::Behind, |s| TileGraphic::of(s, 0, false));
@@ -463,8 +489,29 @@ impl Renderer {
                     }
                 }
                 (Some(GraphStyle::Bubble), ..) => {
-                    if let Some(area) = regions.bubble {
+                    if let Some(area) = regions.badge {
                         self.draw_bubble(frame, cell, area)?;
+                    }
+                }
+                (Some(GraphStyle::Uptime), ..) => {
+                    if let Some(area) = regions.strip {
+                        self.draw_uptime(frame, cell, area, scale)?;
+                    }
+                }
+                (Some(GraphStyle::BatteryCell), ..) => {
+                    if let Some(area) = regions.badge {
+                        self.draw_battery(frame, cell, area, scale)?;
+                    }
+                }
+                (Some(GraphStyle::Combined), ..) => {
+                    self.draw_series(frame, cell, GraphStyle::Bars, regions.graph, scale)?;
+                    if let Some(area) = regions.badge {
+                        self.draw_temperature_dot(frame, cell, area, scale)?;
+                    }
+                }
+                (Some(GraphStyle::CoreTypes), ..) => {
+                    if let Some(area) = regions.strip {
+                        self.draw_core_types(frame, text, cell, area, scale)?;
                     }
                 }
                 (Some(GraphStyle::Tint), ..) => self.draw_tint(frame, cell, scale)?,
@@ -476,6 +523,9 @@ impl Renderer {
                 }
                 (Some(style), ..) => self.draw_series(frame, cell, style, regions.graph, scale)?,
                 (None, ..) => {}
+            }
+            if let Some(area) = regions.trend {
+                self.draw_trend(frame, cell, area, scale)?;
             }
             if let Some((stack, area)) = &regions.stack {
                 self.draw_stacked_label(text, frame, cell, stack, *area)?;
@@ -569,6 +619,17 @@ impl Renderer {
             .filter(|v| v.is_finite() && frame.snapshot.item_error(cell.kind).is_none())
     }
 
+    /// The temperature that goes with a cell's load, once sensors report it.
+    fn cell_companion(frame: &Frame, cell: &Cell) -> Option<(ItemKind, f64)> {
+        let kind = ring_companion(cell.kind)?;
+        let value = frame.snapshot.get(metric_for(kind, cell.part))?;
+        frame
+            .snapshot
+            .item_error(kind)
+            .is_none()
+            .then_some((kind, value))
+    }
+
     /// The reading's ring, with its temperature inside when there is room,
     /// as on the details page. A pair has a ring per direction.
     fn draw_rings(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
@@ -587,21 +648,14 @@ impl Renderer {
         if rings.is_empty() {
             rings.push((0.0, palette.graph(cell.kind, cell.part)));
         }
-        if rings.len() == 1 && area.w >= MIN_COMPANION_RING_DIP * scale {
-            let companion = ring_companion(cell.kind).and_then(|kind| {
-                let value = frame.snapshot.get(metric_for(kind, cell.part))?;
-                frame
-                    .snapshot
-                    .item_error(kind)
-                    .is_none()
-                    .then_some((kind, value))
-            });
-            if let Some((kind, value)) = companion {
-                rings.push((
-                    meter_fraction(value, 100.0),
-                    palette.graph_at(kind, cell.part, Some(value)),
-                ));
-            }
+        if rings.len() == 1
+            && area.w >= MIN_COMPANION_RING_DIP * scale
+            && let Some((kind, value)) = Self::cell_companion(frame, cell)
+        {
+            rings.push((
+                meter_fraction(value, 100.0),
+                palette.graph_at(kind, cell.part, Some(value)),
+            ));
         }
         let center = (area.x + area.w / 2.0, area.y + area.h / 2.0);
         let stroke = area.w * if rings.len() == 1 { 0.11 } else { 0.095 };
@@ -925,6 +979,212 @@ impl Renderer {
         Ok(())
     }
 
+    fn draw_uptime(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let band = strip_band(area, 0, 1, scale);
+        let attempts = &frame.snapshot.ping_attempts;
+        for (rect, reply) in uptime_cells(attempts, band, 2.0 * scale, scale) {
+            let (rect, color) = match reply {
+                Some(ms) => (
+                    rect,
+                    palette
+                        .level_color(cell.kind, cell.part, Some(ms))
+                        .unwrap_or_else(|| palette.graph(cell.kind, cell.part)),
+                ),
+                None => (
+                    Rect {
+                        y: area.y,
+                        h: area.h,
+                        ..rect
+                    },
+                    palette.load_color(Load::Critical),
+                ),
+            };
+            self.fill_rect(rect, color)?;
+        }
+        Ok(())
+    }
+
+    fn draw_battery(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        // On a vertical bar it sits behind the text, which must stay readable.
+        let strength = if frame.layout.vertical { 0.45 } else { 1.0 };
+        let track = palette.text.with_alpha(0.14);
+        let cap_w = (2.0 * scale).round().max(1.0);
+        let body = Rect {
+            w: area.w - cap_w,
+            ..area
+        };
+        let radius = 2.0 * scale;
+        self.fill_rounded(body, radius, track)?;
+        let cap_h = (area.h / 2.0).round();
+        self.fill_rect(
+            Rect {
+                x: body.right(),
+                y: (area.y + (area.h - cap_h) / 2.0).round(),
+                w: cap_w,
+                h: cap_h,
+            },
+            track,
+        )?;
+        let reading = frame
+            .snapshot
+            .get(metric_for(cell.kind, cell.part))
+            .filter(|_| frame.snapshot.item_error(cell.kind).is_none());
+        let Some(percent) = reading else {
+            return Ok(());
+        };
+        let charging = frame
+            .snapshot
+            .get(MetricKey::BatteryCharging)
+            .is_some_and(|v| v > 0.0);
+        let color = battery_load(percent).filter(|_| !charging).map_or_else(
+            || palette.graph(cell.kind, cell.part),
+            |level| palette.load_color(level),
+        );
+        let fill = Rect {
+            w: body.w * meter_fraction(percent, 100.0),
+            ..body
+        };
+        self.fill_rounded(fill, radius, color.with_alpha(color.a * strength))?;
+        if charging {
+            let size = (body.h - 2.0 * scale).min(BOLT_DIP * scale);
+            let (x, y) = (
+                body.x + (body.w - size) / 2.0,
+                body.y + (body.h - size) / 2.0,
+            );
+            let bolt = BOLT.map(|(px, py)| (x + px * size, y + py * size));
+            self.fill_polygon(&bolt, palette.text)?;
+        }
+        Ok(())
+    }
+
+    fn draw_temperature_dot(
+        &self,
+        frame: &Frame,
+        cell: &Cell,
+        area: Rect,
+        scale: f32,
+    ) -> Result<()> {
+        let Some((kind, value)) = Self::cell_companion(frame, cell) else {
+            return Ok(());
+        };
+        let palette = frame.palette;
+        let Some(color) = palette.level_color(kind, cell.part, Some(value)) else {
+            return Ok(());
+        };
+        let backing = Rect {
+            x: area.x - scale,
+            y: area.y - scale,
+            w: area.w + 2.0 * scale,
+            h: area.h + 2.0 * scale,
+        };
+        let behind = if palette.light() {
+            Color::rgb(0xF3, 0xF3, 0xF3)
+        } else {
+            Color::rgb(0x2B, 0x2B, 0x2B)
+        };
+        self.fill_rounded(backing, backing.w / 2.0, behind)?;
+        self.fill_rounded(area, area.w / 2.0, color)
+    }
+
+    fn draw_core_types(
+        &self,
+        frame: &Frame,
+        text: &Text,
+        cell: &Cell,
+        area: Rect,
+        scale: f32,
+    ) -> Result<()> {
+        let palette = frame.palette;
+        let loads = Self::cell_core_loads(frame, cell);
+        if loads.is_empty() {
+            return Ok(());
+        }
+        let split = cached_topology().performance_threads(loads.len());
+        let (performance, efficient) = core_type_loads(&loads, split);
+        let rows = 1 + usize::from(efficient.is_some());
+        let pitch = area.h / rows as f32;
+        let letter_px = (pitch * 1.1).min(CORE_LETTER_DIP * scale);
+        let labelled = efficient.is_some() && pitch >= MIN_CORE_LETTER_PITCH_DIP * scale;
+        let letter_w = if labelled {
+            text.width("P", letter_px) + 2.0 * scale
+        } else {
+            0.0
+        };
+        let readings = [
+            ("P", performance, 1.0),
+            ("E", efficient.unwrap_or(0.0), EFFICIENT_ALPHA),
+        ];
+        for (row, (letter, load, alpha)) in readings.into_iter().take(rows).enumerate() {
+            let band = strip_band(area, row, rows, scale);
+            if labelled {
+                let format = text.format(letter_px)?;
+                let y = area.y + pitch * (row as f32 + 0.5) - text.line_height(letter_px) / 2.0;
+                self.text_at(text, &format, letter, area.x, y, palette.label)?;
+            }
+            let bar = Rect {
+                x: band.x + letter_w,
+                w: (band.w - letter_w).max(1.0),
+                ..band
+            };
+            self.fill_rect(bar, palette.text.with_alpha(0.14))?;
+            let color = palette.graph_at(cell.kind, cell.part, Some(load));
+            let fill = Rect {
+                w: bar.w * meter_fraction(load, 100.0),
+                ..bar
+            };
+            self.fill_rect(fill, color.with_alpha(color.a * alpha))?;
+        }
+        Ok(())
+    }
+
+    /// One arrow per reading, each centred in its share of `area`.
+    fn draw_trend(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        if frame.snapshot.item_error(cell.kind).is_some() {
+            return Ok(());
+        }
+        let (histories, max) = Self::cell_series(frame, cell);
+        let share = area.h / histories.len().max(1) as f32;
+        for (i, (_, history)) in histories.iter().enumerate() {
+            let Some(direction) = trend(history, max) else {
+                continue;
+            };
+            let color = frame.palette.trend_color(cell.kind, direction);
+            let (left, right) = (area.x, area.right());
+            let middle = area.y + share * (i as f32 + 0.5);
+            let half = area.w / 2.0;
+            let (top, bottom) = (middle - half, middle + half);
+            match direction {
+                Trend::Up => {
+                    self.fill_polygon(
+                        &[(left + half, top), (right, bottom), (left, bottom)],
+                        color,
+                    )?;
+                }
+                Trend::Down => {
+                    self.fill_polygon(&[(left, top), (right, top), (left + half, bottom)], color)?;
+                }
+                Trend::Flat => {
+                    let h = (2.0 * scale).round().max(1.0);
+                    let dash = Rect {
+                        y: (middle - h / 2.0).round(),
+                        h,
+                        ..area
+                    };
+                    self.fill_rect(dash, color)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn fill_polygon(&self, points: &[(f32, f32)], color: Color) -> Result<()> {
+        let shape = self.path(points, true)?;
+        unsafe { self.target.FillGeometry(&shape, self.brush(color), None) };
+        Ok(())
+    }
+
     fn draw_series(
         &self,
         frame: &Frame,
@@ -1138,7 +1398,6 @@ mod tests {
     use super::*;
     use pulsar_core::config::{Config, DisplayMode, NetworkShow};
     use pulsar_core::layout::{ItemNames, LayoutInput, TextSpacing, compute_layout};
-    use pulsar_core::metric::MetricKey;
 
     fn pixels(surface: &Surface) -> Vec<u32> {
         let mut out = vec![0u32; (surface.width * surface.height) as usize];
@@ -1212,6 +1471,8 @@ mod tests {
         let mut snapshot = Snapshot::default();
         snapshot.set(MetricKey::CpuTotal, 50.0);
         snapshot.set(MetricKey::CpuTempC, 60.0);
+        snapshot.set(MetricKey::BatteryPercent, 64.0);
+        snapshot.set(MetricKey::BatteryCharging, 1.0);
         for core in 0..24 {
             snapshot.set(MetricKey::CpuCore(core), f64::from(core) * 4.0);
         }
@@ -1223,6 +1484,10 @@ mod tests {
             s.set(MetricKey::NetUpBps, v * 1e6);
             history.record(&s);
         }
+        snapshot.ping_attempts = samples
+            .iter()
+            .map(|&ms| (!ms.is_nan()).then_some(ms))
+            .collect();
         let palette = Palette::new(false, config, None, &crate::theme::Theme::windows());
         let surface = Surface::new(layout.width.ceil() as i32, layout.height as i32).unwrap();
         let mut renderer = Renderer::new().unwrap();
@@ -1242,6 +1507,7 @@ mod tests {
             },
             graph_inline: config.display.graph_inline && !config.display.vertical_labels,
             styles: &graph_styles(config),
+            trends: &trend_items(config),
             network_floor: NetworkFloor::new(&config.network),
         };
         renderer.draw(&surface, &frame, &text).unwrap();
@@ -1446,6 +1712,7 @@ mod tests {
             },
             graph_inline: config.display.graph_inline && !layout.vertical,
             styles: &graph_styles(&config),
+            trends: &trend_items(&config),
             network_floor: NetworkFloor::new(&config.network),
         };
         Renderer::new()
@@ -1646,6 +1913,7 @@ mod tests {
             },
             graph_inline: config.display.graph_inline,
             styles: &graph_styles(&config),
+            trends: &trend_items(&config),
             network_floor: NetworkFloor::default(),
         };
         Renderer::new()
@@ -2004,6 +2272,76 @@ mod tests {
             )
         };
         assert!(corner_alpha(&[95.0; 8]) > 0x40);
+    }
+
+    fn tile_ink(style: GraphStyle, kind: ItemKind, samples: &[f64]) -> usize {
+        let mut config = Config::default();
+        config.display.tile_opacity = Some(0);
+        let item = config.item_mut(kind).unwrap();
+        item.enabled = true;
+        item.style = style;
+        let (surface, layout) = render_with(DisplayMode::Graph, samples, &config);
+        tile_pixels(&surface, &layout, kind)
+            .iter()
+            .filter(|p| *p >> 24 > 0x40)
+            .count()
+    }
+
+    #[test]
+    fn a_battery_cell_draws_beyond_the_text() {
+        let cell = tile_ink(GraphStyle::BatteryCell, ItemKind::Battery, &[50.0; 8]);
+        let text = tile_ink(GraphStyle::Tint, ItemKind::Battery, &[50.0; 8]);
+        assert!(cell > text);
+    }
+
+    #[test]
+    fn an_uptime_strip_stands_taller_for_a_lost_ping() {
+        let mut lost = [30.0; 30];
+        lost[25] = f64::NAN;
+        let steady = tile_ink(GraphStyle::Uptime, ItemKind::Ping, &[30.0; 30]);
+        assert!(tile_ink(GraphStyle::Uptime, ItemKind::Ping, &lost) > steady);
+    }
+
+    #[test]
+    fn a_combined_tile_adds_the_temperature_to_the_bars() {
+        let combined = tile_ink(GraphStyle::Combined, ItemKind::Cpu, &[50.0; 60]);
+        let bars = tile_ink(GraphStyle::Bars, ItemKind::Cpu, &[50.0; 60]);
+        assert!(combined > bars);
+    }
+
+    #[test]
+    fn core_type_meters_draw_under_the_text() {
+        assert!(tile_ink(GraphStyle::CoreTypes, ItemKind::Cpu, &[50.0; 8]) > 0);
+    }
+
+    #[test]
+    fn a_trend_arrow_shows_where_the_reading_went() {
+        let arrow_ink = |samples: &[f64]| {
+            let mut config = Config::default();
+            config.display.tile_opacity = Some(0);
+            let item = config.item_mut(ItemKind::Cpu).unwrap();
+            item.graph = false;
+            item.trend = true;
+            let (surface, layout) = render_with(DisplayMode::Graph, samples, &config);
+            let cell = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Cpu)
+                .unwrap();
+            let tile = tile_pixels(&surface, &layout, ItemKind::Cpu);
+            let (w, h) = (cell.rect.w as usize, cell.rect.h as usize);
+            (0..h)
+                .flat_map(|y| (w - 12..w).map(move |x| (y, x)))
+                .filter(|&(y, x)| tile[y * w + x] >> 24 > 0x40)
+                .count()
+        };
+        let mut rising = vec![10.0; 20];
+        rising.push(90.0);
+        let mut falling = vec![90.0; 20];
+        falling.push(10.0);
+        assert!(arrow_ink(&rising) > arrow_ink(&[50.0; 21]));
+        assert!(arrow_ink(&falling) > arrow_ink(&[50.0; 21]));
+        assert_eq!(arrow_ink(&[50.0; 2]), 0);
     }
 
     #[test]

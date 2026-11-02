@@ -830,6 +830,10 @@ msgstr ""
 msgid "GPU up to {}"
 msgstr ""
 
+#: src/menu.rs ui/settings.slint
+msgid "Trend arrow"
+msgstr ""
+
 #: src/menu.rs
 msgid "Same as other items ({})"
 msgstr ""
@@ -1088,6 +1092,22 @@ msgstr ""
 
 #: src/names.rs
 msgid "Mirror bars"
+msgstr ""
+
+#: src/names.rs
+msgid "Uptime strip"
+msgstr ""
+
+#: src/names.rs
+msgid "Battery cell"
+msgstr ""
+
+#: src/names.rs
+msgid "Load with temperature"
+msgstr ""
+
+#: src/names.rs
+msgid "Core type meters"
 msgstr ""
 
 #: src/names.rs
@@ -1644,6 +1664,10 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Graph style"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Shows whether the latest reading is above or below the recent average."
 msgstr ""
 
 #: ui/settings.slint

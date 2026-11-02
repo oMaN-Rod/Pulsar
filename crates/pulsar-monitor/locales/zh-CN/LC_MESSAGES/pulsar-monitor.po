@@ -833,6 +833,10 @@ msgstr "CPU 最高 {}"
 msgid "GPU up to {}"
 msgstr "GPU 最高 {}"
 
+#: src/menu.rs ui/settings.slint
+msgid "Trend arrow"
+msgstr "趋势箭头"
+
 #: src/menu.rs
 msgid "Same as other items ({})"
 msgstr "与其他监控项相同（{}）"
@@ -1092,6 +1096,22 @@ msgstr "状态气泡"
 #: src/names.rs
 msgid "Mirror bars"
 msgstr "镜像条形图"
+
+#: src/names.rs
+msgid "Uptime strip"
+msgstr "在线状态条"
+
+#: src/names.rs
+msgid "Battery cell"
+msgstr "电池图标"
+
+#: src/names.rs
+msgid "Load with temperature"
+msgstr "负载和温度"
+
+#: src/names.rs
+msgid "Core type meters"
+msgstr "按核心类型显示"
 
 #: src/names.rs
 msgid "Item color"
@@ -1648,6 +1668,10 @@ msgstr "在使用短标签时，以及叠加层缩小以适应任务栏时使用
 #: ui/settings.slint
 msgid "Graph style"
 msgstr "图表样式"
+
+#: ui/settings.slint
+msgid "Shows whether the latest reading is above or below the recent average."
+msgstr "显示最新读数高于还是低于近期平均值。"
 
 #: ui/settings.slint
 msgid "Tile width"

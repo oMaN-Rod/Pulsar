@@ -31,6 +31,7 @@ pub struct ItemRow {
     pub popup_width: i32,
     /// 0 follows the popup setting.
     pub popup_graph_height: i32,
+    pub trend: bool,
     /// 0 is automatic.
     pub tile_width: i32,
     /// 0 is automatic.
@@ -362,6 +363,7 @@ pub fn to_form(c: &Config) -> Form {
                 popup: i.popup.map_or(0, |p| index_of(&DETAILS, &p) + 1),
                 popup_width: i.popup_width.map_or(0, i32::from),
                 popup_graph_height: i.popup_graph_height.map_or(0, i32::from),
+                trend: i.trend,
                 tile_width: i.tile_width.map_or(0, i32::from),
                 tile_height: i.tile_height.map_or(0, i32::from),
                 label: i.label.clone().unwrap_or_default(),
@@ -644,6 +646,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
                 popup_width: (r.popup_width > 0).then(|| clamp_u16(r.popup_width)),
                 popup_graph_height: (r.popup_graph_height > 0)
                     .then(|| clamp_u16(r.popup_graph_height)),
+                trend: r.trend,
                 tile_width: (r.tile_width > 0).then(|| clamp_u16(r.tile_width)),
                 tile_height: (r.tile_height > 0).then(|| clamp_u16(r.tile_height)),
                 label: sanitize_label(&r.label),
@@ -1164,7 +1167,7 @@ mod tests {
         let mut c = Config::default();
         c.items[0].style = GraphStyle::Meter;
         let mut f = to_form(&c);
-        f.items[0].style = 15;
+        f.items[0].style = 17;
         let out = to_config(&f, &c);
         assert!(!out.items[0].graph);
         assert_eq!(out.items[0].style, GraphStyle::Meter);

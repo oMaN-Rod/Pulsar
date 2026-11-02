@@ -155,6 +155,8 @@ impl Default for TextSpacing {
 pub struct TileSize {
     pub width: Option<u16>,
     pub height: Option<u16>,
+    /// Leaves room for a trend arrow.
+    pub trend: bool,
 }
 
 /// An enabled item and the cells it draws.
@@ -454,6 +456,7 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
             .map_or_else(TileSize::default, |i| TileSize {
                 width: i.tile_width,
                 height: i.tile_height,
+                trend: i.trend,
             })
     };
     let threads = std::thread::available_parallelism().map_or(8, |n| n.get());
@@ -892,6 +895,7 @@ fn stacked_tiles(
         text: labels.tile_text(false),
         inline: false,
         vertical_bar: true,
+        trend: false,
         scale,
     };
     let fit = items
@@ -905,6 +909,10 @@ fn stacked_tiles(
                 labels.width(s.kind, p, small_px, m).max(value)
             };
             let tile_h = requested_height(s, scale).unwrap_or(MIN_STACKED_TILE_DIP * scale);
+            let look = TileLook {
+                trend: s.tile.trend,
+                ..look
+            };
             let chrome = tile_chrome(s.kind, p, s.graphic, look, tile_h, small_px, m);
             (available - chrome).max(1.0) / text.max(1.0)
         })
@@ -1051,6 +1059,7 @@ fn graph_layout(
         text: labels.tile_text(input.upload_on_top),
         inline,
         vertical_bar: false,
+        trend: false,
         scale,
     };
     let padding = PADDING_DIP * scale;
@@ -1087,6 +1096,10 @@ fn graph_layout(
                 inline_slots(spec.kind, part, look.text, text_px, scale, m).1
             } else {
                 graph_text_width(spec.kind, part, look.text, stacked_px, m)
+            };
+            let look = TileLook {
+                trend: spec.tile.trend,
+                ..look
             };
             let chrome = tile_chrome(spec.kind, part, spec.graphic, look, tile_h, text_px, m);
             let w = (text_w + chrome + 2.0 * padding).max(min_w);
@@ -1633,7 +1646,11 @@ mod tests {
             .map(|&(kind, width, height)| ItemSpec {
                 kind,
                 parts: vec![CellPart::Main],
-                tile: TileSize { width, height },
+                tile: TileSize {
+                    width,
+                    height,
+                    trend: false,
+                },
                 graphic: TileGraphic::default(),
             })
             .collect()
@@ -1666,6 +1683,7 @@ mod tests {
             },
             inline: i.graph_inline && !i.vertical_labels,
             vertical_bar: i.vertical_bar_px.is_some(),
+            trend: false,
             scale: i.dpi as f32 / 96.0,
         }
     }
@@ -1898,6 +1916,90 @@ mod tests {
     }
 
     #[test]
+    fn a_bubble_clears_the_text_on_a_vertical_taskbar() {
+        let graphic = TileGraphic::Bubble;
+        let i = LayoutInput {
+            vertical_bar_px: Some(48.0),
+            ..input(DisplayMode::Graph, 48.0, 96)
+        };
+        let l = compute_layout(&[graphic_spec(ItemKind::Cpu, graphic)], i, &Fixed);
+        let c = &l.cells[0];
+        let r = regions(&l, graphic, i);
+        let text = TileText {
+            labels: i.labels,
+            icons: i.icons,
+            vertical_labels: i.vertical_labels,
+            upload_on_top: i.upload_on_top,
+            names: i.names,
+        };
+        let width = graph_text_width(c.kind, c.part, text, c.text_px, &Fixed);
+        assert!(r.text_x + width <= r.badge.unwrap().x + 0.51);
+    }
+
+    #[test]
+    fn a_vertical_taskbar_keeps_its_text_size_for_a_battery_and_a_bubble_with_an_arrow() {
+        let i = LayoutInput {
+            vertical_bar_px: Some(48.0),
+            ..input(DisplayMode::Graph, 48.0, 96)
+        };
+        let px = |graphic, trend| {
+            let mut spec = graphic_spec(ItemKind::Cpu, graphic);
+            spec.tile.trend = trend;
+            compute_layout(&[spec], i, &Fixed).cells[0].text_px
+        };
+        assert_eq!(
+            px(TileGraphic::Battery, false),
+            px(TileGraphic::Behind, false)
+        );
+        assert_eq!(
+            px(TileGraphic::Bubble, true),
+            px(TileGraphic::Bubble, false)
+        );
+    }
+
+    #[test]
+    fn a_trend_arrow_gets_its_own_room_beside_the_badge_and_text() {
+        for graphic in [
+            TileGraphic::Behind,
+            TileGraphic::Bubble,
+            TileGraphic::Battery,
+            TileGraphic::Segments,
+        ] {
+            let i = input(DisplayMode::Graph, 48.0, 96);
+            let mut spec = graphic_spec(ItemKind::Cpu, graphic);
+            spec.tile.trend = true;
+            let l = compute_layout(std::slice::from_ref(&spec), i, &Fixed);
+            let c = &l.cells[0];
+            let r = tile_regions(
+                c.rect,
+                c.kind,
+                c.part,
+                graphic,
+                TileLook {
+                    trend: true,
+                    ..look(i)
+                },
+                c.text_px,
+                &Fixed,
+            );
+            let arrow = r.trend.unwrap();
+            assert!(inside(arrow, c.rect), "{graphic:?}");
+            let text = TileText {
+                labels: i.labels,
+                icons: i.icons,
+                vertical_labels: i.vertical_labels,
+                upload_on_top: i.upload_on_top,
+                names: i.names,
+            };
+            let text_w = graph_text_width(c.kind, c.part, text, c.text_px, &Fixed);
+            assert!(r.text_x + text_w <= arrow.x + 0.51, "{graphic:?}");
+            for part in [r.badge, r.strip].into_iter().flatten() {
+                assert!(part.right() <= arrow.x + 0.51, "{graphic:?}");
+            }
+        }
+    }
+
+    #[test]
     fn every_graphic_and_label_combination_stays_inside_its_tile() {
         let graphics = [
             TileGraphic::Behind,
@@ -1907,6 +2009,7 @@ mod tests {
             TileGraphic::Segments,
             TileGraphic::Spark,
             TileGraphic::Bubble,
+            TileGraphic::Battery,
         ];
         for graphic in graphics {
             for vertical_labels in [false, true] {
@@ -1926,9 +2029,10 @@ mod tests {
                                 let r = regions(&l, graphic, i);
                                 let rect = l.cells[0].rect;
                                 let context = format!("{graphic:?} {i:?}");
-                                for part in [r.ring, r.cores, r.strip, r.stack.map(|(_, a)| a)]
-                                    .into_iter()
-                                    .flatten()
+                                for part in
+                                    [r.ring, r.cores, r.strip, r.badge, r.stack.map(|(_, a)| a)]
+                                        .into_iter()
+                                        .flatten()
                                 {
                                     assert!(inside(part, rect), "{part:?} {rect:?} {context}");
                                 }

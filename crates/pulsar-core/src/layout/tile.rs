@@ -33,8 +33,11 @@ const STRIP_BOTTOM_DIP: f32 = 3.0;
 const MIN_STRIP_DIP: f32 = 5.0;
 const STRIP_LABEL_GAP_DIP: f32 = 4.0;
 const BUBBLE_DIP: f32 = 10.0;
-const BUBBLE_GAP_DIP: f32 = 4.0;
-const BUBBLE_INSET_DIP: f32 = 3.0;
+const BATTERY_W_DIP: f32 = 24.0;
+const BATTERY_H_DIP: f32 = 12.0;
+const BADGE_GAP_DIP: f32 = 4.0;
+const TREND_DIP: f32 = 8.0;
+const TREND_GAP_DIP: f32 = 3.0;
 
 /// What a tile needs room for beside its text.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -51,6 +54,7 @@ pub enum TileGraphic {
     Segments,
     Spark,
     Bubble,
+    Battery,
 }
 
 impl TileGraphic {
@@ -62,9 +66,12 @@ impl TileGraphic {
             GraphStyle::Segments
             | GraphStyle::HeatStrip
             | GraphStyle::Bullet
-            | GraphStyle::RangeRail => Self::Segments,
+            | GraphStyle::RangeRail
+            | GraphStyle::Uptime
+            | GraphStyle::CoreTypes => Self::Segments,
             GraphStyle::Spark => Self::Spark,
-            GraphStyle::Bubble => Self::Bubble,
+            GraphStyle::Bubble | GraphStyle::Combined => Self::Bubble,
+            GraphStyle::BatteryCell => Self::Battery,
             GraphStyle::Area
             | GraphStyle::Line
             | GraphStyle::Bars
@@ -82,6 +89,7 @@ pub struct TileLook<'a> {
     pub text: TileText<'a>,
     pub inline: bool,
     pub vertical_bar: bool,
+    pub trend: bool,
     pub scale: f32,
 }
 
@@ -198,12 +206,12 @@ pub fn tile_chrome(
     });
     let beside = match graphic {
         TileGraphic::Behind => 0.0,
-        TileGraphic::Ring | TileGraphic::Cores(_) | TileGraphic::Heat(_) | TileGraphic::Bubble
-            if look.vertical_bar =>
-        {
+        TileGraphic::Ring | TileGraphic::Cores(_) | TileGraphic::Heat(_) if look.vertical_bar => {
             0.0
         }
-        TileGraphic::Bubble => (BUBBLE_DIP + BUBBLE_GAP_DIP) * scale,
+        TileGraphic::Battery if look.vertical_bar => 0.0,
+        TileGraphic::Bubble => (BUBBLE_DIP + BADGE_GAP_DIP) * scale,
+        TileGraphic::Battery => (BATTERY_W_DIP + BADGE_GAP_DIP) * scale,
         TileGraphic::Ring => ring_diameter(tile_h, scale) + RING_GAP_DIP * scale,
         TileGraphic::Cores(count) => cores_width(count, scale) + CORES_GAP_DIP * scale,
         TileGraphic::Heat(count) => heat_width(count, tile_h, scale) + CORES_GAP_DIP * scale,
@@ -228,7 +236,20 @@ pub fn tile_chrome(
         TileGraphic::Segments | TileGraphic::Spark if look.vertical_bar => 0.0,
         TileGraphic::Segments | TileGraphic::Spark => (STRIP_BESIDE_DIP + CORES_GAP_DIP) * scale,
     };
-    stack.map_or(0.0, |w| w + STACK_GAP_DIP * scale) + beside
+    stack.map_or(0.0, |w| w + STACK_GAP_DIP * scale) + beside + trend_room(graphic, look)
+}
+
+/// On a narrow vertical bar an arrow shares the bubble's column.
+fn shares_column(graphic: TileGraphic, look: TileLook<'_>) -> bool {
+    look.trend && look.vertical_bar && graphic == TileGraphic::Bubble
+}
+
+fn trend_room(graphic: TileGraphic, look: TileLook<'_>) -> f32 {
+    if look.trend && !shares_column(graphic, look) {
+        (TREND_DIP + TREND_GAP_DIP) * look.scale
+    } else {
+        0.0
+    }
 }
 
 /// Where each part of a tile is drawn; `px` is the size of its text.
@@ -240,7 +261,9 @@ pub struct TileRegions {
     pub cores: Option<Rect>,
     /// A segment meter or a spark line.
     pub strip: Option<Rect>,
-    pub bubble: Option<Rect>,
+    /// A status dot or battery beside the text.
+    pub badge: Option<Rect>,
+    pub trend: Option<Rect>,
     /// The strip is under one line holding both the label and the value.
     pub strip_below: bool,
     pub text_x: f32,
@@ -266,6 +289,22 @@ pub fn tile_regions(
         w: rect.w - 2.0 * inset,
         h: rect.h - 2.0 * inset,
     };
+    let graph_right = rect.right() - inset;
+    let shared = shares_column(graphic, look);
+    let trend = look.trend.then(|| {
+        let w = (TREND_DIP * scale).round();
+        let top = if shared { rect.h / 2.0 } else { 0.0 };
+        Rect {
+            x: (rect.right() - PADDING_DIP * scale - w).round(),
+            y: rect.y + top,
+            w,
+            h: rect.h - top,
+        }
+    });
+    let rect = Rect {
+        w: (rect.w - trend_room(graphic, look)).max(1.0),
+        ..rect
+    };
     let stack = look.text.vertical_labels.then(|| {
         let height = rect.h - 2.0 * STACK_INSET_DIP * scale;
         let label = stacked_label(kind, part, look.text, px, height, scale, m);
@@ -277,7 +316,7 @@ pub fn tile_regions(
         };
         x += label.width + STACK_GAP_DIP * scale;
         graph.x = x - inset;
-        graph.w = rect.right() - inset - graph.x;
+        graph.w = graph_right - graph.x;
         (label, area)
     });
     let ring = (graphic == TileGraphic::Ring).then(|| {
@@ -336,18 +375,22 @@ pub fn tile_regions(
             beside(x)
         }
     });
-    let bubble = (graphic == TileGraphic::Bubble).then(|| {
-        let diameter = (BUBBLE_DIP * scale).round();
-        let y = if look.vertical_bar {
-            rect.y + BUBBLE_INSET_DIP * scale
-        } else {
-            rect.y + (rect.h - diameter) / 2.0
-        };
+    let badge_size = match graphic {
+        TileGraphic::Bubble => Some((BUBBLE_DIP, BUBBLE_DIP)),
+        TileGraphic::Battery => Some((BATTERY_W_DIP, BATTERY_H_DIP)),
+        _ => None,
+    };
+    let badge = badge_size.map(|(w, h)| {
+        if graphic == TileGraphic::Battery && look.vertical_bar {
+            return graph;
+        }
+        let (w, h) = ((w * scale).round(), (h * scale).round());
+        let share = if shared { rect.h / 2.0 } else { rect.h };
         Rect {
-            x: (rect.right() - PADDING_DIP * scale - diameter).round(),
-            y: y.round(),
-            w: diameter,
-            h: diameter,
+            x: (rect.right() - PADDING_DIP * scale - w).round(),
+            y: (rect.y + (share - h) / 2.0).round(),
+            w,
+            h,
         }
     });
     TileRegions {
@@ -355,7 +398,8 @@ pub fn tile_regions(
         ring,
         cores,
         strip,
-        bubble,
+        badge,
+        trend,
         strip_below: below,
         text_x: x,
         graph,

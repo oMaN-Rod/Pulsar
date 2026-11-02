@@ -52,6 +52,14 @@ pub enum GraphStyle {
     Bubble,
     /// Bars either side of a center line, one direction each; network only.
     MirrorBars,
+    /// A cell per ping, colored by latency, with lost ones standing taller; ping only.
+    Uptime,
+    /// A battery that fills with its charge, beside the text; battery only.
+    BatteryCell,
+    /// Bars behind the text with a temperature dot; items with a temperature only.
+    Combined,
+    /// Average load per core type, under or beside the text; CPU only.
+    CoreTypes,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -567,6 +575,9 @@ pub struct ItemConfig {
     pub graph: bool,
     #[serde(default)]
     pub style: GraphStyle,
+    /// Graph mode: an arrow for the latest reading against the recent average.
+    #[serde(default)]
+    pub trend: bool,
     #[serde(default)]
     pub color_mode: ColorMode,
     /// `None` uses `PopupConfig::detail`.
@@ -606,6 +617,7 @@ impl ItemConfig {
             color: None,
             graph: true,
             style: GraphStyle::Area,
+            trend: false,
             color_mode: ColorMode::Item,
             popup: None,
             popup_width: None,
@@ -874,7 +886,15 @@ impl Config {
             new
         });
         for item in &mut self.items {
-            if item.kind != ItemKind::Network && item.style == GraphStyle::MirrorBars {
+            let drawable = match item.style {
+                GraphStyle::MirrorBars => item.kind == ItemKind::Network,
+                GraphStyle::Uptime => item.kind == ItemKind::Ping,
+                GraphStyle::BatteryCell => item.kind == ItemKind::Battery,
+                GraphStyle::Combined => crate::display::ring_companion(item.kind).is_some(),
+                GraphStyle::CoreTypes => item.kind == ItemKind::Cpu,
+                _ => true,
+            };
+            if !drawable {
                 item.style = GraphStyle::default();
             }
             if matches!(item.style, GraphStyle::Tint | GraphStyle::Bubble)
@@ -1527,6 +1547,19 @@ sample_interval_ms = 1
             GraphStyle::MirrorBars
         );
         assert_eq!(c.item(ItemKind::Ram).unwrap().style, GraphStyle::Area);
+        for (style, kind) in [
+            (GraphStyle::Uptime, ItemKind::Ping),
+            (GraphStyle::BatteryCell, ItemKind::Battery),
+            (GraphStyle::Combined, ItemKind::Gpu),
+            (GraphStyle::CoreTypes, ItemKind::Cpu),
+        ] {
+            let mut c = Config::default();
+            c.item_mut(kind).unwrap().style = style;
+            c.item_mut(ItemKind::Ram).unwrap().style = style;
+            let c = c.sanitize();
+            assert_eq!(c.item(kind).unwrap().style, style);
+            assert_eq!(c.item(ItemKind::Ram).unwrap().style, GraphStyle::Area);
+        }
         for style in [GraphStyle::Tint, GraphStyle::Bubble] {
             let mut c = Config::default();
             c.item_mut(ItemKind::Ram).unwrap().style = style;

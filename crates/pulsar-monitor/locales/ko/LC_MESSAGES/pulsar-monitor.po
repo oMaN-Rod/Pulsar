@@ -832,6 +832,10 @@ msgstr "CPU 최대 {}"
 msgid "GPU up to {}"
 msgstr "GPU 최대 {}"
 
+#: src/menu.rs ui/settings.slint
+msgid "Trend arrow"
+msgstr "추세 화살표"
+
 #: src/menu.rs
 msgid "Same as other items ({})"
 msgstr "다른 항목과 동일({})"
@@ -1091,6 +1095,22 @@ msgstr "상태 버블"
 #: src/names.rs
 msgid "Mirror bars"
 msgstr "미러 막대"
+
+#: src/names.rs
+msgid "Uptime strip"
+msgstr "가동 시간 스트립"
+
+#: src/names.rs
+msgid "Battery cell"
+msgstr "배터리 셀"
+
+#: src/names.rs
+msgid "Load with temperature"
+msgstr "부하와 온도"
+
+#: src/names.rs
+msgid "Core type meters"
+msgstr "코어 유형 미터"
 
 #: src/names.rs
 msgid "Item color"
@@ -1647,6 +1667,10 @@ msgstr "짧은 레이블을 사용할 때와 오버레이가 작업 표시줄에
 #: ui/settings.slint
 msgid "Graph style"
 msgstr "그래프 스타일"
+
+#: ui/settings.slint
+msgid "Shows whether the latest reading is above or below the recent average."
+msgstr "최근 측정값이 최근 평균보다 높은지 낮은지 표시합니다."
 
 #: ui/settings.slint
 msgid "Tile width"

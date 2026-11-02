@@ -182,7 +182,81 @@ pub fn bar_rects(
         .collect()
 }
 
-/// How full a level meter is for `value` against `max`, 0–1.
+/// The latest reading against the recent average.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Trend {
+    Up,
+    Flat,
+    Down,
+}
+
+const TREND_SAMPLES: usize = 30;
+const TREND_MIN_SAMPLES: usize = 5;
+/// A smaller change than this share of the scale counts as flat.
+const TREND_MARGIN: f64 = 0.05;
+
+pub fn trend(history: &History, max: f64) -> Option<Trend> {
+    let values: Vec<f64> = history.iter().collect();
+    let (&latest, earlier) = values.split_last()?;
+    if !latest.is_finite() || max <= 0.0 {
+        return None;
+    }
+    let recent = &earlier[earlier.len().saturating_sub(TREND_SAMPLES)..];
+    let known: Vec<f64> = recent.iter().copied().filter(|v| v.is_finite()).collect();
+    if known.len() < TREND_MIN_SAMPLES {
+        return None;
+    }
+    let change = latest - known.iter().sum::<f64>() / known.len() as f64;
+    Some(if change > max * TREND_MARGIN {
+        Trend::Up
+    } else if change < -max * TREND_MARGIN {
+        Trend::Down
+    } else {
+        Trend::Flat
+    })
+}
+
+/// A cell per ping that fits, newest on the right; `None` was lost.
+pub fn uptime_cells(
+    attempts: &[Option<f64>],
+    rect: Rect,
+    w: f32,
+    gap: f32,
+) -> Vec<(Rect, Option<f64>)> {
+    if rect.w <= 0.0 {
+        return Vec::new();
+    }
+    let slots = ((rect.w + gap) / (w + gap)).floor().max(1.0) as usize;
+    attempts
+        .iter()
+        .rev()
+        .take(slots)
+        .enumerate()
+        .map(|(from_right, &reply)| {
+            let cell = Rect {
+                x: rect.x + rect.w - w - from_right as f32 * (w + gap),
+                w,
+                ..rect
+            };
+            (cell, reply)
+        })
+        .collect()
+}
+
+/// The average load of the performance cores, and of the efficient ones if
+/// `split` sets them apart.
+pub fn core_type_loads(loads: &[CoreLoad], split: Option<usize>) -> (f64, Option<f64>) {
+    let mean =
+        |cores: &[CoreLoad]| cores.iter().map(|c| c.load).sum::<f64>() / cores.len().max(1) as f64;
+    match split.filter(|&s| s < loads.len()) {
+        Some(s) => {
+            let (performance, efficient) = loads.split_at(s);
+            (mean(performance), Some(mean(efficient)))
+        }
+        None => (mean(loads), None),
+    }
+}
+
 pub fn heat_strip_cells(history: &History, rect: Rect, w: f32, gap: f32) -> Vec<(Rect, f64)> {
     bar_rects(history, rect, 1.0, w, gap)
         .into_iter()
@@ -241,6 +315,7 @@ pub fn history_range(history: &History) -> Option<(f64, f64)> {
         })
 }
 
+/// How full a level meter is for `value` against `max`, 0–1.
 pub fn meter_fraction(value: f64, max: f64) -> f32 {
     if max <= 0.0 || !value.is_finite() {
         return 0.0;
@@ -871,6 +946,59 @@ mod tests {
         w: 15.0,
         h: 15.0,
     };
+
+    #[test]
+    fn a_trend_compares_the_latest_reading_with_the_recent_average() {
+        let with_latest = |latest| {
+            let mut samples = vec![50.0; 10];
+            samples.push(latest);
+            history_of(&samples)
+        };
+        assert_eq!(trend(&with_latest(70.0), 100.0), Some(Trend::Up));
+        assert_eq!(trend(&with_latest(30.0), 100.0), Some(Trend::Down));
+        assert_eq!(trend(&with_latest(53.0), 100.0), Some(Trend::Flat));
+        assert_eq!(trend(&with_latest(f64::NAN), 100.0), None);
+        assert_eq!(trend(&history_of(&[50.0, 90.0]), 100.0), None);
+    }
+
+    #[test]
+    fn an_uptime_strip_shows_the_newest_pings_that_fit_and_lost_ones() {
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 8.0,
+            h: 6.0,
+        };
+        let cells = uptime_cells(&[Some(1.0), Some(20.0), None, Some(30.0)], area, 2.0, 1.0);
+        let readings: Vec<_> = cells.iter().map(|(_, v)| *v).collect();
+        assert_eq!(readings, [Some(30.0), None, Some(20.0)]);
+        assert!(cells[0].0.x > cells[1].0.x);
+        assert!(uptime_cells(&[], area, 2.0, 1.0).is_empty());
+    }
+
+    #[test]
+    fn a_long_outage_stays_on_the_uptime_strip() {
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 30.0,
+            h: 6.0,
+        };
+        let cells = uptime_cells(&[None; 5], area, 2.0, 1.0);
+        assert_eq!(cells.len(), 5);
+        assert!(cells.iter().all(|(_, reply)| reply.is_none()));
+    }
+
+    #[test]
+    fn core_types_average_apart_only_when_the_cpu_has_both() {
+        let loads: Vec<CoreLoad> = [80.0, 60.0, 10.0]
+            .into_iter()
+            .map(|load| CoreLoad { load, peak: load })
+            .collect();
+        assert_eq!(core_type_loads(&loads, Some(2)), (70.0, Some(10.0)));
+        assert_eq!(core_type_loads(&loads, Some(3)), (50.0, None));
+        assert_eq!(core_type_loads(&loads, None), (50.0, None));
+    }
 
     #[test]
     fn a_heat_strip_has_a_full_height_cell_per_reading() {

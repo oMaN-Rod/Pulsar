@@ -88,6 +88,7 @@ impl Message {
 impl From<WireSnapshot> for Snapshot {
     fn from(w: WireSnapshot) -> Self {
         Snapshot {
+            ping_attempts: Vec::new(),
             metrics: w.metrics.into_iter().collect(),
             errors: w.errors.into_iter().collect(),
             adapters: w.adapters,

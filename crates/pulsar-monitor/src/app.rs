@@ -58,7 +58,7 @@ use crate::popup::content::{Options as PopupOptions, needs_processes};
 use crate::popup::layout::item_screen_rect;
 use crate::popup::{self, Anchor, Popup, Style as PopupStyle};
 use crate::power::{self, Presence};
-use crate::render::{Frame, Renderer, graph_styles};
+use crate::render::{Frame, Renderer, graph_styles, trend_items};
 use crate::sampler_thread::SamplerThread;
 use crate::taskbar::hooks::{self, Hooks};
 use crate::taskbar::placement::{
@@ -255,6 +255,7 @@ impl Paint<'_> {
         }
         let surface = o.surface()?;
         let styles = graph_styles(self.config);
+        let trends = trend_items(self.config);
         let d = &self.config.display;
         let (labels, icons, graph_inline) = tier.map_or((d.labels, d.icons, d.graph_inline), |t| {
             (t.labels, t.icons, t.graph_inline)
@@ -275,6 +276,7 @@ impl Paint<'_> {
             },
             graph_inline: graph_inline && !layout.vertical && !d.vertical_labels,
             styles: &styles,
+            trends: &trends,
             network_floor: NetworkFloor::new(&self.config.network),
         };
         self.renderer.draw(surface, &frame, self.text)?;

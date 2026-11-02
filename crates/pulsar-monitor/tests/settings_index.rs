@@ -115,6 +115,7 @@ fn the_rows_of_the_item_template_belong_to_every_item() {
             "Overlay label",
             "Short overlay label",
             "Graph style",
+            "Trend arrow",
             "Tile width",
             "Tile height",
             "Color",
