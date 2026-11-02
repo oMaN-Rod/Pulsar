@@ -21,11 +21,13 @@ use pulsar_core::reorder::{self, Slot};
 use pulsar_core::update::{self as release, Outcome, UpdateState};
 use pulsar_core::{crash, games, paths, profile, sampler, tr};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, POINT, WPARAM};
+use windows::Win32::Graphics::Gdi::ScreenToClient;
 use windows::Win32::System::Com::CoTaskMemFree;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN, RegisterHotKey, ReleaseCapture,
-    SetCapture, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent, UnregisterHotKey,
+    GetAsyncKeyState, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN, RegisterHotKey,
+    ReleaseCapture, SetCapture, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
+    UnregisterHotKey, VK_LBUTTON, VK_RBUTTON,
 };
 use windows::Win32::UI::Shell::{
     ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, FOLDERID_Documents, KF_FLAG_DEFAULT,
@@ -35,11 +37,12 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetCursorPos,
     GetForegroundWindow, GetMessageW, GetSystemMetrics, IDC_ARROW, IDC_SIZEALL, KillTimer,
     LoadCursorW, MA_NOACTIVATE, MSG, PBT_POWERSETTINGCHANGE, PostQuitMessage, RegisterClassW,
-    RegisterWindowMessageW, SM_CXDRAG, SetCoalescableTimer, SetCursor, SetTimer, TranslateMessage,
-    WM_APPCOMMAND, WM_CAPTURECHANGED, WM_CHANGEUISTATE, WM_CONTEXTMENU, WM_DESTROY,
-    WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE, WM_MOUSEHWHEEL,
-    WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POWERBROADCAST, WM_RBUTTONUP, WM_SETCURSOR,
-    WM_SETTINGCHANGE, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_EX_TOOLWINDOW, WS_POPUP,
+    RegisterWindowMessageW, SM_CXDRAG, SM_SWAPBUTTON, SetCoalescableTimer, SetCursor, SetTimer,
+    TranslateMessage, WM_APPCOMMAND, WM_CAPTURECHANGED, WM_CHANGEUISTATE, WM_CONTEXTMENU,
+    WM_DESTROY, WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE,
+    WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POWERBROADCAST, WM_RBUTTONUP,
+    WM_SETCURSOR, WM_SETTINGCHANGE, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_EX_TOOLWINDOW,
+    WS_POPUP,
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
@@ -82,6 +85,9 @@ const TIMER_VALIDATE: usize = 2;
 const TIMER_RETRY: usize = 3;
 const TIMER_FADE: usize = 5;
 const TIMER_PRESENCE: usize = 6;
+const TIMER_ITEM_DRAG: usize = 7;
+/// Capture alone misses a release off a window that is not in the foreground.
+const ITEM_DRAG_POLL_MS: u32 = 30;
 const REORDER_MARKER_DIP: f32 = 2.0;
 const PRESENCE_RETRY_MS: u32 = 250;
 const TIMER_UPDATE: usize = 4;
@@ -206,6 +212,8 @@ pub struct App {
     /// The widget being moved with the mouse.
     widget_drag: Option<Drag>,
     item_drag: Option<ItemDrag>,
+    /// A drag ended before its button came up, so that release is no click.
+    ignore_release: bool,
     /// Sampled for the game in progress, on top of what the settings ask for.
     session_items: Vec<ItemKind>,
     /// The games Windows knows, and when they were read.
@@ -392,6 +400,7 @@ impl App {
             widget: Widget::create(instance)?,
             widget_drag: None,
             item_drag: None,
+            ignore_release: false,
             session_items: Vec::new(),
             known_games: HashSet::new(),
             games_read: None,
@@ -1460,7 +1469,10 @@ impl App {
                 active: false,
                 slot: None,
             });
-            unsafe { SetCapture(window) };
+            unsafe {
+                SetCapture(window);
+                SetTimer(Some(self.host), TIMER_ITEM_DRAG, ITEM_DRAG_POLL_MS, None);
+            }
         }
     }
 
@@ -1527,18 +1539,63 @@ impl App {
         true
     }
 
+    /// Keeps a held item current wherever the cursor is, and drops it once its
+    /// button is up.
+    fn on_item_drag_tick(&mut self) {
+        let Some(drag) = self.item_drag.as_ref() else {
+            self.stop_item_drag_timer();
+            return;
+        };
+        let (window, active) = (drag.window, drag.active);
+        if left_button_down() {
+            let (x, y) = cursor();
+            let mut at = POINT { x, y };
+            if unsafe { ScreenToClient(window, &mut at) }.as_bool() {
+                self.on_item_drag_move(window, at.x, at.y);
+            }
+        } else if active {
+            self.finish_item_drag(window);
+            self.ignore_release = true;
+        } else {
+            self.item_drag = None;
+            self.stop_item_drag_timer();
+            unsafe {
+                let _ = ReleaseCapture();
+            }
+        }
+    }
+
+    fn stop_item_drag_timer(&self) {
+        unsafe {
+            let _ = KillTimer(Some(self.host), TIMER_ITEM_DRAG);
+        }
+    }
+
+    /// Measured against the layout on show now, which can change during a drag.
+    fn slot_under_cursor(&self, window: HWND, kind: ItemKind) -> Option<Slot> {
+        let (x, y) = cursor();
+        let mut at = POINT { x, y };
+        if !unsafe { ScreenToClient(window, &mut at) }.as_bool() {
+            return None;
+        }
+        let thickness = (REORDER_MARKER_DIP * self.window_scale(window)).round();
+        let cells = self.item_cells(window);
+        reorder::slot(&cells, kind, at.x as f32, at.y as f32, thickness)
+    }
+
     /// Drops a held item; returns whether the press was a drag, not a click.
     fn finish_item_drag(&mut self, window: HWND) -> bool {
         let Some(drag) = self.item_drag.take().filter(|d| d.window == window) else {
             return false;
         };
+        self.stop_item_drag_timer();
         unsafe {
             let _ = ReleaseCapture();
         }
         if !drag.active {
             return false;
         }
-        match drag.slot {
+        match self.slot_under_cursor(window, drag.kind) {
             Some(slot) if window == self.widget.hwnd => self.change_config(|c| {
                 c.move_widget_item_beside(drag.kind, slot.target, slot.after);
             }),
@@ -1552,9 +1609,12 @@ impl App {
     }
 
     fn cancel_item_drag(&mut self) {
-        if let Some(drag) = self.item_drag.take()
-            && drag.active
-        {
+        let Some(drag) = self.item_drag.take() else {
+            return;
+        };
+        self.stop_item_drag_timer();
+        if drag.active {
+            self.ignore_release = true;
             self.redraw_window(drag.window);
         }
     }
@@ -1794,6 +1854,7 @@ impl App {
             TIMER_WATCH => self.watch(),
             TIMER_VALIDATE => self.refresh(),
             TIMER_FADE => self.fade_tick(),
+            TIMER_ITEM_DRAG => self.on_item_drag_tick(),
             TIMER_PRESENCE => {
                 unsafe {
                     let _ = KillTimer(Some(self.host), TIMER_PRESENCE);
@@ -2144,6 +2205,14 @@ fn ctrl_held(wp: WPARAM) -> bool {
     wp.0 & 0x0008 != 0
 }
 
+/// Whether the button Windows calls left is down, by the physical state,
+/// which swapped mouse buttons do not change.
+fn left_button_down() -> bool {
+    let swapped = unsafe { GetSystemMetrics(SM_SWAPBUTTON) } != 0;
+    let key = if swapped { VK_RBUTTON } else { VK_LBUTTON };
+    unsafe { GetAsyncKeyState(i32::from(key.0)) < 0 }
+}
+
 fn shift_held(wp: WPARAM) -> bool {
     wp.0 & 0x0004 != 0
 }
@@ -2272,7 +2341,10 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
         }
         WM_LBUTTONDOWN => {
             let (x, y) = signed_words(lp.0 as usize);
-            with_app(|a| a.on_button_down(hwnd, x, y, shift_held(wp)));
+            with_app(|a| {
+                a.ignore_release = false;
+                a.on_button_down(hwnd, x, y, shift_held(wp));
+            });
             LRESULT(0)
         }
         WM_CAPTURECHANGED => {
@@ -2292,8 +2364,12 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
             LRESULT(0)
         }
         WM_LBUTTONUP => {
-            let dragged =
-                with_app(|a| a.on_button_up(hwnd) || a.finish_item_drag(hwnd)).unwrap_or(false);
+            let dragged = with_app(|a| {
+                a.on_button_up(hwnd)
+                    || a.finish_item_drag(hwnd)
+                    || std::mem::take(&mut a.ignore_release)
+            })
+            .unwrap_or(false);
             if !dragged {
                 let (x, y) = signed_words(lp.0 as usize);
                 let ctrl = ctrl_held(wp);
