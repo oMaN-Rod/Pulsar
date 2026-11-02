@@ -546,9 +546,7 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput<'_>, m: &dyn TextMe
             DisplayMode::Text => {
                 stacked_text(&items, bar_w, scale, font_px, labels, input.text_spacing, m)
             }
-            DisplayMode::Graph => {
-                stacked_tiles(&items, bar_w, scale, font_px, labels, input.graph_inline, m)
-            }
+            DisplayMode::Graph => stacked_tiles(&items, bar_w, scale, font_px, labels, m),
         };
     }
     match input.mode {
@@ -797,7 +795,6 @@ fn stacked_tiles(
     scale: f32,
     font_px: f32,
     labels: Labels<'_>,
-    inline: bool,
     m: &dyn TextMeasure,
 ) -> Layout {
     let padding = STACKED_PADDING_DIP * scale;
@@ -823,7 +820,7 @@ fn stacked_tiles(
     for spec in items {
         let tile_h =
             requested_height(spec, scale).map_or(auto_h, |h| h.min(MAX_TILE_HEIGHT_DIP * scale));
-        let text_px = tile_text_px(font_px, tile_h, tile_h < auto_h, scale, inline, m);
+        let text_px = stacked_text_px(font_px, tile_h, scale);
         for &part in &spec.parts {
             cells.push(Cell {
                 kind: spec.kind,
@@ -1175,6 +1172,23 @@ mod tests {
                 sized(mode, inline, false, 9.0)
             );
         }
+    }
+
+    #[test]
+    fn short_vertical_tiles_size_text_for_two_lines_with_inline_on() {
+        let mut c = Config::default();
+        c.display.mode = DisplayMode::Graph;
+        c.item_mut(ItemKind::Cpu).unwrap().tile_height = Some(16);
+        let specs = item_specs(&c, &GpuSlots::new());
+        let stacked = vertical(DisplayMode::Graph, 120.0);
+        let inline = LayoutInput {
+            graph_inline: true,
+            ..stacked
+        };
+        let l = compute_layout(&specs, inline, &Fixed);
+        assert_eq!(l.cells, compute_layout(&specs, stacked, &Fixed).cells);
+        let cell = l.cells.iter().find(|c| c.kind == ItemKind::Cpu).unwrap();
+        assert!(cell.text_px * STACKED_LINES <= cell.rect.h);
     }
 
     #[test]
