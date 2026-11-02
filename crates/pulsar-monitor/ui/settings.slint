@@ -775,6 +775,10 @@ export component SettingsWindow inherits Window {
     in property <[string]> popup-details;
     in property <[string]> item-popup-details;
     in property <string> diagnostics-status;
+    in property <string> update-status;
+    in property <bool> update-checking;
+    in property <string> update-url;
+    in property <string> update-notes;
     in property <[string]> fonts;
     in-out property <int> font-index;
     in-out property <bool> font-bold;
@@ -838,6 +842,7 @@ export component SettingsWindow inherits Window {
     callback open-config-folder();
     callback open-logs-folder();
     callback open-link(string);
+    callback check-for-update();
     callback apply-theme(int);
     callback save-theme(string);
     callback open-themes-folder();
@@ -2219,6 +2224,33 @@ export component SettingsWindow inherits Window {
                                 color: Palette.foreground.transparentize(0.35);
                             }
                         }
+                    }
+                }
+                Card {
+                    SettingRow {
+                        title: @tr("Updates");
+                        description: root.update-status != "" ? root.update-status : @tr("Ask GitHub for the latest release now. Nothing is downloaded.");
+                        Button {
+                            text: @tr("Check now");
+                            enabled: !root.update-checking;
+                            clicked => { root.check-for-update(); }
+                        }
+                    }
+                    Divider { height: root.update-url != "" ? 1px : 0; }
+                    OptionalRow {
+                        shown: root.update-url != "";
+                        title: @tr("Release page");
+                        description: root.update-url;
+                        Button {
+                            text: @tr("Open release page");
+                            clicked => { root.open-link(root.update-url); }
+                        }
+                    }
+                    Divider { height: root.update-notes != "" ? 1px : 0; }
+                    OptionalRow {
+                        shown: root.update-notes != "";
+                        title: @tr("What's new");
+                        description: root.update-notes;
                     }
                 }
                 Card {

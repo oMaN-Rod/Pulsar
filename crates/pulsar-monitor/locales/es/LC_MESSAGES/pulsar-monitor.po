@@ -108,7 +108,7 @@ msgstr "Pulsar dejó de grabar"
 msgid "Pulsar could not open the details window"
 msgstr "Pulsar no pudo abrir la ventana de detalles"
 
-#: src/app.rs
+#: src/app.rs src/settings/main.rs
 msgid "Pulsar {} is available"
 msgstr "Pulsar {} está disponible"
 
@@ -1321,6 +1321,18 @@ msgid "Windows default ({})"
 msgstr "Igual que Windows ({})"
 
 #: src/settings/main.rs
+msgid "You have the latest version."
+msgstr "Tienes la última versión."
+
+#: src/settings/main.rs
+msgid "No release has been published yet."
+msgstr "Todavía no se ha publicado ninguna versión."
+
+#: src/settings/main.rs
+msgid "Could not check for updates: {}"
+msgstr "No se pudo buscar actualizaciones: {}"
+
+#: src/settings/main.rs
 msgid "Reading every source…"
 msgstr "Leyendo todas las fuentes…"
 
@@ -1331,6 +1343,10 @@ msgstr "Guardado en {}"
 #: src/settings/main.rs
 msgid "Could not save the report: {}"
 msgstr "No se pudo guardar el informe: {}"
+
+#: src/settings/main.rs
+msgid "Checking for updates…"
+msgstr "Buscando actualizaciones…"
 
 #: src/settings/main.rs
 msgid "Saved."
@@ -2247,6 +2263,30 @@ msgstr "Pulsar {}"
 #: ui/settings.slint
 msgid "A Windows 11 taskbar system monitor."
 msgstr "Un monitor del sistema para la barra de tareas de Windows 11."
+
+#: ui/settings.slint
+msgid "Updates"
+msgstr "Actualizaciones"
+
+#: ui/settings.slint
+msgid "Ask GitHub for the latest release now. Nothing is downloaded."
+msgstr "Consulta ahora en GitHub la última versión publicada. No se descarga nada."
+
+#: ui/settings.slint
+msgid "Check now"
+msgstr "Buscar ahora"
+
+#: ui/settings.slint
+msgid "Release page"
+msgstr "Página de la versión"
+
+#: ui/settings.slint
+msgid "Open release page"
+msgstr "Abrir la página de la versión"
+
+#: ui/settings.slint
+msgid "What's new"
+msgstr "Novedades"
 
 #: ui/settings.slint
 msgid "License"

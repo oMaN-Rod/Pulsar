@@ -109,7 +109,7 @@ msgstr "Pulsar 已停止记录"
 msgid "Pulsar could not open the details window"
 msgstr "Pulsar 无法打开详细信息窗口"
 
-#: src/app.rs
+#: src/app.rs src/settings/main.rs
 msgid "Pulsar {} is available"
 msgstr "Pulsar {} 已发布"
 
@@ -1322,6 +1322,18 @@ msgid "Windows default ({})"
 msgstr "跟随 Windows（{}）"
 
 #: src/settings/main.rs
+msgid "You have the latest version."
+msgstr "已是最新版本。"
+
+#: src/settings/main.rs
+msgid "No release has been published yet."
+msgstr "尚未发布任何版本。"
+
+#: src/settings/main.rs
+msgid "Could not check for updates: {}"
+msgstr "无法检查更新：{}"
+
+#: src/settings/main.rs
 msgid "Reading every source…"
 msgstr "正在读取所有数据源…"
 
@@ -1332,6 +1344,10 @@ msgstr "已保存到 {}"
 #: src/settings/main.rs
 msgid "Could not save the report: {}"
 msgstr "无法保存报告：{}"
+
+#: src/settings/main.rs
+msgid "Checking for updates…"
+msgstr "正在检查更新…"
 
 #: src/settings/main.rs
 msgid "Saved."
@@ -2248,6 +2264,30 @@ msgstr "Pulsar {}"
 #: ui/settings.slint
 msgid "A Windows 11 taskbar system monitor."
 msgstr "一款 Windows 11 任务栏系统监控工具。"
+
+#: ui/settings.slint
+msgid "Updates"
+msgstr "更新"
+
+#: ui/settings.slint
+msgid "Ask GitHub for the latest release now. Nothing is downloaded."
+msgstr "立即向 GitHub 查询最新版本。不会下载任何内容。"
+
+#: ui/settings.slint
+msgid "Check now"
+msgstr "立即检查"
+
+#: ui/settings.slint
+msgid "Release page"
+msgstr "发布页面"
+
+#: ui/settings.slint
+msgid "Open release page"
+msgstr "打开发布页面"
+
+#: ui/settings.slint
+msgid "What's new"
+msgstr "新增内容"
 
 #: ui/settings.slint
 msgid "License"

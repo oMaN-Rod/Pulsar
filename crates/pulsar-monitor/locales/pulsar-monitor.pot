@@ -106,7 +106,7 @@ msgstr ""
 msgid "Pulsar could not open the details window"
 msgstr ""
 
-#: src/app.rs
+#: src/app.rs src/settings/main.rs
 msgid "Pulsar {} is available"
 msgstr ""
 
@@ -1319,6 +1319,18 @@ msgid "Windows default ({})"
 msgstr ""
 
 #: src/settings/main.rs
+msgid "You have the latest version."
+msgstr ""
+
+#: src/settings/main.rs
+msgid "No release has been published yet."
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Could not check for updates: {}"
+msgstr ""
+
+#: src/settings/main.rs
 msgid "Reading every source…"
 msgstr ""
 
@@ -1328,6 +1340,10 @@ msgstr ""
 
 #: src/settings/main.rs
 msgid "Could not save the report: {}"
+msgstr ""
+
+#: src/settings/main.rs
+msgid "Checking for updates…"
 msgstr ""
 
 #: src/settings/main.rs
@@ -2244,6 +2260,30 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "A Windows 11 taskbar system monitor."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Updates"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Ask GitHub for the latest release now. Nothing is downloaded."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Check now"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Release page"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Open release page"
+msgstr ""
+
+#: ui/settings.slint
+msgid "What's new"
 msgstr ""
 
 #: ui/settings.slint

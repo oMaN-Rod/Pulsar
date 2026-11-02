@@ -4,14 +4,12 @@
 
 use std::ffi::c_void;
 use std::io::Write;
-use std::os::windows::process::CommandExt;
-use std::process::{Command, Stdio};
 use std::sync::mpsc::{self, Receiver};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use pulsar_core::project::{API_HOST, LATEST_RELEASE_PATH};
-use pulsar_core::update::{CHECK_ARG, EXIT_NO_RELEASE, Outcome, Version, interpret};
+use pulsar_core::update::{EXIT_NO_RELEASE, Outcome};
+pub use pulsar_core::update::{current, now};
 use windows::Win32::Foundation::{HWND, LPARAM, WPARAM};
 use windows::Win32::Networking::WinHttp::{
     INTERNET_DEFAULT_HTTPS_PORT, WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_FLAG_SECURE,
@@ -19,7 +17,6 @@ use windows::Win32::Networking::WinHttp::{
     WinHttpOpen, WinHttpOpenRequest, WinHttpQueryHeaders, WinHttpReadData, WinHttpReceiveResponse,
     WinHttpSendRequest, WinHttpSetTimeouts,
 };
-use windows::Win32::System::Threading::CREATE_NO_WINDOW;
 use windows::Win32::UI::WindowsAndMessaging::PostMessageW;
 use windows::core::{HSTRING, PCWSTR, w};
 
@@ -140,17 +137,8 @@ pub fn helper_main() -> i32 {
 }
 
 fn run_helper() -> Outcome {
-    let exe = match std::env::current_exe() {
-        Ok(exe) => exe,
-        Err(e) => return Outcome::Failed(e.to_string()),
-    };
-    match Command::new(exe)
-        .arg(CHECK_ARG)
-        .stdin(Stdio::null())
-        .creation_flags(CREATE_NO_WINDOW.0)
-        .output()
-    {
-        Ok(out) => interpret(out.status.code(), &out.stdout, &out.stderr),
+    match std::env::current_exe() {
+        Ok(exe) => pulsar_core::update::run_helper(&exe),
         Err(e) => Outcome::Failed(e.to_string()),
     }
 }
@@ -177,29 +165,9 @@ pub fn spawn(host: HWND) -> Option<Receiver<Outcome>> {
     Some(rx)
 }
 
-pub fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs())
-}
-
-pub fn current() -> Version {
-    Version::parse(env!("CARGO_PKG_VERSION")).unwrap_or(Version(0, 0, 0))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_running_version_is_comparable() {
-        assert_eq!(current().to_string(), env!("CARGO_PKG_VERSION"));
-    }
-
-    #[test]
-    fn now_is_after_this_code_was_written() {
-        assert!(now() > 1_790_000_000);
-    }
 
     /// Needs the network; run with `cargo test -p pulsar-monitor -- --ignored`.
     #[test]

@@ -60,6 +60,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Delete `%LOCALAPPDATA%\Pulsar\update.toml` and start Pulsar | About a minute later, `pulsar.log` shows the update check result; no notification while you have the newest version |
 | Settings → General → *Tray icon* off, then on | The icon leaves and returns at once; while off, the overlay's right-click menu and a second launch still reach Settings |
 | *Tray icon* off, then the crash offer check above | The icon appears with the notification and goes once it is clicked or times out |
+| Settings → About → *Check now* | Shows the result without a notification; with a newer release, its link and notes appear, and `announced` in `update.toml` is unchanged |
 | Settings → About | Version and icon shown; the Logs, GitHub and issue buttons open the right places |
 
 ## Install routes

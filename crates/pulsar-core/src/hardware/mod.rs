@@ -7,7 +7,7 @@ pub mod gpu;
 pub mod network;
 pub mod os;
 pub mod pci;
-mod registry;
+pub(crate) mod registry;
 pub mod smbios;
 pub mod storage;
 

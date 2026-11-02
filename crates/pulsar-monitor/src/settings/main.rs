@@ -27,6 +27,7 @@ use pulsar_core::profile::{self, Profile};
 use pulsar_core::single_instance::SingleInstance;
 use pulsar_core::sources::{fixed_drives, hardware_adapters};
 use pulsar_core::theme::{self, Theme};
+use pulsar_core::update::{self, Availability, Outcome, UpdateState};
 use pulsar_core::{crash, ipc, l10n, logging, paths, project, system_theme, tr};
 use slint::{Color, ComponentHandle, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 use windows::Win32::UI::Shell::ShellExecuteW;
@@ -816,6 +817,58 @@ fn open_link(url: &str) {
     }
 }
 
+/// Blocks for as long as the helper takes, so it belongs on a worker thread.
+fn check_for_update() -> Availability {
+    let outcome = match std::env::current_exe() {
+        Ok(exe) => update::run_helper(&ipc::sibling(&exe, ipc::APP_EXE)),
+        Err(e) => Outcome::Failed(e.to_string()),
+    };
+    if let Some(path) = update::state_path() {
+        let before = UpdateState::load(&path);
+        let mut state = before.clone();
+        update::note_manual_check(&mut state, &outcome, update::current(), update::now());
+        if state != before
+            && let Err(e) = state.save(&path)
+        {
+            log::warn!("could not save the update check state: {e}");
+        }
+    }
+    let availability = update::assess(&outcome, update::current());
+    if let Availability::Failed(reason) = &availability {
+        log::warn!("update check failed: {reason}");
+    }
+    availability
+}
+
+fn show_update_result(ui: &SettingsWindow, availability: Availability) {
+    let (status, url, notes) = match availability {
+        Availability::Available(release) => (
+            tr!("Pulsar {} is available", release.version),
+            release.url,
+            release.notes,
+        ),
+        Availability::UpToDate => (
+            tr!("You have the latest version.").to_string(),
+            String::new(),
+            String::new(),
+        ),
+        Availability::NoRelease => (
+            tr!("No release has been published yet.").to_string(),
+            String::new(),
+            String::new(),
+        ),
+        Availability::Failed(reason) => (
+            tr!("Could not check for updates: {}", reason),
+            String::new(),
+            String::new(),
+        ),
+    };
+    ui.set_update_status(status.into());
+    ui.set_update_url(url.into());
+    ui.set_update_notes(notes.into());
+    ui.set_update_checking(false);
+}
+
 fn update_row(ui: &SettingsWindow, index: i32, edit: impl FnOnce(&mut ItemRow)) {
     let items = ui.get_items();
     let index = index as usize;
@@ -897,6 +950,28 @@ fn main() -> Result<(), Box<dyn Error>> {
                         Err(e) => tr!("Could not save the report: {}", e),
                     };
                     ui.set_diagnostics_status(status.into());
+                });
+            });
+        }
+    });
+    ui.on_check_for_update({
+        let weak = ui.as_weak();
+        move || {
+            let Some(ui) = weak.upgrade() else { return };
+            if ui.get_update_checking() {
+                return;
+            }
+            ui.set_update_checking(true);
+            ui.set_update_status(tr!("Checking for updates…").into());
+            ui.set_update_url(SharedString::new());
+            ui.set_update_notes(SharedString::new());
+            let weak = weak.clone();
+            std::thread::spawn(move || {
+                let availability = check_for_update();
+                let _ = slint::invoke_from_event_loop(move || {
+                    if let Some(ui) = weak.upgrade() {
+                        show_update_result(&ui, availability);
+                    }
                 });
             });
         }

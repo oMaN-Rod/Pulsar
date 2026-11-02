@@ -28,3 +28,4 @@ pub mod sources;
 pub mod system_theme;
 pub mod theme;
 pub mod update;
+pub mod update_manifest;
