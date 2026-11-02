@@ -6,14 +6,15 @@ details window to target\screenshots\.
 .DESCRIPTION
 Runs the release build on the live desktop with a throwaway settings folder, so your own
 settings are never read or changed. It moves the real mouse over the taskbar and opens
-Notepad for the game strip: leave the PC alone until it finishes, in about ten minutes. Exit
-Pulsar before running it. The frame rate item needs the sensor service.
+Character Map for the game strip: leave the PC alone until it finishes, in about fifteen minutes. Exit
+Pulsar before running it. The frame rate item and temperature dots need the sensor service, and
+the battery cell needs a battery.
 .PARAMETER SkipBuild
 Use the existing target\release binaries.
 .PARAMETER Light
 Also capture on a light taskbar. Switches Windows to light mode for a minute, then back.
 .PARAMETER Publish
-Copy each capture whose name is already in docs\images over that file.
+Copy each capture that docs\images already has or the README uses into docs\images.
 .PARAMETER Parts
 Which captures to take: overlay, popups, menus, widget, game, settings, details.
 #>
@@ -54,6 +55,7 @@ public static class Native {
 
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr v);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindow(string cls, string title);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr after, string cls, string title);
     [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc f, IntPtr l);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr h, StringBuilder s, int n);
     [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
@@ -94,8 +96,10 @@ public static class Native {
 [void][Native]::SetProcessDpiAwarenessContext([IntPtr]-4)
 
 $Kinds = 'cpu', 'cpu_temp', 'cpu_power', 'cpu_clock', 'ram', 'chipset_temp', 'gpu', 'gpu_temp',
-    'disk', 'disk_temp', 'network', 'ping', 'battery', 'fps'
+    'gpu_memory', 'disk', 'disk_temp', 'network', 'ping', 'battery', 'fps'
 $Showcase = 'cpu', 'cpu_temp', 'ram', 'gpu', 'disk', 'network'
+# Network has no load scale, so it cannot tint or show a status bubble.
+$Loaded = 'cpu', 'cpu_temp', 'ram', 'gpu', 'gpu_memory', 'gpu_temp'
 $All = $Kinds | Where-Object { $_ -ne 'battery' }
 
 # A config with the given items shown, in order; everything else at its default.
@@ -106,9 +110,13 @@ function Write-Config {
         [string]$Labels = 'full',
         [switch]$Icons,
         [switch]$Inline,
+        [switch]$VerticalLabels,
         [string]$Style = 'area',
         [hashtable]$Styles = @{},
+        [string[]]$Trend = @(),
         [string]$Color = 'item',
+        # Band names to #RRGGBB, for color by load.
+        [hashtable]$LoadColors = @{},
         [string[]]$TextOnly = @(),
         [string]$Detail = 'standard',
         [string]$Background = 'translucent',
@@ -117,6 +125,7 @@ function Write-Config {
         # A widget style turns the widget on, drawn above other windows.
         [string]$Widget,
         [string]$WidgetDetail = 'simple',
+        [hashtable]$WidgetStyles = @{},
         # Executable names to count as games, with the strip on.
         [string[]]$Games = @()
     )
@@ -132,10 +141,14 @@ history_len = 60
 [display]
 mode = "$Mode"
 graph_inline = $("$Inline".ToLower())
+vertical_labels = $("$VerticalLabels".ToLower())
 labels = "$Labels"
 icons = $("$Icons".ToLower())
 hide_in_fullscreen = false
 $(if ($Floating) { "position = `"floating`"`npanel_opacity = 75" })
+
+[display.load_colors]
+$(($LoadColors.GetEnumerator() | ForEach-Object { "$($_.Key) = `"$($_.Value)`"" }) -join "`n")
 
 [popup]
 detail = "$Detail"
@@ -173,7 +186,9 @@ kind = "$kind"
 enabled = $("$($kind -in $Show)".ToLower())
 graph = $("$($kind -notin $TextOnly)".ToLower())
 style = "$style"
+trend = $("$($kind -in $Trend)".ToLower())
 color_mode = "$Color"
+$(if ($WidgetStyles.ContainsKey($kind)) { "widget_style = `"$($WidgetStyles[$kind])`"" })
 
 
 "@
@@ -249,6 +264,12 @@ function Find-Window([string]$Class, [string]$Title) {
     for ($i = 0; $i -lt 60; $i++) {
         $cls = if ($Class) { $Class } else { [NullString]::Value }
         $ttl = if ($Title) { $Title } else { [NullString]::Value }
+        # On the taskbar the overlay is the taskbar's child, which FindWindow skips.
+        if ($Class -eq 'PulsarOverlay') {
+            $bar = [Native]::FindWindow('Shell_TrayWnd', [NullString]::Value)
+            $h = [Native]::FindWindowEx($bar, [IntPtr]::Zero, $Class, [NullString]::Value)
+            if ($h -ne [IntPtr]::Zero) { return $h }
+        }
         $h = [Native]::FindWindow($cls, $ttl)
         if ($h -ne [IntPtr]::Zero) { return $h }
         Start-Sleep -Milliseconds 250
@@ -487,22 +508,47 @@ try {
             'overlay-graph-icons'  = @{ Icons = $true }
             'overlay-graph-short'  = @{ Labels = 'short' }
             'overlay-graph-inline' = @{ Inline = $true; Icons = $true }
+            'overlay-vertical-labels' = @{ VerticalLabels = $true }
             'overlay-text'         = @{ Mode = 'text' }
             'overlay-text-short'   = @{ Mode = 'text'; Labels = 'short' }
             'overlay-text-icons'   = @{ Mode = 'text'; Labels = 'none'; Icons = $true }
             'overlay-style-line'   = @{ Style = 'line' }
             'overlay-style-bars'   = @{ Style = 'bars' }
             'overlay-style-meter'  = @{ Style = 'meter' }
+            'overlay-style-segments' = @{ Style = 'segments' }
+            'overlay-style-spark'  = @{ Style = 'spark' }
+            'overlay-style-ring'   = @{ Style = 'ring' }
+            'overlay-style-dot-matrix' = @{ Style = 'dot_matrix' }
+            'overlay-style-heat-strip' = @{ Style = 'heat_strip' }
+            'overlay-style-bullet' = @{ Style = 'bullet' }
+            'overlay-style-range-rail' = @{ Style = 'range_rail' }
+            'overlay-style-tint'   = @{ Show = $Loaded; Style = 'tint' }
+            'overlay-style-bubble' = @{ Show = $Loaded; Style = 'bubble' }
+            'overlay-style-combined' = @{ Show = 'cpu', 'gpu'; Style = 'combined' }
+            'overlay-style-cores'  = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'cores' } }
+            'overlay-style-heat'   = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'heat' } }
+            'overlay-style-core-types' = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'core_types' } }
+            'overlay-style-mirror' = @{ Show = 'network', 'ram'; Styles = @{ network = 'mirror_bars' } }
+            'overlay-style-uptime' = @{ Show = 'ping', 'ram'; Styles = @{ ping = 'uptime' } }
             'overlay-style-mixed'  = @{ Styles = @{ cpu_temp = 'line'; ram = 'meter'; gpu = 'bars' }; TextOnly = 'disk' }
+            'overlay-trend'        = @{ Trend = $Showcase }
             'overlay-color-accent' = @{ Color = 'accent' }
             'overlay-color-load'   = @{ Color = 'load' }
+            'overlay-color-custom' = @{ Color = 'load'; LoadColors = @{ low = '#4CC2FF'; moderate = '#B18CFF'; high = '#FF8CC6'; critical = '#FF4D6A' } }
             'overlay-text-load'    = @{ Mode = 'text'; Color = 'load' }
             'overlay-all'          = @{ Show = $All }
+        }
+        if (Get-CimInstance Win32_Battery) {
+            $layouts['overlay-style-battery'] = @{ Show = 'battery', 'ram'; Styles = @{ battery = 'battery_cell' } }
+        } else {
+            Write-Warning 'no battery, so no battery cell capture'
         }
         foreach ($name in $layouts.Keys) {
             $options = $layouts[$name]
             Write-Config @options
             Send-ConfigChanged
+            # The strip has only the pings since the item was turned on.
+            if ($name -eq 'overlay-style-uptime') { Start-Sleep -Seconds 30 }
             Save-Overlay $name
         }
         Write-Config -Floating
@@ -540,6 +586,8 @@ try {
             'widget-sparklines' = @{ Widget = 'sparklines' }
             'widget-tiles'      = @{ Widget = 'tiles' }
             'widget-meters'     = @{ Widget = 'meters' }
+            'widget-dials'      = @{ Widget = 'dials' }
+            'widget-core-wall'  = @{ Widget = 'sparklines'; WidgetStyles = @{ cpu = 'core_wall' } }
             'widget-detailed'   = @{ Widget = 'sparklines'; WidgetDetail = 'detailed' }
         }
         foreach ($name in $shots.Keys) {
@@ -555,18 +603,25 @@ try {
 
     if ('game' -in $Parts) {
         Write-Host 'Game strip'
-        Write-Config -Games 'notepad.exe'
+        Write-Config -Games 'charmap.exe'
         Send-ConfigChanged
-        $notepad = Start-Process notepad -PassThru
+        $game = Start-Process charmap -PassThru
         try {
+            # A window started from the background does not come to the front by itself.
+            [void]$game.WaitForInputIdle(5000)
+            $r = Get-Rect $game.MainWindowHandle
+            [void][Native]::SetCursorPos($r.Left + 100, $r.Top + 12)
+            Start-Sleep -Milliseconds 300
+            [Native]::mouse_event(0x0002, 0, 0, 0, [IntPtr]::Zero)
+            [Native]::mouse_event(0x0004, 0, 0, 0, [IntPtr]::Zero)
+            Park-Mouse
             Start-Sleep -Seconds 6
             $tb = Get-Rect (Find-Window 'Shell_TrayWnd')
             $strip = [Native]::Windows('PulsarOverlay') |
                 Where-Object { (Get-Rect $_).Bottom -le $tb.Top } | Select-Object -First 1
-            if ($strip) { Save-Around $strip 'game-strip' 24 } else { Write-Warning 'no game strip' }
+            if ($strip) { Save-Around $strip 'game-strip' 0 } else { Write-Warning 'no game strip' }
         } finally {
-            Get-Process Notepad -ErrorAction SilentlyContinue |
-                Where-Object StartTime -ge $notepad.StartTime | Stop-Process -Force
+            $game | Where-Object { -not $_.HasExited } | Stop-Process -Force
         }
         Write-Config
         Send-ConfigChanged
@@ -598,7 +653,16 @@ try {
         Start-Sleep -Seconds 2
         # Navigation rows, by their centre in the sidebar; group headings sit between them.
         $pages = 'items', 'layout', 'theme', 'popups', 'widget', 'sensors', 'drives', 'profiles', 'general', 'about'
-        $rows = 62, 106, 150, 194, 238, 316, 360, 438, 482, 526
+        $rows = 98, 142, 186, 230, 274, 352, 396, 474, 518, 562
+        # The CPU item's options, with the graph style picker.
+        Send-Click $settings 115 $rows[0]
+        Send-Click $settings 468 159
+        [void](Save-Window $settings 'settings-items-cpu')
+        Send-Wheel $settings 500 300 -4
+        [void](Save-Window $settings 'settings-items-cpu-2')
+        Write-Host '  settings-items-cpu'
+        Send-Wheel $settings 500 300 4
+        Send-Click $settings 468 159
         for ($i = 0; $i -lt $pages.Count; $i++) {
             Send-Click $settings 115 $rows[$i]
             $previous = Save-Window $settings "settings-$($pages[$i])"
@@ -648,9 +712,10 @@ try {
 }
 
 if ($Publish) {
+    $readme = Get-Content (Join-Path $root 'README.md') -Raw
     Get-ChildItem $out -Filter *.png | ForEach-Object {
         $target = Join-Path $root "docs\images\$($_.Name)"
-        if (Test-Path $target) { Copy-Item $_.FullName $target }
+        if ((Test-Path $target) -or $readme.Contains("docs/images/$($_.Name)")) { Copy-Item $_.FullName $target }
     }
 }
 Write-Host "Saved to $out"
