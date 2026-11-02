@@ -884,11 +884,12 @@ impl App {
         }
         self.show_widget();
         let config = game::strip_config(&self.config);
+        let palette = self.palette.for_strip();
         let mut paint = Paint {
             config: &config,
             renderer: &mut self.renderer,
             text: &self.text,
-            palette: &self.palette,
+            palette: &palette,
             snapshot: &self.latest,
             history: &self.history,
         };
@@ -1006,19 +1007,22 @@ impl App {
                     })
                 });
             let strip = tb.and_then(|tb| Overlay::create(self.instance, tb).ok());
-            if let Some(s) = &strip {
+            let mut strip = strip;
+            if let Some(s) = &mut strip {
                 game::click_through(s);
+                s.single_line = true;
             }
             if let Some(g) = &mut self.game {
                 g.strip = strip;
             }
         }
         let config = game::strip_config(&self.config);
+        let palette = self.palette.for_strip();
         let mut paint = Paint {
             config: &config,
             renderer: &mut self.renderer,
             text: &self.text,
-            palette: &self.palette,
+            palette: &palette,
             snapshot: &self.latest,
             history: &self.history,
         };

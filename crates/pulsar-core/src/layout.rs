@@ -3031,6 +3031,25 @@ mod tests {
     }
 
     #[test]
+    fn floating_text_with_no_taskbar_to_fill_keeps_to_one_row() {
+        let i = LayoutInput {
+            fit_font: true,
+            ..input(DisplayMode::Text, 1.0, 96)
+        };
+        let specs = [
+            ItemKind::Cpu,
+            ItemKind::Ram,
+            ItemKind::Gpu,
+            ItemKind::Network,
+        ]
+        .map(|kind| graphic_spec(kind, TileGraphic::Behind));
+        let l = compute_layout(&specs, i, &Fixed);
+        assert!(l.cells.iter().all(|c| c.rect.y == l.cells[0].rect.y));
+        assert!(l.height >= l.cells[0].rect.h);
+        assert!(l.cells.windows(2).all(|w| w[0].rect.x < w[1].rect.x));
+    }
+
+    #[test]
     fn hit_test_finds_item() {
         let l = compute_layout(&specs(&ALL), input(DisplayMode::Graph, 48.0, 96), &Fixed);
         let gpu = l.cells.iter().find(|c| c.kind == ItemKind::Gpu).unwrap();

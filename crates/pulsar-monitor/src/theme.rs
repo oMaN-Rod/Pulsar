@@ -49,6 +49,8 @@ impl Color {
     }
 }
 
+const STRIP_PANEL_ALPHA: f32 = 0.9;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Palette {
     pub text: Color,
@@ -299,6 +301,14 @@ impl Palette {
             color.with_alpha(0.25 + 0.75 * (percent / moderate).clamp(0.0, 1.0) as f32)
         } else {
             color
+        }
+    }
+
+    /// With a panel, so its text stays readable over anything a game draws.
+    pub fn for_strip(&self) -> Self {
+        Self {
+            panel: Some(self.popup.with_alpha(STRIP_PANEL_ALPHA)),
+            ..self.clone()
         }
     }
 

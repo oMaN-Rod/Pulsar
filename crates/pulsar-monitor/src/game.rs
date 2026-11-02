@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use pulsar_core::config::Config;
+use pulsar_core::config::{Config, DisplayMode, LabelStyle};
 use pulsar_core::format::format_value;
 use pulsar_core::games::{Session, Summary};
 use pulsar_core::metric::{ItemKind, Unit};
@@ -76,9 +76,13 @@ pub fn click_through(strip: &Overlay) {
     }
 }
 
-/// The taskbar's items with the frame rate first.
+/// The taskbar's items as text, with the frame rate first.
 pub fn strip_config(config: &Config) -> Config {
     let mut c = config.clone();
+    c.display.mode = DisplayMode::Text;
+    c.display.labels = LabelStyle::Full;
+    c.display.icons = false;
+    c.display.vertical_labels = false;
     if let Some(at) = c.items.iter().position(|i| i.kind == ItemKind::Fps) {
         let mut fps = c.items.remove(at);
         fps.enabled = true;
@@ -121,6 +125,7 @@ mod tests {
         assert!(c.items[0].enabled);
         assert_eq!(c.items.len(), ItemKind::ALL.len());
         assert!(!Config::default().is_enabled(ItemKind::Fps));
+        assert_eq!(c.display.mode, DisplayMode::Text);
     }
 
     #[test]

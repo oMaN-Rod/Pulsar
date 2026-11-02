@@ -82,6 +82,8 @@ pub struct Overlay {
     pub float_dpi: Option<u32>,
     attached: bool,
     attach_retry: Option<Instant>,
+    /// Text keeps to one row, however tall the taskbar it goes with.
+    pub single_line: bool,
     /// The position and size last given to the child window.
     child_at: Option<(i32, i32, i32, i32)>,
     /// Destroying the taskbar destroys its children. `hwnd` may then name
@@ -164,6 +166,7 @@ impl Overlay {
             float_dpi: None,
             attached: false,
             attach_retry: None,
+            single_line: false,
             child_at: None,
             destroyed,
             tracker: Tracker::default(),
@@ -322,8 +325,12 @@ impl Overlay {
     pub fn update_layout(&mut self, config: &Config, gpus: &GpuSlots, text: &Text) {
         let bar = self.taskbar.rect;
         let key = LayoutKey {
-            thickness: (i64::from(bar.height().min(bar.width())) * i64::from(self.dpi())
-                / i64::from(self.taskbar.dpi.max(1))) as i32,
+            thickness: if self.single_line {
+                1
+            } else {
+                (i64::from(bar.height().min(bar.width())) * i64::from(self.dpi())
+                    / i64::from(self.taskbar.dpi.max(1))) as i32
+            },
             vertical: self.float_dpi.is_none() && bar.is_vertical(),
             floating: self.float_dpi.is_some(),
             dpi: self.dpi(),
@@ -900,7 +907,7 @@ mod tests {
     }
 
     #[test]
-    fn a_tile_size_redoes_the_layout_on_the_taskbar_and_on_the_game_strip() {
+    fn a_tile_size_redoes_the_layout_docked_and_floating_and_the_strip_keeps_to_a_line() {
         let mut overlay = overlay();
         overlay.taskbar.rect = Rect32 {
             left: 0,
@@ -920,12 +927,17 @@ mod tests {
         assert!(overlay.size().0 > auto_w);
         assert_eq!(overlay.size().1, auto_h, "the bar limits a docked tile");
 
-        // The game strip floats with its own copy of the settings.
-        let strip = crate::game::strip_config(&config);
         overlay.float_dpi = Some(96);
-        overlay.update_layout(&strip, &GpuSlots::new(), &text);
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
         assert_eq!(overlay.size().1, 108);
         assert!(overlay.layout.cells.iter().any(|c| c.rect.h == 100.0));
+
+        let strip = crate::game::strip_config(&config);
+        overlay.single_line = true;
+        overlay.update_layout(&strip, &GpuSlots::new(), &text);
+        let y = overlay.layout.cells[0].rect.y;
+        assert!(overlay.layout.cells.iter().all(|c| c.rect.y == y));
+        overlay.single_line = false;
 
         overlay.float_dpi = None;
         overlay.update_layout(&config, &GpuSlots::new(), &text);
