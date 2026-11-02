@@ -1276,6 +1276,10 @@ msgstr "Núcleo más rápido"
 msgid "Host"
 msgstr "Host"
 
+#: src/popup/mod.rs
+msgid "More in the details window"
+msgstr "Más en la ventana de detalles"
+
 #: src/settings/main.rs
 msgid "The app in front"
 msgstr "La aplicación en primer plano"
@@ -1495,6 +1499,14 @@ msgstr "Estilo de gráfica"
 #: ui/settings.slint
 msgid "Colour"
 msgstr "Color"
+
+#: ui/settings.slint
+msgid "Popup width"
+msgstr "Ancho de la ventana emergente"
+
+#: ui/settings.slint
+msgid "Popup graph height"
+msgstr "Alto de la gráfica de la ventana emergente"
 
 #: ui/settings.slint
 msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
@@ -1797,6 +1809,22 @@ msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
 msgstr "Procesos que se muestran para CPU, memoria, GPU y disco; 0 oculta las listas."
 
 #: ui/settings.slint
+msgid "Width"
+msgstr "Ancho"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. Items can choose their own on the Items page."
+msgstr "Píxeles con escala al 100 %. Cada elemento puede elegir el suyo en la página Elementos."
+
+#: ui/settings.slint
+msgid "Graph height"
+msgstr "Alto de la gráfica"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. The graph shrinks when a popup would not fit on the monitor. Items can choose their own on the Items page."
+msgstr "Píxeles con escala al 100 %. La gráfica se reduce si la ventana emergente no cabe en el monitor. Cada elemento puede elegir el suyo en la página Elementos."
+
+#: ui/settings.slint
 msgid "A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu."
 msgstr "Un panel en el escritorio con un gráfico y detalles de cada elemento, como una ventana emergente que se queda abierta. Arrástralo para moverlo; haz clic derecho para ver el menú."
 
@@ -1859,10 +1887,6 @@ msgstr "Los mosaicos solo muestran el valor y el gráfico."
 #: ui/settings.slint
 msgid "How much each item shows. Colours follow the theme."
 msgstr "Cuánto muestra cada elemento. Los colores siguen el tema."
-
-#: ui/settings.slint
-msgid "Width"
-msgstr "Ancho"
 
 #: ui/settings.slint
 msgid "Pixels at 100 % scaling."

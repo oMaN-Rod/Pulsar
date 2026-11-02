@@ -7,6 +7,7 @@ use std::ffi::c_void;
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{Rect, TextMeasure};
 use pulsar_core::metric::ItemKind;
+use pulsar_core::tr;
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::Graphics::Dwm::{
     DWM_WINDOW_CORNER_PREFERENCE, DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE,
@@ -30,7 +31,7 @@ use crate::taskbar::placement::Rect32;
 use crate::text::Text;
 use crate::theme::{Color, Palette};
 use content::{Block, PopupContent};
-use layout::{Metrics, ellipsize, height, position};
+use layout::{Metrics, ellipsize, fit, position};
 use pulsar_core::display::{area_points, graph_max, metric_for};
 
 const CLASS: windows::core::PCWSTR = w!("PulsarPopup");
@@ -242,8 +243,21 @@ impl Popup {
             self.renderer = Some(Renderer::new()?);
         }
         let renderer = self.renderer.as_mut().unwrap();
-        let m = Metrics::new(anchor.dpi, style.font_px, text.line_height(style.font_px));
-        let (w, h) = (m.width.ceil() as i32, height(content, &m) as i32);
+        let m = Metrics::with_size(
+            anchor.dpi,
+            style.font_px,
+            text.line_height(style.font_px),
+            style.width,
+            style.graph_height,
+        );
+        let fitted = fit(
+            content,
+            m,
+            anchor.monitor,
+            tr!("More in the details window"),
+        );
+        let (content, m) = (fitted.content.as_ref(), fitted.metrics);
+        let (w, h) = (m.width.ceil() as i32, fitted.height);
         if self
             .surface
             .as_ref()
@@ -323,6 +337,10 @@ pub struct Style<'a> {
     pub palette: &'a Palette,
     pub history: &'a HistoryStore,
     pub font_px: f32,
+    /// Logical pixels.
+    pub width: u16,
+    /// Logical pixels.
+    pub graph_height: u16,
 }
 
 /// `backdrop`: Windows draws the background, border and corners.
@@ -403,7 +421,8 @@ fn draw(
     }
 
     if let Some(error) = &content.error {
-        r.text_at(text, &body, error, m.pad, y, p.warning)?;
+        let error = ellipsize(error, right - m.pad, m.font_px, text);
+        r.text_at(text, &body, &error, m.pad, y, p.warning)?;
         y += m.line_h + m.block_gap;
     }
 
@@ -412,7 +431,8 @@ fn draw(
         match block {
             Block::Rows { heading, rows } => {
                 if let Some(heading) = heading {
-                    r.text_at(text, &body, heading, m.pad, y, p.popup_label)?;
+                    let heading = ellipsize(heading, right - m.pad, m.font_px, text);
+                    r.text_at(text, &body, &heading, m.pad, y, p.popup_label)?;
                     y += m.line_h;
                 }
                 for (label, value) in rows {
@@ -427,7 +447,8 @@ fn draw(
             }
             Block::Bars { values, .. } if values.is_empty() => continue,
             Block::Bars { heading, values } => {
-                r.text_at(text, &body, heading, m.pad, y, p.popup_label)?;
+                let heading = ellipsize(heading, right - m.pad, m.font_px, text);
+                r.text_at(text, &body, &heading, m.pad, y, p.popup_label)?;
                 y += m.line_h;
                 let n = values.len() as f32;
                 let span = w - 2.0 * m.pad;
@@ -458,7 +479,8 @@ fn draw(
                 y += m.bars_h;
             }
             Block::Composition { heading, parts } => {
-                r.text_at(text, &body, heading, m.pad, y, p.popup_label)?;
+                let heading = ellipsize(heading, right - m.pad, m.font_px, text);
+                r.text_at(text, &body, &heading, m.pad, y, p.popup_label)?;
                 y += m.line_h;
                 let whole: f64 = parts.iter().map(|(_, v, _)| v.max(0.0)).sum();
                 let colors: Vec<Color> = (0..parts.len())
@@ -498,7 +520,9 @@ fn draw(
                     let value_w = text.width(shown, m.font_px);
                     r.text_at(text, &body, shown, right - value_w, y, p.popup_text)?;
                     let label_x = m.pad + dot + 6.0 * m.scale;
-                    r.text_at(text, &body, label, label_x, y, p.popup_text)?;
+                    let room = right - value_w - gap - label_x;
+                    let label = ellipsize(label, room, m.font_px, text);
+                    r.text_at(text, &body, &label, label_x, y, p.popup_text)?;
                     y += m.line_h;
                 }
             }
@@ -550,6 +574,8 @@ mod tests {
             palette: &palette,
             history: &history,
             font_px: 12.0,
+            width: config.popup.width,
+            graph_height: config.popup.graph_height,
         };
         // Far off-screen so the test never flashes a window on the desktop.
         let anchor = Anchor {

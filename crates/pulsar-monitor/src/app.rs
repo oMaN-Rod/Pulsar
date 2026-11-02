@@ -1293,6 +1293,8 @@ impl App {
             palette: &self.palette,
             history: &self.history,
             font_px: self.config.display.font_size_pt * anchor.dpi as f32 / 72.0,
+            width: self.config.popup_width(kind),
+            graph_height: self.config.popup_graph_height(kind),
         };
         if self
             .popup

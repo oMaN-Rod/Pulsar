@@ -9,6 +9,9 @@ export struct ItemRow {
     style: int,
     color-mode: int,
     popup: int,
+    // 0 follows the Popups page.
+    popup-width: int,
+    popup-graph-height: int,
     expanded: bool,
 }
 
@@ -660,6 +663,8 @@ export component SettingsWindow inherits Window {
     in-out property <bool> popup-graph;
     in-out property <bool> popup-translucent;
     in-out property <int> popup-processes;
+    in-out property <int> popup-width;
+    in-out property <int> popup-graph-height;
     in property <[string]> styles;
     in property <[string]> color-modes;
     in property <[string]> popup-details;
@@ -879,6 +884,52 @@ export component SettingsWindow inherits Window {
                                     model: root.item-popup-details;
                                     current-index: row.popup;
                                     selected => { root.item-choice(i, 2, self.current-index); }
+                                }
+                            }
+                            SettingRow {
+                                title: @tr("Popup width");
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                item-width := SpinBox {
+                                    width: 140px;
+                                    enabled: row.popup-width > 0;
+                                    minimum: 220;
+                                    maximum: 800;
+                                    step-size: 20;
+                                    value: row.popup-width > 0 ? row.popup-width : root.popup-width;
+                                    edited(value) => { root.item-choice(i, 3, value); }
+                                }
+                                Switch {
+                                    checked: row.popup-width > 0;
+                                    toggled => {
+                                        if (!self.checked) {
+                                            item-width.value = root.popup-width;
+                                        }
+                                        root.item-choice(i, 3, self.checked ? item-width.value : 0);
+                                    }
+                                }
+                            }
+                            SettingRow {
+                                title: @tr("Popup graph height");
+                                padding-top: 4px;
+                                padding-bottom: 4px;
+                                item-graph := SpinBox {
+                                    width: 140px;
+                                    enabled: row.popup-graph-height > 0;
+                                    minimum: 24;
+                                    maximum: 400;
+                                    step-size: 8;
+                                    value: row.popup-graph-height > 0 ? row.popup-graph-height : root.popup-graph-height;
+                                    edited(value) => { root.item-choice(i, 4, value); }
+                                }
+                                Switch {
+                                    checked: row.popup-graph-height > 0;
+                                    toggled => {
+                                        if (!self.checked) {
+                                            item-graph.value = root.popup-graph-height;
+                                        }
+                                        root.item-choice(i, 4, self.checked ? item-graph.value : 0);
+                                    }
                                 }
                             }
                         }
@@ -1313,6 +1364,32 @@ export component SettingsWindow inherits Window {
                             minimum: 0;
                             maximum: 15;
                             value <=> root.popup-processes;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Width");
+                        description: @tr("Pixels at 100 % scaling. Items can choose their own on the Items page.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 220;
+                            maximum: 800;
+                            step-size: 20;
+                            value <=> root.popup-width;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Graph height");
+                        description: @tr("Pixels at 100 % scaling. The graph shrinks when a popup would not fit on the monitor. Items can choose their own on the Items page.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 24;
+                            maximum: 400;
+                            step-size: 8;
+                            value <=> root.popup-graph-height;
                             edited => { root.changed(); }
                         }
                     }

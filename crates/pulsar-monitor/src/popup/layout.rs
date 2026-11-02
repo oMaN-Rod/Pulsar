@@ -1,6 +1,9 @@
 //! Popup geometry in physical pixels: size from content, position next to
 //! the hovered item.
 
+use std::borrow::Cow;
+
+use pulsar_core::config::POPUP_GRAPH_HEIGHTS;
 use pulsar_core::layout::{Layout, TextMeasure};
 use pulsar_core::metric::ItemKind;
 
@@ -25,18 +28,25 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    /// `line_h` is the measured line height of `font_px` body text.
+    #[cfg(test)]
     pub fn new(dpi: u32, font_px: f32, line_h: f32) -> Self {
+        let d = pulsar_core::config::PopupConfig::default();
+        Self::with_size(dpi, font_px, line_h, d.width, d.graph_height)
+    }
+
+    /// `line_h` is the measured line height of `font_px` body text; `width`
+    /// and `graph_h` are logical pixels.
+    pub fn with_size(dpi: u32, font_px: f32, line_h: f32, width: u16, graph_h: u16) -> Self {
         let scale = dpi as f32 / 96.0;
         Self {
             scale,
-            width: 300.0 * scale,
+            width: f32::from(width) * scale,
             pad: 12.0 * scale,
             font_px,
             line_h,
             title_px: font_px * 1.45,
             title_h: line_h * 1.45,
-            graph_h: 72.0 * scale,
+            graph_h: f32::from(graph_h) * scale,
             bars_h: 28.0 * scale,
             stack_h: 10.0 * scale,
             block_gap: 10.0 * scale,
@@ -77,6 +87,86 @@ pub fn height(content: &PopupContent, m: &Metrics) -> f32 {
     (2.0 * m.pad + m.title_h + m.block_gap + graph + error + blocks - m.block_gap).ceil()
 }
 
+fn edge_gap(scale: f32) -> i32 {
+    (8.0 * scale).round() as i32
+}
+
+#[derive(Debug)]
+pub struct Fitted<'a> {
+    pub content: Cow<'a, PopupContent>,
+    pub metrics: Metrics,
+    pub height: i32,
+}
+
+/// Narrows the popup to the monitor, then makes it short enough: the graph
+/// shrinks to its minimum, then goes, then rows are cut with a last row
+/// saying `more`.
+pub fn fit<'a>(
+    content: &'a PopupContent,
+    mut m: Metrics,
+    monitor: Rect32,
+    more: &str,
+) -> Fitted<'a> {
+    let gap = edge_gap(m.scale);
+    let room_w = (monitor.right - monitor.left - 2 * gap).max(1);
+    let room_h = (monitor.bottom - monitor.top - 2 * gap).max(1);
+    m.width = m.width.min(room_w as f32);
+    let room = room_h as f32;
+    let mut fitted = Cow::Borrowed(content);
+    let over = height(content, &m) - room;
+    if over > 0.0 && content.graph {
+        let least = f32::from(*POPUP_GRAPH_HEIGHTS.start()) * m.scale;
+        if m.graph_h - over >= least {
+            m.graph_h -= over;
+        } else {
+            fitted.to_mut().graph = false;
+        }
+    }
+    if height(&fitted, &m) > room {
+        cap_rows(fitted.to_mut(), &m, room, more);
+    }
+    let height = (height(&fitted, &m) as i32).min(room_h);
+    Fitted {
+        content: fitted,
+        metrics: m,
+        height,
+    }
+}
+
+/// Keeps the blocks that fit `room` in order, cutting the first one that
+/// does not if it is plain rows, and ends with a row saying `more`.
+fn cap_rows(content: &mut PopupContent, m: &Metrics, room: f32, more: &str) {
+    let last = Block::Rows {
+        heading: None,
+        rows: vec![(more.to_string(), String::new())],
+    };
+    let blocks = std::mem::replace(&mut content.blocks, vec![last.clone()]);
+    let mut left = room - height(content, m);
+    let mut kept = Vec::new();
+    for block in blocks {
+        let cost = block_height(&block, m);
+        if cost == 0.0 {
+            continue;
+        }
+        if cost + m.block_gap <= left {
+            left -= cost + m.block_gap;
+            kept.push(block);
+            continue;
+        }
+        if let Block::Rows { heading, mut rows } = block {
+            let head = heading.map_or(0.0, |_| m.line_h);
+            let fits = ((left - m.block_gap - head) / m.line_h).floor();
+            if fits >= 1.0 {
+                rows.truncate(fits as usize);
+                kept.push(Block::Rows { heading, rows });
+            }
+        }
+        break;
+    }
+    kept.push(last);
+    content.blocks = kept;
+}
+
 /// Centres the popup on the hovered item, just outside the taskbar: above or
 /// below a horizontal one, beside a vertical one; kept inside the monitor.
 pub fn position(
@@ -87,7 +177,7 @@ pub fn position(
     height: i32,
     scale: f32,
 ) -> (i32, i32) {
-    let gap = (8.0 * scale).round() as i32;
+    let gap = edge_gap(scale);
     if taskbar.is_vertical() {
         let centre = (anchor.top + anchor.bottom) / 2;
         let y = (centre - height / 2).clamp(
@@ -339,6 +429,189 @@ mod tests {
         let before = height(&c, &m);
         c.error = Some("GPU counters unavailable".into());
         assert_eq!(height(&c, &m) - before, 16.0 + 10.0);
+    }
+
+    #[test]
+    fn default_size_matches_the_plain_metrics() {
+        let d = pulsar_core::config::PopupConfig::default();
+        let sized = Metrics::with_size(144, 18.0, 24.0, d.width, d.graph_height);
+        assert_eq!(sized, Metrics::new(144, 18.0, 24.0));
+        assert_eq!((sized.width, sized.graph_h), (450.0, 108.0));
+    }
+
+    #[test]
+    fn with_size_scales_and_sets_the_graph_height() {
+        let small = Metrics::with_size(96, 12.0, 16.0, 300, 72);
+        let tall = Metrics::with_size(96, 12.0, 16.0, 300, 172);
+        let c = content(vec![rows(2)]);
+        assert_eq!(height(&c, &tall) - height(&c, &small), 100.0);
+        let wide = Metrics::with_size(192, 24.0, 32.0, 500, 100);
+        assert_eq!((wide.width, wide.graph_h), (1000.0, 200.0));
+    }
+
+    fn monitor(w: i32, h: i32) -> Rect32 {
+        Rect32 {
+            left: 0,
+            top: 0,
+            right: w,
+            bottom: h,
+        }
+    }
+
+    const MORE: &str = "More in the details window";
+
+    fn ends_with_more(c: &PopupContent) -> bool {
+        matches!(
+            c.blocks.last(),
+            Some(Block::Rows { heading: None, rows })
+                if rows.len() == 1 && rows[0].0 == MORE && rows[0].1.is_empty()
+        )
+    }
+
+    #[test]
+    fn content_that_fits_is_not_touched() {
+        let c = content(vec![rows(5)]);
+        let m = Metrics::new(96, 12.0, 16.0);
+        let f = fit(&c, m, MONITOR, MORE);
+        assert!(matches!(f.content, Cow::Borrowed(_)));
+        assert_eq!(f.metrics, m);
+        assert_eq!(f.height, height(&c, &m) as i32);
+    }
+
+    #[test]
+    fn width_clamps_to_the_monitor() {
+        let m = Metrics::with_size(192, 24.0, 32.0, 800, 72);
+        let c = content(vec![rows(1)]);
+        let f = fit(&c, m, monitor(1280, 720), MORE);
+        assert_eq!(f.metrics.width, 1280.0 - 32.0);
+        let (x, _) = position(
+            Rect32 {
+                left: 1200,
+                top: 680,
+                right: 1240,
+                bottom: 716,
+            },
+            Rect32 {
+                left: 0,
+                top: 672,
+                right: 1280,
+                bottom: 720,
+            },
+            monitor(1280, 720),
+            f.metrics.width as i32,
+            f.height,
+            2.0,
+        );
+        assert_eq!(x, 16);
+    }
+
+    #[test]
+    fn the_graph_shrinks_before_any_row_goes() {
+        let c = content(vec![rows(10)]);
+        let m = Metrics::with_size(96, 12.0, 16.0, 300, 400);
+        let full = height(&c, &m) as i32;
+        let room = full - 100;
+        let f = fit(&c, m, monitor(1920, room + 16), MORE);
+        assert_eq!(f.height, room);
+        assert_eq!(f.metrics.graph_h, 300.0);
+        assert!(f.content.graph);
+        assert_eq!(f.content.blocks, c.blocks, "every row stays");
+    }
+
+    #[test]
+    fn the_graph_goes_when_its_minimum_does_not_fit() {
+        let c = content(vec![rows(10)]);
+        let m = Metrics::with_size(96, 12.0, 16.0, 300, 72);
+        let mut text = c.clone();
+        text.graph = false;
+        let text_h = height(&text, &m) as i32;
+
+        let f = fit(&c, m, monitor(1920, text_h + 34 + 16), MORE);
+        assert!(f.content.graph, "24 px and its gap still fit");
+        assert_eq!(f.metrics.graph_h, 24.0);
+
+        let f = fit(&c, m, monitor(1920, text_h + 33 + 16), MORE);
+        assert!(!f.content.graph);
+        assert_eq!(f.content.blocks, c.blocks, "text alone fits");
+        assert_eq!(f.height, text_h);
+    }
+
+    #[test]
+    fn text_taller_than_the_monitor_caps_rows_and_points_to_details() {
+        let c = content(vec![rows(4), rows(100), rows(4)]);
+        let m = Metrics::new(96, 12.0, 16.0);
+        let f = fit(&c, m, monitor(1920, 400), MORE);
+        assert!(f.height <= 400 - 16);
+        assert!(!f.content.graph);
+        assert!(ends_with_more(&f.content));
+        assert_eq!(f.content.blocks.len(), 3, "the third block is cut off");
+        assert_eq!(f.content.blocks[0], c.blocks[0]);
+        let Block::Rows { rows: cut, .. } = &f.content.blocks[1] else {
+            panic!("the second block keeps its rows");
+        };
+        assert!(!cut.is_empty() && cut.len() < 100);
+        assert!(
+            f.height + 16 > 400 - 16,
+            "no room left for another row: {}",
+            f.height
+        );
+    }
+
+    #[test]
+    fn many_devices_at_high_dpi_stay_on_the_monitor() {
+        let devices: Vec<Block> = (0..12)
+            .map(|_| Block::Rows {
+                heading: Some("Device"),
+                rows: vec![(String::new(), String::new()); 8],
+            })
+            .chain([Block::Composition {
+                heading: "Shares",
+                parts: vec![(String::new(), 1.0, String::new()); 6],
+            }])
+            .collect();
+        for dpi in [96, 144, 240, 288] {
+            let scale = dpi as f32 / 96.0;
+            let (font, line) = (12.0 * scale, 16.0 * scale);
+            let c = content(devices.clone());
+            let m = Metrics::with_size(dpi, font, line, 800, 400);
+            let f = fit(&c, m, monitor(1920, 1080), MORE);
+            let gap = edge_gap(scale);
+            assert!(f.height <= 1080 - 2 * gap, "{dpi}: {}", f.height);
+            assert!(f.metrics.width <= (1920 - 2 * gap) as f32);
+            assert_eq!(f.height as f32, height(&f.content, &f.metrics), "{dpi}");
+            assert!(ends_with_more(&f.content), "{dpi}");
+            assert!(!f.content.graph, "{dpi}");
+        }
+    }
+
+    #[test]
+    fn blocks_that_cannot_be_cut_go_whole() {
+        let bars = Block::Bars {
+            heading: "Cores",
+            values: vec![1.0; 8],
+        };
+        let c = content(vec![
+            rows(2),
+            Block::Composition {
+                heading: "Shares",
+                parts: vec![(String::new(), 1.0, String::new()); 40],
+            },
+            bars,
+        ]);
+        let f = fit(&c, Metrics::new(96, 12.0, 16.0), monitor(1920, 300), MORE);
+        assert_eq!(f.content.blocks.len(), 2);
+        assert_eq!(f.content.blocks[0], c.blocks[0]);
+        assert!(ends_with_more(&f.content));
+    }
+
+    #[test]
+    fn a_monitor_shorter_than_the_title_still_bounds_the_popup() {
+        let mut c = content(vec![rows(3)]);
+        c.error = Some("failed".into());
+        let f = fit(&c, Metrics::new(96, 12.0, 16.0), monitor(100, 40), MORE);
+        assert_eq!(f.height, 24);
+        assert_eq!(f.metrics.width, 84.0);
+        assert!(ends_with_more(&f.content));
     }
 
     #[test]

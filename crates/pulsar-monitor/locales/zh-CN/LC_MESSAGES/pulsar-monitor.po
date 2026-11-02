@@ -1277,6 +1277,10 @@ msgstr "最快核心"
 msgid "Host"
 msgstr "主机"
 
+#: src/popup/mod.rs
+msgid "More in the details window"
+msgstr "更多内容见详细信息窗口"
+
 #: src/settings/main.rs
 msgid "The app in front"
 msgstr "前台应用"
@@ -1496,6 +1500,14 @@ msgstr "图表样式"
 #: ui/settings.slint
 msgid "Colour"
 msgstr "颜色"
+
+#: ui/settings.slint
+msgid "Popup width"
+msgstr "弹出窗口宽度"
+
+#: ui/settings.slint
+msgid "Popup graph height"
+msgstr "弹出窗口图表高度"
 
 #: ui/settings.slint
 msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
@@ -1798,6 +1810,22 @@ msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
 msgstr "CPU、内存、GPU 和磁盘列出的进程数；0 表示隐藏列表。"
 
 #: ui/settings.slint
+msgid "Width"
+msgstr "宽度"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. Items can choose their own on the Items page."
+msgstr "100% 缩放时的像素。每个监控项可在“监控项”页面单独设置。"
+
+#: ui/settings.slint
+msgid "Graph height"
+msgstr "图表高度"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. The graph shrinks when a popup would not fit on the monitor. Items can choose their own on the Items page."
+msgstr "100% 缩放时的像素。弹出窗口超出显示器时图表会缩小。每个监控项可在“监控项”页面单独设置。"
+
+#: ui/settings.slint
 msgid "A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu."
 msgstr "桌面上的面板，显示每个项目的图表和详细信息，就像一直打开的弹出窗口。拖动可移动它；右键单击可打开菜单。"
 
@@ -1860,10 +1888,6 @@ msgstr "磁贴只显示数值和图表。"
 #: ui/settings.slint
 msgid "How much each item shows. Colours follow the theme."
 msgstr "每个项目显示的内容多少。颜色跟随主题。"
-
-#: ui/settings.slint
-msgid "Width"
-msgstr "宽度"
 
 #: ui/settings.slint
 msgid "Pixels at 100 % scaling."

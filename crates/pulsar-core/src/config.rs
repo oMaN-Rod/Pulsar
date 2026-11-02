@@ -95,9 +95,15 @@ pub struct PopupConfig {
     pub graph: bool,
     /// Rows in top-process lists; 0 leaves the lists out.
     pub processes: u8,
+    /// Logical pixels.
+    pub width: u16,
+    /// Logical pixels.
+    pub graph_height: u16,
 }
 
 pub const MAX_POPUP_PROCESSES: u8 = 15;
+pub const POPUP_WIDTHS: std::ops::RangeInclusive<u16> = 220..=800;
+pub const POPUP_GRAPH_HEIGHTS: std::ops::RangeInclusive<u16> = 24..=400;
 
 /// Where the desktop widget sits among other windows.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -434,6 +440,12 @@ pub struct ItemConfig {
     /// `None` uses `PopupConfig::detail`.
     #[serde(default)]
     pub popup: Option<PopupDetail>,
+    /// `None` uses `PopupConfig::width`.
+    #[serde(default)]
+    pub popup_width: Option<u16>,
+    /// `None` uses `PopupConfig::graph_height`.
+    #[serde(default)]
+    pub popup_graph_height: Option<u16>,
     /// On the widget; `None` uses `WidgetConfig::style`.
     #[serde(default)]
     pub widget_style: Option<WidgetStyle>,
@@ -452,6 +464,8 @@ impl ItemConfig {
             style: GraphStyle::Area,
             color_mode: ColorMode::Item,
             popup: None,
+            popup_width: None,
+            popup_graph_height: None,
             widget_style: None,
             widget_detail: None,
         }
@@ -563,6 +577,8 @@ impl Default for PopupConfig {
             background: PopupBackground::Translucent,
             graph: true,
             processes: 5,
+            width: 300,
+            graph_height: 72,
         }
     }
 }
@@ -694,6 +710,10 @@ impl Config {
         self.gpu.adapters = distinct_names(&self.gpu.adapters, MAX_GPUS);
         self.ping.interval_ms = self.ping.interval_ms.clamp(1000, 60_000);
         self.popup.processes = self.popup.processes.min(MAX_POPUP_PROCESSES);
+        let width = |w: u16| w.clamp(*POPUP_WIDTHS.start(), *POPUP_WIDTHS.end());
+        let graph = |h: u16| h.clamp(*POPUP_GRAPH_HEIGHTS.start(), *POPUP_GRAPH_HEIGHTS.end());
+        self.popup.width = width(self.popup.width);
+        self.popup.graph_height = graph(self.popup.graph_height);
         if self.ping.host.trim().is_empty() {
             self.ping.host = PingConfig::default().host;
         }
@@ -713,6 +733,8 @@ impl Config {
             if item.color.as_deref().is_some_and(|c| !is_hex_color(c)) {
                 item.color = None;
             }
+            item.popup_width = item.popup_width.map(width);
+            item.popup_graph_height = item.popup_graph_height.map(graph);
         }
         self
     }
@@ -824,6 +846,18 @@ impl Config {
         self.item(kind)
             .and_then(|i| i.popup)
             .unwrap_or(self.popup.detail)
+    }
+
+    pub fn popup_width(&self, kind: ItemKind) -> u16 {
+        self.item(kind)
+            .and_then(|i| i.popup_width)
+            .unwrap_or(self.popup.width)
+    }
+
+    pub fn popup_graph_height(&self, kind: ItemKind) -> u16 {
+        self.item(kind)
+            .and_then(|i| i.popup_graph_height)
+            .unwrap_or(self.popup.graph_height)
     }
 
     /// How `kind` is drawn on the widget.
@@ -1675,16 +1709,82 @@ kind = \"cpu\"
             background: PopupBackground::Solid,
             graph: false,
             processes: 8,
+            width: 420,
+            graph_height: 120,
         };
         let cpu = c.item_mut(ItemKind::Cpu).unwrap();
         cpu.style = GraphStyle::Bars;
         cpu.color_mode = ColorMode::Load;
         cpu.popup = Some(PopupDetail::Simple);
+        cpu.popup_width = Some(500);
+        cpu.popup_graph_height = Some(200);
         save(&path, &c).unwrap();
         let loaded = load(&path).config;
         assert_eq!(loaded, c);
         assert_eq!(loaded.popup_detail(ItemKind::Cpu), PopupDetail::Simple);
         assert_eq!(loaded.popup_detail(ItemKind::Ram), PopupDetail::Detailed);
+    }
+
+    #[test]
+    fn popup_size_overrides_inherit_separately() {
+        let mut c = Config::default();
+        c.popup.width = 420;
+        c.popup.graph_height = 120;
+        let cpu = c.item_mut(ItemKind::Cpu).unwrap();
+        cpu.popup_width = Some(500);
+        assert_eq!(c.popup_width(ItemKind::Cpu), 500);
+        assert_eq!(c.popup_graph_height(ItemKind::Cpu), 120);
+        assert_eq!(c.popup_width(ItemKind::Ram), 420);
+        assert_eq!(c.popup_graph_height(ItemKind::Ram), 120);
+        c.item_mut(ItemKind::Ram).unwrap().popup_graph_height = Some(40);
+        assert_eq!(c.popup_width(ItemKind::Ram), 420);
+        assert_eq!(c.popup_graph_height(ItemKind::Ram), 40);
+    }
+
+    #[test]
+    fn sanitize_clamps_popup_sizes_and_keeps_inheritance() {
+        let mut c = Config::default();
+        c.popup.width = 10;
+        c.popup.graph_height = 5000;
+        let cpu = c.item_mut(ItemKind::Cpu).unwrap();
+        cpu.popup_width = Some(5000);
+        cpu.popup_graph_height = Some(1);
+        let c = c.sanitize();
+        assert_eq!((c.popup.width, c.popup.graph_height), (220, 400));
+        let cpu = c.item(ItemKind::Cpu).unwrap();
+        assert_eq!(
+            (cpu.popup_width, cpu.popup_graph_height),
+            (Some(800), Some(24))
+        );
+        let ram = c.item(ItemKind::Ram).unwrap();
+        assert_eq!((ram.popup_width, ram.popup_graph_height), (None, None));
+        for (w, h) in [(220, 24), (300, 72), (800, 400)] {
+            let mut c = Config::default();
+            (c.popup.width, c.popup.graph_height) = (w, h);
+            let c = c.sanitize();
+            assert_eq!((c.popup.width, c.popup.graph_height), (w, h));
+        }
+    }
+
+    #[test]
+    fn a_config_without_popup_sizes_keeps_todays_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "[popup]\ndetail = \"simple\"\nprocesses = 3\n\n[[items]]\nkind = \"cpu\"\npopup = \"detailed\"\n",
+        )
+        .unwrap();
+        let c = load(&path).config;
+        assert_eq!((c.popup.width, c.popup.graph_height), (300, 72));
+        assert_eq!(c.popup.processes, 3);
+        for kind in ItemKind::ALL {
+            assert_eq!(c.popup_width(kind), 300);
+            assert_eq!(c.popup_graph_height(kind), 72);
+        }
+        let cpu = c.item(ItemKind::Cpu).unwrap();
+        assert_eq!(cpu.popup, Some(PopupDetail::Detailed));
+        assert_eq!((cpu.popup_width, cpu.popup_graph_height), (None, None));
     }
 
     #[test]

@@ -1274,6 +1274,10 @@ msgstr ""
 msgid "Host"
 msgstr ""
 
+#: src/popup/mod.rs
+msgid "More in the details window"
+msgstr ""
+
 #: src/settings/main.rs
 msgid "The app in front"
 msgstr ""
@@ -1492,6 +1496,14 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Colour"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Popup width"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Popup graph height"
 msgstr ""
 
 #: ui/settings.slint
@@ -1795,6 +1807,22 @@ msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Width"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. Items can choose their own on the Items page."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Graph height"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. The graph shrinks when a popup would not fit on the monitor. Items can choose their own on the Items page."
+msgstr ""
+
+#: ui/settings.slint
 msgid "A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu."
 msgstr ""
 
@@ -1856,10 +1884,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "How much each item shows. Colours follow the theme."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Width"
 msgstr ""
 
 #: ui/settings.slint

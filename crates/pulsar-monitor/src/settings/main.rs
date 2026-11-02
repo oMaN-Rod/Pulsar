@@ -332,6 +332,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_popup_graph(f.popup_graph);
     ui.set_popup_translucent(f.popup_translucent);
     ui.set_popup_processes(f.popup_processes);
+    ui.set_popup_width(f.popup_width);
+    ui.set_popup_graph_height(f.popup_graph_height);
     ui.set_widget_enabled(f.widget_enabled);
     ui.set_widget_layer(i32::from(f.widget_on_top));
     ui.set_widget_style(f.widget_style);
@@ -434,6 +436,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 style: r.style,
                 color_mode: r.color_mode,
                 popup: r.popup,
+                popup_width: r.popup_width,
+                popup_graph_height: r.popup_graph_height,
             }
         })
         .collect();
@@ -513,6 +517,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 style: r.style,
                 color_mode: r.color_mode,
                 popup: r.popup,
+                popup_width: r.popup_width,
+                popup_graph_height: r.popup_graph_height,
                 widget_style: w.style,
                 widget_detail: w.detail,
             })
@@ -565,6 +571,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         popup_graph: ui.get_popup_graph(),
         popup_translucent: ui.get_popup_translucent(),
         popup_processes: ui.get_popup_processes(),
+        popup_width: ui.get_popup_width(),
+        popup_graph_height: ui.get_popup_graph_height(),
         widget_enabled: ui.get_widget_enabled(),
         widget_on_top: ui.get_widget_layer() == 1,
         widget_style: ui.get_widget_style(),
@@ -906,6 +914,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 update_row(&ui, index, |r| match field {
                     0 => r.style = value,
                     1 => r.color_mode = value,
+                    3 => r.popup_width = value,
+                    4 => r.popup_graph_height = value,
                     _ => r.popup = value,
                 });
                 ui.invoke_changed();

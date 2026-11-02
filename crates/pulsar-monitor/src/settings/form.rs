@@ -26,6 +26,10 @@ pub struct ItemRow {
     /// 0 follows the popup setting; otherwise one more than an index into
     /// `names::DETAILS`.
     pub popup: i32,
+    /// 0 follows the popup setting.
+    pub popup_width: i32,
+    /// 0 follows the popup setting.
+    pub popup_graph_height: i32,
     /// 0 follows the widget; otherwise one more than an index into
     /// `names::WIDGET_STYLES`.
     pub widget_style: i32,
@@ -123,6 +127,8 @@ pub struct Form {
     pub popup_graph: bool,
     pub popup_translucent: bool,
     pub popup_processes: i32,
+    pub popup_width: i32,
+    pub popup_graph_height: i32,
     pub widget_enabled: bool,
     pub widget_on_top: bool,
     /// 0 sparklines, 1 tiles, 2 meters.
@@ -286,6 +292,8 @@ pub fn to_form(c: &Config) -> Form {
                 style: index_of(&STYLES, &i.graph.then_some(i.style)),
                 color_mode: index_of(&COLOR_MODES, &i.color_mode),
                 popup: i.popup.map_or(0, |p| index_of(&DETAILS, &p) + 1),
+                popup_width: i.popup_width.map_or(0, i32::from),
+                popup_graph_height: i.popup_graph_height.map_or(0, i32::from),
                 widget_style: i
                     .widget_style
                     .map_or(0, |s| index_of(&WIDGET_STYLES, &s) + 1),
@@ -323,6 +331,8 @@ pub fn to_form(c: &Config) -> Form {
         popup_graph: c.popup.graph,
         popup_translucent: c.popup.background == PopupBackground::Translucent,
         popup_processes: i32::from(c.popup.processes),
+        popup_width: i32::from(c.popup.width),
+        popup_graph_height: i32::from(c.popup.graph_height),
         widget_enabled: c.widget.enabled,
         widget_on_top: c.widget.layer == WidgetLayer::OnTop,
         widget_style: match c.widget.style {
@@ -355,6 +365,10 @@ fn non_empty(s: &str) -> Option<String> {
 
 fn clamp_u8(v: i32) -> u8 {
     v.clamp(0, 100) as u8
+}
+
+fn clamp_u16(v: i32) -> u16 {
+    v.clamp(0, i32::from(u16::MAX)) as u16
 }
 
 /// Builds a sanitised config from the form, keeping anything the form does
@@ -457,6 +471,9 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
                     .unwrap_or_else(|| base.item(r.kind).map(|i| i.style).unwrap_or_default()),
                 color_mode: at(&COLOR_MODES, r.color_mode).unwrap_or_default(),
                 popup: at(&DETAILS, r.popup - 1),
+                popup_width: (r.popup_width > 0).then(|| clamp_u16(r.popup_width)),
+                popup_graph_height: (r.popup_graph_height > 0)
+                    .then(|| clamp_u16(r.popup_graph_height)),
                 widget_style: at(&WIDGET_STYLES, r.widget_style - 1),
                 widget_detail: at(&DETAILS, r.widget_detail - 1),
                 ..ItemConfig::new(r.kind, r.enabled)
@@ -493,6 +510,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         PopupBackground::Solid
     };
     c.popup.processes = f.popup_processes.clamp(0, 255) as u8;
+    c.popup.width = clamp_u16(f.popup_width);
+    c.popup.graph_height = clamp_u16(f.popup_graph_height);
     let w = &mut c.widget;
     w.enabled = f.widget_enabled;
     w.layer = if f.widget_on_top {
@@ -822,6 +841,29 @@ mod tests {
     }
 
     #[test]
+    fn popup_sizes_map_both_ways_and_zero_inherits() {
+        let mut c = Config::default();
+        c.popup.width = 420;
+        c.popup.graph_height = 120;
+        let c = c.sanitize();
+        let mut f = to_form(&c);
+        assert_eq!((f.popup_width, f.popup_graph_height), (420, 120));
+        assert_eq!(
+            (f.items[0].popup_width, f.items[0].popup_graph_height),
+            (0, 0)
+        );
+        assert_eq!(to_config(&f, &c), c);
+        f.items[0].popup_width = 500;
+        let out = to_config(&f, &c);
+        assert_eq!(out.items[0].popup_width, Some(500));
+        assert_eq!(out.items[0].popup_graph_height, None);
+        assert_eq!(out.popup_graph_height(out.items[0].kind), 120);
+        assert_eq!(to_form(&out).items[0].popup_width, 500);
+        f.items[0].popup_width = 0;
+        assert_eq!(to_config(&f, &c).items[0].popup_width, None);
+    }
+
+    #[test]
     fn text_only_keeps_the_graph_style_for_later() {
         use pulsar_core::config::GraphStyle;
         let mut c = Config::default();
@@ -861,6 +903,10 @@ mod tests {
         c.popup.graph = false;
         c.popup.background = PopupBackground::Solid;
         c.popup.processes = 10;
+        c.popup.width = 640;
+        c.popup.graph_height = 200;
+        c.items[2].popup_width = Some(260);
+        c.items[2].popup_graph_height = Some(48);
         c.game.strip = false;
         c.game.games = vec!["game.exe".into()];
         c.hotkeys.widget = Some("Ctrl+Alt+W".into());

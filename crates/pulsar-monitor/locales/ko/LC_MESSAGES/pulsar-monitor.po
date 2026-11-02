@@ -1276,6 +1276,10 @@ msgstr "가장 빠른 코어"
 msgid "Host"
 msgstr "호스트"
 
+#: src/popup/mod.rs
+msgid "More in the details window"
+msgstr "나머지는 세부 정보 창에서 확인"
+
 #: src/settings/main.rs
 msgid "The app in front"
 msgstr "앞에 있는 앱"
@@ -1495,6 +1499,14 @@ msgstr "그래프 스타일"
 #: ui/settings.slint
 msgid "Colour"
 msgstr "색"
+
+#: ui/settings.slint
+msgid "Popup width"
+msgstr "팝업 너비"
+
+#: ui/settings.slint
+msgid "Popup graph height"
+msgstr "팝업 그래프 높이"
 
 #: ui/settings.slint
 msgid "Colour by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item colour."
@@ -1797,6 +1809,22 @@ msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
 msgstr "CPU, 메모리, GPU, 디스크에 표시할 프로세스 수입니다. 0이면 목록을 숨깁니다."
 
 #: ui/settings.slint
+msgid "Width"
+msgstr "너비"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. Items can choose their own on the Items page."
+msgstr "배율 100% 기준 픽셀입니다. 항목 페이지에서 항목별로 따로 정할 수 있습니다."
+
+#: ui/settings.slint
+msgid "Graph height"
+msgstr "그래프 높이"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. The graph shrinks when a popup would not fit on the monitor. Items can choose their own on the Items page."
+msgstr "배율 100% 기준 픽셀입니다. 팝업이 모니터에 맞지 않으면 그래프가 줄어듭니다. 항목 페이지에서 항목별로 따로 정할 수 있습니다."
+
+#: ui/settings.slint
 msgid "A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu."
 msgstr "항목마다 그래프와 세부 정보를 보여 주는 바탕 화면 패널로, 계속 열려 있는 팝업과 비슷합니다. 끌어서 옮기고 마우스 오른쪽 단추로 클릭하면 메뉴가 열립니다."
 
@@ -1859,10 +1887,6 @@ msgstr "타일에는 값과 그래프만 표시됩니다."
 #: ui/settings.slint
 msgid "How much each item shows. Colours follow the theme."
 msgstr "각 항목에 표시할 정보의 양입니다. 색은 테마를 따릅니다."
-
-#: ui/settings.slint
-msgid "Width"
-msgstr "너비"
 
 #: ui/settings.slint
 msgid "Pixels at 100 % scaling."
