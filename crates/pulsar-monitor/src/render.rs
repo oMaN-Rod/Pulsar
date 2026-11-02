@@ -469,6 +469,9 @@ impl Renderer {
                 (Some(GraphStyle::DotMatrix), ..) => {
                     self.draw_dots(frame, cell, regions.graph, scale)?;
                 }
+                (Some(GraphStyle::MirrorBars), ..) => {
+                    self.draw_mirror(frame, cell, regions.graph, scale)?;
+                }
                 (Some(style), ..) => self.draw_series(frame, cell, style, regions.graph, scale)?,
                 (None, ..) => {}
             }
@@ -884,6 +887,42 @@ impl Renderer {
         Ok(())
     }
 
+    fn draw_mirror(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let (histories, max) = Self::cell_series(frame, cell);
+        let [(first, rising), (second, falling)] = histories.as_slice() else {
+            return self.draw_series(frame, cell, GraphStyle::Bars, area, scale);
+        };
+        let line = scale.round().max(1.0);
+        let middle = (area.y + area.h / 2.0).round();
+        let above = Rect {
+            h: middle - area.y,
+            ..area
+        };
+        let below = Rect {
+            y: middle + line,
+            h: area.y + area.h - middle - line,
+            ..area
+        };
+        self.fill_rect(
+            Rect {
+                y: middle,
+                h: line,
+                ..area
+            },
+            palette.text.with_alpha(0.3),
+        )?;
+        for (bar, value) in bar_rects(rising, above, max, 2.0 * scale, scale) {
+            let color = palette.graph_at(cell.kind, *first, Some(value));
+            self.fill_rect(bar, color.with_alpha(0.6))?;
+        }
+        for (bar, value) in bar_rects(falling, below, max, 2.0 * scale, scale) {
+            let color = palette.graph_at(cell.kind, *second, Some(value));
+            self.fill_rect(Rect { y: below.y, ..bar }, color.with_alpha(0.6))?;
+        }
+        Ok(())
+    }
+
     fn draw_series(
         &self,
         frame: &Frame,
@@ -1178,6 +1217,8 @@ mod tests {
         for &v in samples {
             let mut s = Snapshot::default();
             s.set(MetricKey::CpuTotal, v);
+            s.set(MetricKey::NetDownBps, v * 1e6);
+            s.set(MetricKey::NetUpBps, v * 1e6);
             history.record(&s);
         }
         let palette = Palette::new(false, config, None, &crate::theme::Theme::windows());
@@ -1973,6 +2014,22 @@ mod tests {
                 .count()
         };
         assert!(inked(&[100.0; 60]) > inked(&[10.0; 60]));
+    }
+
+    #[test]
+    fn mirror_bars_grow_both_ways_from_the_middle() {
+        let (surface, layout) =
+            graphed_with(GraphStyle::MirrorBars, ItemKind::Network, &[50.0; 60]);
+        let cell = layout
+            .cells
+            .iter()
+            .find(|c| c.kind == ItemKind::Network)
+            .unwrap();
+        let tile = tile_pixels(&surface, &layout, ItemKind::Network);
+        let (w, h) = (cell.rect.w as usize, cell.rect.h as usize);
+        let inked = |row: usize| (w / 2..w - 2).any(|x| tile[row * w + x] >> 24 > 0x20);
+        assert!(inked(h / 2 - 3), "nothing above the line");
+        assert!(inked(h / 2 + 3), "nothing below the line");
     }
 
     #[test]

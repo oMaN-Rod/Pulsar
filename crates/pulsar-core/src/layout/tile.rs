@@ -70,6 +70,7 @@ impl TileGraphic {
             | GraphStyle::Bars
             | GraphStyle::Meter
             | GraphStyle::DotMatrix
+            | GraphStyle::MirrorBars
             | GraphStyle::Tint => Self::Behind,
         }
     }

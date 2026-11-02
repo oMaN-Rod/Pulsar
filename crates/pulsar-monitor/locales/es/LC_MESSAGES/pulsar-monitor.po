@@ -1089,6 +1089,10 @@ msgid "Status bubble"
 msgstr "Burbuja de estado"
 
 #: src/names.rs
+msgid "Mirror bars"
+msgstr "Barras en espejo"
+
+#: src/names.rs
 msgid "Item color"
 msgstr "Color del elemento"
 

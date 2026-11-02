@@ -48,6 +48,22 @@ const CPU_STYLES: [Option<GraphStyle>; 16] = [
     None,
 ];
 
+const NETWORK_STYLES: [Option<GraphStyle>; 13] = [
+    Some(GraphStyle::Area),
+    Some(GraphStyle::Line),
+    Some(GraphStyle::Bars),
+    Some(GraphStyle::Meter),
+    Some(GraphStyle::Segments),
+    Some(GraphStyle::Spark),
+    Some(GraphStyle::Ring),
+    Some(GraphStyle::HeatStrip),
+    Some(GraphStyle::DotMatrix),
+    Some(GraphStyle::Bullet),
+    Some(GraphStyle::RangeRail),
+    Some(GraphStyle::MirrorBars),
+    None,
+];
+
 const LOAD_STYLES: [Option<GraphStyle>; 14] = [
     Some(GraphStyle::Area),
     Some(GraphStyle::Line),
@@ -81,13 +97,15 @@ const PLAIN_STYLES: [Option<GraphStyle>; 12] = [
 ];
 
 /// In menu order; `None` is text only.
-pub const STYLE_SETS: [&[Option<GraphStyle>]; 3] = [&CPU_STYLES, &LOAD_STYLES, &PLAIN_STYLES];
+pub const STYLE_SETS: [&[Option<GraphStyle>]; 4] =
+    [&CPU_STYLES, &NETWORK_STYLES, &LOAD_STYLES, &PLAIN_STYLES];
 
 pub fn style_set(kind: ItemKind) -> usize {
     match kind {
         ItemKind::Cpu => 0,
-        _ if has_thresholds(kind) => 1,
-        _ => 2,
+        ItemKind::Network => 1,
+        _ if has_thresholds(kind) => 2,
+        _ => 3,
     }
 }
 
@@ -121,6 +139,7 @@ pub fn style_name(style: Option<GraphStyle>) -> &'static str {
         Some(GraphStyle::RangeRail) => tr!("Range rail"),
         Some(GraphStyle::Tint) => tr!("Status tint"),
         Some(GraphStyle::Bubble) => tr!("Status bubble"),
+        Some(GraphStyle::MirrorBars) => tr!("Mirror bars"),
         None => tr!("Text only"),
     }
 }
@@ -174,6 +193,8 @@ mod tests {
     #[test]
     fn items_list_only_the_styles_they_can_draw() {
         let lists = |kind, style| styles_for(kind).contains(&Some(style));
+        assert!(lists(ItemKind::Network, GraphStyle::MirrorBars));
+        assert!(!lists(ItemKind::Cpu, GraphStyle::MirrorBars));
         assert!(lists(ItemKind::Cpu, GraphStyle::Bubble));
         assert!(lists(ItemKind::Ram, GraphStyle::Tint));
         assert!(!lists(ItemKind::Network, GraphStyle::Tint));

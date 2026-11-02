@@ -84,7 +84,7 @@ Pulsar sits beside the tray or at the left edge of the taskbar, nudged by an off
 
 ### A style and color per item
 
-Each item draws an area graph, a line, bars, a dot matrix, a level meter, a segment meter, a bullet meter with its recent peak and thresholds, a heat strip of its recent samples, a range rail from its recent low to high, a spark underline, a ring, or just its text. Items with a load scale can also tint their tile or show a status bubble beside the text, in the color of their load. The CPU can also show a bar or a heat cell per core, with peak marks and efficient cores set apart on the bars. It can use its own color, your Windows accent color, or a color that turns green, yellow, orange and red as its load rises, at thresholds you can set.
+Each item draws an area graph, a line, bars, a dot matrix, a level meter, a segment meter, a bullet meter with its recent peak and thresholds, a heat strip of its recent samples, a range rail from its recent low to high, a spark underline, a ring, or just its text. Items with a load scale can also tint their tile or show a status bubble beside the text, in the color of their load. Network can mirror download and upload around a center line. The CPU can also show a bar or a heat cell per core, with peak marks and efficient cores set apart on the bars. It can use its own color, your Windows accent color, or a color that turns green, yellow, orange and red as its load rises, at thresholds you can set.
 
 | | |
 |---|---|

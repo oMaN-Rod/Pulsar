@@ -1090,6 +1090,10 @@ msgid "Status bubble"
 msgstr "状态气泡"
 
 #: src/names.rs
+msgid "Mirror bars"
+msgstr "镜像条形图"
+
+#: src/names.rs
 msgid "Item color"
 msgstr "监控项颜色"
 

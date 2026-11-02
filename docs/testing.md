@@ -25,6 +25,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | *Heat strip*, *Bullet meter* and *Range rail*, each with *Single-line graphs* and on Network | Under the text on one reading; beside the text on a single line; one row per direction on a network pair |
 | *Status tint* and *Status bubble* on CPU, memory and a temperature, with color modes *Item color* and *Color by load*, across the thresholds | The tile or dot follows the thresholds whatever the color mode; the bubble sits right of the text; neither is listed for Network, Battery or items with no load scale |
 | *Dot matrix* on an idle and a busy item, on a vertical taskbar and with a tall tile height | Only lit cells draw; no more than eight rows; text stays readable |
+| Network: *Mirror bars*, with *Upload on top* on and off, and on an adapter with its own tiles | The direction on the top line rises and the other falls; a one-direction tile falls back to bars |
 | Widget: style *Dials*; CPU item's widget style *Core wall* | Rows of three rings with the value inside; Network on its own row; tall core bars with peak marks, and P-core and E-core counts on hybrid CPUs |
 | Settings → Items: graph style picker, by mouse and by Tab then Enter | The chosen tile is outlined and the overlay updates; only the CPU lists core styles |
 | Settings → Items: *Low*, *Moderate*, *High* and *Critical color*, then empty them again | The ribbons, load-colored items and heat cells take each color on dark and light taskbars; empty restores the default; choosing a theme leaves them alone |

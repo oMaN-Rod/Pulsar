@@ -1089,6 +1089,10 @@ msgid "Status bubble"
 msgstr "상태 버블"
 
 #: src/names.rs
+msgid "Mirror bars"
+msgstr "미러 막대"
+
+#: src/names.rs
 msgid "Item color"
 msgstr "항목 색"
 

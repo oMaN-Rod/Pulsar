@@ -1087,6 +1087,10 @@ msgid "Status bubble"
 msgstr ""
 
 #: src/names.rs
+msgid "Mirror bars"
+msgstr ""
+
+#: src/names.rs
 msgid "Item color"
 msgstr ""
 

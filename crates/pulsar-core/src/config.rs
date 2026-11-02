@@ -50,6 +50,8 @@ pub enum GraphStyle {
     Tint,
     /// A dot in the color of its load, beside the text.
     Bubble,
+    /// Bars either side of a center line, one direction each; network only.
+    MirrorBars,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -860,6 +862,9 @@ impl Config {
             new
         });
         for item in &mut self.items {
+            if item.kind != ItemKind::Network && item.style == GraphStyle::MirrorBars {
+                item.style = GraphStyle::default();
+            }
             if matches!(item.style, GraphStyle::Tint | GraphStyle::Bubble)
                 && !crate::colors::has_thresholds(item.kind)
             {
@@ -1491,6 +1496,15 @@ sample_interval_ms = 1
 
     #[test]
     fn sanitize_keeps_styles_to_the_items_that_can_draw_them() {
+        let mut c = Config::default();
+        c.item_mut(ItemKind::Network).unwrap().style = GraphStyle::MirrorBars;
+        c.item_mut(ItemKind::Ram).unwrap().style = GraphStyle::MirrorBars;
+        let c = c.sanitize();
+        assert_eq!(
+            c.item(ItemKind::Network).unwrap().style,
+            GraphStyle::MirrorBars
+        );
+        assert_eq!(c.item(ItemKind::Ram).unwrap().style, GraphStyle::Area);
         for style in [GraphStyle::Tint, GraphStyle::Bubble] {
             let mut c = Config::default();
             c.item_mut(ItemKind::Ram).unwrap().style = style;
