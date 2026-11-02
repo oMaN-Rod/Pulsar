@@ -32,14 +32,14 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 
 ## Highlights
 
-- **Graphs or text**, with a graph style, color and popup detail chosen per item.
+- **Graphs or text**, with one of twenty graph styles, a color and a popup detail chosen per item.
 - **Hover popups** at three levels of detail, with a translucent background that blurs what is behind them.
 - **A system details window**: processor, memory modules, graphics, drives, network, motherboard and every live sensor.
 - **GPU monitoring for any vendor**, read the way Task Manager does, with no drivers or vendor SDKs.
 - **CPU temperature and power, if you opt in**, through an optional [sensor service](#sensor-service).
-- **A desktop widget** with sparklines, tiles or meters, and **themes** you can save and share.
+- **A desktop widget** with sparklines, tiles, meters or dials, and **themes** you can save and share.
 - **Frame rates and game sessions**: the frame rate of the app in front, a strip on the game's monitor while you play, and a summary when the game closes.
-- **Light**: about 10 MB of memory and well under 1% CPU. No admin rights, no drivers and no background services unless you add the sensor service.
+- **Light**: about 10 MB of memory and well under 1% CPU, and it [pauses while nobody can see it](#staying-out-of-the-way). No admin rights, no drivers and no background services unless you add the sensor service.
 - **No telemetry.** See [Privacy](#privacy).
 
 ## Install
@@ -77,7 +77,7 @@ Pulsar sits beside the tray or at the left edge of the taskbar, nudged by an off
 | **Graphs with icons** | ![Graph mode with icons](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-graph-icons.png) |
 | **One-letter labels** | ![Graph mode with one-letter labels](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-graph-short.png) |
 | **Single-line graphs**, for short taskbars | ![Single-line graphs](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-graph-inline.png) |
-| **Vertical labels**, with the value beside them | Settings → Layout → *Vertical labels* |
+| **Vertical labels**, with the value beside them | ![Vertical labels](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-vertical-labels.png) |
 | **Text** | ![Text mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text.png) |
 | **Text, one-letter labels** | ![Text mode with one-letter labels](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-short.png) |
 | **Text, icons alone** | ![Text mode with icons alone](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-icons.png) |
@@ -92,16 +92,34 @@ Each item draws an area graph, a line, bars, a dot matrix, a level meter, a segm
 | **Line** | ![Line graphs](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-line.png) |
 | **Bars** | ![Bar graphs](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-bars.png) |
 | **Level meter** | ![Level meters](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-meter.png) |
+| **Segment meter** | ![Segment meters](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-segments.png) |
+| **Spark underline** | ![Spark underlines](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-spark.png) |
+| **Ring** | ![Ring gauges](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-ring.png) |
+| **Dot matrix** | ![Dot matrix](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-dot-matrix.png) |
+| **Heat strip** | ![Heat strips](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-heat-strip.png) |
+| **Bullet meter** | ![Bullet meters](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-bullet.png) |
+| **Range rail** | ![Range rails](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-range-rail.png) |
+| **Status tint** | ![Tiles tinted by load](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-tint.png) |
+| **Status bubble** | ![Status bubbles beside the text](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-bubble.png) |
+| **Load with temperature**: CPU and GPU | ![Load bars with a temperature dot](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-combined.png) |
+| **Core bars**: CPU | ![A bar per logical processor](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-cores.png) |
+| **Heat cells**: CPU | ![A heat cell per logical processor](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-heat.png) |
+| **Core type meters**: CPU | ![Meters for performance and efficient cores](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-core-types.png) |
+| **Mirror bars**: network | ![Download and upload mirrored around a line](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-mirror.png) |
+| **Uptime strip**: ping | ![A cell per ping](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-uptime.png) |
+| **Battery cell**: battery | fills with its charge, and shows a bolt while charging |
 | **Mixed**: area, line, meter, bars and text only | ![A different style per item](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-style-mixed.png) |
+| **Trend arrow**, on any style | ![Trend arrows](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-trend.png) |
 | **Color by load** | ![Graphs colored by load](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-color-load.png) |
 | **Color by load, text** | ![Text colored by load](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-load.png) |
+| **Color by load, your own colors** | ![Graphs in custom load colors](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-color-custom.png) |
 
 > [!TIP]
 > Right-click an item on the taskbar to change its style, color and popup detail, swap it with its neighbour, or hide it.
 
 ### Every item
 
-CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, GPU memory, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order.
+CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, GPU memory, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order: drag an item along the taskbar to move it, or drag its handle in *Settings → Items*.
 
 ![Every item at once](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-all.png)
 
@@ -117,17 +135,21 @@ Pulsar stays where you put it until it would cover a taskbar button. Then its it
 
 ### Desktop widget
 
-A panel on the desktop with a section per item, like a popup that stays open. It sits behind your windows and comes forward when you show the desktop, or stays on top if you prefer. Choose sparklines, tiles or meters and how much detail it shows, for all items or per item, and drag it anywhere. Turn it on in *Settings → Widget* or from the menu.
+A panel on the desktop with a section per item, like a popup that stays open. It sits behind your windows and comes forward when you show the desktop, or stays on top if you prefer. Choose sparklines, tiles, meters or dials and how much detail it shows, for all items or per item, and drag it anywhere. Set its background color and opacity, and give it an order of its own by dragging the handles in *Settings → Widget*, or by holding <kbd>Shift</kbd> and dragging an item on the widget (no <kbd>Shift</kbd> needed once it is locked). The CPU can also show a core wall: a tall bar per logical processor with its peak, with performance and efficient cores apart. Turn it on in *Settings → Widget* or from the menu.
 
-| Sparklines | Tiles | Meters | Detailed |
-|:---:|:---:|:---:|:---:|
-| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-sparklines.png" width="220" alt="Widget with sparklines"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-tiles.png" width="220" alt="Widget with tiles"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-meters.png" width="220" alt="Widget with meters"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-detailed.png" width="220" alt="Widget at Detailed"> |
+| Sparklines | Tiles | Meters |
+|:---:|:---:|:---:|
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-sparklines.png" width="220" alt="Widget with sparklines"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-tiles.png" width="220" alt="Widget with tiles"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-meters.png" width="220" alt="Widget with meters"> |
+| **Dials** | **Core wall** | **Detailed** |
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-dials.png" width="220" alt="Widget with dials"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-core-wall.png" width="220" alt="Widget with the CPU core wall"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-detailed.png" width="220" alt="Widget at Detailed"> |
+
+<img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-background.png" width="220" alt="Widget with a custom background color">
 
 ### In games
 
 Two options in *Settings → Sensors*, both off until you turn them on:
 
-- **A strip in games:** while a game is in front, its frame rate and your taskbar items appear in the top-left corner of its monitor. Clicks pass through it to the game. Windows does not let anything draw over exclusive fullscreen, so this works for borderless and windowed games.
+- **A strip in games:** while a game is in front, its frame rate and your taskbar items appear as one line of text in the top-left corner of its monitor. Clicks pass through it to the game. Windows does not let anything draw over exclusive fullscreen, so this works for borderless and windowed games.
 
   <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/game-strip.png" alt="The strip in a game">
 - **A summary when a game closes:** a notification with the time played, average frame rate, 1% low and peak CPU and GPU temperatures. Each session is also added to `sessions.csv` in the logs folder.
@@ -166,6 +188,10 @@ Save the current setup as a named profile in *Settings → Profiles*, such as on
 Eight built-in themes set the item, label, value, tile and panel colors, each with a variant for light taskbars. Click one in *Settings → Theme* to apply it, change any color on top, and save the result as your own theme: a small file in `%APPDATA%\Pulsar\themes` you can share.
 
 <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-theme.png" width="600" alt="Settings, Theme">
+
+### Staying out of the way
+
+While the display is off, the PC is locked or the session is disconnected, Pulsar stops sampling and pinging, and resumes within a couple of seconds of your return. It keeps sampling if an alert is on, a recording is running or a game session is open, so those have no gaps. It asks Windows to run it in efficiency mode, and *Update interval on battery* in *Settings → General* can slow its readings while unplugged.
 
 ### Make it yours
 
@@ -229,8 +255,8 @@ Every Detailed popup except Network also shows the low, average and high of its 
 | GPU | GPU temperature | Disk |
 | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-disk-temp-detailed.png" width="250" alt="Drive temperature"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-network-detailed.png" width="250" alt="Network"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-ping-detailed.png" width="250" alt="Ping"> |
 | Drive temperature | Network | Ping |
-| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-fps-detailed.png" width="250" alt="Frame rate"> | | |
-| Frame rate | | |
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-fps-detailed.png" width="250" alt="Frame rate"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-gpu-memory-detailed.png" width="250" alt="GPU memory"> | |
+| Frame rate | GPU memory | |
 
 </details>
 
@@ -292,7 +318,8 @@ Every Detailed popup except Network also shows the low, average and high of its 
 | Overlay | Left-click | opens Task Manager |
 | Overlay | <kbd>Ctrl</kbd>+click | opens the system details window on that item's page |
 | Overlay | Right-click | the menu, with the clicked item's own options at the top |
-| Overlay | Drag, in floating mode | moves it |
+| Overlay | Drag an item | moves the item among the others |
+| Overlay, floating and unlocked | Drag | moves the overlay; hold <kbd>Shift</kbd> to move an item instead |
 | Tray icon | Left-click | opens Settings |
 | Tray icon | Right-click | the menu |
 | Start menu | Launch Pulsar while it runs | opens Settings |
@@ -314,9 +341,13 @@ Every option, applied as you change it.
 <details>
 <summary><b>Settings pages</b></summary>
 
-**Items:** which items show, their order and color, and each item's graph style, coloring and popup detail
+**Items:** which items show, their order (drag a handle or use the arrows) and color, and each item's graph style, coloring and popup detail
 
 ![Settings, Items](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-items.png)
+
+Open an item's options for its graph style, trend arrow, tile size and popup.
+
+![Settings, an item's graph styles](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-items-cpu-2.png)
 
 **Layout:** graphs or text, labels, icons, the font, and where the overlay sits
 
@@ -330,7 +361,7 @@ Every option, applied as you change it.
 
 ![Settings, Popups](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-popups.png)
 
-**Widget:** placement, style, detail, width, background and which items it shows
+**Widget:** placement, style, detail, width, background color and opacity, and which items it shows, in what order
 
 ![Settings, Widget](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-widget.png)
 
@@ -346,7 +377,7 @@ Every option, applied as you change it.
 
 ![Settings, Profiles](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-profiles.png)
 
-**General:** language, start with Windows, update checks, the tray icon, shortcuts, alerts, how often Pulsar samples, and resetting everything
+**General:** language, start with Windows, update checks, the tray icon, shortcuts, alerts, how often Pulsar samples, on mains and on battery, and resetting everything
 
 ![Settings, General](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-general.png)
 
@@ -450,7 +481,7 @@ There is no telemetry.
 
 - **Something looks wrong:** open *Settings → About → Logs* and look at `pulsar.log`.
 - **Pulsar crashed:** it writes a `crash-*.txt` report to the logs folder and offers to open it the next time it starts.
-- **A reading is missing or wrong:** *Settings → About → Diagnostics → Save report*, or `pulsar --diag [file]`, writes every reading Pulsar can take to `diagnostics.txt` in the logs folder.
+- **A reading is missing or wrong:** *Settings → About → Diagnostics → Save report*, or `pulsar --diag [file]`, writes every reading Pulsar can take, and how long each kind takes to read, to `diagnostics.txt` in the logs folder.
 
 Then [open an issue](https://github.com/oMaN-Rod/Pulsar/issues/new/choose) with the log and any crash or diagnostics report attached.
 
@@ -467,7 +498,7 @@ cargo test --workspace
 | Script | What it does |
 |---|---|
 | `scripts\package.ps1` | builds the installer, the portable zip and the winget manifests into `dist\`; needs [Inno Setup](https://jrsoftware.org/isinfo.php) 7, which ships the Simplified Chinese messages |
-| `scripts\screenshots.ps1` | captures the overlay, popups, menus, Settings and the details window to `target\screenshots\`; `-Publish` refreshes the images in `docs\images` |
+| `scripts\screenshots.ps1` | captures the overlay in every layout and style, popups, menus, the widget, the game strip, Settings and the details window to `target\screenshots\`; `-Publish` refreshes the images in `docs\images` |
 
 Also see the [manual testing checklist](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/testing.md) and the [release guide](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/releasing.md).
 
