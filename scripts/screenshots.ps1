@@ -14,7 +14,10 @@ Use the existing target\release binaries.
 .PARAMETER Light
 Also capture on a light taskbar. Switches Windows to light mode for a minute, then back.
 .PARAMETER Publish
-Copy each capture that docs\images already has or the README uses into docs\images.
+Copy each capture the README uses that docs\images does not have yet. Live readings change every
+capture, so existing images stay until named in -Replace.
+.PARAMETER Replace
+With -Publish, the captures to copy over existing images because their UI changed. Wildcards work.
 .PARAMETER Parts
 Which captures to take: overlay, popups, menus, widget, game, settings, details.
 #>
@@ -23,6 +26,7 @@ param(
     [switch]$SkipBuild,
     [switch]$Light,
     [switch]$Publish,
+    [string[]]$Replace = @(),
     [int]$Warmup = 45
 )
 $ErrorActionPreference = 'Stop'
@@ -126,6 +130,7 @@ function Write-Config {
         [string]$Widget,
         [string]$WidgetDetail = 'simple',
         [hashtable]$WidgetStyles = @{},
+        [string]$WidgetBackground,
         # Executable names to count as games, with the strip on.
         [string[]]$Games = @()
     )
@@ -166,6 +171,7 @@ style = "$Widget"
 detail = "$WidgetDetail"
 opacity = 100
 hide_in_fullscreen = false
+$(if ($WidgetBackground) { "background = `"$WidgetBackground`"" })
 
 "@
     }
@@ -589,6 +595,7 @@ try {
             'widget-dials'      = @{ Widget = 'dials' }
             'widget-core-wall'  = @{ Widget = 'sparklines'; WidgetStyles = @{ cpu = 'core_wall' } }
             'widget-detailed'   = @{ Widget = 'sparklines'; WidgetDetail = 'detailed' }
+            'widget-background' = @{ Widget = 'sparklines'; WidgetBackground = '#1E2A44' }
         }
         foreach ($name in $shots.Keys) {
             $options = $shots[$name]
@@ -608,7 +615,10 @@ try {
         $game = Start-Process charmap -PassThru
         try {
             # A window started from the background does not come to the front by itself.
-            [void]$game.WaitForInputIdle(5000)
+            for ($i = 0; $i -lt 40 -and $game.MainWindowHandle -eq [IntPtr]::Zero; $i++) {
+                Start-Sleep -Milliseconds 250
+                $game.Refresh()
+            }
             $r = Get-Rect $game.MainWindowHandle
             [void][Native]::SetCursorPos($r.Left + 100, $r.Top + 12)
             Start-Sleep -Milliseconds 300
@@ -656,13 +666,13 @@ try {
         $rows = 98, 142, 186, 230, 274, 352, 396, 474, 518, 562
         # The CPU item's options, with the graph style picker.
         Send-Click $settings 115 $rows[0]
-        Send-Click $settings 468 159
+        Send-Click $settings 436 159
         [void](Save-Window $settings 'settings-items-cpu')
         Send-Wheel $settings 500 300 -4
         [void](Save-Window $settings 'settings-items-cpu-2')
         Write-Host '  settings-items-cpu'
         Send-Wheel $settings 500 300 4
-        Send-Click $settings 468 159
+        Send-Click $settings 436 159
         for ($i = 0; $i -lt $pages.Count; $i++) {
             Send-Click $settings 115 $rows[$i]
             $previous = Save-Window $settings "settings-$($pages[$i])"
@@ -715,7 +725,10 @@ if ($Publish) {
     $readme = Get-Content (Join-Path $root 'README.md') -Raw
     Get-ChildItem $out -Filter *.png | ForEach-Object {
         $target = Join-Path $root "docs\images\$($_.Name)"
-        if ((Test-Path $target) -or $readme.Contains("docs/images/$($_.Name)")) { Copy-Item $_.FullName $target }
+        $name = $_.BaseName
+        $new = -not (Test-Path $target) -and $readme.Contains("docs/images/$($_.Name)")
+        $changed = (Test-Path $target) -and ($Replace | Where-Object { $name -like $_ })
+        if ($new -or $changed) { Copy-Item $_.FullName $target }
     }
 }
 Write-Host "Saved to $out"
