@@ -136,7 +136,7 @@ msgstr "프로세서"
 msgid "Memory"
 msgstr "메모리"
 
-#: src/details/pages.rs src/popup/content.rs
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
 msgid "Graphics"
 msgstr "그래픽"
 
@@ -544,6 +544,10 @@ msgstr "보드 제조업체"
 msgid "Revision"
 msgstr "리비전"
 
+#: src/details/pages.rs ui/details.slint
+msgid "Load"
+msgstr "부하"
+
 #: src/details/pages.rs
 msgid "Dedicated memory"
 msgstr "전용 메모리"
@@ -672,7 +676,7 @@ msgstr "업로드"
 msgid "Packet loss"
 msgstr "패킷 손실"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Traffic"
 msgstr "트래픽"
 
@@ -743,10 +747,6 @@ msgstr "온도"
 #: src/details/pages.rs
 msgid "Core {}"
 msgstr "코어 {}"
-
-#: src/details/pages.rs ui/details.slint
-msgid "Load"
-msgstr "부하"
 
 #: src/details/pages.rs
 msgid "Total"
@@ -1260,7 +1260,7 @@ msgstr "활성 {} · 사용 {}"
 msgid "Drives"
 msgstr "드라이브"
 
-#: src/popup/content.rs
+#: src/popup/content.rs ui/settings.slint
 msgid "Adapters"
 msgstr "어댑터"
 
@@ -1288,6 +1288,10 @@ msgstr "모니터: {}"
 msgid "A monitor that is not connected"
 msgstr "연결되지 않은 모니터"
 
+#: src/settings/main.rs
+msgid "not connected"
+msgstr "연결되지 않음"
+
 #: src/settings/main.rs ui/settings.slint
 msgid "Default"
 msgstr "기본값"
@@ -1295,14 +1299,6 @@ msgstr "기본값"
 #: src/settings/main.rs
 msgid "not installed"
 msgstr "설치되지 않음"
-
-#: src/settings/main.rs
-msgid "All hardware adapters"
-msgstr "모든 하드웨어 어댑터"
-
-#: src/settings/main.rs
-msgid "not connected"
-msgstr "연결되지 않음"
 
 #: src/settings/main.rs
 msgid "Same as other items"
@@ -1473,8 +1469,8 @@ msgid "Readings"
 msgstr "측정"
 
 #: ui/settings.slint
-msgid "Drives and network"
-msgstr "드라이브 및 네트워크"
+msgid "Devices"
+msgstr "장치"
 
 #: ui/settings.slint
 msgid "App"
@@ -1961,12 +1957,36 @@ msgid "Used space"
 msgstr "사용한 공간"
 
 #: ui/settings.slint
-msgid "Adapter"
-msgstr "어댑터"
+msgid "GPUs"
+msgstr "GPU"
 
 #: ui/settings.slint
-msgid "Count one adapter, or every physical one."
-msgstr "어댑터 하나만 또는 모든 물리 어댑터를 집계합니다."
+msgid "One combined cell, or a cell per GPU. GPU temperature follows."
+msgstr "하나로 합친 칸 또는 GPU별 칸입니다. GPU 온도도 같은 설정을 따릅니다."
+
+#: ui/settings.slint
+msgid "All GPUs combined"
+msgstr "모든 GPU 합계"
+
+#: ui/settings.slint
+msgid "Each GPU"
+msgstr "GPU별"
+
+#: ui/settings.slint
+msgid "Cards"
+msgstr "그래픽 카드"
+
+#: ui/settings.slint
+msgid "Every physical adapter combined, or only the ones you tick. Several get a cell each."
+msgstr "모든 물리 어댑터를 합치거나 선택한 어댑터만 집계합니다. 여러 개를 선택하면 어댑터마다 칸이 생깁니다."
+
+#: ui/settings.slint
+msgid "All hardware adapters"
+msgstr "모든 하드웨어 어댑터"
+
+#: ui/settings.slint
+msgid "Chosen adapters"
+msgstr "선택한 어댑터"
 
 #: ui/settings.slint
 msgid "Network rates"
