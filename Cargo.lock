@@ -3273,7 +3273,7 @@ dependencies = [
 
 [[package]]
 name = "pulsar-monitor"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "embed-resource",
  "log",
@@ -3288,7 +3288,7 @@ dependencies = [
 
 [[package]]
 name = "pulsar-monitor-core"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "blake2",
  "ed25519-compact",
