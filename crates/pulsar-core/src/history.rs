@@ -53,6 +53,17 @@ impl History {
         self.samples.iter().copied()
     }
 
+    /// The highest of the newest `count` samples.
+    pub fn recent_max(&self, count: usize) -> Option<f64> {
+        self.samples
+            .iter()
+            .rev()
+            .take(count)
+            .copied()
+            .filter(|v| !v.is_nan())
+            .reduce(f64::max)
+    }
+
     pub fn latest(&self) -> Option<f64> {
         self.samples.back().copied().filter(|v| !v.is_nan())
     }

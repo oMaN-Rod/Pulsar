@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use crate::config::NetworkConfig;
 use crate::format::format_value;
-use crate::history::History;
+use crate::history::{History, HistoryStore};
 pub use crate::layout::part_metric as metric_for;
 use crate::layout::{CellPart, Rect};
 use crate::metric::{ItemKind, MetricKey, Snapshot, Unit};
@@ -190,10 +190,428 @@ pub fn meter_fraction(value: f64, max: f64) -> f32 {
     (value / max).clamp(0.0, 1.0) as f32
 }
 
+/// Clockwise from twelve o'clock.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct RingArc {
+    pub start: (f32, f32),
+    pub end: (f32, f32),
+    pub large: bool,
+}
+
+/// `None` when empty. A full ring stops just short, as an arc can't close.
+pub fn ring_arc(center: (f32, f32), radius: f32, fraction: f32) -> Option<RingArc> {
+    if fraction <= 0.0 {
+        return None;
+    }
+    let fraction = fraction.min(0.999);
+    let angle = fraction * std::f32::consts::TAU;
+    Some(RingArc {
+        start: (center.0, center.1 - radius),
+        end: (
+            center.0 + radius * angle.sin(),
+            center.1 - radius * angle.cos(),
+        ),
+        large: fraction > 0.5,
+    })
+}
+
+/// The item whose reading a ring shows inside the item's own.
+pub fn ring_companion(kind: ItemKind) -> Option<ItemKind> {
+    match kind {
+        ItemKind::Cpu => Some(ItemKind::CpuTemp),
+        ItemKind::Gpu => Some(ItemKind::GpuTemp),
+        _ => None,
+    }
+}
+
+/// Samples a core's peak mark holds on to.
+pub const PEAK_SAMPLES: usize = 10;
+/// A peak this close above the load, in percent, adds nothing to the bar.
+const PEAK_MARGIN: f64 = 2.0;
+
+/// One core's latest load and its recent peak, 0–100.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CoreLoad {
+    pub load: f64,
+    pub peak: f64,
+}
+
+pub fn core_loads(snapshot: &Snapshot, history: &HistoryStore) -> Vec<CoreLoad> {
+    (0..=u16::MAX)
+        .map_while(|i| {
+            let key = MetricKey::CpuCore(i);
+            let load = snapshot.get(key)?;
+            let peak = history
+                .get(key)
+                .and_then(|h| h.recent_max(PEAK_SAMPLES))
+                .unwrap_or(load);
+            Some(CoreLoad {
+                load,
+                peak: peak.max(load),
+            })
+        })
+        .collect()
+}
+
+/// One core's bar and track, with where its peak mark goes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CoreBar {
+    pub track: Rect,
+    pub fill: Rect,
+    pub load: f64,
+    pub peak_y: Option<f32>,
+    pub efficient: bool,
+}
+
+fn busiest(loads: &[CoreLoad]) -> CoreLoad {
+    loads.iter().fold(
+        CoreLoad {
+            load: 0.0,
+            peak: 0.0,
+        },
+        |most, l| CoreLoad {
+            load: most.load.max(l.load),
+            peak: most.peak.max(l.peak),
+        },
+    )
+}
+
+/// A whole-pixel bar per core, or per group of cores with the busiest shown
+/// when `area` can't give each its own. Keeps a sliver at idle. Cores from
+/// `split` on are efficient ones, set apart by an empty slot.
+pub fn core_bars(
+    loads: &[CoreLoad],
+    area: Rect,
+    split: Option<usize>,
+    gap: f32,
+    min_fill: f32,
+) -> Vec<CoreBar> {
+    if loads.is_empty() || area.w < 1.0 || area.h < 1.0 {
+        return Vec::new();
+    }
+    let n = loads.len();
+    let gap = gap.round().max(1.0);
+    let room = ((area.w + gap) / (1.0 + gap)).floor() as usize;
+    let split = split.filter(|&s| s > 0 && s < n && room >= 3);
+    let spacer = usize::from(split.is_some());
+    let bars = room.saturating_sub(spacer).clamp(1, n);
+    let slots = bars + spacer;
+    let pitch = ((area.w + gap) / slots as f32).floor().max(1.0 + gap);
+    let width = pitch - gap;
+    let used = slots as f32 * pitch - gap;
+    let left = area.x + ((area.w - used) / 2.0).max(0.0).floor();
+    let bottom = area.y + area.h;
+    // Each type is grouped on its own, so a bar never mixes the two.
+    let first_efficient = split.map(|s| ((s * bars + n / 2) / n).clamp(1, bars - 1));
+    let group = |bar: usize| match (first_efficient, split) {
+        (Some(first), Some(s)) if bar < first => (bar * s / first)..((bar + 1) * s / first),
+        (Some(first), Some(s)) => {
+            let (i, count) = (bar - first, bars - first);
+            (s + i * (n - s) / count)..(s + (i + 1) * (n - s) / count)
+        }
+        _ => (bar * n / bars)..((bar + 1) * n / bars),
+    };
+    (0..bars)
+        .map(|bar| {
+            let core = busiest(&loads[group(bar)]);
+            let efficient = first_efficient.is_some_and(|first| bar >= first);
+            let x = left + (bar + usize::from(efficient)) as f32 * pitch;
+            let h = (meter_fraction(core.load, 100.0) * area.h)
+                .round()
+                .clamp(min_fill.min(area.h), area.h);
+            let peak_y = (core.peak >= core.load + PEAK_MARGIN).then(|| {
+                let peak = (meter_fraction(core.peak, 100.0) * area.h).round();
+                (bottom - peak).clamp(area.y, bottom - 1.0)
+            });
+            CoreBar {
+                track: Rect {
+                    x,
+                    y: area.y,
+                    w: width,
+                    h: area.h,
+                },
+                fill: Rect {
+                    x,
+                    y: bottom - h,
+                    w: width,
+                    h,
+                },
+                load: core.load,
+                peak_y,
+                efficient,
+            }
+        })
+        .collect()
+}
+
+/// A cell per core, filled row by row, or per group of cores with the busiest
+/// shown when `area` can't hold them all.
+pub fn heat_cells(loads: &[f64], area: Rect, rows: usize, gap: f32) -> Vec<(Rect, f64)> {
+    if loads.is_empty() || rows == 0 || area.w < 1.0 || area.h < 1.0 {
+        return Vec::new();
+    }
+    let n = loads.len();
+    let gap = gap.round().max(1.0);
+    let most_columns = (((area.w + gap) / (2.0 + gap)).floor() as usize).max(1);
+    let cells = n.min(most_columns * rows);
+    let columns = cells.div_ceil(rows);
+    let pitch_x = ((area.w + gap) / columns as f32).floor();
+    let pitch_y = ((area.h + gap) / rows as f32).floor();
+    let used = columns as f32 * pitch_x - gap;
+    let left = area.x + ((area.w - used) / 2.0).max(0.0).floor();
+    (0..cells)
+        .map(|cell| {
+            let group = &loads[cell * n / cells..(cell + 1) * n / cells];
+            let rect = Rect {
+                x: left + (cell % columns) as f32 * pitch_x,
+                y: area.y + (cell / columns) as f32 * pitch_y,
+                w: (pitch_x - gap).max(1.0),
+                h: (pitch_y - gap).max(1.0),
+            };
+            (rect, group.iter().copied().fold(0.0, f64::max))
+        })
+        .collect()
+}
+
+/// Whole-pixel segments across `area`, at most `most` of them.
+pub fn segment_rects(area: Rect, most: usize, gap: f32) -> Vec<Rect> {
+    if area.w < 1.0 || area.h < 1.0 || most == 0 {
+        return Vec::new();
+    }
+    let gap = gap.round().max(1.0);
+    let count = (((area.w + gap) / (2.0 + gap)).floor() as usize).clamp(1, most);
+    let pitch = ((area.w + gap) / count as f32).floor();
+    let used = count as f32 * pitch - gap;
+    let left = area.x + ((area.w - used) / 2.0).max(0.0).floor();
+    (0..count)
+        .map(|i| Rect {
+            x: left + i as f32 * pitch,
+            w: pitch - gap,
+            ..area
+        })
+        .collect()
+}
+
+/// How many of `count` segments are lit; any reading above zero lights one.
+pub fn lit_segments(fraction: f32, count: usize) -> usize {
+    if fraction <= 0.0 {
+        return 0;
+    }
+    ((fraction * count as f32).round() as usize).clamp(1, count)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::metric::SourceId;
+
+    const AREA: Rect = Rect {
+        x: 10.0,
+        y: 5.0,
+        w: 71.0,
+        h: 30.0,
+    };
+
+    fn steady(loads: &[f64]) -> Vec<CoreLoad> {
+        loads
+            .iter()
+            .map(|&load| CoreLoad { load, peak: load })
+            .collect()
+    }
+
+    #[test]
+    fn a_core_gets_a_bar_of_its_own_while_they_fit() {
+        let loads = steady(&[50.0; 24]);
+        let bars = core_bars(&loads, AREA, None, 1.0, 1.0);
+        assert_eq!(bars.len(), 24);
+        assert!(bars.iter().all(|b| b.track.w == 2.0));
+        assert_eq!(bars[1].track.x - bars[0].track.x, 3.0);
+        assert_eq!(bars[23].track.x + bars[23].track.w, AREA.right());
+        assert!(bars.iter().all(|b| b.fill.h == 15.0));
+    }
+
+    #[test]
+    fn too_many_cores_share_bars_and_show_the_busiest() {
+        let mut loads = steady(&[0.0; 256]);
+        loads[255].load = 90.0;
+        loads[255].peak = 90.0;
+        let bars = core_bars(&loads, AREA, None, 1.0, 1.0);
+        assert_eq!(bars.len(), 36);
+        assert_eq!(bars.last().unwrap().load, 90.0);
+        assert_eq!(bars[0].load, 0.0);
+        assert!(bars.last().unwrap().track.right() <= AREA.right());
+    }
+
+    #[test]
+    fn a_few_cores_stay_inside_the_area_and_idle_keeps_a_sliver() {
+        let loads = steady(&[0.0, 100.0, f64::NAN, 400.0]);
+        let bars = core_bars(&loads, AREA, None, 1.0, 1.0);
+        assert_eq!(bars.len(), 4);
+        assert_eq!(bars[0].fill.h, 1.0);
+        assert_eq!(bars[1].fill.h, AREA.h);
+        assert_eq!(bars[2].fill.h, 1.0);
+        assert_eq!(bars[3].fill.h, AREA.h);
+        assert!(bars.iter().all(|b| b.fill.y + b.fill.h == 35.0));
+        assert!(bars[0].track.x >= AREA.x && bars[3].track.right() <= AREA.right());
+    }
+
+    #[test]
+    fn no_cores_or_no_room_draws_nothing() {
+        assert!(core_bars(&[], AREA, None, 1.0, 1.0).is_empty());
+        let none = Rect { w: 0.0, ..AREA };
+        assert!(core_bars(&steady(&[50.0]), none, None, 1.0, 1.0).is_empty());
+    }
+
+    #[test]
+    fn efficient_cores_sit_apart_after_an_empty_slot() {
+        let area = Rect { w: 74.0, ..AREA };
+        let bars = core_bars(&steady(&[50.0; 24]), area, Some(16), 1.0, 1.0);
+        assert_eq!(bars.len(), 24);
+        assert!(!bars[15].efficient && bars[16].efficient);
+        assert_eq!(bars[1].track.x - bars[0].track.x, 3.0);
+        assert_eq!(bars[16].track.x - bars[15].track.x, 6.0);
+        assert!(bars[23].track.right() <= area.right());
+    }
+
+    #[test]
+    fn a_split_that_means_nothing_adds_no_slot() {
+        for split in [None, Some(0), Some(24), Some(99)] {
+            let bars = core_bars(&steady(&[50.0; 24]), AREA, split, 1.0, 1.0);
+            assert!(bars.iter().all(|b| !b.efficient), "{split:?}");
+            assert_eq!(bars[1].track.x - bars[0].track.x, 3.0);
+        }
+    }
+
+    #[test]
+    fn grouped_cores_keep_the_split_and_stay_in_the_area() {
+        let bars = core_bars(&steady(&[50.0; 256]), AREA, Some(192), 1.0, 1.0);
+        assert!(bars.len() < 256);
+        assert!(bars.iter().any(|b| b.efficient));
+        assert!(bars.iter().any(|b| !b.efficient));
+        assert!(bars.iter().all(|b| b.track.right() <= AREA.right()));
+    }
+
+    #[test]
+    fn a_grouped_bar_never_mixes_core_types() {
+        let area = Rect { w: 41.0, ..AREA };
+        let mut loads = steady(&[0.0; 24]);
+        loads[16].load = 90.0;
+        loads[16].peak = 90.0;
+        let bars = core_bars(&loads, area, Some(16), 1.0, 1.0);
+        assert!(bars.len() < 24);
+        assert!(bars.iter().filter(|b| b.load > 0.0).all(|b| b.efficient));
+        let mut loads = steady(&[0.0; 24]);
+        loads[15].load = 90.0;
+        loads[15].peak = 90.0;
+        let bars = core_bars(&loads, area, Some(16), 1.0, 1.0);
+        assert!(bars.iter().filter(|b| b.load > 0.0).all(|b| !b.efficient));
+    }
+
+    #[test]
+    fn a_peak_marks_its_height_only_when_above_the_load() {
+        let loads = [
+            CoreLoad {
+                load: 20.0,
+                peak: 80.0,
+            },
+            CoreLoad {
+                load: 50.0,
+                peak: 51.0,
+            },
+            CoreLoad {
+                load: 0.0,
+                peak: 100.0,
+            },
+        ];
+        let bars = core_bars(&loads, AREA, None, 1.0, 1.0);
+        assert_eq!(bars[0].peak_y, Some(AREA.y + 6.0));
+        assert_eq!(bars[1].peak_y, None);
+        assert_eq!(bars[2].peak_y, Some(AREA.y));
+    }
+
+    #[test]
+    fn peaks_come_from_recent_samples_only() {
+        let mut store = HistoryStore::new(60);
+        for v in [
+            90.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 10.0, 20.0, 30.0,
+        ] {
+            let mut s = Snapshot::default();
+            s.set(MetricKey::CpuCore(0), v);
+            store.record(&s);
+        }
+        let mut s = Snapshot::default();
+        s.set(MetricKey::CpuCore(0), 5.0);
+        let loads = core_loads(&s, &store);
+        assert_eq!(loads[0].load, 5.0);
+        assert_eq!(loads[0].peak, 30.0);
+    }
+
+    #[test]
+    fn a_core_without_history_peaks_at_its_load() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::CpuCore(0), 42.0);
+        let loads = core_loads(&s, &HistoryStore::new(60));
+        assert_eq!(loads[0].peak, 42.0);
+    }
+
+    #[test]
+    fn heat_cells_fill_rows_and_group_what_will_not_fit() {
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 80.0,
+            h: 30.0,
+        };
+        let cells = heat_cells(&[10.0; 24], area, 3, 1.0);
+        assert_eq!(cells.len(), 24);
+        assert_eq!(cells[8].0.y, cells[0].0.y + 10.0);
+        assert_eq!(cells[8].0.x, cells[0].0.x);
+        assert!(
+            cells
+                .iter()
+                .all(|(r, _)| r.right() <= 80.0 && r.y + r.h <= 30.0)
+        );
+        let mut many = vec![0.0; 2000];
+        many[1999] = 70.0;
+        let grouped = heat_cells(&many, area, 3, 1.0);
+        assert!(grouped.len() < 2000);
+        assert_eq!(grouped.last().unwrap().1, 70.0);
+        assert!(heat_cells(&[], area, 3, 1.0).is_empty());
+        assert!(heat_cells(&[1.0], area, 0, 1.0).is_empty());
+    }
+
+    #[test]
+    fn segments_snap_to_pixels_and_light_in_steps() {
+        let rects = segment_rects(AREA, 10, 1.0);
+        assert_eq!(rects.len(), 10);
+        assert!(
+            rects
+                .iter()
+                .all(|r| r.w == rects[0].w && r.w.fract() == 0.0)
+        );
+        assert!(rects[9].right() <= AREA.right());
+        let narrow = Rect { w: 8.0, ..AREA };
+        assert_eq!(segment_rects(narrow, 10, 1.0).len(), 3);
+        assert_eq!(lit_segments(0.0, 10), 0);
+        assert_eq!(lit_segments(0.001, 10), 1);
+        assert_eq!(lit_segments(0.38, 10), 4);
+        assert_eq!(lit_segments(1.0, 10), 10);
+    }
+
+    #[test]
+    fn a_ring_runs_clockwise_from_the_top() {
+        let close = |a: (f32, f32), b: (f32, f32)| (a.0 - b.0).abs() + (a.1 - b.1).abs() < 0.01;
+        assert_eq!(ring_arc((10.0, 10.0), 5.0, 0.0), None);
+        let quarter = ring_arc((10.0, 10.0), 5.0, 0.25).unwrap();
+        assert!(close(quarter.start, (10.0, 5.0)));
+        assert!(close(quarter.end, (15.0, 10.0)));
+        assert!(!quarter.large);
+        let most = ring_arc((10.0, 10.0), 5.0, 0.75).unwrap();
+        assert!(close(most.end, (5.0, 10.0)));
+        assert!(most.large);
+        let full = ring_arc((10.0, 10.0), 5.0, 1.0).unwrap();
+        assert!(full.large && full.end != full.start);
+    }
 
     fn floor(down: u64, up: u64) -> NetworkFloor {
         NetworkFloor::new(&NetworkConfig {

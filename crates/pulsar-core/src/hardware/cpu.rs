@@ -37,6 +37,22 @@ pub struct Topology {
     pub efficient_cores: Option<u32>,
 }
 
+impl Topology {
+    /// How many of `threads` belong to performance cores on a hybrid design.
+    /// Windows numbers them first, and efficient cores have one thread each.
+    pub fn performance_threads(&self, threads: usize) -> Option<usize> {
+        self.performance_cores?;
+        let efficient = self.efficient_cores.filter(|&e| e > 0)? as usize;
+        threads.checked_sub(efficient).filter(|&p| p > 0)
+    }
+}
+
+/// The processor's layout, read once.
+pub fn cached_topology() -> Topology {
+    static TOPOLOGY: std::sync::OnceLock<Topology> = std::sync::OnceLock::new();
+    *TOPOLOGY.get_or_init(|| topology().0)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CacheKind {
     Data,
