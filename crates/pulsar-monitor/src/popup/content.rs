@@ -1235,6 +1235,22 @@ mod tests {
     }
 
     #[test]
+    fn renamed_labels_stay_on_the_overlay() {
+        let mut config = Config::default();
+        config.item_mut(ItemKind::Cpu).unwrap().label = Some("Proc".into());
+        config.network.down_label = Some("In".into());
+        let mut s = Snapshot::default();
+        s.set(MetricKey::NetDownBps, 12_288.0);
+        let history = HistoryStore::new(60);
+        let popup = |kind| {
+            let options = Options::new(&config, kind, &NO_GPUS);
+            build_with(kind, &s, &history, &options)
+        };
+        assert_eq!(popup(ItemKind::Cpu).title, "CPU");
+        assert_eq!(popup(ItemKind::Network).value, "↓ 12.0 KB/s  ↑ —");
+    }
+
+    #[test]
     fn the_popup_takes_its_network_floor_from_the_settings() {
         let mut config = Config::default();
         config.network.min_down_bps = 10_240;

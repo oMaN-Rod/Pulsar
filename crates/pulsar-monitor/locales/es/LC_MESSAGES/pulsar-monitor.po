@@ -1533,6 +1533,34 @@ msgid "Choose what the overlay shows, its order, and each item's colour (empty u
 msgstr "Elige qué muestra la superposición, su orden y el color de cada elemento (vacío usa el predeterminado). Abre las opciones de un elemento para su estilo de gráfica, coloreado y ventana emergente. Haz clic derecho en un elemento de la barra de tareas para ver las mismas opciones."
 
 #: ui/settings.slint
+msgid "Overlay label"
+msgstr "Etiqueta en la superposición"
+
+#: ui/settings.slint
+msgid "Labels are off on the Layout page, so this doesn't show."
+msgstr "Las etiquetas están desactivadas en la página Diseño, así que esto no se muestra."
+
+#: ui/settings.slint
+msgid "Set Download label and Upload label on the Devices page."
+msgstr "Define Etiqueta de descarga y Etiqueta de subida en la página Dispositivos."
+
+#: ui/settings.slint
+msgid "With a cell per drive, the overlay shows drive letters instead."
+msgstr "Con una celda por unidad, la superposición muestra en su lugar las letras de unidad."
+
+#: ui/settings.slint
+msgid "Replaces the name on the overlay, up to 12 characters. Settings and popups keep the item's name."
+msgstr "Sustituye el nombre en la superposición, hasta 12 caracteres. La configuración y las ventanas emergentes conservan el nombre del elemento."
+
+#: ui/settings.slint
+msgid "Short overlay label"
+msgstr "Etiqueta corta en la superposición"
+
+#: ui/settings.slint
+msgid "Used with short labels, and when the overlay shrinks to fit the taskbar."
+msgstr "Se usa con etiquetas cortas y cuando la superposición se reduce para caber en la barra de tareas."
+
+#: ui/settings.slint
 msgid "Graph style"
 msgstr "Estilo de gráfica"
 
@@ -2175,6 +2203,18 @@ msgstr "Mostrar en la ventana emergente"
 #: ui/settings.slint
 msgid "The rates shown in the network popup, whatever the taskbar shows."
 msgstr "Las velocidades que se muestran en la ventana emergente de red, sea lo que sea lo que muestre la barra de tareas."
+
+#: ui/settings.slint
+msgid "Download label"
+msgstr "Etiqueta de descarga"
+
+#: ui/settings.slint
+msgid "Replaces the arrow on the overlay, up to 12 characters. With several adapters, each adds its number."
+msgstr "Sustituye la flecha en la superposición, hasta 12 caracteres. Con varios adaptadores, cada uno añade su número."
+
+#: ui/settings.slint
+msgid "Upload label"
+msgstr "Etiqueta de subida"
 
 #: ui/settings.slint
 msgid "Minimum download speed"

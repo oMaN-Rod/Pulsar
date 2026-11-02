@@ -7,6 +7,9 @@ use crate::gpu_slots::GpuSlots;
 use crate::metric::{ItemKind, MetricKey};
 
 pub mod fit;
+mod names;
+
+pub use names::ItemNames;
 
 pub trait TextMeasure {
     fn width(&self, text: &str, font_px: f32) -> f32;
@@ -100,7 +103,7 @@ impl Layout {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct LayoutInput {
+pub struct LayoutInput<'a> {
     pub mode: DisplayMode,
     pub taskbar_height_px: f32,
     /// Not limited by a taskbar: grow taller than it so the font fits.
@@ -114,6 +117,7 @@ pub struct LayoutInput {
     /// The width of a vertical taskbar; items then stack from the top.
     pub vertical_bar_px: Option<f32>,
     pub text_spacing: TextSpacing,
+    pub names: &'a ItemNames,
 }
 
 /// Text mode gaps, in DIPs.
@@ -206,9 +210,27 @@ pub fn part_metric(kind: ItemKind, part: CellPart) -> MetricKey {
 }
 
 /// The text part of a cell's label. Drive letters and GPU and adapter
-/// numbers always show; network arrows give way to the direction icons.
-pub fn cell_label(kind: ItemKind, part: CellPart, labels: LabelStyle, icons: bool) -> String {
+/// numbers always show; network arrows give way to the direction icons or a
+/// custom name, which shows unless labels are off.
+pub fn cell_label(
+    kind: ItemKind,
+    part: CellPart,
+    labels: LabelStyle,
+    icons: bool,
+    names: &ItemNames,
+) -> String {
     let number = |i: u8| u32::from(i) + 1;
+    let direction = match part {
+        CellPart::Down | CellPart::AdapterDown(_) => names.down(),
+        CellPart::Up | CellPart::AdapterUp(_) => names.up(),
+        _ => None,
+    };
+    if let Some(name) = direction.filter(|_| labels != LabelStyle::None) {
+        return match part {
+            CellPart::AdapterDown(i) | CellPart::AdapterUp(i) => format!("{name}{}", number(i)),
+            _ => name.to_string(),
+        };
+    }
     match part {
         CellPart::Down | CellPart::Up if icons => String::new(),
         CellPart::Down => "↓".into(),
@@ -220,15 +242,15 @@ pub fn cell_label(kind: ItemKind, part: CellPart, labels: LabelStyle, icons: boo
         CellPart::DriveActive(d) | CellPart::DriveUsed(d) => format!("{}:", d as char),
         CellPart::Gpu(i) => {
             let name = match labels {
-                LabelStyle::Full => kind.label(),
-                LabelStyle::Short => kind.short_label(),
+                LabelStyle::Full => names.full(kind),
+                LabelStyle::Short => names.short(kind),
                 LabelStyle::None => "",
             };
             format!("{name}{}", number(i))
         }
         CellPart::Main => match labels {
-            LabelStyle::Full => kind.label().into(),
-            LabelStyle::Short => kind.short_label().into(),
+            LabelStyle::Full => names.full(kind).into(),
+            LabelStyle::Short => names.short(kind).into(),
             LabelStyle::None => String::new(),
         },
     }
@@ -296,10 +318,11 @@ pub fn label_width(
     part: CellPart,
     labels: LabelStyle,
     icons: bool,
+    names: &ItemNames,
     font_px: f32,
     m: &dyn TextMeasure,
 ) -> f32 {
-    let text = cell_label(kind, part, labels, icons);
+    let text = cell_label(kind, part, labels, icons, names);
     let text_w = if text.is_empty() {
         0.0
     } else {
@@ -317,9 +340,16 @@ pub fn label_width(
 }
 
 #[derive(Clone, Copy)]
-struct Labels {
+struct Labels<'a> {
     style: LabelStyle,
     icons: bool,
+    names: &'a ItemNames,
+}
+
+impl Labels<'_> {
+    fn width(&self, kind: ItemKind, part: CellPart, font_px: f32, m: &dyn TextMeasure) -> f32 {
+        label_width(kind, part, self.style, self.icons, self.names, font_px, m)
+    }
 }
 
 /// The network's two directions in the order they are shown.
@@ -474,7 +504,7 @@ fn network_item_parts(config: &Config) -> Vec<CellPart> {
     }
 }
 
-pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasure) -> Layout {
+pub fn compute_layout(items: &[ItemSpec], input: LayoutInput<'_>, m: &dyn TextMeasure) -> Layout {
     let scale = input.dpi as f32 / 96.0;
     let font_px = input.font_size_pt * input.dpi as f32 / 72.0;
     let fit = input.fit_font && input.vertical_bar_px.is_none();
@@ -508,6 +538,7 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
     let labels = Labels {
         style: input.labels,
         icons: input.icons,
+        names: input.names,
     };
     if let Some(bar_w) = input.vertical_bar_px {
         let items = with_pairs_split(items, input.upload_on_top);
@@ -531,7 +562,7 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
 
 /// The height at which the font fits uncut. Text keeps the rows the taskbar
 /// gives the default font, rather than reflowing to one long row.
-fn fitted_height(input: LayoutInput, scale: f32, font_px: f32, m: &dyn TextMeasure) -> f32 {
+fn fitted_height(input: LayoutInput<'_>, scale: f32, font_px: f32, m: &dyn TextMeasure) -> f32 {
     let padding = PADDING_DIP * scale;
     let content = match input.mode {
         DisplayMode::Text => {
@@ -619,7 +650,7 @@ fn text_layout(
     rows: TextRows,
     scale: f32,
     font_px: f32,
-    labels: Labels,
+    labels: Labels<'_>,
     spacing: TextSpacing,
     m: &dyn TextMeasure,
 ) -> Layout {
@@ -639,7 +670,7 @@ fn text_layout(
     for column in columns {
         let label_w = column
             .iter()
-            .map(|&(k, p)| label_width(k, p, labels.style, labels.icons, font_px, m))
+            .map(|&(k, p)| labels.width(k, p, font_px, m))
             .fold(0.0, f32::max);
         let value_w = column
             .iter()
@@ -681,7 +712,7 @@ fn stacked_text(
     bar_w: f32,
     scale: f32,
     font_px: f32,
-    labels: Labels,
+    labels: Labels<'_>,
     spacing: TextSpacing,
     m: &dyn TextMeasure,
 ) -> Layout {
@@ -694,7 +725,7 @@ fn stacked_text(
         items
             .iter()
             .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
-            .map(|(k, p)| label_width(k, p, labels.style, labels.icons, px, m))
+            .map(|(k, p)| labels.width(k, p, px, m))
             .fold(0.0, f32::max)
     };
     let widest_text = |px: f32| {
@@ -765,7 +796,7 @@ fn stacked_tiles(
     bar_w: f32,
     scale: f32,
     font_px: f32,
-    labels: Labels,
+    labels: Labels<'_>,
     inline: bool,
     m: &dyn TextMeasure,
 ) -> Layout {
@@ -777,7 +808,8 @@ fn stacked_tiles(
         .iter()
         .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
         .map(|(k, p)| {
-            label_width(k, p, labels.style, labels.icons, small_px, m)
+            labels
+                .width(k, p, small_px, m)
                 .max(m.width(widest_value(part_metric(k, p).unit()), small_px))
         })
         .fold(0.0, f32::max);
@@ -823,14 +855,21 @@ fn stacked_tiles(
 fn graph_text_width(
     kind: ItemKind,
     part: CellPart,
-    labels: Labels,
+    labels: Labels<'_>,
     font_px: f32,
     m: &dyn TextMeasure,
 ) -> f32 {
     let widest = widest_value(part_metric(kind, part).unit());
-    let label = |part| label_width(kind, part, labels.style, labels.icons, font_px, m);
+    let label = |part| labels.width(kind, part, font_px, m);
     match network_pair(kind, part, false) {
-        Some([first, _]) => label(first) + icon_gap(font_px) + m.width(widest, font_px),
+        Some([first, second]) => {
+            let label_w = if labels.names.renames_directions() {
+                label(first).max(label(second))
+            } else {
+                label(first)
+            };
+            label_w + icon_gap(font_px) + m.width(widest, font_px)
+        }
         None => label(part).max(m.width(widest, font_px)),
     }
 }
@@ -846,10 +885,11 @@ pub struct InlineSlot {
 
 /// How a tile's text is labelled.
 #[derive(Clone, Copy, Debug)]
-pub struct TileText {
+pub struct TileText<'a> {
     pub labels: LabelStyle,
     pub icons: bool,
     pub upload_on_top: bool,
+    pub names: &'a ItemNames,
 }
 
 /// Where an inline graph tile draws each of its parts, and the width of the
@@ -857,12 +897,17 @@ pub struct TileText {
 pub fn inline_slots(
     kind: ItemKind,
     part: CellPart,
-    text: TileText,
+    text: TileText<'_>,
     font_px: f32,
     scale: f32,
     m: &dyn TextMeasure,
 ) -> (Vec<InlineSlot>, f32) {
-    let TileText { labels, icons, .. } = text;
+    let TileText {
+        labels,
+        icons,
+        names,
+        ..
+    } = text;
     let parts = single_parts(kind, part, text.upload_on_top);
     let gap = INLINE_GAP_DIP * scale;
     let mut slots = Vec::with_capacity(parts.len());
@@ -871,7 +916,7 @@ pub fn inline_slots(
         if !slots.is_empty() {
             x += 2.0 * gap;
         }
-        let value_x = x + label_width(kind, part, labels, icons, font_px, m) + gap;
+        let value_x = x + label_width(kind, part, labels, icons, names, font_px, m) + gap;
         slots.push(InlineSlot {
             part,
             label_x: x,
@@ -893,8 +938,8 @@ fn graph_layout(
     height: f32,
     scale: f32,
     font_px: f32,
-    labels: Labels,
-    input: LayoutInput,
+    labels: Labels<'_>,
+    input: LayoutInput<'_>,
     m: &dyn TextMeasure,
 ) -> Layout {
     let inline = input.graph_inline;
@@ -933,6 +978,7 @@ fn graph_layout(
                     labels: labels.style,
                     icons: labels.icons,
                     upload_on_top: input.upload_on_top,
+                    names: labels.names,
                 };
                 inline_slots(spec.kind, part, text, text_px, scale, m).1
             } else {
@@ -963,6 +1009,8 @@ fn graph_layout(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::LazyLock;
+
     use crate::config::{Config, DriveValue, LabelStyle, NetworkShow};
 
     /// Every character is half the font size wide; lines are 1.25× the font size.
@@ -979,7 +1027,13 @@ mod tests {
         }
     }
 
-    fn input(mode: DisplayMode, taskbar_height_px: f32, dpi: u32) -> LayoutInput {
+    fn names() -> &'static ItemNames {
+        static NAMES: LazyLock<ItemNames> =
+            LazyLock::new(|| ItemNames::resolve(&Config::default()));
+        &NAMES
+    }
+
+    fn input(mode: DisplayMode, taskbar_height_px: f32, dpi: u32) -> LayoutInput<'static> {
         LayoutInput {
             mode,
             taskbar_height_px,
@@ -992,10 +1046,11 @@ mod tests {
             upload_on_top: false,
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
+            names: names(),
         }
     }
 
-    fn vertical(mode: DisplayMode, bar_w: f32) -> LayoutInput {
+    fn vertical(mode: DisplayMode, bar_w: f32) -> LayoutInput<'static> {
         LayoutInput {
             vertical_bar_px: Some(bar_w),
             ..input(mode, bar_w, 96)
@@ -1459,7 +1514,7 @@ mod tests {
             .collect()
     }
 
-    fn graph_input(fit_font: bool) -> LayoutInput {
+    fn graph_input(fit_font: bool) -> LayoutInput<'static> {
         LayoutInput {
             fit_font,
             ..input(DisplayMode::Graph, 48.0, 96)
@@ -1477,11 +1532,13 @@ mod tests {
         let labels = Labels {
             style: i.labels,
             icons: i.icons,
+            names: i.names,
         };
         let text = TileText {
             labels: i.labels,
             icons: i.icons,
             upload_on_top: i.upload_on_top,
+            names: i.names,
         };
         for c in &l.cells {
             let (w, h) = if i.graph_inline {
@@ -1514,6 +1571,7 @@ mod tests {
         let labels = Labels {
             style: LabelStyle::Full,
             icons: false,
+            names: names(),
         };
         let text = graph_text_width(ItemKind::Cpu, CellPart::Main, labels, 12.0, &Fixed) + 8.0;
         assert!(text < 44.0, "{text}");
@@ -2047,6 +2105,7 @@ mod tests {
             labels: LabelStyle::Full,
             icons: true,
             upload_on_top: false,
+            names: names(),
         };
         let slots = |kind, part| inline_slots(kind, part, text, 10.0, 1.0, &Fixed);
         let (cpu, cpu_w) = slots(ItemKind::Cpu, CellPart::Main);
@@ -2106,8 +2165,8 @@ mod tests {
     }
 
     /// Text, graph, inline graph, vertical text and vertical graph.
-    fn every_mode(upload_on_top: bool) -> [(&'static str, LayoutInput); 5] {
-        let up = |i: LayoutInput| LayoutInput { upload_on_top, ..i };
+    fn every_mode(upload_on_top: bool) -> [(&'static str, LayoutInput<'static>); 5] {
+        let up = |i: LayoutInput<'static>| LayoutInput { upload_on_top, ..i };
         [
             ("text", up(input(DisplayMode::Text, 48.0, 96))),
             ("graph", up(input(DisplayMode::Graph, 48.0, 96))),
@@ -2318,6 +2377,7 @@ mod tests {
             labels: LabelStyle::Full,
             icons: false,
             upload_on_top: true,
+            names: names(),
         };
         let parts = |part| {
             inline_slots(ItemKind::Network, part, text, 10.0, 1.0, &Fixed)
@@ -2479,7 +2539,13 @@ mod tests {
         let l = compute_layout(&[disk], input(DisplayMode::Text, 48.0, 96), &Fixed);
         assert_eq!(l.cells.len(), 2);
         assert_eq!(
-            cell_label(ItemKind::Disk, l.cells[1].part, LabelStyle::Full, false),
+            cell_label(
+                ItemKind::Disk,
+                l.cells[1].part,
+                LabelStyle::Full,
+                false,
+                names()
+            ),
             "D:"
         );
     }
@@ -2519,7 +2585,7 @@ mod tests {
             part_metric(ItemKind::GpuTemp, CellPart::Gpu(2)),
             MetricKey::GpuAdapterTempC(2)
         );
-        let label = |kind, style| cell_label(kind, CellPart::Gpu(1), style, false);
+        let label = |kind, style| cell_label(kind, CellPart::Gpu(1), style, false, names());
         assert_eq!(label(ItemKind::Gpu, LabelStyle::Full), "GPU2");
         assert_eq!(label(ItemKind::GpuTemp, LabelStyle::Short), "T2");
         assert_eq!(
@@ -2725,7 +2791,8 @@ mod tests {
             part_metric(ItemKind::Network, CellPart::AdapterUp(1)),
             MetricKey::NetAdapterUpBps(1)
         );
-        let label = |part, icons| cell_label(ItemKind::Network, part, LabelStyle::Full, icons);
+        let label =
+            |part, icons| cell_label(ItemKind::Network, part, LabelStyle::Full, icons, names());
         assert_eq!(label(CellPart::AdapterDown(0), false), "1↓");
         assert_eq!(label(CellPart::AdapterUp(1), false), "2↑");
         assert_eq!(
@@ -2796,11 +2863,23 @@ mod tests {
             long.width
         );
         assert_eq!(
-            cell_label(ItemKind::Cpu, CellPart::Main, LabelStyle::Short, false),
+            cell_label(
+                ItemKind::Cpu,
+                CellPart::Main,
+                LabelStyle::Short,
+                false,
+                names()
+            ),
             "C"
         );
         assert_eq!(
-            cell_label(ItemKind::Network, CellPart::Up, LabelStyle::Short, false),
+            cell_label(
+                ItemKind::Network,
+                CellPart::Up,
+                LabelStyle::Short,
+                false,
+                names()
+            ),
             "↑"
         );
         assert_eq!(
@@ -2808,7 +2887,8 @@ mod tests {
                 ItemKind::Disk,
                 CellPart::DriveActive(b'C'),
                 LabelStyle::Short,
-                false
+                false,
+                names()
             ),
             "C:"
         );
@@ -2836,7 +2916,7 @@ mod tests {
 
     #[test]
     fn cell_label_styles() {
-        let label = |style| cell_label(ItemKind::Ram, CellPart::Main, style, true);
+        let label = |style| cell_label(ItemKind::Ram, CellPart::Main, style, true, names());
         assert_eq!(label(LabelStyle::Full), "RAM");
         assert_eq!(label(LabelStyle::Short), "M");
         assert_eq!(label(LabelStyle::None), "");
@@ -2851,7 +2931,13 @@ mod tests {
     #[test]
     fn icons_replace_network_arrows_but_keep_drive_letters() {
         assert_eq!(
-            cell_label(ItemKind::Network, CellPart::Down, LabelStyle::Full, true),
+            cell_label(
+                ItemKind::Network,
+                CellPart::Down,
+                LabelStyle::Full,
+                true,
+                names()
+            ),
             ""
         );
         assert_eq!(
@@ -2859,7 +2945,8 @@ mod tests {
                 ItemKind::Disk,
                 CellPart::DriveActive(b'C'),
                 LabelStyle::None,
-                true
+                true,
+                names()
             ),
             "C:"
         );

@@ -14,7 +14,7 @@ use pulsar_core::hardware::displays;
 use pulsar_core::history::HistoryStore;
 use pulsar_core::hotkey::Hotkey;
 use pulsar_core::ipc;
-use pulsar_core::layout::{CellPart, single_parts};
+use pulsar_core::layout::{CellPart, ItemNames, single_parts};
 use pulsar_core::metric::{ItemKind, Snapshot};
 use pulsar_core::recording::Recorder;
 use pulsar_core::update::{self as release, Outcome, UpdateState};
@@ -224,6 +224,10 @@ impl Paint<'_> {
         let alpha = o.alpha;
         let layout = o.layout.clone();
         let tier = o.tier_style();
+        let names = o
+            .names()
+            .cloned()
+            .unwrap_or_else(|| ItemNames::resolve(self.config));
         let target = o.present_target(x, y);
         if !o.alive() {
             return Ok(());
@@ -245,6 +249,7 @@ impl Paint<'_> {
                 labels,
                 icons,
                 upload_on_top: d.upload_on_top,
+                names: &names,
             },
             graph_inline: graph_inline && !layout.vertical,
             styles: &styles,
@@ -575,6 +580,8 @@ impl App {
     }
 
     /// With no room on the taskbar, the first item stands in as the tray icon.
+    /// It stands in for the overlay, so its tip uses the overlay's names, in
+    /// full even with labels off: a tip without them would be bare numbers.
     fn show_tray_metric(&self) {
         let showing = (self.config.display.fit_no_room == NoRoom::Tray && !self.hidden)
             .then(|| self.overlays.iter().find(|o| o.no_room))
@@ -582,6 +589,7 @@ impl App {
         let floor = NetworkFloor::new(&self.config.network);
         let upload_on_top = self.config.display.upload_on_top;
         let metric = showing.and_then(|o| {
+            let names = o.names()?;
             let readings: Vec<(ItemKind, CellPart)> = o
                 .full_layout()
                 .cells
@@ -604,6 +612,7 @@ impl App {
                         reading.1,
                         pulsar_core::config::LabelStyle::Full,
                         false,
+                        names,
                     );
                     format!("{label} {}", value(reading))
                 })

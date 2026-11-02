@@ -1534,6 +1534,34 @@ msgid "Choose what the overlay shows, its order, and each item's colour (empty u
 msgstr "选择叠加层显示的内容、顺序以及每项的颜色（留空则使用默认颜色）。打开某一项的选项可设置其图表样式、着色方式和弹出窗口。在任务栏上右键单击某一项也可使用相同选项。"
 
 #: ui/settings.slint
+msgid "Overlay label"
+msgstr "叠加层标签"
+
+#: ui/settings.slint
+msgid "Labels are off on the Layout page, so this doesn't show."
+msgstr "“布局”页面已关闭标签，因此不会显示此内容。"
+
+#: ui/settings.slint
+msgid "Set Download label and Upload label on the Devices page."
+msgstr "请在“设备”页面上设置“下载标签”和“上传标签”。"
+
+#: ui/settings.slint
+msgid "With a cell per drive, the overlay shows drive letters instead."
+msgstr "每个驱动器单独显示时，叠加层改为显示驱动器号。"
+
+#: ui/settings.slint
+msgid "Replaces the name on the overlay, up to 12 characters. Settings and popups keep the item's name."
+msgstr "替换叠加层上的名称，最多 12 个字符。设置和弹出窗口保留该项的名称。"
+
+#: ui/settings.slint
+msgid "Short overlay label"
+msgstr "叠加层短标签"
+
+#: ui/settings.slint
+msgid "Used with short labels, and when the overlay shrinks to fit the taskbar."
+msgstr "在使用短标签时，以及叠加层缩小以适应任务栏时使用。"
+
+#: ui/settings.slint
 msgid "Graph style"
 msgstr "图表样式"
 
@@ -2176,6 +2204,18 @@ msgstr "在弹出窗口中显示"
 #: ui/settings.slint
 msgid "The rates shown in the network popup, whatever the taskbar shows."
 msgstr "网络弹出窗口中显示的速率，与任务栏显示的内容无关。"
+
+#: ui/settings.slint
+msgid "Download label"
+msgstr "下载标签"
+
+#: ui/settings.slint
+msgid "Replaces the arrow on the overlay, up to 12 characters. With several adapters, each adds its number."
+msgstr "替换叠加层上的箭头，最多 12 个字符。有多个适配器时，每个适配器会加上其编号。"
+
+#: ui/settings.slint
+msgid "Upload label"
+msgstr "上传标签"
 
 #: ui/settings.slint
 msgid "Minimum download speed"

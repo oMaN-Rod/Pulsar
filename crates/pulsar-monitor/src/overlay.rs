@@ -1,7 +1,9 @@
 use pulsar_core::config::{Config, DisplayMode, LabelStyle, RemoveFrom, Units};
 use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::layout::fit::{self, Fit, GROW_MARGIN_DIP, Room, Rung, TierStyle};
-use pulsar_core::layout::{ItemSpec, Layout, LayoutInput, TextSpacing, compute_layout, item_specs};
+use pulsar_core::layout::{
+    ItemNames, ItemSpec, Layout, LayoutInput, TextSpacing, compute_layout, item_specs,
+};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
@@ -50,6 +52,8 @@ struct LayoutKey {
     dpi: u32,
     mode: DisplayMode,
     items: Vec<ItemSpec>,
+    /// With the translated defaults, so a new language measures again too.
+    names: ItemNames,
     font_size_pt: u32,
     labels: LabelStyle,
     icons: bool,
@@ -324,6 +328,7 @@ impl Overlay {
             dpi: self.dpi(),
             mode: config.display.mode,
             items: item_specs(config, gpus),
+            names: ItemNames::resolve(config),
             font_size_pt: config.display.font_size_pt.to_bits(),
             labels: config.display.labels,
             icons: config.display.icons,
@@ -349,6 +354,7 @@ impl Overlay {
             upload_on_top: key.upload_on_top,
             vertical_bar_px: key.vertical.then_some(key.thickness as f32),
             text_spacing: key.text_spacing,
+            names: &key.names,
         };
         self.ladder = key
             .remove_from
@@ -362,6 +368,11 @@ impl Overlay {
         self.slack = None;
         self.no_room = false;
         self.key = Some(key);
+    }
+
+    /// The names the layout on show was measured with.
+    pub fn names(&self) -> Option<&ItemNames> {
+        self.key.as_ref().map(|key| &key.names)
     }
 
     /// Forces the next `update_layout` to measure again, e.g. after a font change.
@@ -964,6 +975,60 @@ mod tests {
             parts(&config),
             [CellPart::AdapterUp(0), CellPart::AdapterUp(1)]
         );
+    }
+
+    #[test]
+    fn a_rename_redoes_the_layout_without_being_told() {
+        use pulsar_core::metric::ItemKind;
+        let mut overlay = overlay();
+        overlay.taskbar.rect = BAR;
+        let mut config = Config::default();
+        config.display.mode = DisplayMode::Text;
+        let text = Text::new(None, false).unwrap();
+        let gpus = GpuSlots::new();
+        let mut width = |config: &Config| {
+            overlay.update_layout(config, &gpus, &text);
+            overlay.layout.width
+        };
+        let plain = width(&config);
+
+        config.item_mut(ItemKind::Cpu).unwrap().label = Some("Processor123".into());
+        let renamed = width(&config);
+        assert!(renamed > plain);
+
+        config.item_mut(ItemKind::Cpu).unwrap().label = None;
+        assert_eq!(width(&config), plain);
+
+        config.network.down_label = Some("Downstream12".into());
+        assert!(width(&config) > plain);
+        config.network.down_label = None;
+
+        config.display.labels = LabelStyle::Short;
+        let short = width(&config);
+        config.item_mut(ItemKind::Cpu).unwrap().short_label = Some("Processor123".into());
+        assert!(width(&config) > short);
+        config.item_mut(ItemKind::Cpu).unwrap().label = Some("Other".into());
+        assert_eq!(
+            overlay.names().unwrap().short(ItemKind::Cpu),
+            "Processor123"
+        );
+    }
+
+    #[test]
+    fn the_key_holds_the_names_the_layout_was_measured_with() {
+        use pulsar_core::metric::ItemKind;
+        let mut overlay = overlay();
+        overlay.taskbar.rect = BAR;
+        assert!(overlay.names().is_none());
+        let mut config = Config::default();
+        let text = Text::new(None, false).unwrap();
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
+        let defaults = overlay.names().unwrap().clone();
+        assert_eq!(defaults, ItemNames::resolve(&config));
+        config.item_mut(ItemKind::Ram).unwrap().label = Some("Mem".into());
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
+        assert_ne!(overlay.names().unwrap(), &defaults);
+        assert_eq!(overlay.names().unwrap().full(ItemKind::Ram), "Mem");
     }
 
     #[test]

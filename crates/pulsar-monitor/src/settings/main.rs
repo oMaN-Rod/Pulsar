@@ -337,6 +337,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_network_show(f.network_show);
     ui.set_network_split_tiles(f.network_split_tiles);
     ui.set_network_popup_show(f.network_popup_show);
+    ui.set_network_down_label(f.network_down_label.as_str().into());
+    ui.set_network_up_label(f.network_up_label.as_str().into());
     ui.set_game_strip(f.game_strip);
     ui.set_game_summary(f.game_summary);
     ui.set_popup_detail(f.popup_detail);
@@ -470,6 +472,10 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 popup_graph_height: r.popup_graph_height,
                 tile_width: r.tile_width,
                 tile_height: r.tile_height,
+                label: r.label.as_str().into(),
+                short_label: r.short_label.as_str().into(),
+                default_label: r.kind.label().into(),
+                default_short_label: r.kind.short_label().into(),
             }
         })
         .collect();
@@ -558,6 +564,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 popup_graph_height: r.popup_graph_height,
                 tile_width: r.tile_width,
                 tile_height: r.tile_height,
+                label: r.label.to_string(),
+                short_label: r.short_label.to_string(),
                 widget_style: w.style,
                 widget_detail: w.detail,
             })
@@ -612,6 +620,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         network_show: ui.get_network_show(),
         network_split_tiles: ui.get_network_split_tiles(),
         network_popup_show: ui.get_network_popup_show(),
+        network_down_label: ui.get_network_down_label().to_string(),
+        network_up_label: ui.get_network_up_label().to_string(),
         game_strip: ui.get_game_strip(),
         game_summary: ui.get_game_summary(),
         popup_detail: ui.get_popup_detail(),
@@ -1099,6 +1109,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             }
         }
     });
+    ui.on_limit_label(|text| config::typed_label(&text).into());
     ui.on_item_expanded({
         let weak = ui.as_weak();
         move |index, expanded| {

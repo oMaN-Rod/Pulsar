@@ -1531,6 +1531,34 @@ msgid "Choose what the overlay shows, its order, and each item's colour (empty u
 msgstr ""
 
 #: ui/settings.slint
+msgid "Overlay label"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Labels are off on the Layout page, so this doesn't show."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Set Download label and Upload label on the Devices page."
+msgstr ""
+
+#: ui/settings.slint
+msgid "With a cell per drive, the overlay shows drive letters instead."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Replaces the name on the overlay, up to 12 characters. Settings and popups keep the item's name."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Short overlay label"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Used with short labels, and when the overlay shrinks to fit the taskbar."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Graph style"
 msgstr ""
 
@@ -2172,6 +2200,18 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "The rates shown in the network popup, whatever the taskbar shows."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Download label"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Replaces the arrow on the overlay, up to 12 characters. With several adapters, each adds its number."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Upload label"
 msgstr ""
 
 #: ui/settings.slint

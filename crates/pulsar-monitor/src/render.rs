@@ -102,7 +102,7 @@ pub struct Frame<'a> {
     pub snapshot: &'a Snapshot,
     pub history: &'a HistoryStore,
     pub dpi: u32,
-    pub text: TileText,
+    pub text: TileText<'a>,
     pub graph_inline: bool,
     /// Graph mode: how each item draws its graph; `None` draws text only.
     pub styles: &'a [(ItemKind, Option<GraphStyle>)],
@@ -271,7 +271,13 @@ impl Renderer {
             self.text_at(text, &format, glyph, x, y + dy, color)?;
             x += text.icon_width(glyph, font_px) + icon_gap(font_px);
         }
-        let label = cell_label(kind, part, frame.text.labels, frame.text.icons);
+        let TileText {
+            labels,
+            icons,
+            names,
+            ..
+        } = frame.text;
+        let label = cell_label(kind, part, labels, icons, names);
         if !label.is_empty() {
             self.text_at(text, &text.format(font_px)?, &label, x, y, color)?;
         }
@@ -332,8 +338,14 @@ impl Renderer {
             {
                 for (part, y) in [(first, top), (second, bottom)] {
                     self.draw_label(text, frame, small_px, cell.kind, part, x, y)?;
-                    let (labels, icons) = (frame.text.labels, frame.text.icons);
-                    let label_w = label_width(cell.kind, part, labels, icons, small_px, text);
+                    let TileText {
+                        labels,
+                        icons,
+                        names,
+                        ..
+                    } = frame.text;
+                    let label_w =
+                        label_width(cell.kind, part, labels, icons, names, small_px, text);
                     let value = frame.value_text(cell.kind, part);
                     let value_x = x + label_w + icon_gap(small_px);
                     self.text_at(text, &small, &value, value_x, y, color(part))?;
@@ -550,7 +562,7 @@ fn rect_f(r: Rect) -> D2D_RECT_F {
 mod tests {
     use super::*;
     use pulsar_core::config::{Config, DisplayMode, NetworkShow};
-    use pulsar_core::layout::{LayoutInput, TextSpacing, compute_layout};
+    use pulsar_core::layout::{ItemNames, LayoutInput, TextSpacing, compute_layout};
     use pulsar_core::metric::MetricKey;
 
     fn pixels(surface: &Surface) -> Vec<u32> {
@@ -602,6 +614,7 @@ mod tests {
     ) -> (Surface, Layout) {
         let text = Text::new(None, false).unwrap();
         let items = pulsar_core::layout::item_specs(config, &Default::default());
+        let names = ItemNames::resolve(config);
         let layout = compute_layout(
             &items,
             LayoutInput {
@@ -616,6 +629,7 @@ mod tests {
                 upload_on_top: config.display.upload_on_top,
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
+                names: &names,
             },
             &text,
         );
@@ -641,6 +655,7 @@ mod tests {
                 labels: config.display.labels,
                 icons: config.display.icons,
                 upload_on_top: config.display.upload_on_top,
+                names: &names,
             },
             graph_inline: config.display.graph_inline,
             styles: &graph_styles(config),
@@ -679,6 +694,40 @@ mod tests {
         }
         config.item_mut(second).unwrap().tile_height = height;
         config
+    }
+
+    #[test]
+    fn the_overlay_draws_the_custom_name() {
+        for mode in [DisplayMode::Text, DisplayMode::Graph] {
+            let samples = [10.0, 50.0, 90.0];
+            let mut config = Config::default();
+            let (surface, layout) = render_with(mode, &samples, &config);
+            let plain = tile_pixels(&surface, &layout, ItemKind::Cpu);
+            config.item_mut(ItemKind::Cpu).unwrap().label = Some("XYZ".into());
+            let (surface, layout) = render_with(mode, &samples, &config);
+            assert_ne!(
+                tile_pixels(&surface, &layout, ItemKind::Cpu),
+                plain,
+                "{mode:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_network_tile_grows_to_draw_custom_directions() {
+        let rates = [
+            (MetricKey::NetDownBps, [1e6; 3]),
+            (MetricKey::NetUpBps, [2e6; 3]),
+        ];
+        let plain = network_pixels(&Config::default(), DisplayMode::Graph, None, &rates);
+        let mut config = Config::default();
+        config.network.down_label = Some("Inbound".into());
+        config.network.up_label = Some("Outgoing1234".into());
+        let renamed = network_pixels(&config, DisplayMode::Graph, None, &rates);
+        assert!(
+            renamed.len() > plain.len(),
+            "a wider tile for the longer name"
+        );
     }
 
     #[test]
@@ -767,6 +816,7 @@ mod tests {
         }
         let text = Text::new(None, false).unwrap();
         let items = pulsar_core::layout::item_specs(&config, &Default::default());
+        let names = ItemNames::resolve(&config);
         let layout = compute_layout(
             &items,
             LayoutInput {
@@ -781,6 +831,7 @@ mod tests {
                 upload_on_top: config.display.upload_on_top,
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
+                names: &names,
             },
             &text,
         );
@@ -806,6 +857,7 @@ mod tests {
                 labels: config.display.labels,
                 icons: config.display.icons,
                 upload_on_top: config.display.upload_on_top,
+                names: &names,
             },
             graph_inline: config.display.graph_inline && !layout.vertical,
             styles: &graph_styles(&config),
@@ -956,6 +1008,7 @@ mod tests {
         edit(&mut config);
         let text = Text::new(None, false).unwrap();
         let items = pulsar_core::layout::item_specs(&config, &Default::default());
+        let names = ItemNames::resolve(&config);
         let layout = compute_layout(
             &items,
             LayoutInput {
@@ -970,6 +1023,7 @@ mod tests {
                 upload_on_top: config.display.upload_on_top,
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
+                names: &names,
             },
             &text,
         );
@@ -1001,6 +1055,7 @@ mod tests {
                 labels: config.display.labels,
                 icons: config.display.icons,
                 upload_on_top: config.display.upload_on_top,
+                names: &names,
             },
             graph_inline: config.display.graph_inline,
             styles: &graph_styles(&config),

@@ -93,6 +93,10 @@ fn optional_and_conditional_rows_are_listed() {
         "Graph style",
         "Tile width",
         "Tile height",
+        "Overlay label",
+        "Short overlay label",
+        "Download label",
+        "Upload label",
     ] {
         assert!(rows.iter().any(|r| r.title == title), "{title}");
     }
@@ -108,6 +112,8 @@ fn the_rows_of_the_item_template_belong_to_every_item() {
     assert_eq!(
         per_item,
         [
+            "Overlay label",
+            "Short overlay label",
             "Graph style",
             "Tile width",
             "Tile height",

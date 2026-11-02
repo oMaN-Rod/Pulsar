@@ -1533,6 +1533,34 @@ msgid "Choose what the overlay shows, its order, and each item's colour (empty u
 msgstr "오버레이에 표시할 항목과 순서, 항목별 색(비워 두면 기본값)을 선택합니다. 항목의 옵션을 열어 그래프 스타일, 색 지정, 팝업을 설정합니다. 작업 표시줄에서 항목을 마우스 오른쪽 단추로 클릭해도 같은 옵션을 사용할 수 있습니다."
 
 #: ui/settings.slint
+msgid "Overlay label"
+msgstr "오버레이 레이블"
+
+#: ui/settings.slint
+msgid "Labels are off on the Layout page, so this doesn't show."
+msgstr "레이아웃 페이지에서 레이블이 꺼져 있어 표시되지 않습니다."
+
+#: ui/settings.slint
+msgid "Set Download label and Upload label on the Devices page."
+msgstr "장치 페이지에서 다운로드 레이블과 업로드 레이블을 설정하세요."
+
+#: ui/settings.slint
+msgid "With a cell per drive, the overlay shows drive letters instead."
+msgstr "드라이브별로 표시하면 오버레이에는 대신 드라이브 문자가 표시됩니다."
+
+#: ui/settings.slint
+msgid "Replaces the name on the overlay, up to 12 characters. Settings and popups keep the item's name."
+msgstr "오버레이의 이름을 바꿉니다(최대 12자). 설정과 팝업에는 항목 이름이 그대로 표시됩니다."
+
+#: ui/settings.slint
+msgid "Short overlay label"
+msgstr "오버레이 짧은 레이블"
+
+#: ui/settings.slint
+msgid "Used with short labels, and when the overlay shrinks to fit the taskbar."
+msgstr "짧은 레이블을 사용할 때와 오버레이가 작업 표시줄에 맞게 줄어들 때 사용됩니다."
+
+#: ui/settings.slint
 msgid "Graph style"
 msgstr "그래프 스타일"
 
@@ -2175,6 +2203,18 @@ msgstr "팝업에 표시"
 #: ui/settings.slint
 msgid "The rates shown in the network popup, whatever the taskbar shows."
 msgstr "작업 표시줄에 표시되는 내용과 관계없이 네트워크 팝업에 표시할 속도입니다."
+
+#: ui/settings.slint
+msgid "Download label"
+msgstr "다운로드 레이블"
+
+#: ui/settings.slint
+msgid "Replaces the arrow on the overlay, up to 12 characters. With several adapters, each adds its number."
+msgstr "오버레이의 화살표를 바꿉니다(최대 12자). 어댑터가 여러 개이면 각각 번호가 붙습니다."
+
+#: ui/settings.slint
+msgid "Upload label"
+msgstr "업로드 레이블"
 
 #: ui/settings.slint
 msgid "Minimum download speed"

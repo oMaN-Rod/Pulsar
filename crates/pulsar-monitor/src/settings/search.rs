@@ -310,7 +310,9 @@ mod tests {
         assert_eq!(found[0].path, "Items");
     }
 
-    const ITEM_ROWS: [&str; 7] = [
+    const ITEM_ROWS: [&str; 9] = [
+        "Overlay label",
+        "Short overlay label",
         "Graph style",
         "Tile width",
         "Tile height",
@@ -378,6 +380,35 @@ mod tests {
         }
         let row = all.iter().find(|e| e.id == "item/Ram/Tile width").unwrap();
         assert!(row.description.contains("cover taskbar buttons"));
+    }
+
+    #[test]
+    fn overlay_labels_are_found_without_being_listed_by_hand() {
+        let all = entries(&items(), false, english);
+        for title in ["Overlay label", "Short overlay label"] {
+            let found = ids(&matches(&all, title));
+            assert!(found.contains(&format!("item/Cpu/{title}")), "{found:?}");
+            assert!(found.contains(&format!("item/Ram/{title}")), "{found:?}");
+            let found = ids(&matches(&all, &format!("memory {title}")));
+            assert_eq!(found[0], format!("item/Ram/{title}"));
+            assert!(!found.iter().any(|id| id.starts_with("item/Cpu/")));
+        }
+        let row = all
+            .iter()
+            .find(|e| e.id == "item/Ram/Overlay label")
+            .unwrap();
+        assert!(row.description.contains("Settings and popups keep"));
+        let row = all
+            .iter()
+            .find(|e| e.id == "item/Ram/Short overlay label")
+            .unwrap();
+        assert!(row.description.contains("short labels"));
+        let found = ids(&matches(&all, "download label"));
+        assert_eq!(found[0], "row/6/Download label");
+        let found = ids(&matches(&all, "upload label"));
+        assert_eq!(found[0], "row/6/Upload label");
+        let row = all.iter().find(|e| e.id == "row/6/Upload label").unwrap();
+        assert!(row.description.contains("Replaces the arrow"));
     }
 
     #[test]
@@ -512,6 +543,40 @@ mod tests {
             let found = ids(&matches(&all, height));
             assert!(
                 found.contains(&"item/Cpu/Tile height".to_string()),
+                "{code}"
+            );
+        }
+
+        for (code, label, short, download) in [
+            (
+                "es",
+                "etiqueta en la superposicion",
+                "etiqueta corta",
+                "etiqueta de descarga",
+            ),
+            ("zh-CN", "叠加层标签", "叠加层短标签", "下载标签"),
+            (
+                "ko",
+                "오버레이 레이블",
+                "오버레이 짧은 레이블",
+                "다운로드 레이블",
+            ),
+        ] {
+            l10n::set_language(Some(code));
+            let all = entries(&items(), false, l10n::translate);
+            let found = ids(&matches(&all, label));
+            assert!(
+                found.contains(&"item/Ram/Overlay label".to_string()),
+                "{code}"
+            );
+            let found = ids(&matches(&all, short));
+            assert!(
+                found.contains(&"item/Cpu/Short overlay label".to_string()),
+                "{code}"
+            );
+            assert_eq!(
+                ids(&matches(&all, download))[0],
+                "row/6/Download label",
                 "{code}"
             );
         }

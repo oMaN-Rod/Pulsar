@@ -16,6 +16,11 @@ export struct ItemRow {
     // 0 is automatic.
     tile-width: int,
     tile-height: int,
+    // Empty uses the default, which is shown in its place.
+    label: string,
+    short-label: string,
+    default-label: string,
+    default-short-label: string,
     expanded: bool,
 }
 
@@ -791,6 +796,8 @@ export component SettingsWindow inherits Window {
     in-out property <int> network-show;
     in-out property <bool> network-split-tiles;
     in-out property <int> network-popup-show;
+    in-out property <string> network-down-label;
+    in-out property <string> network-up-label;
     in-out property <bool> game-strip;
     in-out property <bool> game-summary;
     in-out property <int> popup-detail;
@@ -869,6 +876,7 @@ export component SettingsWindow inherits Window {
     callback item-color(int, string);
     // Row, field (0 style, 1 colour mode, 2 popup) and the chosen index.
     callback item-choice(int, int, int);
+    callback limit-label(string) -> string;
     callback item-expanded(int, bool);
     callback move-item(int, bool);
     callback save-diagnostics();
@@ -1058,6 +1066,58 @@ export component SettingsWindow inherits Window {
                         if row.expanded: VerticalLayout {
                             padding-left: 24px;
                             padding-bottom: 4px;
+                            OptionalRow {
+                                title: @tr("Overlay label");
+                                description: root.labels == 2 ? @tr("Labels are off on the Layout page, so this doesn't show.")
+                                    : row.id == "item/Network" ? @tr("Set Download label and Upload label on the Devices page.")
+                                    : row.id == "item/Disk" && root.per-drive ? @tr("With a cell per drive, the overlay shows drive letters instead.")
+                                    : @tr("Replaces the name on the overlay, up to 12 characters. Settings and popups keep the item's name.");
+                                search-key: row.id + "/Overlay label";
+                                shown: true;
+                                row-padding: 4px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    LineEdit {
+                                        width: 140px;
+                                        enabled: root.labels != 2 && row.id != "item/Network";
+                                        placeholder-text: row.default-label;
+                                        text <=> row.label;
+                                        edited(text) => {
+                                            let limited = root.limit-label(text);
+                                            if (limited != text) {
+                                                self.text = limited;
+                                            }
+                                            root.changed();
+                                        }
+                                    }
+                                }
+                            }
+                            OptionalRow {
+                                title: @tr("Short overlay label");
+                                description: root.labels == 2 ? @tr("Labels are off on the Layout page, so this doesn't show.")
+                                    : row.id == "item/Network" ? @tr("Set Download label and Upload label on the Devices page.")
+                                    : row.id == "item/Disk" && root.per-drive ? @tr("With a cell per drive, the overlay shows drive letters instead.")
+                                    : @tr("Used with short labels, and when the overlay shrinks to fit the taskbar.");
+                                search-key: row.id + "/Short overlay label";
+                                shown: true;
+                                row-padding: 4px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    LineEdit {
+                                        width: 140px;
+                                        enabled: root.labels != 2 && row.id != "item/Network";
+                                        placeholder-text: row.default-short-label;
+                                        text <=> row.short-label;
+                                        edited(text) => {
+                                            let limited = root.limit-label(text);
+                                            if (limited != text) {
+                                                self.text = limited;
+                                            }
+                                            root.changed();
+                                        }
+                                    }
+                                }
+                            }
                             if root.mode == 0: SettingRow {
                                 title: @tr("Graph style");
                                 search-key: row.id + "/Graph style";
@@ -2063,6 +2123,50 @@ export component SettingsWindow inherits Window {
                             model: [@tr("Download and upload"), @tr("Download only"), @tr("Upload only")];
                             current-index <=> root.network-popup-show;
                             selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Download label");
+                        description: root.labels == 2 ? @tr("Labels are off on the Layout page, so this doesn't show.")
+                            : @tr("Replaces the arrow on the overlay, up to 12 characters. With several adapters, each adds its number.");
+                        VerticalLayout {
+                            alignment: center;
+                            LineEdit {
+                                width: 140px;
+                                enabled: root.labels != 2;
+                                placeholder-text: "↓";
+                                text <=> root.network-down-label;
+                                edited(text) => {
+                                    let limited = root.limit-label(text);
+                                    if (limited != text) {
+                                        self.text = limited;
+                                    }
+                                    root.changed();
+                                }
+                            }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Upload label");
+                        description: root.labels == 2 ? @tr("Labels are off on the Layout page, so this doesn't show.")
+                            : @tr("Replaces the arrow on the overlay, up to 12 characters. With several adapters, each adds its number.");
+                        VerticalLayout {
+                            alignment: center;
+                            LineEdit {
+                                width: 140px;
+                                enabled: root.labels != 2;
+                                placeholder-text: "↑";
+                                text <=> root.network-up-label;
+                                edited(text) => {
+                                    let limited = root.limit-label(text);
+                                    if (limited != text) {
+                                        self.text = limited;
+                                    }
+                                    root.changed();
+                                }
+                            }
                         }
                     }
                     Divider { }

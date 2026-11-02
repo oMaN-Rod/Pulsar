@@ -310,8 +310,10 @@ mod tests {
 
     #[test]
     fn item_rect_spans_all_of_an_items_cells() {
+        use pulsar_core::config::Config;
         use pulsar_core::config::DisplayMode;
-        use pulsar_core::layout::{LayoutInput, TextSpacing, compute_layout};
+        use pulsar_core::layout::{ItemNames, LayoutInput, TextSpacing, compute_layout};
+        let names = ItemNames::resolve(&Config::default());
         let input = LayoutInput {
             mode: DisplayMode::Text,
             taskbar_height_px: 48.0,
@@ -324,6 +326,7 @@ mod tests {
             upload_on_top: false,
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
+            names: &names,
         };
         let specs: Vec<_> = [ItemKind::Cpu, ItemKind::Network]
             .into_iter()
@@ -356,7 +359,10 @@ mod tests {
     #[test]
     fn the_popup_anchor_covers_every_network_cell_in_each_show_mode() {
         use pulsar_core::config::{Config, DisplayMode, LabelStyle, NetworkShow};
-        use pulsar_core::layout::{LayoutInput, TextSpacing, compute_layout, item_specs};
+        use pulsar_core::layout::{
+            ItemNames, LayoutInput, TextSpacing, compute_layout, item_specs,
+        };
+        let names = ItemNames::resolve(&Config::default());
         for show in [
             NetworkShow::Both,
             NetworkShow::Download,
@@ -381,6 +387,7 @@ mod tests {
                             upload_on_top: false,
                             vertical_bar_px: bar,
                             text_spacing: TextSpacing::default(),
+                            names: &names,
                         };
                         let l = compute_layout(&item_specs(&c, &Default::default()), input, &Fixed);
                         let net = item_screen_rect(&l, ItemKind::Network, (0, 0)).unwrap();

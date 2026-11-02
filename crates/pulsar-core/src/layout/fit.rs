@@ -31,8 +31,8 @@ pub struct TierStyle {
     pub graph_inline: bool,
 }
 
-impl From<&LayoutInput> for TierStyle {
-    fn from(i: &LayoutInput) -> Self {
+impl From<&LayoutInput<'_>> for TierStyle {
+    fn from(i: &LayoutInput<'_>) -> Self {
         Self {
             labels: i.labels,
             icons: i.icons,
@@ -49,7 +49,7 @@ pub struct Rung {
 }
 
 impl Rung {
-    fn new(tier: Tier, items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasure) -> Self {
+    fn new(tier: Tier, items: &[ItemSpec], input: LayoutInput<'_>, m: &dyn TextMeasure) -> Self {
         Self {
             tier,
             layout: compute_layout(items, input, m),
@@ -70,7 +70,7 @@ pub fn length(layout: &Layout) -> f32 {
     }
 }
 
-fn compact_input(input: LayoutInput) -> LayoutInput {
+fn compact_input(input: LayoutInput<'_>) -> LayoutInput<'_> {
     LayoutInput {
         labels: if input.icons {
             LabelStyle::None
@@ -92,7 +92,7 @@ fn compact_input(input: LayoutInput) -> LayoutInput {
 }
 
 /// Stacked tiles are usually narrower than inline ones, but not always.
-fn narrowest_compact(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasure) -> Rung {
+fn narrowest_compact(items: &[ItemSpec], input: LayoutInput<'_>, m: &dyn TextMeasure) -> Rung {
     let compact = compact_input(input);
     let rung = Rung::new(Tier::Compact, items, compact, m);
     if !input.graph_inline {
@@ -123,7 +123,7 @@ pub fn remaining(items: &[ItemSpec], from: RemoveFrom, count: usize) -> &[ItemSp
 /// left out.
 pub fn ladder(
     items: &[ItemSpec],
-    input: LayoutInput,
+    input: LayoutInput<'_>,
     from: RemoveFrom,
     m: &dyn TextMeasure,
 ) -> Vec<Rung> {
@@ -215,9 +215,11 @@ impl Fit {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::LazyLock;
+
     use super::*;
     use crate::config::{Config, DisplayMode};
-    use crate::layout::{CellPart, item_specs};
+    use crate::layout::{CellPart, ItemNames, item_specs};
     use crate::metric::ItemKind;
 
     struct Fixed;
@@ -233,7 +235,13 @@ mod tests {
         }
     }
 
-    fn input(mode: DisplayMode) -> LayoutInput {
+    fn names() -> &'static ItemNames {
+        static NAMES: LazyLock<ItemNames> =
+            LazyLock::new(|| ItemNames::resolve(&Config::default()));
+        &NAMES
+    }
+
+    fn input(mode: DisplayMode) -> LayoutInput<'static> {
         LayoutInput {
             mode,
             taskbar_height_px: 48.0,
@@ -246,6 +254,7 @@ mod tests {
             upload_on_top: false,
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
+            names: names(),
         }
     }
 
@@ -266,7 +275,7 @@ mod tests {
         .to_vec()
     }
 
-    fn all_inputs() -> Vec<LayoutInput> {
+    fn all_inputs() -> Vec<LayoutInput<'static>> {
         let mut all = Vec::new();
         for mode in [DisplayMode::Graph, DisplayMode::Text] {
             for labels in [LabelStyle::Full, LabelStyle::Short, LabelStyle::None] {

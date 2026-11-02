@@ -5,7 +5,7 @@ use pulsar_core::colors::Rgb;
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, NetworkShow, NoRoom, PopupBackground,
-    Position, RateUnit, RemoveFrom, TemperatureUnit, WidgetLayer, WidgetStyle,
+    Position, RateUnit, RemoveFrom, TemperatureUnit, WidgetLayer, WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -34,6 +34,10 @@ pub struct ItemRow {
     pub tile_width: i32,
     /// 0 is automatic.
     pub tile_height: i32,
+    /// Empty uses the default.
+    pub label: String,
+    /// Empty uses the default.
+    pub short_label: String,
     /// 0 follows the widget; otherwise one more than an index into
     /// `names::WIDGET_STYLES`.
     pub widget_style: i32,
@@ -142,6 +146,10 @@ pub struct Form {
     pub network_show: i32,
     pub network_split_tiles: bool,
     pub network_popup_show: i32,
+    /// Empty uses the arrow.
+    pub network_down_label: String,
+    /// Empty uses the arrow.
+    pub network_up_label: String,
     pub game_strip: bool,
     pub game_summary: bool,
     /// An index into `names::DETAILS`.
@@ -339,6 +347,8 @@ pub fn to_form(c: &Config) -> Form {
                 popup_graph_height: i.popup_graph_height.map_or(0, i32::from),
                 tile_width: i.tile_width.map_or(0, i32::from),
                 tile_height: i.tile_height.map_or(0, i32::from),
+                label: i.label.clone().unwrap_or_default(),
+                short_label: i.short_label.clone().unwrap_or_default(),
                 widget_style: i
                     .widget_style
                     .map_or(0, |s| index_of(&WIDGET_STYLES, &s) + 1),
@@ -378,6 +388,8 @@ pub fn to_form(c: &Config) -> Form {
         network_show: index_of(&NETWORK_SHOW, &c.network.show),
         network_split_tiles: c.network.split_tiles,
         network_popup_show: index_of(&NETWORK_SHOW, &c.network.popup_show),
+        network_down_label: c.network.down_label.clone().unwrap_or_default(),
+        network_up_label: c.network.up_label.clone().unwrap_or_default(),
         game_strip: c.game.strip,
         game_summary: c.game.summary,
         popup_detail: index_of(&DETAILS, &c.popup.detail),
@@ -590,6 +602,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
                     .then(|| clamp_u16(r.popup_graph_height)),
                 tile_width: (r.tile_width > 0).then(|| clamp_u16(r.tile_width)),
                 tile_height: (r.tile_height > 0).then(|| clamp_u16(r.tile_height)),
+                label: sanitize_label(&r.label),
+                short_label: sanitize_label(&r.short_label),
                 widget_style: at(&WIDGET_STYLES, r.widget_style - 1),
                 widget_detail: at(&DETAILS, r.widget_detail - 1),
                 ..ItemConfig::new(r.kind, r.enabled)
@@ -621,6 +635,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     c.network.show = at(&NETWORK_SHOW, f.network_show).unwrap_or_default();
     c.network.split_tiles = f.network_split_tiles;
     c.network.popup_show = at(&NETWORK_SHOW, f.network_popup_show).unwrap_or_default();
+    c.network.down_label = sanitize_label(&f.network_down_label);
+    c.network.up_label = sanitize_label(&f.network_up_label);
     c.frames.monitor = non_empty(&f.frame_monitor);
     c.general.language = non_empty(&f.language);
     c.units.temperature = if f.fahrenheit {
@@ -1018,6 +1034,37 @@ mod tests {
     }
 
     #[test]
+    fn overlay_labels_map_both_ways_and_empty_is_the_default() {
+        let c = Config::default().sanitize();
+        let mut f = to_form(&c);
+        assert_eq!(f.items[0].label, "");
+        assert_eq!(f.items[0].short_label, "");
+        assert_eq!(f.network_down_label, "");
+        assert_eq!(to_config(&f, &c), c);
+
+        f.items[0].label = "  Proc\t ".into();
+        f.items[0].short_label = "p".into();
+        f.network_down_label = "abcdefghijklmnop".into();
+        f.network_up_label = " 上传 ".into();
+        let out = to_config(&f, &c);
+        assert_eq!(out.items[0].label.as_deref(), Some("Proc"));
+        assert_eq!(out.items[0].short_label.as_deref(), Some("p"));
+        assert_eq!(out.items[1].label, None);
+        assert_eq!(out.network.down_label.as_deref(), Some("abcdefghijkl"));
+        assert_eq!(out.network.up_label.as_deref(), Some("上传"));
+        let back = to_form(&out);
+        assert_eq!(back.items[0].label, "Proc");
+        assert_eq!(back.network_up_label, "上传");
+        assert_eq!(to_config(&back, &out), out);
+
+        f.items[0].label = "   ".into();
+        f.network_up_label = String::new();
+        let out = to_config(&f, &c);
+        assert_eq!(out.items[0].label, None);
+        assert_eq!(out.network.up_label, None);
+    }
+
+    #[test]
     fn text_only_keeps_the_graph_style_for_later() {
         use pulsar_core::config::GraphStyle;
         let mut c = Config::default();
@@ -1150,6 +1197,10 @@ mod tests {
         c.items[2].popup_graph_height = Some(48);
         c.items[2].tile_width = Some(120);
         c.items[2].tile_height = Some(32);
+        c.items[2].label = Some("Máquina".into());
+        c.items[2].short_label = Some("Má".into());
+        c.network.down_label = Some("DL".into());
+        c.network.up_label = Some("UL".into());
         c.game.strip = false;
         c.game.games = vec!["game.exe".into()];
         c.hotkeys.widget = Some("Ctrl+Alt+W".into());

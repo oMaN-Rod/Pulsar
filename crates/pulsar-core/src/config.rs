@@ -4,6 +4,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::gpu_slots::GpuSlots;
 use crate::metric::ItemKind;
@@ -106,6 +107,7 @@ pub const POPUP_WIDTHS: std::ops::RangeInclusive<u16> = 220..=800;
 pub const POPUP_GRAPH_HEIGHTS: std::ops::RangeInclusive<u16> = 24..=400;
 pub const TILE_WIDTHS: std::ops::RangeInclusive<u16> = 16..=400;
 pub const TILE_HEIGHTS: std::ops::RangeInclusive<u16> = 16..=200;
+pub const MAX_LABEL_CHARS: usize = 12;
 
 /// Where the desktop widget sits among other windows.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -465,6 +467,9 @@ pub struct NetworkConfig {
     /// and stays as measured everywhere else.
     pub min_down_bps: u64,
     pub min_up_bps: u64,
+    /// On the overlay, instead of the arrow; `None` keeps it.
+    pub down_label: Option<String>,
+    pub up_label: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -497,6 +502,12 @@ pub struct ItemConfig {
     /// Graph mode, in DIPs; `None` fills the taskbar.
     #[serde(default)]
     pub tile_height: Option<u16>,
+    /// On the overlay only; `None` uses the translated default.
+    #[serde(default)]
+    pub label: Option<String>,
+    /// On the overlay only, with short labels; `None` uses the default letter.
+    #[serde(default)]
+    pub short_label: Option<String>,
     /// On the widget; `None` uses `WidgetConfig::style`.
     #[serde(default)]
     pub widget_style: Option<WidgetStyle>,
@@ -519,6 +530,8 @@ impl ItemConfig {
             popup_graph_height: None,
             tile_width: None,
             tile_height: None,
+            label: None,
+            short_label: None,
             widget_style: None,
             widget_detail: None,
         }
@@ -527,6 +540,28 @@ impl ItemConfig {
 
 fn enabled_default() -> bool {
     true
+}
+
+fn label_character(c: &char) -> bool {
+    !c.is_control() && !matches!(c, '\u{2028}'..='\u{202E}' | '\u{2066}'..='\u{2069}')
+}
+
+fn first_characters(text: &str) -> String {
+    text.graphemes(true).take(MAX_LABEL_CHARS).collect()
+}
+
+/// A label while it is being typed: spaces stay, so the next word can follow.
+pub fn typed_label(text: &str) -> String {
+    let kept: String = text.chars().filter(label_character).collect();
+    first_characters(&kept)
+}
+
+/// A label as stored; `None` when nothing is left of it, which means the default.
+pub fn sanitize_label(text: &str) -> Option<String> {
+    let kept: String = text.chars().filter(label_character).collect();
+    let capped = first_characters(kept.trim());
+    let label = capped.trim_end();
+    (!label.is_empty()).then(|| label.to_string())
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -767,6 +802,9 @@ impl Config {
         }
         self.network.adapters = distinct_names(&self.network.adapters, MAX_ADAPTERS);
         self.gpu.adapters = distinct_names(&self.gpu.adapters, MAX_GPUS);
+        for label in [&mut self.network.down_label, &mut self.network.up_label] {
+            *label = label.as_deref().and_then(sanitize_label);
+        }
         self.ping.interval_ms = self.ping.interval_ms.clamp(1000, 60_000);
         self.popup.processes = self.popup.processes.min(MAX_POPUP_PROCESSES);
         let width = |w: u16| w.clamp(*POPUP_WIDTHS.start(), *POPUP_WIDTHS.end());
@@ -800,6 +838,8 @@ impl Config {
             item.tile_height = item
                 .tile_height
                 .map(|h| h.clamp(*TILE_HEIGHTS.start(), *TILE_HEIGHTS.end()));
+            item.label = item.label.as_deref().and_then(sanitize_label);
+            item.short_label = item.short_label.as_deref().and_then(sanitize_label);
         }
         self
     }
@@ -1938,6 +1978,156 @@ kind = \"cpu\"
         assert_eq!((cpu.tile_width, cpu.tile_height), (Some(90), Some(30)));
         let ram = c.item(ItemKind::Ram).unwrap();
         assert_eq!((ram.tile_width, ram.tile_height), (None, None));
+    }
+
+    #[test]
+    fn sanitize_label_trims_and_treats_empty_as_the_default() {
+        assert_eq!(sanitize_label("  Proc  ").as_deref(), Some("Proc"));
+        assert_eq!(sanitize_label("my cpu").as_deref(), Some("my cpu"));
+        assert_eq!(sanitize_label(""), None);
+        assert_eq!(sanitize_label(" \t\r\n\u{3000}"), None);
+        assert_eq!(sanitize_label("\u{0}\u{7}\u{85}"), None);
+    }
+
+    #[test]
+    fn sanitize_label_removes_control_characters() {
+        assert_eq!(sanitize_label("a\tb\nc\u{7f}d").as_deref(), Some("abcd"));
+        assert_eq!(sanitize_label("\u{1}  x").as_deref(), Some("x"));
+        assert_eq!(
+            sanitize_label("a\u{2028}b\u{2029}c").as_deref(),
+            Some("abc")
+        );
+        assert_eq!(
+            sanitize_label("\u{202E}abc\u{2066}").as_deref(),
+            Some("abc")
+        );
+    }
+
+    #[test]
+    fn sanitize_label_caps_at_twelve_characters() {
+        assert_eq!(
+            sanitize_label("abcdefghijklmn").as_deref(),
+            Some("abcdefghijkl")
+        );
+        assert_eq!(
+            sanitize_label("abcdefghijkl").as_deref(),
+            Some("abcdefghijkl")
+        );
+        assert_eq!(
+            sanitize_label("abcdefghijk lmn").as_deref(),
+            Some("abcdefghijk"),
+            "the cut leaves no space at the end"
+        );
+    }
+
+    #[test]
+    fn sanitize_label_counts_what_is_seen_and_never_splits_it() {
+        let hangul = "그래픽처리장치온도측정기록";
+        assert_eq!(
+            sanitize_label(hangul).as_deref(),
+            Some("그래픽처리장치온도측정기")
+        );
+        let chinese = "一二三四五六七八九十百千万";
+        assert_eq!(
+            sanitize_label(chinese).as_deref(),
+            Some("一二三四五六七八九十百千")
+        );
+
+        let combining = "e\u{301}".repeat(13);
+        let capped = sanitize_label(&combining).unwrap();
+        assert_eq!(capped, "e\u{301}".repeat(12));
+
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
+        let capped = sanitize_label(&family.repeat(13)).unwrap();
+        assert_eq!(capped, family.repeat(12));
+    }
+
+    #[test]
+    fn a_typed_label_keeps_its_spaces_but_not_its_excess() {
+        assert_eq!(typed_label("my "), "my ");
+        assert_eq!(typed_label(" a\tb"), " ab");
+        assert_eq!(typed_label("abcdefghijklmn"), "abcdefghijkl");
+        assert_eq!(typed_label(&"e\u{301}".repeat(13)), "e\u{301}".repeat(12));
+    }
+
+    #[test]
+    fn sanitize_cleans_every_label() {
+        let mut c = Config::default();
+        let cpu = c.item_mut(ItemKind::Cpu).unwrap();
+        cpu.label = Some("  abcdefghijklmn ".into());
+        cpu.short_label = Some(" \t ".into());
+        c.network.down_label = Some(" DL ".into());
+        c.network.up_label = Some("\n".into());
+        let c = c.sanitize();
+        let cpu = c.item(ItemKind::Cpu).unwrap();
+        assert_eq!(cpu.label.as_deref(), Some("abcdefghijkl"));
+        assert_eq!(cpu.short_label, None);
+        assert_eq!(c.network.down_label.as_deref(), Some("DL"));
+        assert_eq!(c.network.up_label, None);
+    }
+
+    #[test]
+    fn labels_load_save_and_stay_optional() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "[network]\ndown_label = \" DL \"\n\n[[items]]\nkind = \"cpu\"\nlabel = \"Proc\"\nshort_label = \"p\"\n\n[[items]]\nkind = \"ram\"\nlabel = \"  \"\n",
+        )
+        .unwrap();
+        let c = load(&path).config;
+        let cpu = c.item(ItemKind::Cpu).unwrap();
+        assert_eq!(cpu.label.as_deref(), Some("Proc"));
+        assert_eq!(cpu.short_label.as_deref(), Some("p"));
+        assert_eq!(c.item(ItemKind::Ram).unwrap().label, None);
+        assert_eq!(c.network.down_label.as_deref(), Some("DL"));
+        assert_eq!(c.network.up_label, None);
+        save(&path, &c).unwrap();
+        assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn an_old_config_has_no_labels_and_writes_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "version = 1\n\n[network]\nsplit_tiles = true\n\n[[items]]\nkind = \"cpu\"\ncolor = \"#102030\"\n",
+        )
+        .unwrap();
+        let loaded = load(&path);
+        assert!(loaded.warning.is_none());
+        let c = loaded.config;
+        assert!(c.items.iter().all(|i| i.label.is_none()));
+        assert!(c.items.iter().all(|i| i.short_label.is_none()));
+        assert_eq!(
+            (c.network.down_label.clone(), c.network.up_label.clone()),
+            (None, None)
+        );
+        save(&path, &c).unwrap();
+        let written = fs::read_to_string(&path).unwrap();
+        for key in ["label", "short_label", "down_label", "up_label"] {
+            let line = format!("{key} =");
+            assert!(!written.lines().any(|l| l.starts_with(&line)), "{written}");
+        }
+    }
+
+    #[test]
+    fn a_merge_keeps_a_label_from_either_side() {
+        let base = Config::default().sanitize();
+        let mut mine = base.clone();
+        mine.item_mut(ItemKind::Cpu).unwrap().label = Some("Proc".into());
+        let mut theirs = base.clone();
+        theirs.network.up_label = Some("UL".into());
+        let merged = merge(&base, &mine, &theirs);
+        assert_eq!(
+            merged.item(ItemKind::Cpu).unwrap().label.as_deref(),
+            Some("Proc")
+        );
+        assert_eq!(merged.network.up_label.as_deref(), Some("UL"));
+
+        let cleared = merge(&mine, &base, &mine);
+        assert_eq!(cleared.item(ItemKind::Cpu).unwrap().label, None);
     }
 
     #[test]
