@@ -1009,6 +1009,10 @@ msgid "Disk"
 msgstr "디스크"
 
 #: src/names.rs src/popup/content.rs
+msgid "GPU memory"
+msgstr "GPU 메모리"
+
+#: src/names.rs src/popup/content.rs
 msgid "CPU clock"
 msgstr "CPU 클럭"
 

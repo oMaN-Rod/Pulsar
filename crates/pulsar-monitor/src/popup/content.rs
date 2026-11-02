@@ -484,6 +484,21 @@ fn gpu_rows(snapshot: &Snapshot, gpus: &GpuSlots) -> Vec<(String, String)> {
         .collect()
 }
 
+/// How full each GPU's memory is, and how much of it is in use.
+fn gpu_memory_rows(snapshot: &Snapshot, gpus: &GpuSlots) -> Vec<(String, String)> {
+    gpus.present()
+        .filter_map(|(i, gpu)| {
+            let percent = MetricKey::GpuAdapterMemoryPercent(i);
+            let mut value = format_value(snapshot.get(percent)?, percent.unit());
+            let bytes = MetricKey::GpuAdapterDedicatedBytes(i);
+            if let Some(used) = snapshot.get(bytes) {
+                value = format!("{value} · {}", format_value(used, bytes.unit()));
+            }
+            Some((numbered(usize::from(i), &gpu.name), value))
+        })
+        .collect()
+}
+
 fn engines(snapshot: &Snapshot) -> Vec<(String, String)> {
     [
         (GpuEngineKind::ThreeD, tr!("3D")),
@@ -814,6 +829,38 @@ pub fn build_with(
                     },
                 },
                 processes(snapshot, ProcessSort::Gpu, count),
+            ],
+        ),
+        ItemKind::GpuMemory => (
+            tr!("GPU memory"),
+            cell_value(kind, CellPart::Main, snapshot),
+            vec![CellPart::Main],
+            vec![
+                Block::Rows {
+                    heading: None,
+                    rows: vec![
+                        (
+                            tr!("Dedicated").into(),
+                            of(
+                                snapshot,
+                                MetricKey::GpuDedicatedBytes,
+                                MetricKey::GpuDedicatedTotalBytes,
+                            ),
+                        ),
+                        (
+                            tr!("Shared").into(),
+                            fmt(snapshot, MetricKey::GpuSharedBytes),
+                        ),
+                    ],
+                },
+                Block::Rows {
+                    heading: Some(tr!("Adapters")),
+                    rows: if options.gpus.present().count() > 1 {
+                        gpu_memory_rows(snapshot, options.gpus)
+                    } else {
+                        Vec::new()
+                    },
+                },
             ],
         ),
         ItemKind::GpuTemp => (

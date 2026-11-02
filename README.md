@@ -101,7 +101,7 @@ Each item draws an area graph, a line, bars, a level meter, a segment meter, a s
 
 ### Every item
 
-CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order.
+CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, GPU memory, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order.
 
 ![Every item at once](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-all.png)
 
@@ -174,7 +174,7 @@ Eight built-in themes set the item, label, value, tile and panel colors, each wi
 - any installed font, bold optional
 - temperatures in °C or °F, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
 - network as download, upload or both, on one graph tile or a tile for each, with a separate choice for the popup
-- each drive as its own item, showing its activity or used space; each GPU with its own load and temperature; and all physical network adapters, one, or several side by side
+- each drive as its own item, showing its activity or used space; each GPU with its own load, temperature and memory; and all physical network adapters, one, or several side by side
 
 ## Popups
 
@@ -204,6 +204,7 @@ Popups are translucent by default, blurring what is behind them, or solid if you
 | **Chipset temperature** | chipset, CPU, GPU and hottest drive | |
 | **GPU** | temperature, dedicated and shared memory, each GPU's load, memory and temperature, top processes | engines, fan, power, memory clock, and hot spot and memory temperature where the card has them |
 | **GPU temperature** | fan, power, memory clock, hot spot, memory temperature, each GPU's temperature | |
+| **GPU memory** | dedicated memory in use out of the total, shared memory, how full each GPU's memory is | |
 | **Disk** | read and write rates, chosen drives, top processes by I/O | free space per drive |
 | **Drive temperature** | each drive, by letter and model; hard drives are read at most every 5 minutes and show the reading's age, or that they are asleep | |
 | **Network** | traffic per adapter, numbered when each has its own cells | totals since Pulsar started |

@@ -1010,6 +1010,10 @@ msgid "Disk"
 msgstr "磁盘"
 
 #: src/names.rs src/popup/content.rs
+msgid "GPU memory"
+msgstr "GPU 显存"
+
+#: src/names.rs src/popup/content.rs
 msgid "CPU clock"
 msgstr "CPU 频率"
 

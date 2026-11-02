@@ -409,6 +409,7 @@ fn kind_key(kind: ItemKind) -> &'static str {
         ItemKind::Network => "network",
         ItemKind::Gpu => "gpu",
         ItemKind::GpuTemp => "gpu_temp",
+        ItemKind::GpuMemory => "gpu_memory",
         ItemKind::Ping => "ping",
         ItemKind::CpuTemp => "cpu_temp",
         ItemKind::CpuPower => "cpu_power",

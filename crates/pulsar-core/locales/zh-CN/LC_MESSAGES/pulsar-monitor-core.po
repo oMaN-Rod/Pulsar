@@ -106,6 +106,10 @@ msgid "TEMP"
 msgstr "GPU°"
 
 #: src/metric.rs
+msgid "VRAM"
+msgstr "显存"
+
+#: src/metric.rs
 msgid "CPU°"
 msgstr "CPU°"
 

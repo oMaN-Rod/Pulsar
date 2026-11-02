@@ -54,7 +54,7 @@ fn page_for(item: Option<ItemKind>) -> Page {
             Page::Cpu
         }
         Some(ItemKind::Ram) => Page::Memory,
-        Some(ItemKind::Gpu | ItemKind::GpuTemp | ItemKind::Fps) => Page::Gpu,
+        Some(ItemKind::Gpu | ItemKind::GpuTemp | ItemKind::GpuMemory | ItemKind::Fps) => Page::Gpu,
         Some(ItemKind::Disk | ItemKind::DiskTemp) => Page::Storage,
         Some(ItemKind::ChipsetTemp | ItemKind::Battery) => Page::System,
         Some(ItemKind::Network | ItemKind::Ping) => Page::Network,
@@ -459,6 +459,7 @@ mod tests {
         assert_eq!(page_for(None), Page::Overview);
         assert_eq!(page_for(Some(ItemKind::CpuPower)), Page::Cpu);
         assert_eq!(page_for(Some(ItemKind::GpuTemp)), Page::Gpu);
+        assert_eq!(page_for(Some(ItemKind::GpuMemory)), Page::Gpu);
         assert_eq!(page_for(Some(ItemKind::Ping)), Page::Network);
     }
 

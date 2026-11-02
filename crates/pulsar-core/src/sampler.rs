@@ -274,6 +274,7 @@ fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
             monitor: config.frames.monitor.clone(),
         })],
         ItemKind::GpuTemp
+        | ItemKind::GpuMemory
         | ItemKind::CpuTemp
         | ItemKind::CpuPower
         | ItemKind::CpuClock
@@ -285,6 +286,7 @@ fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
 fn sources_of(kind: ItemKind) -> ItemKind {
     match kind {
         ItemKind::CpuClock => ItemKind::Cpu,
+        ItemKind::GpuMemory => ItemKind::Gpu,
         kind => kind,
     }
 }
@@ -423,6 +425,20 @@ mod tests {
             item.enabled = item.kind == ItemKind::CpuClock;
         }
         assert!(ids(&config).contains(&SourceId::Cpu));
+    }
+
+    #[test]
+    fn the_memory_item_shares_the_gpu_source() {
+        let sources = |kinds: &[ItemKind]| {
+            let mut config = Config::default();
+            for item in &mut config.items {
+                item.enabled = kinds.contains(&item.kind);
+            }
+            let sources = Sampler::from_config(&config).sources;
+            sources.iter().filter(|s| s.id() == SourceId::Gpu).count()
+        };
+        assert_eq!(sources(&[ItemKind::GpuMemory]), 1);
+        assert_eq!(sources(&[ItemKind::Gpu, ItemKind::GpuMemory]), 1);
     }
 
     #[test]

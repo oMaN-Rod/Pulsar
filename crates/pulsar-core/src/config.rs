@@ -1567,6 +1567,7 @@ sample_interval_ms = 1
                 ItemKind::ChipsetTemp,
                 ItemKind::Gpu,
                 ItemKind::GpuTemp,
+                ItemKind::GpuMemory,
                 ItemKind::Disk,
                 ItemKind::DiskTemp,
                 ItemKind::Network,
@@ -1668,6 +1669,7 @@ panel_opacity = 60
     fn new_items_and_fields_default_off() {
         let c = Config::default();
         assert!(!c.is_enabled(ItemKind::GpuTemp));
+        assert!(!c.is_enabled(ItemKind::GpuMemory));
         assert!(!c.is_enabled(ItemKind::CpuTemp));
         assert!(!c.is_enabled(ItemKind::CpuPower));
         assert!(!c.is_enabled(ItemKind::CpuClock));
@@ -1675,7 +1677,7 @@ panel_opacity = 60
         assert!(!c.is_enabled(ItemKind::ChipsetTemp));
         assert!(!c.is_enabled(ItemKind::Battery));
         assert!(!c.is_enabled(ItemKind::Fps));
-        assert_eq!(c.items.len(), 14);
+        assert_eq!(c.items.len(), ItemKind::ALL.len());
         let d = &c.display;
         assert_eq!(d.labels, LabelStyle::Full);
         assert!(!d.icons && !d.color_labels && !d.font_bold && !d.lock_position);

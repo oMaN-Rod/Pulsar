@@ -33,6 +33,7 @@ pub enum ItemKind {
     Network,
     Gpu,
     GpuTemp,
+    GpuMemory,
     Ping,
     CpuTemp,
     CpuPower,
@@ -45,7 +46,7 @@ pub enum ItemKind {
 
 impl ItemKind {
     /// Default display order; adjacent pairs share a text-mode column.
-    pub const ALL: [ItemKind; 14] = [
+    pub const ALL: [ItemKind; 15] = [
         ItemKind::Cpu,
         ItemKind::CpuTemp,
         ItemKind::CpuPower,
@@ -54,6 +55,7 @@ impl ItemKind {
         ItemKind::ChipsetTemp,
         ItemKind::Gpu,
         ItemKind::GpuTemp,
+        ItemKind::GpuMemory,
         ItemKind::Disk,
         ItemKind::DiskTemp,
         ItemKind::Network,
@@ -68,7 +70,7 @@ impl ItemKind {
             ItemKind::Ram => SourceId::Memory,
             ItemKind::Disk => SourceId::DiskIo,
             ItemKind::Network => SourceId::Network,
-            ItemKind::Gpu => SourceId::Gpu,
+            ItemKind::Gpu | ItemKind::GpuMemory => SourceId::Gpu,
             ItemKind::GpuTemp => SourceId::GpuSensors,
             ItemKind::Ping => SourceId::Ping,
             ItemKind::CpuTemp | ItemKind::CpuPower | ItemKind::ChipsetTemp => {
@@ -89,6 +91,7 @@ impl ItemKind {
             ItemKind::Gpu => crate::tr!("GPU"),
             ItemKind::Ping => crate::tr!("PING"),
             ItemKind::GpuTemp => crate::tr!("TEMP"),
+            ItemKind::GpuMemory => crate::tr!("VRAM"),
             ItemKind::CpuTemp => crate::tr!("CPU°"),
             ItemKind::CpuPower => crate::tr!("PWR"),
             ItemKind::CpuClock => crate::tr!("CLK"),
@@ -106,6 +109,7 @@ impl ItemKind {
             ItemKind::Ram => "M",
             ItemKind::Gpu => "G",
             ItemKind::GpuTemp => "T",
+            ItemKind::GpuMemory => "V",
             ItemKind::Disk => "D",
             ItemKind::Network => "↓",
             ItemKind::Ping => "P",

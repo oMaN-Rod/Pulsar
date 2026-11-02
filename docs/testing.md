@@ -20,6 +20,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | CPU item: *Ring* and *Core bars*; another item: *Ring*, with no *Core bars* in its list | The ring shows load with temperature inside once sensors report it; one bar per logical processor, moving with Task Manager's per-core view |
 | CPU item: *Core bars* on a hybrid CPU, then a burst of load | Efficient cores sit apart and darker; a mark holds each core's peak for about ten samples |
 | CPU item: *Heat cells*, with custom color thresholds | One cell per logical processor; colors follow the thresholds whatever the item's color mode |
+| *GPU memory* on, while a game or a GPU-heavy app starts and closes; with two GPUs chosen in Settings → Devices | The percentage follows *Dedicated GPU memory* in Task Manager's Performance tab; each GPU gets its own tile; an integrated GPU counts shared memory too |
 | *Segment meter* and *Spark underline*, each with *Single-line graphs* and on Network | Under the text on one reading; beside the text on a single line or a network pair |
 | Widget: style *Dials*; CPU item's widget style *Core wall* | Rows of three rings with the value inside; Network on its own row; tall core bars with peak marks, and P-core and E-core counts on hybrid CPUs |
 | Settings → Items: graph style picker, by mouse and by Tab then Enter | The chosen tile is outlined and the overlay updates; only the CPU lists core styles |

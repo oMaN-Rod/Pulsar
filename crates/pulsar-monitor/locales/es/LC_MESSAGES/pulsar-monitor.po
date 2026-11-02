@@ -1009,6 +1009,10 @@ msgid "Disk"
 msgstr "Disco"
 
 #: src/names.rs src/popup/content.rs
+msgid "GPU memory"
+msgstr "Memoria de la GPU"
+
+#: src/names.rs src/popup/content.rs
 msgid "CPU clock"
 msgstr "Frecuencia de la CPU"
 

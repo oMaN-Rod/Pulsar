@@ -196,7 +196,7 @@ impl Palette {
                 items.push((kind, part, color));
             }
         }
-        // Each GPU's load and temperature share a color of its own, turned
+        // Each GPU's readings share a color of its own, turned
         // from the GPU color by the card's place in the adapter list.
         let gpu = items
             .iter()
@@ -204,7 +204,7 @@ impl Palette {
             .map_or(text, |(_, _, c)| *c);
         for (i, degrees) in (0..=u8::MAX).zip(CARD_TURNS) {
             let color = turn_hue(gpu, degrees);
-            for kind in [ItemKind::Gpu, ItemKind::GpuTemp] {
+            for kind in [ItemKind::Gpu, ItemKind::GpuTemp, ItemKind::GpuMemory] {
                 items.push((kind, CellPart::Gpu(i), color));
             }
         }

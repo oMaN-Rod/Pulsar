@@ -105,6 +105,10 @@ msgid "TEMP"
 msgstr "TEMP"
 
 #: src/metric.rs
+msgid "VRAM"
+msgstr "VRAM"
+
+#: src/metric.rs
 msgid "CPU°"
 msgstr "CPU°"
 

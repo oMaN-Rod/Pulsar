@@ -193,6 +193,7 @@ pub fn primary_metric(kind: ItemKind) -> MetricKey {
         ItemKind::Gpu => MetricKey::GpuUtil,
         ItemKind::Ping => MetricKey::PingMs,
         ItemKind::GpuTemp => MetricKey::GpuTempC,
+        ItemKind::GpuMemory => MetricKey::GpuMemoryPercent,
         ItemKind::CpuTemp => MetricKey::CpuTempC,
         ItemKind::CpuPower => MetricKey::CpuPowerW,
         ItemKind::CpuClock => MetricKey::CpuClockMhz,
@@ -209,6 +210,7 @@ pub fn part_metric(kind: ItemKind, part: CellPart) -> MetricKey {
         CellPart::DriveActive(d) => MetricKey::DriveActivePercent(d),
         CellPart::DriveUsed(d) => MetricKey::DriveUsedPercent(d),
         CellPart::Gpu(i) if kind == ItemKind::GpuTemp => MetricKey::GpuAdapterTempC(i),
+        CellPart::Gpu(i) if kind == ItemKind::GpuMemory => MetricKey::GpuAdapterMemoryPercent(i),
         CellPart::Gpu(i) => MetricKey::GpuAdapterUtil(i),
         CellPart::AdapterDown(i) | CellPart::AdapterPair(i) => MetricKey::NetAdapterDownBps(i),
         CellPart::AdapterUp(i) => MetricKey::NetAdapterUpBps(i),
@@ -271,6 +273,7 @@ pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
         (ItemKind::Cpu, _) => "\u{E950}",
         (ItemKind::Ram, _) => "\u{EEA0}",
         (ItemKind::Gpu, _) => "\u{F211}",
+        (ItemKind::GpuMemory, _) => "\u{E7F4}",
         (ItemKind::GpuTemp | ItemKind::CpuTemp | ItemKind::DiskTemp | ItemKind::ChipsetTemp, _) => {
             "\u{E9CA}"
         }
@@ -419,13 +422,21 @@ fn with_pairs_split(items: &[ItemSpec], upload_on_top: bool) -> Vec<ItemSpec> {
         .collect()
 }
 
+/// Whether `kind` has a cell per chosen GPU.
+fn is_gpu_item(kind: ItemKind) -> bool {
+    matches!(
+        kind,
+        ItemKind::Gpu | ItemKind::GpuTemp | ItemKind::GpuMemory
+    )
+}
+
 /// The enabled items in order, each with the cells it draws.
 pub fn item_specs(config: &Config, gpus: &GpuSlots) -> Vec<ItemSpec> {
     let chosen = config.gpu_indexes(gpus);
     let mut specs = specs_with(config, &chosen);
     // An empty table knows nothing yet, so the combined reading still stands in.
     if chosen.is_empty() && !config.gpu.adapters.is_empty() && !gpus.is_empty() {
-        specs.retain(|s| !matches!(s.kind, ItemKind::Gpu | ItemKind::GpuTemp));
+        specs.retain(|s| !is_gpu_item(s.kind));
     }
     specs
 }
@@ -433,10 +444,10 @@ pub fn item_specs(config: &Config, gpus: &GpuSlots) -> Vec<ItemSpec> {
 /// `item_specs` with `gpus`, the GPUs with cells of their own, already known.
 fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
     let kinds = config.enabled_items();
-    let is_gpu = |k: &ItemKind| matches!(k, ItemKind::Gpu | ItemKind::GpuTemp);
-    // With both on, each GPU's load and temperature sit side by side, where
-    // the first of the two items is.
-    let paired = !gpus.is_empty() && kinds.iter().filter(|k| is_gpu(k)).count() == 2;
+    let is_gpu = |k: &ItemKind| is_gpu_item(*k);
+    // With several on, each GPU's readings sit side by side, where the first
+    // of those items is.
+    let paired = !gpus.is_empty() && kinds.iter().filter(|k| is_gpu(k)).count() >= 2;
     let tile = |kind| {
         config
             .item(kind)
@@ -503,7 +514,7 @@ fn item_parts(kind: ItemKind, config: &Config, gpus: &[u8]) -> Vec<CellPart> {
                 DriveValue::Used => CellPart::DriveUsed(d),
             })
             .collect(),
-        ItemKind::Gpu | ItemKind::GpuTemp if !gpus.is_empty() => {
+        kind if is_gpu_item(kind) && !gpus.is_empty() => {
             gpus.iter().map(|&i| CellPart::Gpu(i)).collect()
         }
         ItemKind::Network => network_item_parts(config),
@@ -1614,7 +1625,7 @@ mod tests {
             .collect()
     }
 
-    const ALL: [ItemKind; 14] = ItemKind::ALL;
+    const ALL: [ItemKind; 15] = ItemKind::ALL;
 
     fn sized_specs(sizes: &[(ItemKind, Option<u16>, Option<u16>)]) -> Vec<ItemSpec> {
         sizes
@@ -3022,6 +3033,47 @@ mod tests {
             .filter(|s| matches!(s.kind, ItemKind::Gpu | ItemKind::GpuTemp))
             .map(|s| (s.kind, s.parts.clone()))
             .collect()
+    }
+
+    #[test]
+    fn each_gpu_keeps_its_load_temperature_and_memory_together() {
+        let mut c = Config::default();
+        let order = [ItemKind::Gpu, ItemKind::GpuTemp, ItemKind::GpuMemory];
+        c.items.retain(|i| order.contains(&i.kind));
+        c.items
+            .sort_by_key(|i| order.iter().position(|&k| k == i.kind));
+        c.items.iter_mut().for_each(|i| i.enabled = true);
+        let cells: Vec<_> = specs_with(&c, &[0, 1])
+            .iter()
+            .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
+            .collect();
+        assert_eq!(
+            cells,
+            [
+                (ItemKind::Gpu, CellPart::Gpu(0)),
+                (ItemKind::GpuTemp, CellPart::Gpu(0)),
+                (ItemKind::GpuMemory, CellPart::Gpu(0)),
+                (ItemKind::Gpu, CellPart::Gpu(1)),
+                (ItemKind::GpuTemp, CellPart::Gpu(1)),
+                (ItemKind::GpuMemory, CellPart::Gpu(1)),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_memory_cell_reads_its_own_card() {
+        assert_eq!(
+            primary_metric(ItemKind::GpuMemory),
+            MetricKey::GpuMemoryPercent
+        );
+        assert_eq!(
+            part_metric(ItemKind::GpuMemory, CellPart::Gpu(1)),
+            MetricKey::GpuAdapterMemoryPercent(1)
+        );
+        let label =
+            |style| cell_label(ItemKind::GpuMemory, CellPart::Gpu(1), style, false, names());
+        assert_eq!(label(LabelStyle::Full), "VRAM2");
+        assert_eq!(label(LabelStyle::Short), "V2");
     }
 
     #[test]

@@ -20,6 +20,7 @@ fn item_columns(kind: ItemKind) -> &'static [MetricKey] {
         ItemKind::ChipsetTemp => &[ChipsetTempC],
         ItemKind::Gpu => &[GpuUtil, GpuDedicatedBytes],
         ItemKind::GpuTemp => &[GpuTempC],
+        ItemKind::GpuMemory => &[GpuMemoryPercent],
         ItemKind::Disk => &[DiskActivePercent, DiskReadBps, DiskWriteBps],
         ItemKind::DiskTemp => &[DiskTempMaxC],
         ItemKind::Network => &[NetDownBps, NetUpBps],
