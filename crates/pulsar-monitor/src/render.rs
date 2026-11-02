@@ -246,8 +246,10 @@ impl Renderer {
         if let Err(e) = &ended
             && e.code() == D2DERR_RECREATE_TARGET
         {
-            self.target = create_target(&self.factory)?;
-            self.brush = create_brush(&self.target)?;
+            let target = create_target(&self.factory)?;
+            let brush = create_brush(&target)?;
+            self.target = target;
+            self.brush = brush;
         }
         drawn.and(ended)
     }
