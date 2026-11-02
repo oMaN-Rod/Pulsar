@@ -1349,6 +1349,10 @@ msgstr "无法保存配置文件：{}"
 msgid "Could not read the profile."
 msgstr "无法读取配置文件。"
 
+#: src/settings/search.rs
+msgid "Settings page"
+msgstr "设置页面"
+
 #: ui/details.slint
 msgid "Load by thread"
 msgstr "各线程负载"
@@ -1454,6 +1458,14 @@ msgid "Use default"
 msgstr "使用默认"
 
 #: ui/settings.slint
+msgid "This setting isn't showing right now. Another option controls when it appears."
+msgstr "此设置目前未显示。另一个选项决定它何时出现。"
+
+#: ui/settings.slint
+msgid "Search settings"
+msgstr "搜索设置"
+
+#: ui/settings.slint
 msgid "Overlay"
 msgstr "叠加层"
 
@@ -1488,6 +1500,14 @@ msgstr "常规"
 #: ui/settings.slint
 msgid "About"
 msgstr "关于"
+
+#: ui/settings.slint
+msgid "Search results"
+msgstr "搜索结果"
+
+#: ui/settings.slint
+msgid "No settings match your search."
+msgstr "没有符合搜索条件的设置。"
 
 #: ui/settings.slint
 msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."

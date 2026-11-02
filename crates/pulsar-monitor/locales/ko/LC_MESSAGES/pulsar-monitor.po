@@ -1348,6 +1348,10 @@ msgstr "프로필을 저장할 수 없음: {}"
 msgid "Could not read the profile."
 msgstr "프로필을 읽을 수 없습니다."
 
+#: src/settings/search.rs
+msgid "Settings page"
+msgstr "설정 페이지"
+
 #: ui/details.slint
 msgid "Load by thread"
 msgstr "스레드별 부하"
@@ -1453,6 +1457,14 @@ msgid "Use default"
 msgstr "기본값 사용"
 
 #: ui/settings.slint
+msgid "This setting isn't showing right now. Another option controls when it appears."
+msgstr "이 설정은 지금 표시되지 않습니다. 다른 옵션에 따라 표시 여부가 결정됩니다."
+
+#: ui/settings.slint
+msgid "Search settings"
+msgstr "설정 검색"
+
+#: ui/settings.slint
 msgid "Overlay"
 msgstr "오버레이"
 
@@ -1487,6 +1499,14 @@ msgstr "일반"
 #: ui/settings.slint
 msgid "About"
 msgstr "정보"
+
+#: ui/settings.slint
+msgid "Search results"
+msgstr "검색 결과"
+
+#: ui/settings.slint
+msgid "No settings match your search."
+msgstr "검색과 일치하는 설정이 없습니다."
 
 #: ui/settings.slint
 msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."

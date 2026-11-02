@@ -1348,6 +1348,10 @@ msgstr "No se pudo guardar el perfil: {}"
 msgid "Could not read the profile."
 msgstr "No se pudo leer el perfil."
 
+#: src/settings/search.rs
+msgid "Settings page"
+msgstr "Página de configuración"
+
 #: ui/details.slint
 msgid "Load by thread"
 msgstr "Carga por hilo"
@@ -1453,6 +1457,14 @@ msgid "Use default"
 msgstr "Usar predeterminado"
 
 #: ui/settings.slint
+msgid "This setting isn't showing right now. Another option controls when it appears."
+msgstr "Esta opción no se muestra ahora. Otra opción controla cuándo aparece."
+
+#: ui/settings.slint
+msgid "Search settings"
+msgstr "Buscar en la configuración"
+
+#: ui/settings.slint
 msgid "Overlay"
 msgstr "Superposición"
 
@@ -1487,6 +1499,14 @@ msgstr "General"
 #: ui/settings.slint
 msgid "About"
 msgstr "Acerca de"
+
+#: ui/settings.slint
+msgid "Search results"
+msgstr "Resultados de la búsqueda"
+
+#: ui/settings.slint
+msgid "No settings match your search."
+msgstr "Ninguna opción coincide con la búsqueda."
 
 #: ui/settings.slint
 msgid "Choose what the overlay shows, its order, and each item's colour (empty uses the default). Open an item's options for its graph style, colouring and popup. Right-click an item on the taskbar for the same options."

@@ -84,6 +84,26 @@ export struct DeviceRow {
     checked: bool,
 }
 
+export struct SearchResult {
+    id: string,
+    title: string,
+    path: string,
+    description: string,
+}
+
+// The row a search result opened, while it comes into view and stays marked.
+export global SearchJump {
+    in-out property <int> tab;
+    in-out property <string> title;
+    // Waiting for the row to report where it is.
+    in-out property <bool> pending;
+    // The row did not report: another option hides it right now.
+    in-out property <bool> missing;
+    in-out property <length> row-top;
+    in-out property <length> row-height;
+    in-out property <int> arrivals;
+}
+
 // Glyphs from the Segoe Fluent Icons font that ships with Windows 11.
 global Icons {
     out property <string> settings: "\u{E713}";
@@ -125,6 +145,41 @@ component IconButton inherits Rectangle {
     }
     touch := TouchArea {
         enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+}
+
+component ResultRow inherits Rectangle {
+    in property <SearchResult> result;
+    callback clicked();
+    background: touch.has-hover ? Palette.foreground.transparentize(0.92) : transparent;
+    border-radius: 6px;
+    VerticalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 2px;
+        Text {
+            text: root.result.title;
+            font-size: 14px;
+            overflow: elide;
+        }
+        Text {
+            text: root.result.path;
+            font-size: 12px;
+            color: Palette.accent-background;
+            overflow: elide;
+        }
+        if root.result.description != "": Text {
+            text: root.result.description;
+            font-size: 12px;
+            color: Palette.foreground.transparentize(0.35);
+            overflow: elide;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
 }
@@ -272,19 +327,41 @@ component ThemeGrid inherits Rectangle {
 component SettingRow inherits HorizontalLayout {
     in property <string> title;
     in property <string> description;
+    in property <bool> available: true;
+    property <bool> targeted: root.available && root.title != "" && root.title == SearchJump.title;
     padding-left: 16px;
     padding-right: 16px;
     padding-top: 12px;
     padding-bottom: 12px;
     spacing: 16px;
-    VerticalLayout {
+    Timer {
+        interval: 1ms;
+        running: root.targeted && SearchJump.pending;
+        triggered => {
+            SearchJump.pending = false;
+            SearchJump.row-top = root.absolute-position.y;
+            SearchJump.row-height = root.height;
+            SearchJump.arrivals += 1;
+        }
+    }
+    column := VerticalLayout {
         alignment: center;
         spacing: 2px;
         horizontal-stretch: 1;
-        Text {
+        label := Text {
             text: root.title;
             font-size: 14px;
             wrap: word-wrap;
+            // A child of the text, so that the row's layout does not measure it.
+            Rectangle {
+                x: -column.x;
+                y: -column.y - label.y;
+                width: root.width;
+                height: root.height;
+                border-radius: 6px;
+                background: root.targeted ? Palette.accent-background.transparentize(0.75) : transparent;
+                animate background { duration: 200ms; }
+            }
         }
         if root.description != "": Text {
             text: root.description;
@@ -312,6 +389,7 @@ component OptionalRow inherits Rectangle {
     row := SettingRow {
         title: root.title;
         description: root.description;
+        available: root.shown;
         @children
     }
 }
@@ -554,16 +632,43 @@ component ColorField inherits HorizontalLayout {
 // unwrapped width, which leaves wrapped text out of the content height.
 component Page inherits ScrollView {
     in property <string> title;
+    property <int> arrivals: SearchJump.arrivals;
+    changed arrivals => {
+        let top = SearchJump.row-top - root.absolute-position.y - root.content-y;
+        let centred = (root.visible-height - SearchJump.row-height) / 2 - top;
+        root.content-y = Math.clamp(centred, Math.min(0px, root.visible-height - root.content-height), 0px);
+    }
     VerticalLayout {
         width: root.visible-width;
         padding: 28px;
         padding-top: 20px;
         spacing: 12px;
         alignment: start;
-        Text {
-            text: root.title;
-            font-size: 28px;
-            font-weight: 600;
+        Timer {
+            interval: 300ms;
+            running: SearchJump.pending;
+            triggered => {
+                SearchJump.pending = false;
+                SearchJump.missing = true;
+            }
+        }
+        VerticalLayout {
+            Text {
+                text: root.title;
+                font-size: 28px;
+                font-weight: 600;
+            }
+            Rectangle {
+                visible: SearchJump.missing;
+                height: SearchJump.missing ? note.preferred-height + 8px : 0;
+                note := Text {
+                    y: 8px;
+                    width: parent.width;
+                    text: @tr("This setting isn't showing right now. Another option controls when it appears.");
+                    color: Palette.foreground.transparentize(0.35);
+                    wrap: word-wrap;
+                }
+            }
         }
         @children
     }
@@ -705,6 +810,21 @@ export component SettingsWindow inherits Window {
     in-out property <bool> per-gpu;
     in-out property <bool> per-adapter;
     property <bool> confirm-reset;
+    in-out property <string> search-text;
+    in property <[SearchResult]> search-results;
+
+    changed tab => {
+        if (root.tab != SearchJump.tab) {
+            SearchJump.title = "";
+            SearchJump.pending = false;
+            SearchJump.missing = false;
+        }
+    }
+    Timer {
+        interval: 3s;
+        running: SearchJump.title != "";
+        triggered => { SearchJump.title = ""; }
+    }
 
     // Any edit; the app saves shortly after the last one.
     callback changed();
@@ -736,6 +856,8 @@ export component SettingsWindow inherits Window {
     callback per-drive-selected();
     callback per-gpu-selected();
     callback per-adapter-selected();
+    callback search-edited(string);
+    callback search-open(string);
 
     HorizontalLayout {
         // Navigation
@@ -744,6 +866,30 @@ export component SettingsWindow inherits Window {
             padding: 12px;
             padding-top: 8px;
             spacing: 4px;
+            search-box := LineEdit {
+                placeholder-text: @tr("Search settings");
+                text <=> root.search-text;
+                edited(text) => { root.search-edited(text); }
+                accepted => {
+                    if (root.search-results.length > 0) {
+                        self.clear-focus();
+                        root.search-open(root.search-results[0].id);
+                    }
+                }
+                key-pressed(event) => {
+                    if (event.text != Key.Escape) {
+                        return reject;
+                    }
+                    root.search-text = "";
+                    root.search-edited("");
+                    accept
+                }
+                changed has-focus => {
+                    if (self.has-focus && root.search-text != "") {
+                        root.search-edited(root.search-text);
+                    }
+                }
+            }
             NavGroup { text: @tr("Overlay"); }
             NavItem {
                 icon: Icons.list;
@@ -811,6 +957,26 @@ export component SettingsWindow inherits Window {
         }
 
         // Content
+            if root.tab == -1: Page {
+                title: @tr("Search results");
+                if root.search-results.length == 0: Text {
+                    text: @tr("No settings match your search.");
+                    color: Palette.foreground.transparentize(0.35);
+                }
+                if root.search-results.length > 0: Card {
+                    for found[i] in root.search-results: VerticalLayout {
+                        if i > 0: Divider { }
+                        ResultRow {
+                            result: found;
+                            clicked => {
+                                search-box.clear-focus();
+                                root.search-open(found.id);
+                            }
+                        }
+                    }
+                }
+            }
+
             if root.tab == 0: Page {
                 title: @tr("Items");
                 Text {

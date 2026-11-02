@@ -1,5 +1,16 @@
 use std::path::Path;
 
+mod settings_index;
+
+fn write_settings_index() {
+    println!("cargo:rerun-if-changed=ui/settings.slint");
+    let source = std::fs::read_to_string("ui/settings.slint").expect("read settings.slint");
+    let dest =
+        Path::new(&std::env::var("OUT_DIR").expect("set by cargo")).join("settings_index.rs");
+    let rows = settings_index::scan(&source);
+    std::fs::write(dest, settings_index::generate(&rows)).expect("write the settings index");
+}
+
 /// Lists `locales/<code>/LC_MESSAGES/pulsar-monitor.po` for `language.rs`;
 /// Slint bundles the same catalogs for the `.slint` files.
 fn write_catalog_list() {
@@ -33,6 +44,7 @@ fn write_catalog_list() {
 
 fn main() {
     write_catalog_list();
+    write_settings_index();
     let config = slint_build::CompilerConfiguration::new()
         .with_style("fluent".into())
         .with_bundled_translations("locales")

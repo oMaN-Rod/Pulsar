@@ -2,24 +2,28 @@
 
 use pulsar_core::config::{ColorMode, GraphStyle, PopupDetail, WidgetStyle};
 use pulsar_core::metric::ItemKind;
-use pulsar_core::tr;
+use pulsar_core::{l10n, tr, tr_noop};
 
 pub fn item_name(kind: ItemKind) -> &'static str {
+    l10n::translate(item_msgid(kind))
+}
+
+pub fn item_msgid(kind: ItemKind) -> &'static str {
     match kind {
-        ItemKind::Cpu => tr!("CPU"),
-        ItemKind::Ram => tr!("Memory"),
-        ItemKind::Gpu => tr!("GPU"),
-        ItemKind::Disk => tr!("Disk"),
-        ItemKind::Network => tr!("Network"),
-        ItemKind::Ping => tr!("Ping"),
-        ItemKind::GpuTemp => tr!("GPU temperature"),
-        ItemKind::CpuTemp => tr!("CPU temperature"),
-        ItemKind::CpuPower => tr!("CPU power"),
-        ItemKind::CpuClock => tr!("CPU clock"),
-        ItemKind::DiskTemp => tr!("Drive temperature"),
-        ItemKind::ChipsetTemp => tr!("Chipset temperature"),
-        ItemKind::Fps => tr!("Frame rate"),
-        ItemKind::Battery => tr!("Battery"),
+        ItemKind::Cpu => tr_noop!("CPU"),
+        ItemKind::Ram => tr_noop!("Memory"),
+        ItemKind::Gpu => tr_noop!("GPU"),
+        ItemKind::Disk => tr_noop!("Disk"),
+        ItemKind::Network => tr_noop!("Network"),
+        ItemKind::Ping => tr_noop!("Ping"),
+        ItemKind::GpuTemp => tr_noop!("GPU temperature"),
+        ItemKind::CpuTemp => tr_noop!("CPU temperature"),
+        ItemKind::CpuPower => tr_noop!("CPU power"),
+        ItemKind::CpuClock => tr_noop!("CPU clock"),
+        ItemKind::DiskTemp => tr_noop!("Drive temperature"),
+        ItemKind::ChipsetTemp => tr_noop!("Chipset temperature"),
+        ItemKind::Fps => tr_noop!("Frame rate"),
+        ItemKind::Battery => tr_noop!("Battery"),
     }
 }
 

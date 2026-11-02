@@ -8,6 +8,7 @@ mod language;
 #[path = "../names.rs"]
 mod names;
 mod notify;
+mod search;
 mod titlebar;
 
 use std::cell::{Cell, RefCell};
@@ -42,6 +43,7 @@ const SAVE_DELAY: Duration = Duration::from_millis(300);
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);
 const ABOUT_TAB: i32 = 8;
 const PROFILES_TAB: i32 = 9;
+const RESULTS_TAB: i32 = -1;
 const CAPTION_RETRY: Duration = Duration::from_millis(15);
 
 struct State {
@@ -639,6 +641,53 @@ fn localize(ui: &SettingsWindow) {
             .chain(l10n::LANGUAGES.iter().map(|l| l.name.into()))
             .collect(),
     ));
+    refresh_search(ui);
+}
+
+fn item_id(kind: ItemKind) -> String {
+    format!("item/{kind:?}")
+}
+
+fn search_entries(ui: &SettingsWindow) -> Vec<search::Entry> {
+    let items: Vec<search::Item> = ItemKind::ALL
+        .into_iter()
+        .map(|kind| search::Item {
+            id: item_id(kind),
+            name: names::item_msgid(kind),
+        })
+        .collect();
+    search::entries(&items, ui.get_alert_fahrenheit(), l10n::translate)
+}
+
+fn refresh_search(ui: &SettingsWindow) {
+    let entries = search_entries(ui);
+    let results: Vec<SearchResult> = search::matches(&entries, &ui.get_search_text())
+        .into_iter()
+        .map(|entry| SearchResult {
+            id: entry.id.as_str().into(),
+            title: entry.title.into(),
+            path: entry.path.as_str().into(),
+            description: entry.description.into(),
+        })
+        .collect();
+    ui.set_search_results(ModelRc::new(VecModel::from(results)));
+}
+
+fn open_search_result(ui: &SettingsWindow, kinds: &[ItemKind], id: &str) {
+    let entries = search_entries(ui);
+    let Some(entry) = entries.iter().find(|e| e.id == id) else {
+        return;
+    };
+    let row = kinds.iter().position(|&kind| item_id(kind) == id);
+    if let Some(row) = row {
+        update_row(ui, row as i32, |r| r.expanded = true);
+    }
+    let jump = ui.global::<SearchJump>();
+    jump.set_tab(entry.tab);
+    jump.set_title(if entry.is_row { entry.title } else { "" }.into());
+    jump.set_missing(false);
+    jump.set_pending(entry.is_row);
+    ui.set_tab(entry.tab);
 }
 
 /// Switches the window to the config's language if that changed.
@@ -1257,6 +1306,30 @@ fn main() -> Result<(), Box<dyn Error>> {
                 tick_first(&ui.get_adapter_rows());
             }
             ui.invoke_changed();
+        }
+    });
+    ui.on_search_edited({
+        let (weak, tab_before) = (ui.as_weak(), Cell::new(ui.get_tab()));
+        move |text| {
+            let Some(ui) = weak.upgrade() else { return };
+            let tab = ui.get_tab();
+            if text.trim().is_empty() {
+                if tab == RESULTS_TAB {
+                    ui.set_tab(tab_before.get());
+                }
+            } else if tab != RESULTS_TAB {
+                tab_before.set(tab);
+                ui.set_tab(RESULTS_TAB);
+            }
+            refresh_search(&ui);
+        }
+    });
+    ui.on_search_open({
+        let (weak, state) = (ui.as_weak(), state.clone());
+        move |id| {
+            if let Some(ui) = weak.upgrade() {
+                open_search_result(&ui, &state.borrow().kinds, &id);
+            }
         }
     });
     ui.on_open_config_folder({

@@ -1346,6 +1346,10 @@ msgstr ""
 msgid "Could not read the profile."
 msgstr ""
 
+#: src/settings/search.rs
+msgid "Settings page"
+msgstr ""
+
 #: ui/details.slint
 msgid "Load by thread"
 msgstr ""
@@ -1451,6 +1455,14 @@ msgid "Use default"
 msgstr ""
 
 #: ui/settings.slint
+msgid "This setting isn't showing right now. Another option controls when it appears."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Search settings"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Overlay"
 msgstr ""
 
@@ -1484,6 +1496,14 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "About"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Search results"
+msgstr ""
+
+#: ui/settings.slint
+msgid "No settings match your search."
 msgstr ""
 
 #: ui/settings.slint
