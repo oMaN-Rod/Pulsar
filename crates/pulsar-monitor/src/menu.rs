@@ -163,7 +163,7 @@ pub fn apply_edit(c: &mut Config, e: Edit) {
 }
 
 /// In menu order; `None` is text only.
-const STYLES: [Option<GraphStyle>; 14] = [
+const STYLES: [Option<GraphStyle>; 16] = [
     Some(GraphStyle::Area),
     Some(GraphStyle::Line),
     Some(GraphStyle::Bars),
@@ -177,6 +177,8 @@ const STYLES: [Option<GraphStyle>; 14] = [
     Some(GraphStyle::DotMatrix),
     Some(GraphStyle::Bullet),
     Some(GraphStyle::RangeRail),
+    Some(GraphStyle::Tint),
+    Some(GraphStyle::Bubble),
     None,
 ];
 

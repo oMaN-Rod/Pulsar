@@ -1005,7 +1005,7 @@ mod tests {
         f.items[0].style = 2;
         f.items[0].color_mode = 2;
         f.items[0].popup = 3;
-        f.items[1].style = 11;
+        f.items[1].style = 13;
         let out = to_config(&f, &c);
         let first = &out.items[0];
         assert_eq!(
@@ -1018,7 +1018,7 @@ mod tests {
             )
         );
         assert!(!out.items[1].graph, "the last style is text only");
-        assert_eq!(to_form(&out).items[1].style, 11);
+        assert_eq!(to_form(&out).items[1].style, 13);
     }
 
     #[test]
@@ -1150,7 +1150,7 @@ mod tests {
         let mut c = Config::default();
         c.items[0].style = GraphStyle::Meter;
         let mut f = to_form(&c);
-        f.items[0].style = 13;
+        f.items[0].style = 15;
         let out = to_config(&f, &c);
         assert!(!out.items[0].graph);
         assert_eq!(out.items[0].style, GraphStyle::Meter);

@@ -49,6 +49,7 @@ const SEGMENT_DIP: f32 = 6.0;
 const DOT_PITCH_DIP: f32 = 4.0;
 /// Keeps a full dot matrix to about a hundred cells on a default tile.
 const DOT_MAX_ROWS: usize = 8;
+const TINT_ALPHA: f32 = 0.34;
 /// Efficient cores are drawn a little darker than performance cores.
 const EFFICIENT_ALPHA: f32 = 0.72;
 
@@ -459,6 +460,12 @@ impl Renderer {
                         self.draw_rail(frame, cell, area, scale)?;
                     }
                 }
+                (Some(GraphStyle::Bubble), ..) => {
+                    if let Some(area) = regions.bubble {
+                        self.draw_bubble(frame, cell, area)?;
+                    }
+                }
+                (Some(GraphStyle::Tint), ..) => self.draw_tint(frame, cell, scale)?,
                 (Some(GraphStyle::DotMatrix), ..) => {
                     self.draw_dots(frame, cell, regions.graph, scale)?;
                 }
@@ -825,6 +832,26 @@ impl Renderer {
             }
         }
         Ok(())
+    }
+
+    fn cell_level_color(frame: &Frame, cell: &Cell) -> Option<Color> {
+        let key = metric_for(cell.kind, cell.part);
+        let history = frame.history.get(key)?;
+        let value = Self::cell_reading(frame, cell, history);
+        frame.palette.level_color(cell.kind, cell.part, value)
+    }
+
+    fn draw_bubble(&self, frame: &Frame, cell: &Cell, area: Rect) -> Result<()> {
+        let color = Self::cell_level_color(frame, cell)
+            .unwrap_or_else(|| frame.palette.text.with_alpha(0.14));
+        self.fill_rounded(area, area.w / 2.0, color)
+    }
+
+    fn draw_tint(&self, frame: &Frame, cell: &Cell, scale: f32) -> Result<()> {
+        match Self::cell_level_color(frame, cell) {
+            Some(color) => self.fill_rounded(cell.rect, 4.0 * scale, color.with_alpha(TINT_ALPHA)),
+            None => Ok(()),
+        }
     }
 
     fn draw_dots(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
@@ -1899,6 +1926,41 @@ mod tests {
         config.display.tile_opacity = Some(0);
         config.item_mut(kind).unwrap().style = style;
         render_with(DisplayMode::Graph, samples, &config)
+    }
+
+    #[test]
+    fn a_status_bubble_sits_right_of_the_text_in_the_color_of_its_load() {
+        let bubble_pixel = |samples: &[f64]| {
+            let (surface, layout) = graphed_with(GraphStyle::Bubble, ItemKind::Cpu, samples);
+            let cell = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Cpu)
+                .unwrap();
+            let (x, y) = (cell.rect.right() - 9.0, cell.rect.y + cell.rect.h / 2.0);
+            pixels(&surface)[(y as i32 * surface.width + x as i32) as usize]
+        };
+        let (low, critical) = (bubble_pixel(&[10.0; 8]), bubble_pixel(&[95.0; 8]));
+        assert!(low >> 24 == 0xFF && critical >> 24 == 0xFF);
+        assert_ne!(low, critical);
+    }
+
+    #[test]
+    fn a_status_tint_fills_the_tile_in_the_color_of_its_load() {
+        let corner_alpha = |samples: &[f64]| {
+            let (surface, layout) = graphed_with(GraphStyle::Tint, ItemKind::Cpu, samples);
+            let cell = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Cpu)
+                .unwrap();
+            alpha_at(
+                &surface,
+                cell.rect.right() - 6.0,
+                cell.rect.y + cell.rect.h - 6.0,
+            )
+        };
+        assert!(corner_alpha(&[95.0; 8]) > 0x40);
     }
 
     #[test]

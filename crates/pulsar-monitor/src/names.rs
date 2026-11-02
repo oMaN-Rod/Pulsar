@@ -1,5 +1,6 @@
 //! Names for items and choices, shared by the menu and the settings window.
 
+use pulsar_core::colors::has_thresholds;
 use pulsar_core::config::{ColorMode, GraphStyle, PopupDetail, WidgetStyle};
 use pulsar_core::metric::ItemKind;
 use pulsar_core::{l10n, tr, tr_noop};
@@ -28,7 +29,7 @@ pub fn item_msgid(kind: ItemKind) -> &'static str {
     }
 }
 
-const CPU_STYLES: [Option<GraphStyle>; 14] = [
+const CPU_STYLES: [Option<GraphStyle>; 16] = [
     Some(GraphStyle::Area),
     Some(GraphStyle::Line),
     Some(GraphStyle::Bars),
@@ -42,6 +43,25 @@ const CPU_STYLES: [Option<GraphStyle>; 14] = [
     Some(GraphStyle::DotMatrix),
     Some(GraphStyle::Bullet),
     Some(GraphStyle::RangeRail),
+    Some(GraphStyle::Tint),
+    Some(GraphStyle::Bubble),
+    None,
+];
+
+const LOAD_STYLES: [Option<GraphStyle>; 14] = [
+    Some(GraphStyle::Area),
+    Some(GraphStyle::Line),
+    Some(GraphStyle::Bars),
+    Some(GraphStyle::Meter),
+    Some(GraphStyle::Segments),
+    Some(GraphStyle::Spark),
+    Some(GraphStyle::Ring),
+    Some(GraphStyle::HeatStrip),
+    Some(GraphStyle::DotMatrix),
+    Some(GraphStyle::Bullet),
+    Some(GraphStyle::RangeRail),
+    Some(GraphStyle::Tint),
+    Some(GraphStyle::Bubble),
     None,
 ];
 
@@ -61,12 +81,13 @@ const PLAIN_STYLES: [Option<GraphStyle>; 12] = [
 ];
 
 /// In menu order; `None` is text only.
-pub const STYLE_SETS: [&[Option<GraphStyle>]; 2] = [&CPU_STYLES, &PLAIN_STYLES];
+pub const STYLE_SETS: [&[Option<GraphStyle>]; 3] = [&CPU_STYLES, &LOAD_STYLES, &PLAIN_STYLES];
 
 pub fn style_set(kind: ItemKind) -> usize {
     match kind {
         ItemKind::Cpu => 0,
-        _ => 1,
+        _ if has_thresholds(kind) => 1,
+        _ => 2,
     }
 }
 
@@ -98,6 +119,8 @@ pub fn style_name(style: Option<GraphStyle>) -> &'static str {
         Some(GraphStyle::DotMatrix) => tr!("Dot matrix"),
         Some(GraphStyle::Bullet) => tr!("Bullet meter"),
         Some(GraphStyle::RangeRail) => tr!("Range rail"),
+        Some(GraphStyle::Tint) => tr!("Status tint"),
+        Some(GraphStyle::Bubble) => tr!("Status bubble"),
         None => tr!("Text only"),
     }
 }
@@ -151,6 +174,10 @@ mod tests {
     #[test]
     fn items_list_only_the_styles_they_can_draw() {
         let lists = |kind, style| styles_for(kind).contains(&Some(style));
+        assert!(lists(ItemKind::Cpu, GraphStyle::Bubble));
+        assert!(lists(ItemKind::Ram, GraphStyle::Tint));
+        assert!(!lists(ItemKind::Network, GraphStyle::Tint));
+        assert!(!lists(ItemKind::Battery, GraphStyle::Bubble));
         assert!(!lists(ItemKind::Ram, GraphStyle::Heat));
     }
 

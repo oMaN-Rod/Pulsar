@@ -725,6 +725,10 @@ fn style_thumb(style: Option<GraphStyle>) -> &'static str {
         Some(GraphStyle::RangeRail) => {
             "M2 16 L62 16 L62 18 L2 18 Z M16 12 L48 12 L48 22 L16 22 Z M38 8 L40 8 L40 26 L38 26 Z"
         }
+        Some(GraphStyle::Tint) => "M2 2 L62 2 L62 32 L2 32 Z",
+        Some(GraphStyle::Bubble) => {
+            "M8 11 L34 11 M8 23 L28 23 M44 17 A8 8 0 1 1 60 17 A8 8 0 1 1 44 17 Z"
+        }
         None => "",
     }
 }
@@ -742,7 +746,8 @@ fn style_stroke(style: Option<GraphStyle>) -> (f32, bool) {
         Some(GraphStyle::Heat) => (8.0, false),
         Some(GraphStyle::HeatStrip) => (4.0, false),
         Some(GraphStyle::DotMatrix) => (4.0, false),
-        Some(GraphStyle::Bullet | GraphStyle::RangeRail) => (1.0, true),
+        Some(GraphStyle::Bullet | GraphStyle::RangeRail | GraphStyle::Tint) => (1.0, true),
+        Some(GraphStyle::Bubble) => (2.0, true),
         None => (0.0, false),
     }
 }

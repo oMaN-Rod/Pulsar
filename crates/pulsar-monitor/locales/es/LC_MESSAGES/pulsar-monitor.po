@@ -1081,6 +1081,14 @@ msgid "Range rail"
 msgstr "Riel de rango"
 
 #: src/names.rs
+msgid "Status tint"
+msgstr "Tinte de estado"
+
+#: src/names.rs
+msgid "Status bubble"
+msgstr "Burbuja de estado"
+
+#: src/names.rs
 msgid "Item color"
 msgstr "Color del elemento"
 

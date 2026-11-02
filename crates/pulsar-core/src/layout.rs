@@ -1906,6 +1906,7 @@ mod tests {
             TileGraphic::Heat(24),
             TileGraphic::Segments,
             TileGraphic::Spark,
+            TileGraphic::Bubble,
         ];
         for graphic in graphics {
             for vertical_labels in [false, true] {

@@ -32,6 +32,9 @@ const STRIP_TOP_DIP: f32 = 2.0;
 const STRIP_BOTTOM_DIP: f32 = 3.0;
 const MIN_STRIP_DIP: f32 = 5.0;
 const STRIP_LABEL_GAP_DIP: f32 = 4.0;
+const BUBBLE_DIP: f32 = 10.0;
+const BUBBLE_GAP_DIP: f32 = 4.0;
+const BUBBLE_INSET_DIP: f32 = 3.0;
 
 /// What a tile needs room for beside its text.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -47,6 +50,7 @@ pub enum TileGraphic {
     /// A level or sample strip under or beside the text.
     Segments,
     Spark,
+    Bubble,
 }
 
 impl TileGraphic {
@@ -60,11 +64,13 @@ impl TileGraphic {
             | GraphStyle::Bullet
             | GraphStyle::RangeRail => Self::Segments,
             GraphStyle::Spark => Self::Spark,
+            GraphStyle::Bubble => Self::Bubble,
             GraphStyle::Area
             | GraphStyle::Line
             | GraphStyle::Bars
             | GraphStyle::Meter
-            | GraphStyle::DotMatrix => Self::Behind,
+            | GraphStyle::DotMatrix
+            | GraphStyle::Tint => Self::Behind,
         }
     }
 }
@@ -191,9 +197,12 @@ pub fn tile_chrome(
     });
     let beside = match graphic {
         TileGraphic::Behind => 0.0,
-        TileGraphic::Ring | TileGraphic::Cores(_) | TileGraphic::Heat(_) if look.vertical_bar => {
+        TileGraphic::Ring | TileGraphic::Cores(_) | TileGraphic::Heat(_) | TileGraphic::Bubble
+            if look.vertical_bar =>
+        {
             0.0
         }
+        TileGraphic::Bubble => (BUBBLE_DIP + BUBBLE_GAP_DIP) * scale,
         TileGraphic::Ring => ring_diameter(tile_h, scale) + RING_GAP_DIP * scale,
         TileGraphic::Cores(count) => cores_width(count, scale) + CORES_GAP_DIP * scale,
         TileGraphic::Heat(count) => heat_width(count, tile_h, scale) + CORES_GAP_DIP * scale,
@@ -230,6 +239,7 @@ pub struct TileRegions {
     pub cores: Option<Rect>,
     /// A segment meter or a spark line.
     pub strip: Option<Rect>,
+    pub bubble: Option<Rect>,
     /// The strip is under one line holding both the label and the value.
     pub strip_below: bool,
     pub text_x: f32,
@@ -325,11 +335,26 @@ pub fn tile_regions(
             beside(x)
         }
     });
+    let bubble = (graphic == TileGraphic::Bubble).then(|| {
+        let diameter = (BUBBLE_DIP * scale).round();
+        let y = if look.vertical_bar {
+            rect.y + BUBBLE_INSET_DIP * scale
+        } else {
+            rect.y + (rect.h - diameter) / 2.0
+        };
+        Rect {
+            x: (rect.right() - PADDING_DIP * scale - diameter).round(),
+            y: y.round(),
+            w: diameter,
+            h: diameter,
+        }
+    });
     TileRegions {
         stack,
         ring,
         cores,
         strip,
+        bubble,
         strip_below: below,
         text_x: x,
         graph,

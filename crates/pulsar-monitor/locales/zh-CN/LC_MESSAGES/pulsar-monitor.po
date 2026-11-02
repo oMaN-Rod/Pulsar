@@ -1082,6 +1082,14 @@ msgid "Range rail"
 msgstr "范围轨道"
 
 #: src/names.rs
+msgid "Status tint"
+msgstr "状态底色"
+
+#: src/names.rs
+msgid "Status bubble"
+msgstr "状态气泡"
+
+#: src/names.rs
 msgid "Item color"
 msgstr "监控项颜色"
 

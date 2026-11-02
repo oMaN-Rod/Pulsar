@@ -46,6 +46,10 @@ pub enum GraphStyle {
     Bullet,
     /// The recent low to high with the latest value, under or beside the text.
     RangeRail,
+    /// The whole tile in the color of its load.
+    Tint,
+    /// A dot in the color of its load, beside the text.
+    Bubble,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -856,6 +860,11 @@ impl Config {
             new
         });
         for item in &mut self.items {
+            if matches!(item.style, GraphStyle::Tint | GraphStyle::Bubble)
+                && !crate::colors::has_thresholds(item.kind)
+            {
+                item.style = GraphStyle::default();
+            }
             if item.kind == ItemKind::Cpu {
                 continue;
             }
@@ -1478,6 +1487,18 @@ sample_interval_ms = 1
         assert_eq!(c.display.load_thresholds.percent, [50, 75, 90]);
         save(&path, &c).unwrap();
         assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn sanitize_keeps_styles_to_the_items_that_can_draw_them() {
+        for style in [GraphStyle::Tint, GraphStyle::Bubble] {
+            let mut c = Config::default();
+            c.item_mut(ItemKind::Ram).unwrap().style = style;
+            c.item_mut(ItemKind::Network).unwrap().style = style;
+            let c = c.sanitize();
+            assert_eq!(c.item(ItemKind::Ram).unwrap().style, style);
+            assert_eq!(c.item(ItemKind::Network).unwrap().style, GraphStyle::Area);
+        }
     }
 
     #[test]

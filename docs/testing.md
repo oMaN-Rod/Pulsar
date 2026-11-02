@@ -23,6 +23,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | *GPU memory* on, while a game or a GPU-heavy app starts and closes; with two GPUs chosen in Settings → Devices | The percentage follows *Dedicated GPU memory* in Task Manager's Performance tab; each GPU gets its own tile; an integrated GPU counts shared memory too |
 | *Segment meter* and *Spark underline*, each with *Single-line graphs* and on Network | Under the text on one reading; beside the text on a single line or a network pair |
 | *Heat strip*, *Bullet meter* and *Range rail*, each with *Single-line graphs* and on Network | Under the text on one reading; beside the text on a single line; one row per direction on a network pair |
+| *Status tint* and *Status bubble* on CPU, memory and a temperature, with color modes *Item color* and *Color by load*, across the thresholds | The tile or dot follows the thresholds whatever the color mode; the bubble sits right of the text; neither is listed for Network, Battery or items with no load scale |
 | *Dot matrix* on an idle and a busy item, on a vertical taskbar and with a tall tile height | Only lit cells draw; no more than eight rows; text stays readable |
 | Widget: style *Dials*; CPU item's widget style *Core wall* | Rows of three rings with the value inside; Network on its own row; tall core bars with peak marks, and P-core and E-core counts on hybrid CPUs |
 | Settings → Items: graph style picker, by mouse and by Tab then Enter | The chosen tile is outlined and the overlay updates; only the CPU lists core styles |
