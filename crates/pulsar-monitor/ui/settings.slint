@@ -684,6 +684,8 @@ component SettingRow inherits HorizontalLayout {
     in property <string> description;
     in property <bool> available: true;
     in property <string> search-key;
+    // A title wrapping in a repeated row pushes the rows out of the list's card.
+    in property <bool> single-line-title;
     property <bool> targeted: root.available && (root.search-key != ""
         ? root.search-key == SearchJump.key
         : root.title != "" && root.title == SearchJump.title);
@@ -709,7 +711,8 @@ component SettingRow inherits HorizontalLayout {
         label := Text {
             text: root.title;
             font-size: 14px;
-            wrap: word-wrap;
+            wrap: root.single-line-title ? no-wrap : word-wrap;
+            overflow: elide;
             // A child of the text, so that the row's layout does not measure it.
             Rectangle {
                 x: -column.x;
@@ -1298,7 +1301,6 @@ export component SettingsWindow inherits Window {
     callback gpu-toggled(int, bool);
     callback adapter-toggled(int, bool);
     callback widget-item-toggled(int, bool);
-    callback move-widget-item(int, bool);
     // Row, which choice (0 style, 1 detail), new index.
     callback widget-item-choice(int, int, int);
     callback per-drive-selected();
@@ -1433,7 +1435,7 @@ export component SettingsWindow inherits Window {
                     wrap: word-wrap;
                 }
                 Card {
-                    for row[i] in root.items: Rectangle {
+                    for row[i] in root.items: item-row := VerticalLayout {
                             property <int> drop-side: RowDrag.list == 1 && RowDrag.pointer-y >= self.absolute-position.y && RowDrag.pointer-y < self.absolute-position.y + self.height
                                 ? (RowDrag.pointer-y > self.absolute-position.y + self.height / 2 ? 2 : 1) : 0;
                             changed drop-side => {
@@ -1442,11 +1444,11 @@ export component SettingsWindow inherits Window {
                                     RowDrag.after = self.drop-side == 2;
                                 }
                             }
-                        VerticalLayout {
                         if i > 0: Divider { }
                         SettingRow {
                             title: row.name;
                             search-key: row.id;
+                            single-line-title: true;
                             IconButton {
                                 icon: Icons.options;
                                 clicked => { root.item-expanded(i, !row.expanded); }
@@ -1707,16 +1709,21 @@ export component SettingsWindow inherits Window {
                                 }
                             }
                         }
-                        }
+                        // Sized zero, so the row's layout does not measure what it draws.
                         Rectangle {
-                            visible: RowDrag.list == 1 && RowDrag.from == i;
-                            background: Palette.foreground.transparentize(0.92);
-                        }
-                        Rectangle {
-                            visible: RowDrag.list == 1 && RowDrag.over == i && RowDrag.from != i;
-                            y: RowDrag.after ? parent.height - 2px : 0;
-                            height: 2px;
-                            background: Palette.accent-background;
+                            height: 0;
+                            Rectangle {
+                                visible: RowDrag.list == 1 && RowDrag.from == i;
+                                y: -item-row.height;
+                                height: item-row.height;
+                                background: Palette.foreground.transparentize(0.92);
+                            }
+                            Rectangle {
+                                visible: RowDrag.list == 1 && RowDrag.over == i && RowDrag.from != i;
+                                y: RowDrag.after ? -2px : -item-row.height;
+                                height: 2px;
+                                background: Palette.accent-background;
+                            }
                         }
                     }
                 }
@@ -2491,7 +2498,7 @@ export component SettingsWindow inherits Window {
                             toggled => { root.changed(); }
                         }
                     }
-                    for row[i] in root.widget-items: Rectangle {
+                    for row[i] in root.widget-items: widget-item-row := VerticalLayout {
                             property <int> drop-side: RowDrag.list == 2 && RowDrag.pointer-y >= self.absolute-position.y && RowDrag.pointer-y < self.absolute-position.y + self.height
                                 ? (RowDrag.pointer-y > self.absolute-position.y + self.height / 2 ? 2 : 1) : 0;
                             changed drop-side => {
@@ -2500,10 +2507,10 @@ export component SettingsWindow inherits Window {
                                     RowDrag.after = self.drop-side == 2;
                                 }
                             }
-                        VerticalLayout {
                         Divider { }
                         SettingRow {
                             title: row.name;
+                            single-line-title: true;
                             DragHandle {
                                 started(y) => {
                                     RowDrag.from = i;
@@ -2518,16 +2525,6 @@ export component SettingsWindow inherits Window {
                                     root.drop-widget-item(RowDrag.from, RowDrag.over, RowDrag.after);
                                 }
                             }
-                            IconButton {
-                                icon: Icons.up;
-                                enabled: i > 0;
-                                clicked => { root.move-widget-item(i, true); }
-                            }
-                            IconButton {
-                                icon: Icons.down;
-                                enabled: i < root.widget-items.length - 1;
-                                clicked => { root.move-widget-item(i, false); }
-                            }
                             ComboBox {
                                 width: 130px;
                                 model: row.is-cpu ? root.cpu-widget-item-styles : root.widget-item-styles;
@@ -2535,7 +2532,7 @@ export component SettingsWindow inherits Window {
                                 selected => { root.widget-item-choice(i, 0, self.current-index); }
                             }
                             ComboBox {
-                                width: 110px;
+                                width: 130px;
                                 model: root.widget-item-details;
                                 current-index: row.detail;
                                 selected => { root.widget-item-choice(i, 1, self.current-index); }
@@ -2546,16 +2543,21 @@ export component SettingsWindow inherits Window {
                                 toggled => { root.widget-item-toggled(i, self.checked); }
                             }
                         }
-                        }
+                        // Sized zero, so the row's layout does not measure what it draws.
                         Rectangle {
-                            visible: RowDrag.list == 2 && RowDrag.from == i;
-                            background: Palette.foreground.transparentize(0.92);
-                        }
-                        Rectangle {
-                            visible: RowDrag.list == 2 && RowDrag.over == i && RowDrag.from != i;
-                            y: RowDrag.after ? parent.height - 2px : 0;
-                            height: 2px;
-                            background: Palette.accent-background;
+                            height: 0;
+                            Rectangle {
+                                visible: RowDrag.list == 2 && RowDrag.from == i;
+                                y: -widget-item-row.height;
+                                height: widget-item-row.height;
+                                background: Palette.foreground.transparentize(0.92);
+                            }
+                            Rectangle {
+                                visible: RowDrag.list == 2 && RowDrag.over == i && RowDrag.from != i;
+                                y: RowDrag.after ? -2px : -widget-item-row.height;
+                                height: 2px;
+                                background: Palette.accent-background;
+                            }
                         }
                     }
                 }

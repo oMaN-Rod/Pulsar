@@ -1552,25 +1552,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             ui.invoke_changed();
         }
     });
-    ui.on_move_widget_item({
-        let weak = ui.as_weak();
-        move |index, up| {
-            let Some(ui) = weak.upgrade() else { return };
-            let mut rows: Vec<WidgetItemRow> = ui.get_widget_items().iter().collect();
-            let index = index.max(0) as usize;
-            let other = if up {
-                index.checked_sub(1)
-            } else {
-                Some(index + 1)
-            };
-            if let Some(other) = other.filter(|&o| o < rows.len() && index < rows.len()) {
-                rows.swap(index, other);
-                ui.set_widget_items(ModelRc::new(VecModel::from(rows)));
-                ui.set_widget_order_custom(true);
-                ui.invoke_changed();
-            }
-        }
-    });
     ui.on_drop_widget_item({
         let weak = ui.as_weak();
         move |from, target, after| {
