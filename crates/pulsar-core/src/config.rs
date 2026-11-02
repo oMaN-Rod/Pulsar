@@ -206,6 +206,44 @@ pub struct Config {
     pub session_items: Vec<ItemKind>,
 }
 
+/// Where color by load turns yellow, orange and red, per unit of reading.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LoadThresholds {
+    pub percent: [u32; 3],
+    pub celsius: [u32; 3],
+    pub millis: [u32; 3],
+}
+
+impl Default for LoadThresholds {
+    fn default() -> Self {
+        Self {
+            percent: [50, 75, 90],
+            celsius: [70, 80, 90],
+            millis: [50, 100, 200],
+        }
+    }
+}
+
+impl LoadThresholds {
+    pub const MAX_PERCENT: u32 = 100;
+    pub const MAX_CELSIUS: u32 = 150;
+    pub const MAX_MILLIS: u32 = 5000;
+
+    fn sanitized(self) -> Self {
+        let ascending = |limits: [u32; 3], max: u32| {
+            let mut limits = limits.map(|v| v.clamp(1, max));
+            limits.sort_unstable();
+            limits
+        };
+        Self {
+            percent: ascending(self.percent, Self::MAX_PERCENT),
+            celsius: ascending(self.celsius, Self::MAX_CELSIUS),
+            millis: ascending(self.millis, Self::MAX_MILLIS),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct GameConfig {
@@ -367,6 +405,7 @@ pub struct Display {
     pub upload_on_top: bool,
     /// Draw each label in its item's color.
     pub color_labels: bool,
+    pub load_thresholds: LoadThresholds,
     /// None uses Segoe UI Variable.
     pub font_family: Option<String>,
     pub font_bold: bool,
@@ -648,6 +687,7 @@ impl Default for Display {
             value_color_light: None,
             upload_on_top: false,
             color_labels: false,
+            load_thresholds: LoadThresholds::default(),
             font_family: None,
             font_bold: false,
             hide_in_fullscreen: true,
@@ -707,6 +747,7 @@ impl Config {
         d.text_item_gap = d.text_item_gap.clamp(0, 40);
         d.text_label_gap = d.text_label_gap.clamp(0, 16);
         d.text_row_gap = d.text_row_gap.clamp(0, 16);
+        d.load_thresholds = d.load_thresholds.sanitized();
         d.fallback_margin_px = d.fallback_margin_px.clamp(0, 2000);
         d.offset_px = d.offset_px.clamp(-2000, 2000);
         d.tile_opacity = d.tile_opacity.map(|o| o.min(100));
@@ -1351,6 +1392,37 @@ sample_interval_ms = 1
         assert!(config.display.hover_popup);
         assert_eq!(config.general.sample_interval_ms, 1000);
         assert_eq!(config.items.len(), ItemKind::ALL.len());
+    }
+
+    #[test]
+    fn load_thresholds_are_clamped_and_put_in_order() {
+        let mut c = Config::default();
+        c.display.load_thresholds = LoadThresholds {
+            percent: [90, 0, 500],
+            celsius: [80, 70, 90],
+            millis: [9000, 9000, 1],
+        };
+        let t = c.sanitize().display.load_thresholds;
+        assert_eq!(t.percent, [1, 90, 100]);
+        assert_eq!(t.celsius, [70, 80, 90]);
+        assert_eq!(t.millis, [1, 5000, 5000]);
+    }
+
+    #[test]
+    fn load_thresholds_default_when_absent_and_survive_a_save() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(&path, "[display]\nicons = true\n").unwrap();
+        let c = load(&path).config;
+        assert_eq!(c.display.load_thresholds, LoadThresholds::default());
+
+        let partial = "[display.load_thresholds]\nmillis = [20, 40, 80]\n";
+        fs::write(&path, partial).unwrap();
+        let c = load(&path).config;
+        assert_eq!(c.display.load_thresholds.millis, [20, 40, 80]);
+        assert_eq!(c.display.load_thresholds.percent, [50, 75, 90]);
+        save(&path, &c).unwrap();
+        assert_eq!(load(&path).config, c);
     }
 
     #[test]

@@ -1,5 +1,5 @@
 use pulsar_core::colors;
-use pulsar_core::config::{ColorMode, Config};
+use pulsar_core::config::{ColorMode, Config, LoadThresholds};
 use pulsar_core::display::metric_for;
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -68,6 +68,7 @@ pub struct Palette {
     items: Vec<(ItemKind, CellPart, Color)>,
     /// Items colored by how high their value is.
     by_load: Vec<ItemKind>,
+    load_thresholds: LoadThresholds,
     light: bool,
     color_labels: bool,
 }
@@ -128,6 +129,7 @@ impl Palette {
             items,
             by_load: Vec::new(),
             light: back.r + back.g + back.b > 1.5,
+            load_thresholds: LoadThresholds::default(),
             color_labels: false,
         })
     }
@@ -225,6 +227,7 @@ impl Palette {
             items,
             by_load,
             light: light_taskbar,
+            load_thresholds: d.load_thresholds,
             color_labels: d.color_labels,
         }
     }
@@ -232,10 +235,20 @@ impl Palette {
     /// Value text: the load color for an item colored by load, so items
     /// without a graph show their load too; otherwise the value color.
     pub fn value_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
-        let level = value
-            .filter(|_| self.by_load.contains(&kind))
-            .and_then(|v| colors::load_level(metric_for(kind, part).unit(), v));
+        let level = self.load_level(kind, part, value);
         level.map_or(self.text, |level| rgb(colors::load_rgb(level, self.light)))
+    }
+
+    fn load_level(
+        &self,
+        kind: ItemKind,
+        part: CellPart,
+        value: Option<f64>,
+    ) -> Option<colors::Load> {
+        let unit = metric_for(kind, part).unit();
+        value
+            .filter(|_| self.by_load.contains(&kind))
+            .and_then(|v| colors::load_level(unit, v, &self.load_thresholds))
     }
 
     pub fn light(&self) -> bool {
@@ -245,10 +258,7 @@ impl Palette {
     /// The color for a reading of `value`: its load color when the item
     /// is colored by load and the value has a scale, else `graph`.
     pub fn graph_at(&self, kind: ItemKind, part: CellPart, value: Option<f64>) -> Color {
-        let level = value
-            .filter(|_| self.by_load.contains(&kind))
-            .and_then(|v| colors::load_level(metric_for(kind, part).unit(), v));
-        match level {
+        match self.load_level(kind, part, value) {
             Some(level) => rgb(colors::load_rgb(level, self.light)),
             None => self.graph(kind, part),
         }
@@ -475,6 +485,27 @@ mod tests {
             Palette::new(true, &c, None, &Theme::windows()).label,
             Color::rgb(0xEE, 0xEE, 0xEE),
             "without a light color the one color applies to both"
+        );
+    }
+
+    #[test]
+    fn load_colors_use_the_configured_thresholds() {
+        let mut c = Config::default();
+        c.item_mut(ItemKind::Cpu).unwrap().color_mode = ColorMode::Load;
+        c.display.load_thresholds.percent = [10, 20, 30];
+        let p = Palette::new(false, &c, None, &Theme::windows());
+        let critical = rgb(colors::load_rgb(colors::Load::Critical, false));
+        assert_eq!(
+            p.graph_at(ItemKind::Cpu, CellPart::Main, Some(30.0)),
+            critical
+        );
+        assert_eq!(
+            p.value_at(ItemKind::Cpu, CellPart::Main, Some(30.0)),
+            critical
+        );
+        assert_eq!(
+            p.graph_at(ItemKind::Cpu, CellPart::Main, Some(9.0)),
+            rgb(colors::load_rgb(colors::Load::Low, false))
         );
     }
 

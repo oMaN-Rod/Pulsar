@@ -336,7 +336,28 @@ mod tests {
                 assert_eq!(entry.owner.as_ref(), Some(&item.id));
             }
         }
-        assert!(all.iter().all(|e| !e.id.starts_with("row/0/")));
+    }
+
+    #[test]
+    fn the_items_page_lists_only_the_load_thresholds_as_plain_rows() {
+        let all = entries(&items(), false, english);
+        let plain: Vec<&str> = all
+            .iter()
+            .filter(|e| e.id.starts_with("row/0/"))
+            .map(|e| e.id.as_str())
+            .collect();
+        assert_eq!(
+            plain,
+            [
+                "row/0/Percent (%)",
+                "row/0/Temperature (°C)",
+                "row/0/Ping (ms)"
+            ]
+        );
+        let found = ids(&matches(&all, "thresholds"));
+        for id in plain {
+            assert!(found.contains(&id.to_string()), "{id}");
+        }
     }
 
     #[test]

@@ -4,8 +4,9 @@ use pulsar_core::colors::Rgb;
 #[cfg(test)]
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
-    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, NetworkShow, NoRoom, PopupBackground,
-    Position, RateUnit, RemoveFrom, TemperatureUnit, WidgetLayer, WidgetStyle, sanitize_label,
+    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadThresholds, NetworkShow, NoRoom,
+    PopupBackground, Position, RateUnit, RemoveFrom, TemperatureUnit, WidgetLayer, WidgetStyle,
+    sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -135,6 +136,10 @@ pub struct Form {
     pub alert_drives: bool,
     pub alert_drives_limit: i32,
     pub alert_fahrenheit: bool,
+    /// Color by load thresholds; temperatures as with the alerts.
+    pub load_percent: [i32; 3],
+    pub load_temperature: [i32; 3],
+    pub load_ping: [i32; 3],
     /// Shortcuts as text; empty when not set.
     pub hotkey_show_hide: String,
     pub hotkey_widget: String,
@@ -378,6 +383,9 @@ pub fn to_form(c: &Config) -> Form {
         alert_drives: c.alerts.drives.on,
         alert_drives_limit: c.alerts.drives.limit as i32,
         alert_fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
+        load_percent: c.display.load_thresholds.percent.map(|v| v as i32),
+        load_temperature: c.display.load_thresholds.celsius.map(|v| shown_temp(v, c)),
+        load_ping: c.display.load_thresholds.millis.map(|v| v as i32),
         hotkey_show_hide: c.hotkeys.show_hide.clone().unwrap_or_default(),
         hotkey_widget: c.hotkeys.widget.clone().unwrap_or_default(),
         hotkey_details: c.hotkeys.details.clone().unwrap_or_default(),
@@ -507,6 +515,11 @@ fn rate_or_base(base: u64, amount: i32, unit: i32, bits: bool) -> u64 {
 
 pub fn to_config(f: &Form, base: &Config) -> Config {
     let mut c = base.clone();
+    c.display.load_thresholds = LoadThresholds {
+        percent: f.load_percent.map(|v| v.max(0) as u32),
+        celsius: f.load_temperature.map(|v| celsius(v, f.alert_fahrenheit)),
+        millis: f.load_ping.map(|v| v.max(0) as u32),
+    };
     c.alerts.cpu.on = f.alert_cpu;
     c.alerts.cpu.limit = celsius(f.alert_cpu_limit, f.alert_fahrenheit);
     c.alerts.gpu.on = f.alert_gpu;
@@ -1178,6 +1191,35 @@ mod tests {
         assert!(f.network_floor_bits);
         assert_eq!((f.min_down, f.min_down_unit), (12, 1));
         assert_eq!(to_config(&f, &c).network.min_down_bps, 1500);
+    }
+
+    #[test]
+    fn load_thresholds_round_trip_in_either_temperature_unit() {
+        for unit in [TemperatureUnit::Celsius, TemperatureUnit::Fahrenheit] {
+            for celsius in 1..=LoadThresholds::MAX_CELSIUS {
+                let mut c = Config::default();
+                c.units.temperature = unit;
+                c.display.load_thresholds.percent = [5, 6, 7];
+                c.display.load_thresholds.celsius = [celsius; 3];
+                c.display.load_thresholds.millis = [10, 20, 30];
+                let c = c.sanitize();
+                assert_eq!(to_config(&to_form(&c), &c), c, "{celsius} °C");
+            }
+        }
+    }
+
+    #[test]
+    fn load_thresholds_show_in_the_temperature_unit_and_keep_it_when_it_changes() {
+        let mut c = Config::default();
+        c.units.temperature = TemperatureUnit::Fahrenheit;
+        let c = c.sanitize();
+        let mut f = to_form(&c);
+        assert_eq!(f.load_temperature, [158, 176, 194]);
+        f.load_temperature[0] = 140;
+        f.fahrenheit = false;
+        let c = to_config(&f, &c);
+        assert_eq!(c.display.load_thresholds.celsius, [60, 80, 90]);
+        assert_eq!(to_form(&c).load_temperature, [60, 80, 90]);
     }
 
     #[test]

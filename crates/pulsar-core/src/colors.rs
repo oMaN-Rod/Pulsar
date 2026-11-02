@@ -1,5 +1,6 @@
 //! Default item colors, shared by the overlay and the settings window.
 
+use crate::config::LoadThresholds;
 use crate::layout::CellPart;
 use crate::metric::{ItemKind, Unit};
 
@@ -36,13 +37,14 @@ pub enum Load {
 
 /// The load a value represents; `None` for units without a natural scale,
 /// such as transfer rates.
-pub fn load_level(unit: Unit, value: f64) -> Option<Load> {
+pub fn load_level(unit: Unit, value: f64, thresholds: &LoadThresholds) -> Option<Load> {
     let [moderate, high, critical] = match unit {
-        Unit::Percent => [50.0, 75.0, 90.0],
-        Unit::Celsius => [70.0, 80.0, 90.0],
-        Unit::Millis => [50.0, 100.0, 200.0],
+        Unit::Percent => thresholds.percent,
+        Unit::Celsius => thresholds.celsius,
+        Unit::Millis => thresholds.millis,
         _ => return None,
-    };
+    }
+    .map(f64::from);
     if !value.is_finite() {
         return None;
     }
@@ -123,15 +125,34 @@ mod tests {
 
     #[test]
     fn load_levels_follow_the_unit() {
-        assert_eq!(load_level(Unit::Percent, 12.0), Some(Load::Low));
-        assert_eq!(load_level(Unit::Percent, 50.0), Some(Load::Moderate));
-        assert_eq!(load_level(Unit::Percent, 80.0), Some(Load::High));
-        assert_eq!(load_level(Unit::Percent, 95.0), Some(Load::Critical));
-        assert_eq!(load_level(Unit::Celsius, 92.0), Some(Load::Critical));
-        assert_eq!(load_level(Unit::Celsius, 65.0), Some(Load::Low));
-        assert_eq!(load_level(Unit::Millis, 120.0), Some(Load::High));
-        assert_eq!(load_level(Unit::NetworkRate, 1e9), None);
-        assert_eq!(load_level(Unit::Percent, f64::NAN), None);
+        let level = |unit, value| load_level(unit, value, &LoadThresholds::default());
+        assert_eq!(level(Unit::Percent, 12.0), Some(Load::Low));
+        assert_eq!(level(Unit::Percent, 50.0), Some(Load::Moderate));
+        assert_eq!(level(Unit::Percent, 80.0), Some(Load::High));
+        assert_eq!(level(Unit::Percent, 95.0), Some(Load::Critical));
+        assert_eq!(level(Unit::Celsius, 92.0), Some(Load::Critical));
+        assert_eq!(level(Unit::Celsius, 65.0), Some(Load::Low));
+        assert_eq!(level(Unit::Millis, 120.0), Some(Load::High));
+        assert_eq!(level(Unit::NetworkRate, 1e9), None);
+        assert_eq!(level(Unit::Percent, f64::NAN), None);
+    }
+
+    #[test]
+    fn load_levels_follow_custom_thresholds() {
+        let t = LoadThresholds {
+            percent: [10, 20, 30],
+            celsius: [40, 50, 60],
+            millis: [5, 5, 200],
+        };
+        assert_eq!(load_level(Unit::Percent, 9.9, &t), Some(Load::Low));
+        assert_eq!(load_level(Unit::Percent, 10.0, &t), Some(Load::Moderate));
+        assert_eq!(load_level(Unit::Percent, 30.0, &t), Some(Load::Critical));
+        assert_eq!(load_level(Unit::Celsius, 55.0, &t), Some(Load::High));
+        assert_eq!(
+            load_level(Unit::Millis, 5.0, &t),
+            Some(Load::High),
+            "equal thresholds skip a color"
+        );
     }
 
     #[test]

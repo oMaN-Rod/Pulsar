@@ -524,6 +524,50 @@ component SaturationValueArea inherits Rectangle {
     }
 }
 
+// Where a reading turns yellow, orange and red. Each edit keeps them in order.
+component LoadThresholdFields inherits HorizontalLayout {
+    in-out property <int> moderate;
+    in-out property <int> high;
+    in-out property <int> critical;
+    in property <int> minimum: 1;
+    in property <int> maximum;
+    callback edited();
+    spacing: 8px;
+    SpinBox {
+        width: 96px;
+        minimum: root.minimum;
+        maximum: root.maximum;
+        value <=> root.moderate;
+        edited(value) => {
+            root.high = Math.max(root.high, value);
+            root.critical = Math.max(root.critical, value);
+            root.edited();
+        }
+    }
+    SpinBox {
+        width: 96px;
+        minimum: root.minimum;
+        maximum: root.maximum;
+        value <=> root.high;
+        edited(value) => {
+            root.moderate = Math.min(root.moderate, value);
+            root.critical = Math.max(root.critical, value);
+            root.edited();
+        }
+    }
+    SpinBox {
+        width: 96px;
+        minimum: root.minimum;
+        maximum: root.maximum;
+        value <=> root.critical;
+        edited(value) => {
+            root.moderate = Math.min(root.moderate, value);
+            root.high = Math.min(root.high, value);
+            root.edited();
+        }
+    }
+}
+
 // A color setting: a swatch that opens a picker, and the hex text.
 component ColorField inherits HorizontalLayout {
     in-out property <string> text;
@@ -759,6 +803,15 @@ export component SettingsWindow inherits Window {
     in-out property <int> alert-drives-limit;
     // The unit the temperature limits were filled in.
     in property <bool> alert-fahrenheit;
+    in-out property <int> load-percent-moderate;
+    in-out property <int> load-percent-high;
+    in-out property <int> load-percent-critical;
+    in-out property <int> load-temperature-moderate;
+    in-out property <int> load-temperature-high;
+    in-out property <int> load-temperature-critical;
+    in-out property <int> load-ping-moderate;
+    in-out property <int> load-ping-high;
+    in-out property <int> load-ping-critical;
     in property <string> hotkey-show-hide;
     in property <string> hotkey-widget;
     in property <string> hotkey-details;
@@ -1264,10 +1317,49 @@ export component SettingsWindow inherits Window {
                         }
                     }
                 }
+                SectionTitle { text: @tr("Color by load thresholds"); }
                 Text {
-                    text: @tr("Color by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item color.");
+                    text: @tr("An item set to color by load is green, then turns yellow, orange and red as its value reaches each threshold below, left to right. Other values keep the item color.");
                     color: Palette.foreground.transparentize(0.35);
                     wrap: word-wrap;
+                }
+                Card {
+                    SettingRow {
+                        title: @tr("Percent (%)");
+                        description: @tr("Default: 50, 75, 90");
+                        LoadThresholdFields {
+                            maximum: 100;
+                            moderate <=> root.load-percent-moderate;
+                            high <=> root.load-percent-high;
+                            critical <=> root.load-percent-critical;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: root.alert-fahrenheit ? @tr("Temperature (°F)") : @tr("Temperature (°C)");
+                        description: root.alert-fahrenheit ? @tr("Default: 158, 176, 194") : @tr("Default: 70, 80, 90");
+                        LoadThresholdFields {
+                            minimum: root.alert-fahrenheit ? 34 : 1;
+                            maximum: root.alert-fahrenheit ? 302 : 150;
+                            moderate <=> root.load-temperature-moderate;
+                            high <=> root.load-temperature-high;
+                            critical <=> root.load-temperature-critical;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Ping (ms)");
+                        description: @tr("Default: 50, 100, 200");
+                        LoadThresholdFields {
+                            maximum: 5000;
+                            moderate <=> root.load-ping-moderate;
+                            high <=> root.load-ping-high;
+                            critical <=> root.load-ping-critical;
+                            edited => { root.changed(); }
+                        }
+                    }
                 }
             }
 

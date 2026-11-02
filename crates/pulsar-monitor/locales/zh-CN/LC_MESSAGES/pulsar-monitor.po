@@ -1594,8 +1594,44 @@ msgid "Popup graph height"
 msgstr "弹出窗口图表高度"
 
 #: ui/settings.slint
-msgid "Color by load turns an item green, yellow, orange or red as its value rises: from 50, 75 and 90 %, 70, 80 and 90 °C, and 50, 100 and 200 ms for ping. Other values keep the item color."
-msgstr "按负载着色会随数值升高将监控项显示为绿色、黄色、橙色或红色：分界为 50、75 和 90 %，70、80 和 90 °C，延迟为 50、100 和 200 ms。其他数值保持监控项颜色。"
+msgid "Color by load thresholds"
+msgstr "按负载着色阈值"
+
+#: ui/settings.slint
+msgid "An item set to color by load is green, then turns yellow, orange and red as its value reaches each threshold below, left to right. Other values keep the item color."
+msgstr "设为按负载着色的项目显示为绿色，当数值达到下方从左到右的各个阈值时，依次变为黄色、橙色和红色。其他数值保持项目颜色。"
+
+#: ui/settings.slint
+msgid "Percent (%)"
+msgstr "百分比 (%)"
+
+#: ui/settings.slint
+msgid "Default: 50, 75, 90"
+msgstr "默认：50, 75, 90"
+
+#: ui/settings.slint
+msgid "Temperature (°F)"
+msgstr "温度 (°F)"
+
+#: ui/settings.slint
+msgid "Temperature (°C)"
+msgstr "温度 (°C)"
+
+#: ui/settings.slint
+msgid "Default: 158, 176, 194"
+msgstr "默认：158, 176, 194"
+
+#: ui/settings.slint
+msgid "Default: 70, 80, 90"
+msgstr "默认：70, 80, 90"
+
+#: ui/settings.slint
+msgid "Ping (ms)"
+msgstr "Ping (ms)"
+
+#: ui/settings.slint
+msgid "Default: 50, 100, 200"
+msgstr "默认：50, 100, 200"
 
 #: ui/settings.slint
 msgid "Mode"

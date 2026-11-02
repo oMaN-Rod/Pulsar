@@ -484,6 +484,15 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_ping_host(f.ping_host.as_str().into());
     ui.set_ping_interval_ms(f.ping_interval_ms);
     ui.set_alert_fahrenheit(f.alert_fahrenheit);
+    ui.set_load_percent_moderate(f.load_percent[0]);
+    ui.set_load_percent_high(f.load_percent[1]);
+    ui.set_load_percent_critical(f.load_percent[2]);
+    ui.set_load_temperature_moderate(f.load_temperature[0]);
+    ui.set_load_temperature_high(f.load_temperature[1]);
+    ui.set_load_temperature_critical(f.load_temperature[2]);
+    ui.set_load_ping_moderate(f.load_ping[0]);
+    ui.set_load_ping_high(f.load_ping[1]);
+    ui.set_load_ping_critical(f.load_ping[2]);
     ui.set_alert_cpu(f.alert_cpu);
     ui.set_hotkey_show_hide(f.hotkey_show_hide.as_str().into());
     ui.set_hotkey_widget(f.hotkey_widget.as_str().into());
@@ -581,6 +590,21 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         alert_drives: ui.get_alert_drives(),
         alert_drives_limit: ui.get_alert_drives_limit(),
         alert_fahrenheit: ui.get_alert_fahrenheit(),
+        load_percent: [
+            ui.get_load_percent_moderate(),
+            ui.get_load_percent_high(),
+            ui.get_load_percent_critical(),
+        ],
+        load_temperature: [
+            ui.get_load_temperature_moderate(),
+            ui.get_load_temperature_high(),
+            ui.get_load_temperature_critical(),
+        ],
+        load_ping: [
+            ui.get_load_ping_moderate(),
+            ui.get_load_ping_high(),
+            ui.get_load_ping_critical(),
+        ],
         hotkey_show_hide: ui.get_hotkey_show_hide().to_string(),
         hotkey_widget: ui.get_hotkey_widget().to_string(),
         hotkey_details: ui.get_hotkey_details().to_string(),

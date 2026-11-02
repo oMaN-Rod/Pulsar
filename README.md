@@ -83,7 +83,7 @@ Pulsar sits beside the tray or at the left edge of the taskbar, nudged by an off
 
 ### A style and color per item
 
-Each item draws an area graph, a line, bars, a level meter, or just its text. It can use its own color, your Windows accent color, or a color that turns green, yellow, orange and red as its load rises.
+Each item draws an area graph, a line, bars, a level meter, or just its text. It can use its own color, your Windows accent color, or a color that turns green, yellow, orange and red as its load rises, at thresholds you can set.
 
 | | |
 |---|---|
