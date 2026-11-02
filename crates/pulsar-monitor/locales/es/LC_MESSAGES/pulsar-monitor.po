@@ -945,6 +945,10 @@ msgid "Short labels"
 msgstr "Etiquetas cortas"
 
 #: src/menu.rs ui/settings.slint
+msgid "Vertical labels"
+msgstr "Etiquetas verticales"
+
+#: src/menu.rs ui/settings.slint
 msgid "Icons"
 msgstr "Iconos"
 
@@ -1035,6 +1039,26 @@ msgstr "Gráfica de barras"
 #: src/names.rs
 msgid "Level meter"
 msgstr "Medidor de nivel"
+
+#: src/names.rs
+msgid "Ring gauge"
+msgstr "Indicador circular"
+
+#: src/names.rs
+msgid "Segment meter"
+msgstr "Medidor segmentado"
+
+#: src/names.rs
+msgid "Spark underline"
+msgstr "Línea de tendencia inferior"
+
+#: src/names.rs
+msgid "Core bars"
+msgstr "Barras por núcleo"
+
+#: src/names.rs
+msgid "Heat cells"
+msgstr "Celdas de calor"
 
 #: src/names.rs
 msgid "Item color"
@@ -1711,6 +1735,10 @@ msgstr "Gráficas en una línea"
 #: ui/settings.slint
 msgid "Put the icon, label and value on one line, for short taskbars."
 msgstr "Coloca el icono, la etiqueta y el valor en una línea, para barras de tareas bajas."
+
+#: ui/settings.slint
+msgid "Stack each label one letter per line, with the value beside it."
+msgstr "Apila cada etiqueta con una letra por línea y el valor al lado."
 
 #: ui/settings.slint
 msgid "Labels"

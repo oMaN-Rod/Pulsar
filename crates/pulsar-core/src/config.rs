@@ -28,6 +28,16 @@ pub enum GraphStyle {
     Bars,
     /// A level meter for the latest value instead of the history.
     Meter,
+    /// A stepped level meter under or beside the text.
+    Segments,
+    /// A thin history line under or beside the text.
+    Spark,
+    /// An arc for the latest value beside the text.
+    Ring,
+    /// A bar per logical processor beside the text; CPU only.
+    Cores,
+    /// A cell per logical processor, colored by load, beside the text; CPU only.
+    Heat,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -381,6 +391,8 @@ pub struct Display {
     pub mode: DisplayMode,
     /// Graph mode: label and value on one line instead of stacked.
     pub graph_inline: bool,
+    /// Labels stacked one letter per line, with the value beside them.
+    pub vertical_labels: bool,
     pub hover_popup: bool,
     pub position: Position,
     pub offset_px: i32,
@@ -675,6 +687,7 @@ impl Default for Display {
         Self {
             mode: DisplayMode::Graph,
             graph_inline: false,
+            vertical_labels: false,
             hover_popup: true,
             position: Position::Right,
             offset_px: 0,
@@ -830,6 +843,14 @@ impl Config {
             seen.push(*k);
             new
         });
+        for item in &mut self.items {
+            if item.kind == ItemKind::Cpu {
+                continue;
+            }
+            if matches!(item.style, GraphStyle::Cores | GraphStyle::Heat) {
+                item.style = GraphStyle::default();
+            }
+        }
         let d = &mut self.display;
         if d.labels == LabelStyle::None {
             d.icons = true;
@@ -1439,6 +1460,18 @@ sample_interval_ms = 1
         assert_eq!(c.display.load_thresholds.percent, [50, 75, 90]);
         save(&path, &c).unwrap();
         assert_eq!(load(&path).config, c);
+    }
+
+    #[test]
+    fn sanitize_keeps_per_core_styles_to_the_cpu() {
+        for style in [GraphStyle::Cores, GraphStyle::Heat] {
+            let mut c = Config::default();
+            c.item_mut(ItemKind::Cpu).unwrap().style = style;
+            c.item_mut(ItemKind::Ram).unwrap().style = style;
+            let c = c.sanitize();
+            assert_eq!(c.item(ItemKind::Cpu).unwrap().style, style);
+            assert_eq!(c.item(ItemKind::Ram).unwrap().style, GraphStyle::Area);
+        }
     }
 
     #[test]

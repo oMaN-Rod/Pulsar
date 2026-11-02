@@ -248,10 +248,11 @@ impl Paint<'_> {
             text: pulsar_core::layout::TileText {
                 labels,
                 icons,
+                vertical_labels: d.vertical_labels,
                 upload_on_top: d.upload_on_top,
                 names: &names,
             },
-            graph_inline: graph_inline && !layout.vertical,
+            graph_inline: graph_inline && !layout.vertical && !d.vertical_labels,
             styles: &styles,
             network_floor: NetworkFloor::new(&self.config.network),
         };

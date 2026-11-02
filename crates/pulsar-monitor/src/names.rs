@@ -28,13 +28,38 @@ pub fn item_msgid(kind: ItemKind) -> &'static str {
 }
 
 /// Graph styles in menu order; `None` is text only.
-pub const STYLES: [Option<GraphStyle>; 5] = [
+pub const STYLES: [Option<GraphStyle>; 10] = [
     Some(GraphStyle::Area),
     Some(GraphStyle::Line),
     Some(GraphStyle::Bars),
     Some(GraphStyle::Meter),
+    Some(GraphStyle::Segments),
+    Some(GraphStyle::Spark),
+    Some(GraphStyle::Ring),
+    Some(GraphStyle::Cores),
+    Some(GraphStyle::Heat),
     None,
 ];
+
+/// `STYLES` without the ones only the CPU can draw.
+const SHARED_STYLES: [Option<GraphStyle>; 8] = [
+    Some(GraphStyle::Area),
+    Some(GraphStyle::Line),
+    Some(GraphStyle::Bars),
+    Some(GraphStyle::Meter),
+    Some(GraphStyle::Segments),
+    Some(GraphStyle::Spark),
+    Some(GraphStyle::Ring),
+    None,
+];
+
+pub fn styles_for(kind: ItemKind) -> &'static [Option<GraphStyle>] {
+    if kind == ItemKind::Cpu {
+        &STYLES
+    } else {
+        &SHARED_STYLES
+    }
+}
 
 pub fn style_name(style: Option<GraphStyle>) -> &'static str {
     match style {
@@ -42,6 +67,11 @@ pub fn style_name(style: Option<GraphStyle>) -> &'static str {
         Some(GraphStyle::Line) => tr!("Line graph"),
         Some(GraphStyle::Bars) => tr!("Bar graph"),
         Some(GraphStyle::Meter) => tr!("Level meter"),
+        Some(GraphStyle::Ring) => tr!("Ring gauge"),
+        Some(GraphStyle::Segments) => tr!("Segment meter"),
+        Some(GraphStyle::Spark) => tr!("Spark underline"),
+        Some(GraphStyle::Cores) => tr!("Core bars"),
+        Some(GraphStyle::Heat) => tr!("Heat cells"),
         None => tr!("Text only"),
     }
 }

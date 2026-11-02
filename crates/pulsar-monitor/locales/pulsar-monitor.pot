@@ -943,6 +943,10 @@ msgid "Short labels"
 msgstr ""
 
 #: src/menu.rs ui/settings.slint
+msgid "Vertical labels"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
 msgid "Icons"
 msgstr ""
 
@@ -1032,6 +1036,26 @@ msgstr ""
 
 #: src/names.rs
 msgid "Level meter"
+msgstr ""
+
+#: src/names.rs
+msgid "Ring gauge"
+msgstr ""
+
+#: src/names.rs
+msgid "Segment meter"
+msgstr ""
+
+#: src/names.rs
+msgid "Spark underline"
+msgstr ""
+
+#: src/names.rs
+msgid "Core bars"
+msgstr ""
+
+#: src/names.rs
+msgid "Heat cells"
 msgstr ""
 
 #: src/names.rs
@@ -1708,6 +1732,10 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Put the icon, label and value on one line, for short taskbars."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Stack each label one letter per line, with the value beside it."
 msgstr ""
 
 #: ui/settings.slint

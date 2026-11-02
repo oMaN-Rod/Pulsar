@@ -251,6 +251,7 @@ mod tests {
             labels: LabelStyle::Full,
             icons: false,
             graph_inline: false,
+            vertical_labels: false,
             upload_on_top: false,
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
@@ -271,6 +272,7 @@ mod tests {
             kind,
             parts: vec![CellPart::Main],
             tile: Default::default(),
+            graphic: Default::default(),
         })
         .to_vec()
     }

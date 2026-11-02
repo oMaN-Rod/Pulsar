@@ -1,22 +1,27 @@
 use std::borrow::Cow;
 
 use pulsar_core::config::{DisplayMode, GraphStyle};
+use pulsar_core::hardware::cpu::cached_topology;
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{
-    Cell, CellPart, Layout, Rect, TextMeasure, TileText, cell_icon, cell_label, icon_gap,
-    inline_slots, label_width, network_pair,
+    Cell, CellPart, Layout, Rect, StackedLabel, TextMeasure, TileGraphic, TileLook, TileText,
+    cell_icon, cell_label, heat_rows, icon_gap, inline_slots, label_width, network_pair,
+    stacked_label, tile_regions,
 };
 use pulsar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
 use windows::Win32::Graphics::Direct2D::Common::{
-    D2D_RECT_F, D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_FIGURE_BEGIN_FILLED,
+    D2D_RECT_F, D2D_SIZE_F, D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_FIGURE_BEGIN_FILLED,
     D2D1_FIGURE_BEGIN_HOLLOW, D2D1_FIGURE_END_CLOSED, D2D1_FIGURE_END_OPEN, D2D1_PIXEL_FORMAT,
 };
 use windows::Win32::Graphics::Direct2D::{
-    D2D1_DRAW_TEXT_OPTIONS_NONE, D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL_DEFAULT,
+    D2D1_ARC_SEGMENT, D2D1_ARC_SIZE_LARGE, D2D1_ARC_SIZE_SMALL, D2D1_CAP_STYLE_FLAT,
+    D2D1_CAP_STYLE_ROUND, D2D1_DASH_STYLE_SOLID, D2D1_DRAW_TEXT_OPTIONS_NONE, D2D1_ELLIPSE,
+    D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL_DEFAULT, D2D1_LINE_JOIN_ROUND,
     D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_SOFTWARE, D2D1_RENDER_TARGET_USAGE_NONE,
-    D2D1_ROUNDED_RECT, D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE, D2D1CreateFactory, ID2D1DCRenderTarget,
-    ID2D1Factory, ID2D1PathGeometry,
+    D2D1_ROUNDED_RECT, D2D1_STROKE_STYLE_PROPERTIES, D2D1_SWEEP_DIRECTION_CLOCKWISE,
+    D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE, D2D1CreateFactory, ID2D1DCRenderTarget, ID2D1Factory,
+    ID2D1PathGeometry, ID2D1StrokeStyle,
 };
 use windows::Win32::Graphics::DirectWrite::IDWriteTextFormat;
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -32,8 +37,17 @@ use windows_numerics::Vector2;
 use crate::text::Text;
 use crate::theme::{Color, Palette};
 use pulsar_core::display::{
-    NetworkFloor, area_points, bar_rects, floored_cell_value, graph_max, meter_fraction, metric_for,
+    CoreLoad, NetworkFloor, area_points, bar_rects, core_bars, core_loads, floored_cell_value,
+    graph_max, heat_cells, lit_segments, meter_fraction, metric_for, ring_arc, ring_companion,
+    segment_rects,
 };
+
+/// Below this a tile's ring has no room for a second ring inside it, in DIPs.
+const MIN_COMPANION_RING_DIP: f32 = 24.0;
+const SEGMENTS: usize = 10;
+const SEGMENT_DIP: f32 = 6.0;
+/// Efficient cores are drawn a little darker than performance cores.
+const EFFICIENT_ALPHA: f32 = 0.72;
 
 /// A 32-bit premultiplied DIB that Direct2D draws into and
 /// `UpdateLayeredWindow` presents with per-pixel alpha.
@@ -146,9 +160,19 @@ pub fn graph_styles(config: &pulsar_core::config::Config) -> Vec<(ItemKind, Opti
         .collect()
 }
 
+/// How core bars mark what they show.
+#[derive(Clone, Copy)]
+pub struct CoreMarks {
+    pub split: Option<usize>,
+    pub track: Color,
+    pub peak: Color,
+    pub scale: f32,
+}
+
 pub struct Renderer {
     factory: ID2D1Factory,
     target: ID2D1DCRenderTarget,
+    round_stroke: ID2D1StrokeStyle,
 }
 
 impl Renderer {
@@ -156,7 +180,21 @@ impl Renderer {
         let factory: ID2D1Factory =
             unsafe { D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, None)? };
         let target = create_target(&factory)?;
-        Ok(Self { factory, target })
+        let round = D2D1_STROKE_STYLE_PROPERTIES {
+            startCap: D2D1_CAP_STYLE_ROUND,
+            endCap: D2D1_CAP_STYLE_ROUND,
+            dashCap: D2D1_CAP_STYLE_FLAT,
+            lineJoin: D2D1_LINE_JOIN_ROUND,
+            miterLimit: 10.0,
+            dashStyle: D2D1_DASH_STYLE_SOLID,
+            dashOffset: 0.0,
+        };
+        let round_stroke = unsafe { factory.CreateStrokeStyle(&round, None)? };
+        Ok(Self {
+            factory,
+            target,
+            round_stroke,
+        })
     }
 
     pub fn draw(&mut self, surface: &Surface, frame: &Frame, text: &Text) -> Result<()> {
@@ -284,19 +322,69 @@ impl Renderer {
         Ok(())
     }
 
+    /// One letter per line, centred in `area`, with the icon on top.
+    fn draw_stacked_label(
+        &self,
+        text: &Text,
+        frame: &Frame,
+        cell: &Cell,
+        stack: &StackedLabel,
+        area: Rect,
+    ) -> Result<()> {
+        let color = frame.palette.label_for(cell.kind, cell.part);
+        let px = stack.px;
+        let line_h = text.line_height(px);
+        let total = stack.lines() as f32 * stack.step;
+        let top = area.y + (area.h - total) / 2.0;
+        let at = |line: usize| top + line as f32 * stack.step + (stack.step - line_h) / 2.0;
+        let mut line = 0;
+        if let Some(icon) = stack.icon {
+            let format = text.icon_format(px)?;
+            let x = area.x + (area.w - text.icon_width(icon, px)) / 2.0;
+            let y = at(0) + text.icon_offset(icon, px);
+            self.text_at(text, &format, icon, x, y, color)?;
+            line = 1;
+        }
+        let format = text.format(px)?;
+        for glyph in &stack.glyphs {
+            let x = area.x + (area.w - text.width(glyph, px)) / 2.0;
+            self.text_at(text, &format, glyph, x, at(line), color)?;
+            line += 1;
+        }
+        Ok(())
+    }
+
     fn draw_text_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
         let font_px = frame.layout.font_px;
         let format = text.format(font_px)?;
+        let scale = frame.dpi as f32 / 96.0;
         for cell in &frame.layout.cells {
-            self.draw_label(
-                text,
-                frame,
-                font_px,
-                cell.kind,
-                cell.part,
-                cell.rect.x,
-                cell.rect.y,
-            )?;
+            if frame.text.vertical_labels {
+                let stack = stacked_label(
+                    cell.kind,
+                    cell.part,
+                    frame.text,
+                    font_px,
+                    cell.rect.h,
+                    scale,
+                    text,
+                );
+                let area = Rect {
+                    w: stack.width,
+                    ..cell.rect
+                };
+                self.draw_stacked_label(text, frame, cell, &stack, area)?;
+            } else {
+                self.draw_label(
+                    text,
+                    frame,
+                    font_px,
+                    cell.kind,
+                    cell.part,
+                    cell.rect.x,
+                    cell.rect.y,
+                )?;
+            }
             let value = frame.value_text(cell.kind, cell.part);
             let color = frame.value_color(cell.kind, cell.part, false);
             self.text_at(text, &format, &value, cell.value_x, cell.value_y, color)?;
@@ -311,9 +399,43 @@ impl Renderer {
             let small = text.format(small_px)?;
             let line_h = small_px * 1.3;
             self.fill_rounded(cell.rect, 4.0 * scale, frame.palette.tile)?;
-            let graphed = frame.style(cell.kind).is_some();
-            if let Some(style) = frame.style(cell.kind) {
-                self.draw_series(frame, cell, style, scale)?;
+            let style = frame.style(cell.kind);
+            let graphed = style.is_some();
+            let look = TileLook {
+                text: frame.text,
+                inline: frame.graph_inline,
+                vertical_bar: frame.layout.vertical,
+                scale,
+            };
+            let graphic = style.map_or(TileGraphic::Behind, |s| TileGraphic::of(s, 0, false));
+            let regions = tile_regions(
+                cell.rect, cell.kind, cell.part, graphic, look, small_px, text,
+            );
+            match (style, regions.ring, regions.cores) {
+                (Some(GraphStyle::Ring), Some(ring), _) => {
+                    self.draw_rings(frame, cell, ring, scale)?;
+                }
+                (Some(GraphStyle::Cores), _, Some(area)) => {
+                    self.draw_cores(frame, cell, area, scale)?;
+                }
+                (Some(GraphStyle::Heat), _, Some(area)) => {
+                    self.draw_heat(frame, cell, area, scale)?;
+                }
+                (Some(GraphStyle::Segments), ..) => {
+                    if let Some(area) = regions.strip {
+                        self.draw_segments(frame, cell, area, scale)?;
+                    }
+                }
+                (Some(GraphStyle::Spark), ..) => {
+                    if let Some(area) = regions.strip {
+                        self.draw_spark(frame, cell, area, scale)?;
+                    }
+                }
+                (Some(style), ..) => self.draw_series(frame, cell, style, regions.graph, scale)?,
+                (None, ..) => {}
+            }
+            if let Some((stack, area)) = &regions.stack {
+                self.draw_stacked_label(text, frame, cell, stack, *area)?;
             }
             let color = |part| frame.value_color(cell.kind, part, graphed);
             let pad = 4.0 * scale;
@@ -321,7 +443,7 @@ impl Renderer {
                 cell.rect.y + pad * 0.5,
                 cell.rect.y + cell.rect.h - line_h - pad * 0.5,
             );
-            let x = cell.rect.x + pad;
+            let x = regions.text_x;
             if frame.graph_inline {
                 let y = cell.rect.y + (cell.rect.h - text.line_height(small_px)) / 2.0;
                 let (slots, _) =
@@ -350,6 +472,22 @@ impl Renderer {
                     let value_x = x + label_w + icon_gap(small_px);
                     self.text_at(text, &small, &value, value_x, y, color(part))?;
                 }
+            } else if let Some(strip) = regions.strip.filter(|_| regions.strip_below) {
+                let y = cell.rect.y + 2.0 * scale;
+                if !frame.text.vertical_labels {
+                    self.draw_label(text, frame, small_px, cell.kind, cell.part, x, y)?;
+                }
+                let value = frame.value_text(cell.kind, cell.part);
+                let value_x = if frame.text.vertical_labels {
+                    x
+                } else {
+                    strip.right() - text.width(&value, small_px)
+                };
+                self.text_at(text, &small, &value, value_x, y, color(cell.part))?;
+            } else if frame.text.vertical_labels {
+                let y = cell.rect.y + (cell.rect.h - text.line_height(small_px)) / 2.0;
+                let value = frame.value_text(cell.kind, cell.part);
+                self.text_at(text, &small, &value, x, y, color(cell.part))?;
             } else {
                 self.draw_label(text, frame, small_px, cell.kind, cell.part, x, top)?;
                 let value = frame.value_text(cell.kind, cell.part);
@@ -359,7 +497,8 @@ impl Renderer {
         Ok(())
     }
 
-    fn draw_series(&self, frame: &Frame, cell: &Cell, style: GraphStyle, scale: f32) -> Result<()> {
+    /// A cell's readings with their histories, and the ceiling they share.
+    fn cell_series<'a>(frame: &'a Frame, cell: &Cell) -> (Vec<(CellPart, Cow<'a, History>)>, f64) {
         let pair = network_pair(cell.kind, cell.part, frame.text.upload_on_top);
         let parts: &[CellPart] = match &pair {
             Some(pair) => pair,
@@ -373,21 +512,231 @@ impl Renderer {
                 Some((p, frame.network_floor.series(key, history)))
             })
             .collect();
-        if histories.is_empty() {
-            return Ok(());
-        }
         let unit = metric_for(cell.kind, parts[0]).unit();
         let max = graph_max(
             unit,
             &histories.iter().map(|(_, h)| &**h).collect::<Vec<_>>(),
         );
-        let inset = 1.0 * scale;
-        let area = Rect {
-            x: cell.rect.x + inset,
-            y: cell.rect.y + inset,
-            w: cell.rect.w - 2.0 * inset,
-            h: cell.rect.h - 2.0 * inset,
+        (histories, max)
+    }
+
+    /// The reading's ring, with its temperature inside when there is room,
+    /// as on the details page. A pair has a ring per direction.
+    fn draw_rings(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let (histories, max) = Self::cell_series(frame, cell);
+        let mut rings: Vec<(f32, Color)> = histories
+            .iter()
+            .map(|(part, history)| {
+                let latest = history.latest();
+                (
+                    meter_fraction(latest.unwrap_or(f64::NAN), max),
+                    palette.graph_at(cell.kind, *part, latest),
+                )
+            })
+            .collect();
+        if rings.is_empty() {
+            rings.push((0.0, palette.graph(cell.kind, cell.part)));
+        }
+        if rings.len() == 1 && area.w >= MIN_COMPANION_RING_DIP * scale {
+            let companion = ring_companion(cell.kind).and_then(|kind| {
+                let value = frame.snapshot.get(metric_for(kind, cell.part))?;
+                frame
+                    .snapshot
+                    .item_error(kind)
+                    .is_none()
+                    .then_some((kind, value))
+            });
+            if let Some((kind, value)) = companion {
+                rings.push((
+                    meter_fraction(value, 100.0),
+                    palette.graph_at(kind, cell.part, Some(value)),
+                ));
+            }
+        }
+        let center = (area.x + area.w / 2.0, area.y + area.h / 2.0);
+        let stroke = area.w * if rings.len() == 1 { 0.11 } else { 0.095 };
+        let track = palette.text.with_alpha(0.14);
+        let mut radius = area.w / 2.0 - stroke / 2.0;
+        for (fraction, color) in rings {
+            self.draw_ring(center, radius, stroke, fraction, color, track)?;
+            radius -= stroke + scale;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn draw_ring(
+        &self,
+        center: (f32, f32),
+        radius: f32,
+        stroke: f32,
+        fraction: f32,
+        color: Color,
+        track: Color,
+    ) -> Result<()> {
+        let v = |(x, y): (f32, f32)| Vector2 { X: x, Y: y };
+        let ellipse = D2D1_ELLIPSE {
+            point: v(center),
+            radiusX: radius,
+            radiusY: radius,
         };
+        unsafe {
+            let brush = self.target.CreateSolidColorBrush(&d2d(track), None)?;
+            self.target.DrawEllipse(&ellipse, &brush, stroke, None);
+        }
+        let Some(arc) = ring_arc(center, radius, fraction) else {
+            return Ok(());
+        };
+        unsafe {
+            let geometry = self.factory.CreatePathGeometry()?;
+            let sink = geometry.Open()?;
+            sink.BeginFigure(v(arc.start), D2D1_FIGURE_BEGIN_HOLLOW);
+            sink.AddArc(&D2D1_ARC_SEGMENT {
+                point: v(arc.end),
+                size: D2D_SIZE_F {
+                    width: radius,
+                    height: radius,
+                },
+                rotationAngle: 0.0,
+                sweepDirection: D2D1_SWEEP_DIRECTION_CLOCKWISE,
+                arcSize: if arc.large {
+                    D2D1_ARC_SIZE_LARGE
+                } else {
+                    D2D1_ARC_SIZE_SMALL
+                },
+            });
+            sink.EndFigure(D2D1_FIGURE_END_OPEN);
+            sink.Close()?;
+            let brush = self.target.CreateSolidColorBrush(&d2d(color), None)?;
+            self.target
+                .DrawGeometry(&geometry, &brush, stroke, &self.round_stroke);
+        }
+        Ok(())
+    }
+
+    fn cell_core_loads(frame: &Frame, cell: &Cell) -> Vec<CoreLoad> {
+        if frame.snapshot.item_error(cell.kind).is_some() {
+            return Vec::new();
+        }
+        core_loads(frame.snapshot, frame.history)
+    }
+
+    fn draw_cores(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let loads = Self::cell_core_loads(frame, cell);
+        let marks = CoreMarks {
+            split: cached_topology().performance_threads(loads.len()),
+            track: palette.text.with_alpha(0.1),
+            peak: palette.text.with_alpha(0.85),
+            scale,
+        };
+        self.draw_core_bars(&loads, area, marks, |load| {
+            palette.graph_at(cell.kind, cell.part, Some(load))
+        })
+    }
+
+    /// Bars for `loads` in `area`, with peak marks and core types set apart.
+    pub(crate) fn draw_core_bars(
+        &self,
+        loads: &[CoreLoad],
+        area: Rect,
+        marks: CoreMarks,
+        color: impl Fn(f64) -> Color,
+    ) -> Result<()> {
+        let scale = marks.scale;
+        let gap = scale.round().max(1.0);
+        let radius = scale;
+        for bar in core_bars(loads, area, marks.split, gap, scale.round().max(1.0)) {
+            let mut fill = color(bar.load);
+            if bar.efficient {
+                fill = fill.with_alpha(fill.a * EFFICIENT_ALPHA);
+            }
+            self.fill_rounded(bar.track, radius, marks.track)?;
+            self.fill_rounded(bar.fill, radius, fill)?;
+            if let Some(y) = bar.peak_y {
+                let mark = Rect {
+                    y,
+                    h: scale.round().max(1.0),
+                    ..bar.track
+                };
+                self.fill_rect(mark, marks.peak)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn draw_heat(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let loads: Vec<f64> = Self::cell_core_loads(frame, cell)
+            .iter()
+            .map(|c| c.load)
+            .collect();
+        // On a vertical bar the cells sit behind the text, which must stay readable.
+        let strength = if frame.layout.vertical { 0.45 } else { 1.0 };
+        let rows = heat_rows(area.h, scale);
+        for (rect, load) in heat_cells(&loads, area, rows, scale.round().max(1.0)) {
+            let color = frame.palette.heat_at(load);
+            self.fill_rounded(rect, 2.0 * scale, color.with_alpha(color.a * strength))?;
+        }
+        Ok(())
+    }
+
+    /// One row of segments per reading, centred in its share of `area`.
+    fn draw_segments(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let palette = frame.palette;
+        let (histories, max) = Self::cell_series(frame, cell);
+        let rows = histories.len().max(1) as f32;
+        let height = (SEGMENT_DIP * scale)
+            .min(area.h / rows - scale)
+            .round()
+            .max(1.0);
+        let pitch = area.h / rows;
+        let unlit = palette.text.with_alpha(0.14);
+        let gap = scale.round().max(1.0);
+        for (row, (part, history)) in histories.iter().enumerate() {
+            let band = Rect {
+                y: (area.y + row as f32 * pitch + (pitch - height) / 2.0).round(),
+                h: height,
+                ..area
+            };
+            let latest = history.latest();
+            let segments = segment_rects(band, SEGMENTS, gap);
+            let fraction = meter_fraction(latest.unwrap_or(f64::NAN), max);
+            let lit = lit_segments(fraction, segments.len());
+            let count = segments.len() as f64;
+            for (i, segment) in segments.into_iter().enumerate() {
+                let color = if i < lit {
+                    let step = max * (i as f64 + 0.5) / count;
+                    palette.graph_at(cell.kind, *part, Some(step))
+                } else {
+                    unlit
+                };
+                self.fill_rounded(segment, scale, color)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn draw_spark(&self, frame: &Frame, cell: &Cell, area: Rect, scale: f32) -> Result<()> {
+        let (histories, max) = Self::cell_series(frame, cell);
+        for (part, history) in &histories {
+            let color = frame.palette.graph_at(cell.kind, *part, history.latest());
+            self.series(&area_points(history, area, max), color, false, 1.25 * scale)?;
+        }
+        Ok(())
+    }
+
+    fn draw_series(
+        &self,
+        frame: &Frame,
+        cell: &Cell,
+        style: GraphStyle,
+        area: Rect,
+        scale: f32,
+    ) -> Result<()> {
+        let (histories, max) = Self::cell_series(frame, cell);
+        if histories.is_empty() {
+            return Ok(());
+        }
         let palette = frame.palette;
         if style == GraphStyle::Meter {
             let band_h = area.h / histories.len() as f32;
@@ -626,6 +975,7 @@ mod tests {
                 labels: config.display.labels,
                 icons: config.display.icons,
                 graph_inline: config.display.graph_inline,
+                vertical_labels: config.display.vertical_labels,
                 upload_on_top: config.display.upload_on_top,
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
@@ -635,6 +985,10 @@ mod tests {
         );
         let mut snapshot = Snapshot::default();
         snapshot.set(MetricKey::CpuTotal, 50.0);
+        snapshot.set(MetricKey::CpuTempC, 60.0);
+        for core in 0..24 {
+            snapshot.set(MetricKey::CpuCore(core), f64::from(core) * 4.0);
+        }
         let mut history = HistoryStore::new(60);
         for &v in samples {
             let mut s = Snapshot::default();
@@ -654,10 +1008,11 @@ mod tests {
             text: TileText {
                 labels: config.display.labels,
                 icons: config.display.icons,
+                vertical_labels: config.display.vertical_labels,
                 upload_on_top: config.display.upload_on_top,
                 names: &names,
             },
-            graph_inline: config.display.graph_inline,
+            graph_inline: config.display.graph_inline && !config.display.vertical_labels,
             styles: &graph_styles(config),
             network_floor: NetworkFloor::new(&config.network),
         };
@@ -828,6 +1183,7 @@ mod tests {
                 labels: config.display.labels,
                 icons: config.display.icons,
                 graph_inline: config.display.graph_inline,
+                vertical_labels: false,
                 upload_on_top: config.display.upload_on_top,
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
@@ -856,6 +1212,7 @@ mod tests {
             text: TileText {
                 labels: config.display.labels,
                 icons: config.display.icons,
+                vertical_labels: false,
                 upload_on_top: config.display.upload_on_top,
                 names: &names,
             },
@@ -1020,6 +1377,7 @@ mod tests {
                 labels: config.display.labels,
                 icons: config.display.icons,
                 graph_inline: config.display.graph_inline,
+                vertical_labels: false,
                 upload_on_top: config.display.upload_on_top,
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
@@ -1054,6 +1412,7 @@ mod tests {
             text: TileText {
                 labels: config.display.labels,
                 icons: config.display.icons,
+                vertical_labels: false,
                 upload_on_top: config.display.upload_on_top,
                 names: &names,
             },
@@ -1308,6 +1667,117 @@ mod tests {
         config.items[0].graph = false;
         assert_eq!(config.items[0].kind, ItemKind::Cpu);
         assert_eq!(corner(&config), 1, "only the hit-test fill remains");
+    }
+
+    #[test]
+    fn a_core_bar_style_draws_a_bar_per_core_right_of_the_text() {
+        let mut config = Config::default();
+        config.display.tile_opacity = Some(0);
+        config.item_mut(ItemKind::Cpu).unwrap().style = GraphStyle::Cores;
+        let (surface, layout) = render_with(DisplayMode::Graph, &[50.0; 8], &config);
+        let cpu = layout
+            .cells
+            .iter()
+            .find(|c| c.kind == ItemKind::Cpu)
+            .unwrap();
+        let bottom = cpu.rect.y + cpu.rect.h - 5.0;
+        let last = alpha_at(&surface, cpu.rect.right() - 5.0, bottom);
+        assert!(last > 0x40, "no bar at the right edge ({last})");
+    }
+
+    #[test]
+    fn peak_marks_show_above_a_quiet_core() {
+        let surface = Surface::new(40, 40).unwrap();
+        let mut renderer = Renderer::new().unwrap();
+        let transparent = Color::rgb(0, 0, 0).with_alpha(0.0);
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 40.0,
+            h: 40.0,
+        };
+        let loads = [CoreLoad {
+            load: 0.0,
+            peak: 50.0,
+        }];
+        let marks = CoreMarks {
+            split: None,
+            track: transparent,
+            peak: Color::rgb(255, 255, 255),
+            scale: 1.0,
+        };
+        renderer
+            .paint(&surface, transparent, |r| {
+                r.draw_core_bars(&loads, area, marks, |_| transparent)
+            })
+            .unwrap();
+        assert!(alpha_at(&surface, 20.0, 20.5) > 0x80, "no mark at the peak");
+        assert_eq!(alpha_at(&surface, 20.0, 10.5), 0, "nothing above it");
+    }
+
+    #[test]
+    fn heat_segment_and_spark_styles_draw_beside_or_under_the_text() {
+        for (style, below) in [
+            (GraphStyle::Heat, false),
+            (GraphStyle::Segments, true),
+            (GraphStyle::Spark, true),
+        ] {
+            let mut config = Config::default();
+            config.display.tile_opacity = Some(0);
+            config.item_mut(ItemKind::Cpu).unwrap().style = style;
+            let (surface, layout) = render_with(DisplayMode::Graph, &[50.0; 60], &config);
+            let cpu = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Cpu)
+                .unwrap();
+            let tile = tile_pixels(&surface, &layout, ItemKind::Cpu);
+            let (w, h) = (cpu.rect.w as usize, cpu.rect.h as usize);
+            let rows = if below { h / 2..h - 1 } else { 0..h };
+            let inked = rows
+                .into_iter()
+                .any(|row| (w / 2..w - 2).any(|x| tile[row * w + x] >> 24 > 0x20));
+            assert!(inked, "{style:?} drew nothing where it should");
+        }
+    }
+
+    #[test]
+    fn a_ring_inks_its_track_beside_the_text() {
+        let mut config = Config::default();
+        config.display.tile_opacity = Some(0);
+        config.item_mut(ItemKind::Cpu).unwrap().style = GraphStyle::Ring;
+        let (surface, layout) = render_with(DisplayMode::Graph, &[100.0; 8], &config);
+        let cpu = layout
+            .cells
+            .iter()
+            .find(|c| c.kind == ItemKind::Cpu)
+            .unwrap();
+        let center_x = cpu.rect.x + 4.0 + (cpu.rect.h - 6.0) / 2.0;
+        let top = alpha_at(&surface, center_x, cpu.rect.y + 5.0);
+        assert!(top > 0x40, "no arc at twelve o'clock ({top})");
+    }
+
+    #[test]
+    fn vertical_labels_keep_the_value_on_one_centred_line() {
+        let mut config = Config::default();
+        config.display.tile_opacity = Some(0);
+        config.display.vertical_labels = true;
+        config.item_mut(ItemKind::Cpu).unwrap().graph = false;
+        let (surface, layout) = render_with(DisplayMode::Graph, &[50.0; 8], &config);
+        let cpu = layout
+            .cells
+            .iter()
+            .find(|c| c.kind == ItemKind::Cpu)
+            .unwrap();
+        let tile = tile_pixels(&surface, &layout, ItemKind::Cpu);
+        let (w, h) = (cpu.rect.w as usize, cpu.rect.h as usize);
+        let ink_right_half = |row: usize| (w / 2..w).any(|x| tile[row * w + x] >> 24 > 0x40);
+        assert!((0..h).any(ink_right_half));
+        assert!(!ink_right_half(1), "the top line stays clear of the value");
+        assert!(
+            !ink_right_half(h - 2),
+            "the bottom line stays clear of the value"
+        );
     }
 
     #[test]

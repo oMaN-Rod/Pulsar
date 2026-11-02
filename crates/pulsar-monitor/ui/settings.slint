@@ -1,5 +1,13 @@
 import { Button, CheckBox, ComboBox, LineEdit, Palette, ScrollView, Slider, SpinBox, Switch } from "std-widgets.slint";
 
+// A graph style for the picker; `thumb` is drawn in a 64 × 34 box.
+export struct StyleChoice {
+    name: string,
+    thumb: string,
+    stroke: float,
+    filled: bool,
+}
+
 export struct ItemRow {
     id: string,
     name: string,
@@ -8,6 +16,7 @@ export struct ItemRow {
     swatch: color,
     // Indexes into the styles, color-modes and item-popup-details lists.
     style: int,
+    is-cpu: bool,
     color-mode: int,
     popup: int,
     // 0 follows the Popups page.
@@ -331,6 +340,90 @@ component ThemeGrid inherits Rectangle {
         theme: t;
         selected: i == root.selected;
         clicked => { root.clicked(i); }
+    }
+}
+
+// One graph style: a small drawing of it and its name.
+component StyleTile inherits Rectangle {
+    in property <StyleChoice> choice;
+    in property <bool> selected;
+    in property <color> tint;
+    callback clicked();
+    width: 96px;
+    height: 78px;
+    border-radius: 6px;
+    background: touch.has-hover ? Palette.foreground.transparentize(0.88) : Palette.foreground.transparentize(0.95);
+    border-width: root.selected || focus.has-focus ? 2px : 1px;
+    border-color: root.selected ? Palette.accent-background
+        : focus.has-focus ? Palette.foreground
+        : Palette.foreground.transparentize(0.92);
+    accessible-role: button;
+    accessible-label: root.choice.name;
+    accessible-action-default => { root.clicked(); }
+    VerticalLayout {
+        padding: 6px;
+        spacing: 2px;
+        alignment: start;
+        Rectangle {
+            height: 34px;
+            if root.choice.thumb != "": Path {
+                width: 64px;
+                height: 34px;
+                viewbox-width: 64;
+                viewbox-height: 34;
+                commands: root.choice.thumb;
+                fill: root.choice.filled ? root.tint.transparentize(0.6) : transparent;
+                stroke: root.tint;
+                stroke-width: root.choice.stroke * 1px;
+            }
+            if root.choice.thumb == "": Text {
+                text: "Aa";
+                font-size: 18px;
+                color: root.tint;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            text: root.choice.name;
+            font-size: 11px;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+        }
+    }
+    touch := TouchArea {
+        clicked => {
+            focus.focus();
+            root.clicked();
+        }
+    }
+    focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.clicked();
+                return accept;
+            }
+            reject
+        }
+    }
+}
+
+component StylePicker inherits Rectangle {
+    in property <[StyleChoice]> choices;
+    in property <int> selected;
+    in property <color> tint;
+    callback picked(int);
+    property <length> step-x: 96px + 8px;
+    property <length> step-y: 78px + 8px;
+    property <int> columns: Math.max(1, Math.floor((self.width + 8px) / self.step-x));
+    min-height: Math.ceil(self.choices.length / self.columns) * self.step-y;
+    for c[i] in root.choices: StyleTile {
+        x: Math.mod(i, root.columns) * root.step-x;
+        y: Math.floor(i / root.columns) * root.step-y;
+        choice: c;
+        selected: i == root.selected;
+        tint: root.tint;
+        clicked => { root.picked(i); }
     }
 }
 
@@ -945,6 +1038,7 @@ export component SettingsWindow inherits Window {
     in-out property <int> history-len;
     in-out property <int> mode;
     in-out property <bool> graph-inline;
+    in-out property <bool> vertical-labels;
     in-out property <bool> hover-popup;
     in-out property <int> position;
     in-out property <int> offset-px;
@@ -1055,7 +1149,8 @@ export component SettingsWindow inherits Window {
     in-out property <int> popup-processes;
     in-out property <int> popup-width;
     in-out property <int> popup-graph-height;
-    in property <[string]> styles;
+    in property <[StyleChoice]> style-choices;
+    in property <[StyleChoice]> cpu-style-choices;
     in property <[string]> color-modes;
     in property <[string]> popup-details;
     in property <[string]> item-popup-details;
@@ -1367,16 +1462,28 @@ export component SettingsWindow inherits Window {
                                     }
                                 }
                             }
-                            if root.mode == 0: SettingRow {
-                                title: @tr("Graph style");
-                                search-key: row.id + "/Graph style";
-                                padding-top: 4px;
-                                padding-bottom: 4px;
-                                ComboBox {
-                                    width: 200px;
-                                    model: root.styles;
-                                    current-index: row.style;
-                                    selected => { root.item-choice(i, 0, self.current-index); }
+                            Rectangle {
+                                visible: root.mode == 0;
+                                height: root.mode == 0 ? style-column.preferred-height : 0;
+                                style-column := VerticalLayout {
+                                    SettingRow {
+                                        title: @tr("Graph style");
+                                        search-key: row.id + "/Graph style";
+                                        available: root.mode == 0;
+                                        padding-top: 4px;
+                                        padding-bottom: 4px;
+                                    }
+                                    HorizontalLayout {
+                                        padding-left: 16px;
+                                        padding-right: 16px;
+                                        padding-bottom: 4px;
+                                        StylePicker {
+                                            choices: row.is-cpu ? root.cpu-style-choices : root.style-choices;
+                                            selected: row.style;
+                                            tint: row.swatch;
+                                            picked(index) => { root.item-choice(i, 0, index); }
+                                        }
+                                    }
                                 }
                             }
                             OptionalRow {
@@ -1649,7 +1756,17 @@ export component SettingsWindow inherits Window {
                         title: @tr("Single-line graphs");
                         description: @tr("Put the icon, label and value on one line, for short taskbars.");
                         Switch {
+                            enabled: !root.vertical-labels;
                             checked <=> root.graph-inline;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Vertical labels");
+                        description: @tr("Stack each label one letter per line, with the value beside it.");
+                        Switch {
+                            checked <=> root.vertical-labels;
                             toggled => { root.changed(); }
                         }
                     }

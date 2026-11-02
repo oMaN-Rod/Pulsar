@@ -8,8 +8,13 @@ use crate::metric::{ItemKind, MetricKey};
 
 pub mod fit;
 mod names;
+mod tile;
 
 pub use names::ItemNames;
+pub use tile::{
+    StackedLabel, TileGraphic, TileLook, TileRegions, heat_rows, stacked_label, tile_chrome,
+    tile_regions,
+};
 
 pub trait TextMeasure {
     fn width(&self, text: &str, font_px: f32) -> f32;
@@ -113,6 +118,7 @@ pub struct LayoutInput<'a> {
     pub labels: LabelStyle,
     pub icons: bool,
     pub graph_inline: bool,
+    pub vertical_labels: bool,
     pub upload_on_top: bool,
     /// The width of a vertical taskbar; items then stack from the top.
     pub vertical_bar_px: Option<f32>,
@@ -158,6 +164,7 @@ pub struct ItemSpec {
     pub parts: Vec<CellPart>,
     /// Applies to each of the item's tiles.
     pub tile: TileSize,
+    pub graphic: TileGraphic,
 }
 
 const PADDING_DIP: f32 = 4.0;
@@ -343,10 +350,21 @@ pub fn label_width(
 struct Labels<'a> {
     style: LabelStyle,
     icons: bool,
+    vertical: bool,
     names: &'a ItemNames,
 }
 
-impl Labels<'_> {
+impl<'a> Labels<'a> {
+    fn tile_text(&self, upload_on_top: bool) -> TileText<'a> {
+        TileText {
+            labels: self.style,
+            icons: self.icons,
+            vertical_labels: self.vertical,
+            upload_on_top,
+            names: self.names,
+        }
+    }
+
     fn width(&self, kind: ItemKind, part: CellPart, font_px: f32, m: &dyn TextMeasure) -> f32 {
         label_width(kind, part, self.style, self.icons, self.names, font_px, m)
     }
@@ -396,6 +414,7 @@ fn with_pairs_split(items: &[ItemSpec], upload_on_top: bool) -> Vec<ItemSpec> {
                 .flat_map(|&p| single_parts(spec.kind, p, upload_on_top))
                 .collect(),
             tile: spec.tile,
+            graphic: spec.graphic,
         })
         .collect()
 }
@@ -426,6 +445,19 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
                 height: i.tile_height,
             })
     };
+    let threads = std::thread::available_parallelism().map_or(8, |n| n.get());
+    let cores = u16::try_from(threads).unwrap_or(u16::MAX);
+    let hybrid = crate::hardware::cpu::cached_topology()
+        .performance_threads(threads)
+        .is_some();
+    let graphic = |kind| {
+        config
+            .item(kind)
+            .filter(|i| i.graph)
+            .map_or_else(TileGraphic::default, |i| {
+                TileGraphic::of(i.style, cores, hybrid)
+            })
+    };
     let mut specs = Vec::with_capacity(kinds.len());
     for &kind in &kinds {
         if !(paired && is_gpu(&kind)) {
@@ -433,6 +465,7 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
                 kind,
                 parts: item_parts(kind, config, gpus),
                 tile: tile(kind),
+                graphic: graphic(kind),
             });
         } else if !specs.iter().any(|s| is_gpu(&s.kind)) {
             let order: Vec<ItemKind> = kinds.iter().copied().filter(is_gpu).collect();
@@ -441,6 +474,7 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
                     kind,
                     parts: vec![CellPart::Gpu(i)],
                     tile: tile(kind),
+                    graphic: graphic(kind),
                 }));
             }
         }
@@ -522,6 +556,16 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput<'_>, m: &dyn TextMe
         PADDING_DIP * scale,
         m.line_height(font_px),
     );
+    // A stacked label takes the full height, so each reading gets a column.
+    let rows = if input.vertical_labels {
+        TextRows {
+            count: 1,
+            gap: 0.0,
+            ..rows
+        }
+    } else {
+        rows
+    };
     let height = match input.mode {
         DisplayMode::Text => rows.height,
         DisplayMode::Graph => height,
@@ -538,6 +582,7 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput<'_>, m: &dyn TextMe
     let labels = Labels {
         style: input.labels,
         icons: input.icons,
+        vertical: input.vertical_labels,
         names: input.names,
     };
     if let Some(bar_w) = input.vertical_bar_px {
@@ -568,7 +613,9 @@ fn fitted_height(input: LayoutInput<'_>, scale: f32, font_px: f32, m: &dyn TextM
             let rows = ((input.taskbar_height_px - 2.0 * padding) / reference).floor();
             rows.clamp(1.0, MAX_TEXT_ROWS as f32) * m.line_height(font_px)
         }
-        DisplayMode::Graph if input.graph_inline => m.line_height(font_px * GRAPH_FONT_SCALE),
+        DisplayMode::Graph if input.graph_inline && !input.vertical_labels => {
+            m.line_height(font_px * GRAPH_FONT_SCALE)
+        }
         DisplayMode::Graph => {
             font_px * GRAPH_FONT_SCALE * STACKED_LINES + STACKED_INSET_DIP * scale
         }
@@ -668,7 +715,15 @@ fn text_layout(
     for column in columns {
         let label_w = column
             .iter()
-            .map(|&(k, p)| labels.width(k, p, font_px, m))
+            .map(|&(k, p)| {
+                if labels.vertical {
+                    let text = labels.tile_text(false);
+                    let h = height - padding;
+                    stacked_label(k, p, text, font_px, h, scale, m).width
+                } else {
+                    labels.width(k, p, font_px, m)
+                }
+            })
             .fold(0.0, f32::max);
         let value_w = column
             .iter()
@@ -677,14 +732,19 @@ fn text_layout(
         let col_w = label_w + label_gap + value_w;
         for (row, &(kind, part)) in column.iter().enumerate() {
             let y = top + row as f32 * (line_h + gap);
+            let (rect_y, rect_h) = if labels.vertical {
+                (padding / 2.0, height - padding)
+            } else {
+                (y, line_h)
+            };
             cells.push(Cell {
                 kind,
                 part,
                 rect: Rect {
                     x,
-                    y,
+                    y: rect_y,
                     w: col_w,
-                    h: line_h,
+                    h: rect_h,
                 },
                 value_x: x + label_w + label_gap,
                 value_y: y,
@@ -719,11 +779,21 @@ fn stacked_text(
     let gap = spacing.label_gap * scale;
     let row_gap = spacing.row_gap * scale;
     let item_gap = spacing.item_gap * 3.0 / 5.0 * scale;
+    let stack = |k, p, px: f32| {
+        let text = labels.tile_text(false);
+        stacked_label(k, p, text, px, f32::MAX, scale, m)
+    };
     let widest_label = |px: f32| {
         items
             .iter()
             .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
-            .map(|(k, p)| labels.width(k, p, px, m))
+            .map(|(k, p)| {
+                if labels.vertical {
+                    stack(k, p, px).width
+                } else {
+                    labels.width(k, p, px, m)
+                }
+            })
             .fold(0.0, f32::max)
     };
     let widest_text = |px: f32| {
@@ -735,9 +805,11 @@ fn stacked_text(
     };
     let (label_w, value_w) = (widest_label(font_px), widest_text(font_px));
     let labelled = label_w > 0.0;
-    let beside = !labelled || label_w + gap + value_w <= available;
+    let beside = !labelled || labels.vertical || label_w + gap + value_w <= available;
     let needed = if !labelled {
         value_w
+    } else if labels.vertical {
+        label_w + gap + value_w
     } else if beside {
         available
     } else {
@@ -756,6 +828,10 @@ fn stacked_text(
             }
             let (value_x, value_y, h) = if !labelled {
                 (padding, y, line_h)
+            } else if labels.vertical {
+                let label = stack(spec.kind, part, font_px);
+                let h = (label.lines() as f32 * label.step).max(line_h);
+                (padding + label_w + gap, y + (h - line_h) / 2.0, h)
             } else if beside {
                 (padding + label_w + gap, y, line_h)
             } else {
@@ -801,16 +877,28 @@ fn stacked_tiles(
     let tile_w = (bar_w - 2.0 * padding).max(1.0);
     let available = (tile_w - (PADDING_DIP + 1.0) * scale).max(1.0);
     let small_px = font_px * GRAPH_FONT_SCALE;
-    let widest = items
+    let look = TileLook {
+        text: labels.tile_text(false),
+        inline: false,
+        vertical_bar: true,
+        scale,
+    };
+    let fit = items
         .iter()
-        .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
-        .map(|(k, p)| {
-            labels
-                .width(k, p, small_px, m)
-                .max(m.width(widest_value(part_metric(k, p).unit()), small_px))
+        .flat_map(|s| s.parts.iter().map(move |&p| (s, p)))
+        .map(|(s, p)| {
+            let value = m.width(widest_value(part_metric(s.kind, p).unit()), small_px);
+            let text = if labels.vertical {
+                value
+            } else {
+                labels.width(s.kind, p, small_px, m).max(value)
+            };
+            let tile_h = requested_height(s, scale).unwrap_or(MIN_STACKED_TILE_DIP * scale);
+            let chrome = tile_chrome(s.kind, p, s.graphic, look, tile_h, small_px, m);
+            (available - chrome).max(1.0) / text.max(1.0)
         })
-        .fold(0.0, f32::max);
-    let small_px = small_px * (available / widest.max(1.0)).min(1.0);
+        .fold(1.0, f32::min);
+    let small_px = small_px * fit;
     let font_px = small_px / GRAPH_FONT_SCALE;
     let auto_h =
         (MIN_STACKED_TILE_DIP * scale).max(small_px * STACKED_LINES + STACKED_INSET_DIP * scale);
@@ -852,11 +940,17 @@ fn stacked_tiles(
 fn graph_text_width(
     kind: ItemKind,
     part: CellPart,
-    labels: Labels<'_>,
+    text: TileText<'_>,
     font_px: f32,
     m: &dyn TextMeasure,
 ) -> f32 {
     let widest = widest_value(part_metric(kind, part).unit());
+    let labels = Labels {
+        style: text.labels,
+        icons: text.icons,
+        vertical: text.vertical_labels,
+        names: text.names,
+    };
     let label = |part| labels.width(kind, part, font_px, m);
     match network_pair(kind, part, false) {
         Some([first, second]) => {
@@ -867,6 +961,7 @@ fn graph_text_width(
             };
             label_w + icon_gap(font_px) + m.width(widest, font_px)
         }
+        None if labels.vertical => m.width(widest, font_px),
         None => label(part).max(m.width(widest, font_px)),
     }
 }
@@ -885,6 +980,7 @@ pub struct InlineSlot {
 pub struct TileText<'a> {
     pub labels: LabelStyle,
     pub icons: bool,
+    pub vertical_labels: bool,
     pub upload_on_top: bool,
     pub names: &'a ItemNames,
 }
@@ -939,7 +1035,13 @@ fn graph_layout(
     input: LayoutInput<'_>,
     m: &dyn TextMeasure,
 ) -> Layout {
-    let inline = input.graph_inline;
+    let inline = input.graph_inline && !input.vertical_labels;
+    let look = TileLook {
+        text: labels.tile_text(input.upload_on_top),
+        inline,
+        vertical_bar: false,
+        scale,
+    };
     let padding = PADDING_DIP * scale;
     let auto_h = (height - 2.0 * padding).max(1.0);
     let max_h = if input.fit_font {
@@ -971,17 +1073,12 @@ fn graph_layout(
         let min_w = spec.tile.width.map_or(MIN_TILE_DIP, f32::from) * scale;
         for &part in &spec.parts {
             let text_w = if inline {
-                let text = TileText {
-                    labels: labels.style,
-                    icons: labels.icons,
-                    upload_on_top: input.upload_on_top,
-                    names: labels.names,
-                };
-                inline_slots(spec.kind, part, text, text_px, scale, m).1
+                inline_slots(spec.kind, part, look.text, text_px, scale, m).1
             } else {
-                graph_text_width(spec.kind, part, labels, stacked_px, m)
+                graph_text_width(spec.kind, part, look.text, stacked_px, m)
             };
-            let w = (text_w + 2.0 * padding).max(min_w);
+            let chrome = tile_chrome(spec.kind, part, spec.graphic, look, tile_h, text_px, m);
+            let w = (text_w + chrome + 2.0 * padding).max(min_w);
             cells.push(Cell {
                 kind: spec.kind,
                 part,
@@ -1040,6 +1137,7 @@ mod tests {
             labels: LabelStyle::Full,
             icons: false,
             graph_inline: false,
+            vertical_labels: false,
             upload_on_top: false,
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
@@ -1511,6 +1609,7 @@ mod tests {
                 kind,
                 parts: vec![CellPart::Main],
                 tile: TileSize::default(),
+                graphic: TileGraphic::default(),
             })
             .collect()
     }
@@ -1524,6 +1623,7 @@ mod tests {
                 kind,
                 parts: vec![CellPart::Main],
                 tile: TileSize { width, height },
+                graphic: TileGraphic::default(),
             })
             .collect()
     }
@@ -1535,6 +1635,300 @@ mod tests {
         }
     }
 
+    fn graphic_spec(kind: ItemKind, graphic: TileGraphic) -> ItemSpec {
+        ItemSpec {
+            kind,
+            parts: vec![CellPart::Main],
+            tile: TileSize::default(),
+            graphic,
+        }
+    }
+
+    fn look(i: LayoutInput<'_>) -> TileLook<'_> {
+        TileLook {
+            text: TileText {
+                labels: i.labels,
+                icons: i.icons,
+                vertical_labels: i.vertical_labels,
+                upload_on_top: i.upload_on_top,
+                names: i.names,
+            },
+            inline: i.graph_inline && !i.vertical_labels,
+            vertical_bar: i.vertical_bar_px.is_some(),
+            scale: i.dpi as f32 / 96.0,
+        }
+    }
+
+    fn regions(l: &Layout, graphic: TileGraphic, i: LayoutInput<'_>) -> TileRegions {
+        let c = &l.cells[0];
+        tile_regions(c.rect, c.kind, c.part, graphic, look(i), c.text_px, &Fixed)
+    }
+
+    fn inside(inner: Rect, outer: Rect) -> bool {
+        inner.x >= outer.x - 0.51
+            && inner.y >= outer.y - 0.51
+            && inner.right() <= outer.right() + 0.51
+            && inner.y + inner.h <= outer.y + outer.h + 0.51
+    }
+
+    #[test]
+    fn a_vertical_label_sits_left_of_the_value_and_the_graph() {
+        let items = specs(&[ItemKind::Cpu, ItemKind::Network]);
+        let i = LayoutInput {
+            vertical_labels: true,
+            ..input(DisplayMode::Graph, 48.0, 96)
+        };
+        let l = compute_layout(&items, i, &Fixed);
+        let r = regions(&l, TileGraphic::Behind, i);
+        let (stack, area) = r.stack.clone().unwrap();
+        assert_eq!(stack.glyphs, ["C", "P", "U"]);
+        assert!(area.right() <= r.text_x);
+        assert!(r.graph.x >= area.right() - 1.0);
+        assert!(stack.step * 3.0 <= area.h);
+        assert_eq!(r.graph.right(), l.cells[0].rect.right() - 1.0);
+    }
+
+    fn vertical_text(icons: bool) -> TileText<'static> {
+        TileText {
+            labels: LabelStyle::Full,
+            icons,
+            vertical_labels: true,
+            upload_on_top: false,
+            names: names(),
+        }
+    }
+
+    #[test]
+    fn a_long_vertical_label_shrinks_then_stops_inside_the_tile() {
+        let text = vertical_text(false);
+        let stack = |h| stacked_label(ItemKind::Ping, CellPart::Main, text, 12.0, h, 1.0, &Fixed);
+        assert_eq!(stack(100.0).px, 12.0);
+        assert_eq!(stack(36.0).glyphs.len(), 4);
+        assert_eq!(stack(36.0).px, 9.0);
+        let short = stack(14.0);
+        assert!(short.px == 7.0 && short.glyphs.len() == 2);
+        assert!(short.lines() as f32 * short.step <= 14.01);
+    }
+
+    #[test]
+    fn a_drive_stacks_its_letter_without_the_colon() {
+        let part = CellPart::DriveActive(b'C');
+        let stack = stacked_label(
+            ItemKind::Disk,
+            part,
+            vertical_text(true),
+            12.0,
+            36.0,
+            1.0,
+            &Fixed,
+        );
+        assert_eq!(stack.glyphs, ["C"]);
+        assert!(stack.icon.is_some());
+        assert_eq!(stack.lines(), 2);
+    }
+
+    #[test]
+    fn text_with_vertical_labels_gives_each_reading_a_full_height_column() {
+        let items = specs(&[ItemKind::Cpu, ItemKind::Ram, ItemKind::Gpu]);
+        let i = LayoutInput {
+            vertical_labels: true,
+            ..input(DisplayMode::Text, 48.0, 96)
+        };
+        let l = compute_layout(&items, i, &Fixed);
+        assert_eq!(l.cells.len(), 3);
+        for pair in l.cells.windows(2) {
+            assert!(pair[0].rect.right() <= pair[1].rect.x);
+        }
+        for c in &l.cells {
+            assert_eq!(c.rect.h, l.height - 4.0);
+            assert_eq!(c.value_y, (l.height - Fixed.line_height(12.0)) / 2.0);
+            assert!(c.value_x > c.rect.x);
+        }
+    }
+
+    #[test]
+    fn a_ring_takes_room_beside_the_text() {
+        let i = input(DisplayMode::Graph, 48.0, 96);
+        let plain = compute_layout(&specs(&[ItemKind::Cpu]), i, &Fixed);
+        let items = [graphic_spec(ItemKind::Cpu, TileGraphic::Ring)];
+        let l = compute_layout(&items, i, &Fixed);
+        assert!(l.cells[0].rect.w > plain.cells[0].rect.w);
+        let r = regions(&l, TileGraphic::Ring, i);
+        let ring = r.ring.unwrap();
+        assert_eq!(ring.w, ring.h);
+        assert!(inside(ring, l.cells[0].rect));
+        assert!(r.text_x >= ring.right());
+    }
+
+    #[test]
+    fn core_bars_sit_after_the_text_and_grow_with_the_core_count() {
+        let i = input(DisplayMode::Graph, 48.0, 96);
+        let w = |n| {
+            let items = [graphic_spec(ItemKind::Cpu, TileGraphic::Cores(n))];
+            compute_layout(&items, i, &Fixed).cells[0].rect.w
+        };
+        assert!(w(4) == w(8), "both use the minimum");
+        assert!(w(24) > w(8));
+        assert!(w(32) > w(24));
+        assert_eq!(w(4096), w(256), "capped");
+        let graphic = TileGraphic::Cores(24);
+        let items = [graphic_spec(ItemKind::Cpu, graphic)];
+        let l = compute_layout(&items, i, &Fixed);
+        let r = regions(&l, graphic, i);
+        let cores = r.cores.unwrap();
+        assert!(inside(cores, l.cells[0].rect));
+        assert!(cores.x >= r.text_x);
+    }
+
+    #[test]
+    fn heat_cells_widen_with_the_core_count_and_stop_at_a_cap() {
+        let i = input(DisplayMode::Graph, 48.0, 96);
+        let w = |n| {
+            let items = [graphic_spec(ItemKind::Cpu, TileGraphic::Heat(n))];
+            compute_layout(&items, i, &Fixed).cells[0].rect.w
+        };
+        assert!(w(24) > w(8));
+        assert_eq!(w(4096), w(512), "capped");
+        let graphic = TileGraphic::Heat(24);
+        let items = [graphic_spec(ItemKind::Cpu, graphic)];
+        let l = compute_layout(&items, i, &Fixed);
+        let r = regions(&l, graphic, i);
+        let cores = r.cores.unwrap();
+        assert!(cores.x >= r.text_x && inside(cores, l.cells[0].rect));
+        assert_eq!(heat_rows(cores.h, 1.0), 3);
+    }
+
+    #[test]
+    fn a_strip_goes_under_a_single_reading_and_beside_a_pair() {
+        let i = input(DisplayMode::Graph, 48.0, 96);
+        for graphic in [TileGraphic::Segments, TileGraphic::Spark] {
+            let items = [graphic_spec(ItemKind::Cpu, graphic)];
+            let l = compute_layout(&items, i, &Fixed);
+            let r = regions(&l, graphic, i);
+            let strip = r.strip.unwrap();
+            assert!(r.strip_below);
+            assert!(inside(strip, l.cells[0].rect));
+            assert!(strip.y >= l.cells[0].rect.y + Fixed.line_height(l.cells[0].text_px));
+
+            let items = [graphic_spec(ItemKind::Network, graphic)];
+            let l = compute_layout(&items, i, &Fixed);
+            let r = regions(&l, graphic, i);
+            assert!(!r.strip_below);
+            assert!(r.strip.unwrap().x > r.text_x);
+            assert!(inside(r.strip.unwrap(), l.cells[0].rect));
+        }
+    }
+
+    #[test]
+    fn a_strip_tile_has_room_for_its_label_and_value_on_one_line() {
+        let i = input(DisplayMode::Graph, 48.0, 96);
+        let graphic = TileGraphic::Segments;
+        let items = [graphic_spec(ItemKind::Cpu, graphic)];
+        let l = compute_layout(&items, i, &Fixed);
+        let px = l.cells[0].text_px;
+        let label = Fixed.width("CPU", px);
+        let value = Fixed.width(widest_value(MetricKey::CpuTotal.unit()), px);
+        assert!(l.cells[0].rect.w >= label + value + 2.0 * PADDING_DIP);
+    }
+
+    #[test]
+    fn a_short_tile_or_single_line_moves_the_strip_beside_the_text() {
+        let graphic = TileGraphic::Spark;
+        let items = [graphic_spec(ItemKind::Cpu, graphic)];
+        let inline = LayoutInput {
+            graph_inline: true,
+            ..input(DisplayMode::Graph, 48.0, 96)
+        };
+        let l = compute_layout(&items, inline, &Fixed);
+        let r = regions(&l, graphic, inline);
+        assert!(!r.strip_below);
+        assert!(r.strip.unwrap().x > r.text_x);
+        let mut spec = graphic_spec(ItemKind::Cpu, graphic);
+        spec.tile.height = Some(14);
+        let plain = input(DisplayMode::Graph, 48.0, 96);
+        let l = compute_layout(&[spec], plain, &Fixed);
+        assert!(!regions(&l, graphic, plain).strip_below);
+    }
+
+    #[test]
+    fn on_a_vertical_bar_a_short_strip_takes_no_room_from_the_text() {
+        let i = vertical(DisplayMode::Graph, 48.0);
+        let font = |graphic| {
+            let mut spec = graphic_spec(ItemKind::Cpu, graphic);
+            spec.tile.height = Some(14);
+            compute_layout(&[spec], i, &Fixed).font_px
+        };
+        assert_eq!(font(TileGraphic::Spark), font(TileGraphic::Behind));
+        assert_eq!(font(TileGraphic::Segments), font(TileGraphic::Behind));
+    }
+
+    #[test]
+    fn a_tall_ring_on_a_vertical_bar_stays_inside_its_tile() {
+        let i = vertical(DisplayMode::Graph, 48.0);
+        let mut spec = graphic_spec(ItemKind::Cpu, TileGraphic::Ring);
+        spec.tile.height = Some(100);
+        let l = compute_layout(&[spec], i, &Fixed);
+        let ring = regions(&l, TileGraphic::Ring, i).ring.unwrap();
+        assert!(inside(ring, l.cells[0].rect), "{ring:?}");
+        assert_eq!(ring.w, ring.h);
+    }
+
+    #[test]
+    fn a_requested_width_stretches_the_core_bars() {
+        let i = input(DisplayMode::Graph, 48.0, 96);
+        let graphic = TileGraphic::Cores(4);
+        let mut spec = graphic_spec(ItemKind::Cpu, graphic);
+        let natural = compute_layout(std::slice::from_ref(&spec), i, &Fixed);
+        let before = regions(&natural, graphic, i).cores.unwrap();
+        spec.tile.width = Some(200);
+        let wide = compute_layout(&[spec], i, &Fixed);
+        assert_eq!(wide.cells[0].rect.w, 200.0);
+        assert!(regions(&wide, graphic, i).cores.unwrap().w > before.w);
+    }
+
+    #[test]
+    fn every_graphic_and_label_combination_stays_inside_its_tile() {
+        let graphics = [
+            TileGraphic::Behind,
+            TileGraphic::Ring,
+            TileGraphic::Cores(24),
+            TileGraphic::Heat(24),
+            TileGraphic::Segments,
+            TileGraphic::Spark,
+        ];
+        for graphic in graphics {
+            for vertical_labels in [false, true] {
+                for graph_inline in [false, true] {
+                    for icons in [false, true] {
+                        for (dpi, bar) in [(96, 48.0), (96, 32.0), (144, 72.0), (192, 96.0)] {
+                            for vertical_bar_px in [None, Some(bar * 1.5)] {
+                                let i = LayoutInput {
+                                    vertical_labels,
+                                    graph_inline,
+                                    icons,
+                                    vertical_bar_px,
+                                    ..input(DisplayMode::Graph, bar, dpi)
+                                };
+                                let items = [graphic_spec(ItemKind::Cpu, graphic)];
+                                let l = compute_layout(&items, i, &Fixed);
+                                let r = regions(&l, graphic, i);
+                                let rect = l.cells[0].rect;
+                                let context = format!("{graphic:?} {i:?}");
+                                for part in [r.ring, r.cores, r.strip, r.stack.map(|(_, a)| a)]
+                                    .into_iter()
+                                    .flatten()
+                                {
+                                    assert!(inside(part, rect), "{part:?} {rect:?} {context}");
+                                }
+                                assert!(r.text_x < rect.right(), "{context}");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn cell_of(l: &Layout, kind: ItemKind) -> &Cell {
         l.cells.iter().find(|c| c.kind == kind).unwrap()
     }
@@ -1543,14 +1937,10 @@ mod tests {
     fn assert_text_fits(l: &Layout, i: LayoutInput) {
         let scale = i.dpi as f32 / 96.0;
         let padding = PADDING_DIP * scale;
-        let labels = Labels {
-            style: i.labels,
-            icons: i.icons,
-            names: i.names,
-        };
         let text = TileText {
             labels: i.labels,
             icons: i.icons,
+            vertical_labels: i.vertical_labels,
             upload_on_top: i.upload_on_top,
             names: i.names,
         };
@@ -1560,7 +1950,7 @@ mod tests {
                 (line, Fixed.line_height(c.text_px))
             } else {
                 (
-                    graph_text_width(c.kind, c.part, labels, c.text_px, &Fixed),
+                    graph_text_width(c.kind, c.part, text, c.text_px, &Fixed),
                     c.text_px * STACKED_LINES + STACKED_INSET_DIP * scale,
                 )
             };
@@ -1582,9 +1972,11 @@ mod tests {
             .rect
             .w
         };
-        let labels = Labels {
-            style: LabelStyle::Full,
+        let labels = TileText {
+            labels: LabelStyle::Full,
             icons: false,
+            vertical_labels: false,
+            upload_on_top: false,
             names: names(),
         };
         let text = graph_text_width(ItemKind::Cpu, CellPart::Main, labels, 12.0, &Fixed) + 8.0;
@@ -2118,6 +2510,7 @@ mod tests {
         let text = TileText {
             labels: LabelStyle::Full,
             icons: true,
+            vertical_labels: false,
             upload_on_top: false,
             names: names(),
         };
@@ -2375,6 +2768,7 @@ mod tests {
                 kind: ItemKind::Network,
                 parts: vec![part],
                 tile: TileSize::default(),
+                graphic: TileGraphic::default(),
             }];
             compute_layout(&items, i, &Fixed).cells[0].rect.w
         };
@@ -2390,6 +2784,7 @@ mod tests {
         let text = TileText {
             labels: LabelStyle::Full,
             icons: false,
+            vertical_labels: false,
             upload_on_top: true,
             names: names(),
         };
@@ -2570,6 +2965,7 @@ mod tests {
             kind: ItemKind::Disk,
             parts: vec![CellPart::DriveActive(b'C'), CellPart::DriveActive(b'D')],
             tile: TileSize::default(),
+            graphic: TileGraphic::default(),
         }];
         let l = compute_layout(&items, input(DisplayMode::Graph, 48.0, 96), &Fixed);
         assert_eq!(l.cells.len(), 2);
@@ -2781,6 +3177,7 @@ mod tests {
                 kind: ItemKind::Network,
                 parts: item_parts(ItemKind::Network, &c, &[]),
                 tile: TileSize::default(),
+                graphic: TileGraphic::default(),
             }];
             compute_layout(&items, i, &Fixed)
                 .cells
@@ -2827,6 +3224,7 @@ mod tests {
             kind: ItemKind::Network,
             parts: (0..n).map(CellPart::AdapterPair).collect(),
             tile: TileSize::default(),
+            graphic: TileGraphic::default(),
         }]
     }
 

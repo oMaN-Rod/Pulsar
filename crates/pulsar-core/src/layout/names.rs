@@ -99,6 +99,7 @@ mod tests {
             labels: LabelStyle::Full,
             icons: false,
             graph_inline: false,
+            vertical_labels: false,
             upload_on_top: false,
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
@@ -124,6 +125,7 @@ mod tests {
             kind,
             parts: parts.to_vec(),
             tile: Default::default(),
+            graphic: Default::default(),
         }
     }
 
@@ -264,6 +266,7 @@ mod tests {
         let text = TileText {
             labels: LabelStyle::Full,
             icons: false,
+            vertical_labels: false,
             upload_on_top: false,
             names: &names,
         };

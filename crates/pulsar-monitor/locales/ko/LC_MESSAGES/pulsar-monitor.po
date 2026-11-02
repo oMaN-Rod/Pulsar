@@ -945,6 +945,10 @@ msgid "Short labels"
 msgstr "짧은 레이블"
 
 #: src/menu.rs ui/settings.slint
+msgid "Vertical labels"
+msgstr "세로 레이블"
+
+#: src/menu.rs ui/settings.slint
 msgid "Icons"
 msgstr "아이콘"
 
@@ -1035,6 +1039,26 @@ msgstr "막대 그래프"
 #: src/names.rs
 msgid "Level meter"
 msgstr "레벨 미터"
+
+#: src/names.rs
+msgid "Ring gauge"
+msgstr "링 게이지"
+
+#: src/names.rs
+msgid "Segment meter"
+msgstr "세그먼트 미터"
+
+#: src/names.rs
+msgid "Spark underline"
+msgstr "하단 추세선"
+
+#: src/names.rs
+msgid "Core bars"
+msgstr "코어별 막대"
+
+#: src/names.rs
+msgid "Heat cells"
+msgstr "히트 셀"
 
 #: src/names.rs
 msgid "Item color"
@@ -1711,6 +1735,10 @@ msgstr "한 줄 그래프"
 #: ui/settings.slint
 msgid "Put the icon, label and value on one line, for short taskbars."
 msgstr "낮은 작업 표시줄에 맞게 아이콘, 레이블, 값을 한 줄에 표시합니다."
+
+#: ui/settings.slint
+msgid "Stack each label one letter per line, with the value beside it."
+msgstr "레이블을 한 줄에 한 글자씩 쌓고 값을 옆에 표시합니다."
 
 #: ui/settings.slint
 msgid "Labels"

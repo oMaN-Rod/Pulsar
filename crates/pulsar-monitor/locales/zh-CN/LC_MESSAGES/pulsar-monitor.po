@@ -946,6 +946,10 @@ msgid "Short labels"
 msgstr "简短标签"
 
 #: src/menu.rs ui/settings.slint
+msgid "Vertical labels"
+msgstr "竖排标签"
+
+#: src/menu.rs ui/settings.slint
 msgid "Icons"
 msgstr "图标"
 
@@ -1036,6 +1040,26 @@ msgstr "柱状图"
 #: src/names.rs
 msgid "Level meter"
 msgstr "电平条"
+
+#: src/names.rs
+msgid "Ring gauge"
+msgstr "环形仪表"
+
+#: src/names.rs
+msgid "Segment meter"
+msgstr "分段电平表"
+
+#: src/names.rs
+msgid "Spark underline"
+msgstr "底部趋势线"
+
+#: src/names.rs
+msgid "Core bars"
+msgstr "核心条形图"
+
+#: src/names.rs
+msgid "Heat cells"
+msgstr "热力格"
 
 #: src/names.rs
 msgid "Item color"
@@ -1712,6 +1736,10 @@ msgstr "单行图表"
 #: ui/settings.slint
 msgid "Put the icon, label and value on one line, for short taskbars."
 msgstr "图标、标签和数值放在同一行，适合较矮的任务栏。"
+
+#: ui/settings.slint
+msgid "Stack each label one letter per line, with the value beside it."
+msgstr "将标签逐字竖排，数值显示在旁边。"
 
 #: ui/settings.slint
 msgid "Labels"

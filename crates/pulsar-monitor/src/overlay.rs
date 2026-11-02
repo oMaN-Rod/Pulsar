@@ -58,6 +58,7 @@ struct LayoutKey {
     labels: LabelStyle,
     icons: bool,
     graph_inline: bool,
+    vertical_labels: bool,
     upload_on_top: bool,
     text_spacing: TextSpacing,
     /// Temperatures change width with their unit.
@@ -333,6 +334,7 @@ impl Overlay {
             labels: config.display.labels,
             icons: config.display.icons,
             graph_inline: config.display.graph_inline,
+            vertical_labels: config.display.vertical_labels,
             upload_on_top: config.display.upload_on_top,
             text_spacing: TextSpacing::from(&config.display),
             units: config.units,
@@ -351,6 +353,7 @@ impl Overlay {
             labels: key.labels,
             icons: key.icons,
             graph_inline: key.graph_inline,
+            vertical_labels: key.vertical_labels,
             upload_on_top: key.upload_on_top,
             vertical_bar_px: key.vertical.then_some(key.thickness as f32),
             text_spacing: key.text_spacing,

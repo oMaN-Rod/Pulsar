@@ -12,7 +12,7 @@ use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::theme::{Colors, Theme};
 
-use crate::names::{COLOR_MODES, DETAILS, STYLES, WIDGET_STYLES};
+use crate::names::{COLOR_MODES, DETAILS, WIDGET_STYLES, styles_for};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ItemRow {
@@ -20,7 +20,7 @@ pub struct ItemRow {
     pub enabled: bool,
     /// `#RRGGBB`, or empty for the default color.
     pub color: String,
-    /// An index into `names::STYLES`.
+    /// An index into `names::styles_for`.
     pub style: i32,
     /// An index into `names::COLOR_MODES`.
     pub color_mode: i32,
@@ -56,6 +56,7 @@ pub struct Form {
     pub history_len: i32,
     pub text_mode: bool,
     pub graph_inline: bool,
+    pub vertical_labels: bool,
     pub hover_popup: bool,
     /// 0 next to the tray, 1 left edge, 2 floating.
     pub position: i32,
@@ -291,6 +292,7 @@ pub fn to_form(c: &Config) -> Form {
         history_len: c.general.history_len as i32,
         text_mode: d.mode == DisplayMode::Text,
         graph_inline: d.graph_inline,
+        vertical_labels: d.vertical_labels,
         hover_popup: d.hover_popup,
         position: match d.position {
             Position::Right => 0,
@@ -347,7 +349,7 @@ pub fn to_form(c: &Config) -> Form {
                 kind: i.kind,
                 enabled: i.enabled,
                 color: i.color.clone().unwrap_or_default(),
-                style: index_of(&STYLES, &i.graph.then_some(i.style)),
+                style: index_of(styles_for(i.kind), &i.graph.then_some(i.style)),
                 color_mode: index_of(&COLOR_MODES, &i.color_mode),
                 popup: i.popup.map_or(0, |p| index_of(&DETAILS, &p) + 1),
                 popup_width: i.popup_width.map_or(0, i32::from),
@@ -559,6 +561,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         DisplayMode::Graph
     };
     d.graph_inline = f.graph_inline;
+    d.vertical_labels = f.vertical_labels;
     d.hover_popup = f.hover_popup;
     d.position = match f.position {
         1 => Position::Left,
@@ -615,7 +618,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         .items
         .iter()
         .map(|r| {
-            let style = at(&STYLES, r.style).unwrap_or(STYLES[0]);
+            let styles = styles_for(r.kind);
+            let style = at(styles, r.style).unwrap_or(styles[0]);
             ItemConfig {
                 color: non_empty(&r.color),
                 graph: style.is_some(),
@@ -998,7 +1002,7 @@ mod tests {
         f.items[0].style = 2;
         f.items[0].color_mode = 2;
         f.items[0].popup = 3;
-        f.items[1].style = 4;
+        f.items[1].style = 7;
         let out = to_config(&f, &c);
         let first = &out.items[0];
         assert_eq!(
@@ -1011,7 +1015,7 @@ mod tests {
             )
         );
         assert!(!out.items[1].graph, "the last style is text only");
-        assert_eq!(to_form(&out).items[1].style, 4);
+        assert_eq!(to_form(&out).items[1].style, 7);
     }
 
     #[test]
@@ -1026,6 +1030,23 @@ mod tests {
         assert_eq!(to_form(&out).load_colors[1], "#ABCDEF");
         apply_theme(&mut f, &Theme::windows());
         assert_eq!(f.load_colors[1], "#ABCDEF", "a theme leaves them alone");
+    }
+
+    #[test]
+    fn only_the_cpu_lists_core_bars() {
+        use pulsar_core::config::GraphStyle;
+        let c = Config::default();
+        let mut f = to_form(&c);
+        assert_eq!(f.items[0].kind, ItemKind::Cpu);
+        f.items[0].style = 7;
+        f.items[1].style = 6;
+        let out = to_config(&f, &c);
+        assert_eq!(out.items[0].style, GraphStyle::Cores);
+        assert_eq!(out.items[1].style, GraphStyle::Ring);
+        let back = to_form(&out);
+        assert_eq!((back.items[0].style, back.items[1].style), (7, 6));
+        f.items[0].style = 8;
+        assert_eq!(to_config(&f, &c).items[0].style, GraphStyle::Heat);
     }
 
     #[test]
@@ -1111,7 +1132,7 @@ mod tests {
         let mut c = Config::default();
         c.items[0].style = GraphStyle::Meter;
         let mut f = to_form(&c);
-        f.items[0].style = 4;
+        f.items[0].style = 9;
         let out = to_config(&f, &c);
         assert!(!out.items[0].graph);
         assert_eq!(out.items[0].style, GraphStyle::Meter);
@@ -1333,6 +1354,7 @@ mod tests {
         c.display.float_position = Some([10, 20]);
         c.display.lock_position = true;
         c.display.graph_inline = true;
+        c.display.vertical_labels = true;
         c.display.taskbar_monitor = Some(r"\\?\DISPLAY#DEL5678#5&1&UID2".into());
         c.display.fit_to_taskbar = false;
         c.display.fit_remove_from = RemoveFrom::Left;

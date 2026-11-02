@@ -18,6 +18,7 @@ use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 use pulsar_core::colors::{self, default_rgb};
+use pulsar_core::config::GraphStyle;
 use pulsar_core::config::{self, Config};
 use pulsar_core::hardware::displays::{self, Display};
 use pulsar_core::hotkey::Hotkey;
@@ -323,6 +324,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_history_len(f.history_len);
     ui.set_mode(i32::from(f.text_mode));
     ui.set_graph_inline(f.graph_inline);
+    ui.set_vertical_labels(f.vertical_labels);
     ui.set_hover_popup(f.hover_popup);
     ui.set_position(f.position);
     ui.set_lock_position(f.lock_position);
@@ -470,6 +472,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 color: r.color.as_str().into(),
                 swatch: rgb(form::item_rgb(r.kind, &r.color, choices.theme())),
                 style: r.style,
+                is_cpu: r.kind == ItemKind::Cpu,
                 color_mode: r.color_mode,
                 popup: r.popup,
                 popup_width: r.popup_width,
@@ -531,6 +534,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         history_len: ui.get_history_len(),
         text_mode: ui.get_mode() == 1,
         graph_inline: ui.get_graph_inline(),
+        vertical_labels: ui.get_vertical_labels(),
         hover_popup: ui.get_hover_popup(),
         position: ui.get_position(),
         lock_position: ui.get_lock_position(),
@@ -688,16 +692,67 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
     }
 }
 
+/// A preview of a style for a 64 × 34 box; empty for text only.
+fn style_thumb(style: Option<GraphStyle>) -> &'static str {
+    match style {
+        Some(GraphStyle::Area) => "M0 30 L10 20 L20 24 L32 8 L44 18 L54 10 L64 16 L64 34 L0 34 Z",
+        Some(GraphStyle::Line) => "M0 28 L10 20 L20 24 L32 8 L44 18 L54 10 L64 16",
+        Some(GraphStyle::Bars) => {
+            "M3 34 L3 22 M11 34 L11 14 M19 34 L19 26 M27 34 L27 8 M35 34 L35 18 M43 34 L43 12 M51 34 L51 24 M59 34 L59 16"
+        }
+        Some(GraphStyle::Meter) => "M2 17 L42 17",
+        Some(GraphStyle::Segments) => {
+            "M2 17 L8 17 M12 17 L18 17 M22 17 L28 17 M32 17 L38 17 M42 17 L48 17 M52 17 L58 17"
+        }
+        Some(GraphStyle::Spark) => "M2 26 L12 22 L22 25 L32 20 L42 23 L52 19 L62 22",
+        Some(GraphStyle::Ring) => "M32 4 A13 13 0 1 1 19 17",
+        Some(GraphStyle::Cores) => {
+            "M4 32 L4 18 M12 32 L12 8 M20 32 L20 24 M28 32 L28 14 M36 32 L36 6 M44 32 L44 22 M52 32 L52 12 M60 32 L60 26"
+        }
+        Some(GraphStyle::Heat) => {
+            "M4 6 L12 6 M18 6 L26 6 M32 6 L40 6 M46 6 L54 6 M4 17 L12 17 M18 17 L26 17 M32 17 L40 17 M46 17 L54 17 M4 28 L12 28 M18 28 L26 28 M32 28 L40 28 M46 28 L54 28"
+        }
+        None => "",
+    }
+}
+
+/// How a style's preview is stroked, and whether it is filled.
+fn style_stroke(style: Option<GraphStyle>) -> (f32, bool) {
+    match style {
+        Some(GraphStyle::Area) => (1.5, true),
+        Some(GraphStyle::Line | GraphStyle::Spark) => (1.5, false),
+        Some(GraphStyle::Bars) => (5.0, false),
+        Some(GraphStyle::Meter) => (8.0, false),
+        Some(GraphStyle::Segments) => (6.0, false),
+        Some(GraphStyle::Ring) => (4.0, false),
+        Some(GraphStyle::Cores) => (5.0, false),
+        Some(GraphStyle::Heat) => (8.0, false),
+        None => (0.0, false),
+    }
+}
+
+fn style_choices(kind: ItemKind) -> slint::ModelRc<StyleChoice> {
+    let choices: Vec<StyleChoice> = names::styles_for(kind)
+        .iter()
+        .map(|&style| {
+            let (stroke, filled) = style_stroke(style);
+            StyleChoice {
+                name: names::style_name(style).into(),
+                thumb: style_thumb(style).into(),
+                stroke,
+                filled,
+            }
+        })
+        .collect();
+    slint::ModelRc::new(slint::VecModel::from(choices))
+}
+
 /// The text the window gets from here rather than from its `.slint` file.
 fn localize(ui: &SettingsWindow) {
     ui.set_window_title(ipc::settings_title().into());
     ui.set_ui_font(language::ui_font().into());
-    ui.set_styles(strings(
-        names::STYLES
-            .iter()
-            .map(|&s| names::style_name(s).into())
-            .collect(),
-    ));
+    ui.set_style_choices(style_choices(ItemKind::Ram));
+    ui.set_cpu_style_choices(style_choices(ItemKind::Cpu));
     ui.set_color_modes(strings(
         names::COLOR_MODES
             .iter()

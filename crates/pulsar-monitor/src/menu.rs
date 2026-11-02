@@ -17,7 +17,7 @@ use windows::core::{HSTRING, PCSTR, PCWSTR, w};
 
 use crate::names::{
     COLOR_MODES, DETAILS, STYLES, WIDGET_STYLES, color_mode_name, detail_name, item_name,
-    style_name, widget_style_name,
+    style_name, styles_for, widget_style_name,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,6 +42,7 @@ pub enum Command {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Toggle {
     ShortLabels,
+    VerticalLabels,
     Icons,
     HoverPopup,
     HideInFullscreen,
@@ -97,6 +98,7 @@ pub fn apply_toggle(c: &mut Config, t: Toggle) {
                 LabelStyle::Short
             }
         }
+        Toggle::VerticalLabels => d.vertical_labels = !d.vertical_labels,
         Toggle::Icons => {
             d.icons = !d.icons;
             if !d.icons && d.labels == LabelStyle::None {
@@ -178,6 +180,7 @@ const ID_WIDGET_LOCK: usize = 15;
 const ID_GAME: usize = 16;
 const ID_RECORD: usize = 17;
 const ID_MANAGE_PROFILES: usize = 18;
+const ID_VERTICAL_LABELS: usize = 19;
 /// Plus the index into `DETAILS`.
 const ID_POPUP_DETAIL: usize = 20;
 const ID_POPUP_GRAPH: usize = 25;
@@ -199,18 +202,18 @@ const ID_SHOW_ITEM: usize = 100;
 /// Plus `ITEM_IDS` times the item's index into `ItemKind::ALL`, plus one
 /// of the offsets below.
 const ID_ITEM: usize = 1000;
-const ITEM_IDS: usize = 32;
+const ITEM_IDS: usize = 36;
 const ITEM_STYLE: usize = 0;
-const ITEM_COLOR: usize = 8;
-const ITEM_POPUP_DEFAULT: usize = 12;
-const ITEM_POPUP: usize = 13;
+const ITEM_COLOR: usize = 12;
+const ITEM_POPUP_DEFAULT: usize = 16;
+const ITEM_POPUP: usize = 17;
 const ITEM_EARLIER: usize = 20;
 const ITEM_LATER: usize = 21;
 const ITEM_HIDE: usize = 22;
 const ITEM_WIDGET_STYLE_DEFAULT: usize = 23;
 const ITEM_WIDGET_STYLE: usize = 24;
-const ITEM_WIDGET_DETAIL_DEFAULT: usize = 27;
-const ITEM_WIDGET_DETAIL: usize = 28;
+const ITEM_WIDGET_DETAIL_DEFAULT: usize = 29;
+const ITEM_WIDGET_DETAIL: usize = 30;
 
 const PROCESS_COUNTS: [u8; 6] = [0, 3, 5, 8, 10, 15];
 const INTERVALS_MS: [u32; 4] = [500, 1000, 2000, 5000];
@@ -265,6 +268,7 @@ pub fn command_for(id: usize) -> Option<Command> {
         ID_DETAILS => Some(Command::Details),
         ID_ABOUT => Some(Command::About),
         ID_SHORT_LABELS => Some(Command::Toggle(Toggle::ShortLabels)),
+        ID_VERTICAL_LABELS => Some(Command::Toggle(Toggle::VerticalLabels)),
         ID_HOVER => Some(Command::Toggle(Toggle::HoverPopup)),
         ID_HIDE_FULLSCREEN => Some(Command::Toggle(Toggle::HideInFullscreen)),
         ID_FLOATING => Some(Command::Toggle(Toggle::Floating)),
@@ -365,8 +369,10 @@ fn item_menu(config: &Config, kind: ItemKind) -> Option<Menu> {
     let graphs = config.display.mode == DisplayMode::Graph;
     let current = item.graph.then_some(item.style);
     for (i, style) in STYLES.into_iter().enumerate() {
-        let id = item_id(kind, ITEM_STYLE + i);
-        menu.item(id, style_name(style), current == style, graphs);
+        if styles_for(kind).contains(&style) {
+            let id = item_id(kind, ITEM_STYLE + i);
+            menu.item(id, style_name(style), current == style, graphs);
+        }
     }
     menu.separator();
     for (i, mode) in COLOR_MODES.into_iter().enumerate() {
@@ -615,6 +621,12 @@ pub fn show(
         ID_SHORT_LABELS,
         tr!("Short labels"),
         display.labels == LabelStyle::Short,
+        true,
+    );
+    menu.item(
+        ID_VERTICAL_LABELS,
+        tr!("Vertical labels"),
+        display.vertical_labels,
         true,
     );
     menu.item(ID_ICONS, tr!("Icons"), display.icons, true);
@@ -904,6 +916,10 @@ mod tests {
         assert!(!c.display.hide_in_fullscreen);
         apply_toggle(&mut c, Toggle::ShortLabels);
         assert_eq!(c.display.labels, LabelStyle::Short);
+        apply_toggle(&mut c, Toggle::VerticalLabels);
+        assert!(c.display.vertical_labels);
+        apply_toggle(&mut c, Toggle::VerticalLabels);
+        assert!(!c.display.vertical_labels);
         apply_toggle(&mut c, Toggle::ShortLabels);
         assert_eq!(c.display.labels, LabelStyle::Full);
     }

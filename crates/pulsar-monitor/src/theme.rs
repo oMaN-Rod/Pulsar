@@ -283,6 +283,25 @@ impl Palette {
         }
     }
 
+    /// A percentage on the color by load scale, whatever the item's color
+    /// mode. The lowest band fades towards idle, so quiet cells stay quiet.
+    pub fn heat_at(&self, percent: f64) -> Color {
+        let Some(level) = colors::load_level(
+            pulsar_core::metric::Unit::Percent,
+            percent,
+            &self.load_thresholds,
+        ) else {
+            return self.text.with_alpha(0.1);
+        };
+        let color = self.load_color(level);
+        if level == colors::Load::Low {
+            let moderate = f64::from(self.load_thresholds.percent[0]).max(1.0);
+            color.with_alpha(0.25 + 0.75 * (percent / moderate).clamp(0.0, 1.0) as f32)
+        } else {
+            color
+        }
+    }
+
     pub fn graph(&self, kind: ItemKind, part: CellPart) -> Color {
         let find = |part| {
             self.items
@@ -370,6 +389,7 @@ mod tests {
         let palette = Palette::new(false, &config, None, &Theme::windows());
         let at = |v| palette.graph_at(ItemKind::Cpu, CellPart::Main, Some(v));
         assert_eq!(at(99.0), Color::rgb(0x10, 0x20, 0x30));
+        assert_eq!(palette.heat_at(99.0), Color::rgb(0x10, 0x20, 0x30));
         assert_eq!(
             palette.value_at(ItemKind::Cpu, CellPart::Main, Some(99.0)),
             Color::rgb(0x10, 0x20, 0x30)
