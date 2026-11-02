@@ -736,12 +736,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         Vec::new()
     };
     w.background = non_empty(&f.widget_background);
-    let taskbar_order = f.items.iter().map(|r| r.kind);
-    w.order = if f.widget_order.iter().copied().eq(taskbar_order) {
-        Vec::new()
-    } else {
-        f.widget_order.clone()
-    };
+    w.order = f.widget_order.clone();
     c.sanitize()
 }
 
@@ -993,9 +988,10 @@ mod tests {
         assert_eq!(reordered.widget.order, f.widget_order);
 
         f.widget_order = f.items.iter().map(|r| r.kind).collect();
-        assert!(
-            to_config(&f, &out).widget.order.is_empty(),
-            "the taskbar's own order goes back to following it"
+        assert_eq!(
+            to_config(&f, &out).widget.order,
+            f.widget_order,
+            "matching the taskbar for now does not make it follow the taskbar"
         );
     }
 

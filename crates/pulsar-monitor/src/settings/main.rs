@@ -1553,7 +1553,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
     ui.on_drop_widget_item({
-        let weak = ui.as_weak();
+        let (weak, state) = (ui.as_weak(), state.clone());
         move |from, target, after| {
             let Some(ui) = weak.upgrade() else { return };
             let mut rows: Vec<WidgetItemRow> = ui.get_widget_items().iter().collect();
@@ -1563,8 +1563,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                 target.max(0) as usize,
                 after,
             );
+            // Dropped back into the taskbar's order, it follows the taskbar again.
+            let custom = !rows.iter().map(|r| r.id.to_string()).eq(state
+                .borrow()
+                .kinds
+                .iter()
+                .map(|&k| item_id(k)));
             ui.set_widget_items(ModelRc::new(VecModel::from(rows)));
-            ui.set_widget_order_custom(true);
+            ui.set_widget_order_custom(custom);
             ui.invoke_changed();
         }
     });
