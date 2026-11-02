@@ -104,6 +104,8 @@ pub struct PopupConfig {
 pub const MAX_POPUP_PROCESSES: u8 = 15;
 pub const POPUP_WIDTHS: std::ops::RangeInclusive<u16> = 220..=800;
 pub const POPUP_GRAPH_HEIGHTS: std::ops::RangeInclusive<u16> = 24..=400;
+pub const TILE_WIDTHS: std::ops::RangeInclusive<u16> = 16..=400;
+pub const TILE_HEIGHTS: std::ops::RangeInclusive<u16> = 16..=200;
 
 /// Where the desktop widget sits among other windows.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -489,6 +491,12 @@ pub struct ItemConfig {
     /// `None` uses `PopupConfig::graph_height`.
     #[serde(default)]
     pub popup_graph_height: Option<u16>,
+    /// Graph mode, in DIPs; `None` fits the text. Text wider than this still fits.
+    #[serde(default)]
+    pub tile_width: Option<u16>,
+    /// Graph mode, in DIPs; `None` fills the taskbar.
+    #[serde(default)]
+    pub tile_height: Option<u16>,
     /// On the widget; `None` uses `WidgetConfig::style`.
     #[serde(default)]
     pub widget_style: Option<WidgetStyle>,
@@ -509,6 +517,8 @@ impl ItemConfig {
             popup: None,
             popup_width: None,
             popup_graph_height: None,
+            tile_width: None,
+            tile_height: None,
             widget_style: None,
             widget_detail: None,
         }
@@ -784,6 +794,12 @@ impl Config {
             }
             item.popup_width = item.popup_width.map(width);
             item.popup_graph_height = item.popup_graph_height.map(graph);
+            item.tile_width = item
+                .tile_width
+                .map(|w| w.clamp(*TILE_WIDTHS.start(), *TILE_WIDTHS.end()));
+            item.tile_height = item
+                .tile_height
+                .map(|h| h.clamp(*TILE_HEIGHTS.start(), *TILE_HEIGHTS.end()));
         }
         self
     }
@@ -1888,6 +1904,40 @@ kind = \"cpu\"
             let c = c.sanitize();
             assert_eq!((c.popup.width, c.popup.graph_height), (w, h));
         }
+    }
+
+    #[test]
+    fn sanitize_clamps_tile_sizes_and_keeps_automatic() {
+        let mut c = Config::default();
+        let cpu = c.item_mut(ItemKind::Cpu).unwrap();
+        cpu.tile_width = Some(5000);
+        cpu.tile_height = Some(1);
+        let ram = c.item_mut(ItemKind::Ram).unwrap();
+        ram.tile_width = Some(1);
+        ram.tile_height = Some(5000);
+        let c = c.sanitize();
+        let cpu = c.item(ItemKind::Cpu).unwrap();
+        assert_eq!((cpu.tile_width, cpu.tile_height), (Some(400), Some(16)));
+        let ram = c.item(ItemKind::Ram).unwrap();
+        assert_eq!((ram.tile_width, ram.tile_height), (Some(16), Some(200)));
+        let gpu = c.item(ItemKind::Gpu).unwrap();
+        assert_eq!((gpu.tile_width, gpu.tile_height), (None, None));
+    }
+
+    #[test]
+    fn tile_sizes_load_from_an_item_and_are_optional() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        fs::write(
+            &path,
+            "[[items]]\nkind = \"cpu\"\ntile_width = 90\ntile_height = 30\n\n[[items]]\nkind = \"ram\"\n",
+        )
+        .unwrap();
+        let c = load(&path).config;
+        let cpu = c.item(ItemKind::Cpu).unwrap();
+        assert_eq!((cpu.tile_width, cpu.tile_height), (Some(90), Some(30)));
+        let ram = c.item(ItemKind::Ram).unwrap();
+        assert_eq!((ram.tile_width, ram.tile_height), (None, None));
     }
 
     #[test]

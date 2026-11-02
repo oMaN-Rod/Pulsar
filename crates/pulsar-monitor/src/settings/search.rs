@@ -310,8 +310,10 @@ mod tests {
         assert_eq!(found[0].path, "Items");
     }
 
-    const ITEM_ROWS: [&str; 5] = [
+    const ITEM_ROWS: [&str; 7] = [
         "Graph style",
+        "Tile width",
+        "Tile height",
         "Colour",
         "Popup detail",
         "Popup width",
@@ -362,6 +364,20 @@ mod tests {
         let found = ids(&matches(&all, "graph style"));
         assert!(found.contains(&"item/Cpu/Graph style".to_string()));
         assert!(found.contains(&"item/Ram/Graph style".to_string()));
+    }
+
+    #[test]
+    fn tile_sizes_are_found_for_every_item_and_can_be_narrowed() {
+        let all = entries(&items(), false, english);
+        for title in ["Tile width", "Tile height"] {
+            let found = ids(&matches(&all, title));
+            assert!(found.contains(&format!("item/Cpu/{title}")), "{found:?}");
+            assert!(found.contains(&format!("item/Ram/{title}")), "{found:?}");
+            let found = ids(&matches(&all, &format!("memory {title}")));
+            assert_eq!(found, [format!("item/Ram/{title}")]);
+        }
+        let row = all.iter().find(|e| e.id == "item/Ram/Tile width").unwrap();
+        assert!(row.description.contains("cover taskbar buttons"));
     }
 
     #[test]
@@ -482,6 +498,22 @@ mod tests {
                 let other = seen.insert((entry.tab, entry.title), &entry.id);
                 assert_eq!(other, None, "{code}: {} on tab {}", entry.title, entry.tab);
             }
+        }
+
+        for (code, width, height) in [
+            ("es", "ancho del mosaico", "alto del mosaico"),
+            ("zh-CN", "磁贴宽度", "磁贴高度"),
+            ("ko", "타일 너비", "타일 높이"),
+        ] {
+            l10n::set_language(Some(code));
+            let all = entries(&items(), false, l10n::translate);
+            let found = ids(&matches(&all, width));
+            assert!(found.contains(&"item/Ram/Tile width".to_string()), "{code}");
+            let found = ids(&matches(&all, height));
+            assert!(
+                found.contains(&"item/Cpu/Tile height".to_string()),
+                "{code}"
+            );
         }
 
         for (code, query, item_query) in [

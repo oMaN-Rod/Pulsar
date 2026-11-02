@@ -1537,6 +1537,22 @@ msgid "Graph style"
 msgstr "Estilo de gráfica"
 
 #: ui/settings.slint
+msgid "Tile width"
+msgstr "Ancho del mosaico"
+
+#: ui/settings.slint
+msgid "Turn off for automatic. A tile never gets narrower than its text. A wider overlay can cover taskbar buttons."
+msgstr "Desactívalo para usar el modo automático. Un mosaico nunca es más estrecho que su texto. Una superposición más ancha puede tapar botones de la barra de tareas."
+
+#: ui/settings.slint
+msgid "Tile height"
+msgstr "Alto del mosaico"
+
+#: ui/settings.slint
+msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is centred; a floating overlay grows to fit it."
+msgstr "Desactívalo para usar el modo automático. En la barra de tareas, un mosaico no sobresale de la barra y queda centrado; una superposición flotante crece para que quepa."
+
+#: ui/settings.slint
 msgid "Colour"
 msgstr "Color"
 

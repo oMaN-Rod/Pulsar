@@ -30,6 +30,10 @@ pub struct ItemRow {
     pub popup_width: i32,
     /// 0 follows the popup setting.
     pub popup_graph_height: i32,
+    /// 0 is automatic.
+    pub tile_width: i32,
+    /// 0 is automatic.
+    pub tile_height: i32,
     /// 0 follows the widget; otherwise one more than an index into
     /// `names::WIDGET_STYLES`.
     pub widget_style: i32,
@@ -333,6 +337,8 @@ pub fn to_form(c: &Config) -> Form {
                 popup: i.popup.map_or(0, |p| index_of(&DETAILS, &p) + 1),
                 popup_width: i.popup_width.map_or(0, i32::from),
                 popup_graph_height: i.popup_graph_height.map_or(0, i32::from),
+                tile_width: i.tile_width.map_or(0, i32::from),
+                tile_height: i.tile_height.map_or(0, i32::from),
                 widget_style: i
                     .widget_style
                     .map_or(0, |s| index_of(&WIDGET_STYLES, &s) + 1),
@@ -582,6 +588,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
                 popup_width: (r.popup_width > 0).then(|| clamp_u16(r.popup_width)),
                 popup_graph_height: (r.popup_graph_height > 0)
                     .then(|| clamp_u16(r.popup_graph_height)),
+                tile_width: (r.tile_width > 0).then(|| clamp_u16(r.tile_width)),
+                tile_height: (r.tile_height > 0).then(|| clamp_u16(r.tile_height)),
                 widget_style: at(&WIDGET_STYLES, r.widget_style - 1),
                 widget_detail: at(&DETAILS, r.widget_detail - 1),
                 ..ItemConfig::new(r.kind, r.enabled)
@@ -987,6 +995,29 @@ mod tests {
     }
 
     #[test]
+    fn tile_sizes_map_both_ways_and_zero_is_automatic() {
+        let c = Config::default().sanitize();
+        let mut f = to_form(&c);
+        assert_eq!((f.items[0].tile_width, f.items[0].tile_height), (0, 0));
+        assert_eq!(to_config(&f, &c), c);
+        f.items[0].tile_width = 120;
+        f.items[0].tile_height = 32;
+        let out = to_config(&f, &c);
+        assert_eq!(out.items[0].tile_width, Some(120));
+        assert_eq!(out.items[0].tile_height, Some(32));
+        assert_eq!(out.items[1].tile_width, None);
+        assert_eq!(to_form(&out).items[0].tile_width, 120);
+        assert_eq!(to_form(&out).items[0].tile_height, 32);
+        f.items[0].tile_width = 0;
+        f.items[0].tile_height = 0;
+        let out = to_config(&f, &c);
+        assert_eq!(
+            (out.items[0].tile_width, out.items[0].tile_height),
+            (None, None)
+        );
+    }
+
+    #[test]
     fn text_only_keeps_the_graph_style_for_later() {
         use pulsar_core::config::GraphStyle;
         let mut c = Config::default();
@@ -1117,6 +1148,8 @@ mod tests {
         c.popup.graph_height = 200;
         c.items[2].popup_width = Some(260);
         c.items[2].popup_graph_height = Some(48);
+        c.items[2].tile_width = Some(120);
+        c.items[2].tile_height = Some(32);
         c.game.strip = false;
         c.game.games = vec!["game.exe".into()];
         c.hotkeys.widget = Some("Ctrl+Alt+W".into());

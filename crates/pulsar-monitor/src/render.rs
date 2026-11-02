@@ -3,8 +3,8 @@ use std::borrow::Cow;
 use pulsar_core::config::{DisplayMode, GraphStyle};
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{
-    Cell, CellPart, GRAPH_FONT_SCALE, Layout, Rect, TextMeasure, TileText, cell_icon, cell_label,
-    icon_gap, inline_slots, label_width, network_pair, stacked_text_px,
+    Cell, CellPart, Layout, Rect, TextMeasure, TileText, cell_icon, cell_label, icon_gap,
+    inline_slots, label_width, network_pair,
 };
 use pulsar_core::metric::{ItemKind, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
@@ -300,14 +300,10 @@ impl Renderer {
 
     fn draw_graph_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
         let scale = frame.dpi as f32 / 96.0;
-        let font_px = frame.layout.font_px;
-        let small_px = match frame.layout.cells.first() {
-            Some(cell) if !frame.graph_inline => stacked_text_px(font_px, cell.rect.h, scale),
-            _ => font_px * GRAPH_FONT_SCALE,
-        };
-        let small = text.format(small_px)?;
-        let line_h = small_px * 1.3;
         for cell in &frame.layout.cells {
+            let small_px = cell.text_px;
+            let small = text.format(small_px)?;
+            let line_h = small_px * 1.3;
             self.fill_rounded(cell.rect, 4.0 * scale, frame.palette.tile)?;
             let graphed = frame.style(cell.kind).is_some();
             if let Some(style) = frame.style(cell.kind) {
@@ -594,6 +590,16 @@ mod tests {
     }
 
     fn render_with(mode: DisplayMode, samples: &[f64], config: &Config) -> (Surface, Layout) {
+        render_on(mode, samples, config, false, None)
+    }
+
+    fn render_on(
+        mode: DisplayMode,
+        samples: &[f64],
+        config: &Config,
+        fit_font: bool,
+        vertical_bar_px: Option<f32>,
+    ) -> (Surface, Layout) {
         let text = Text::new(None, false).unwrap();
         let items = pulsar_core::layout::item_specs(config, &Default::default());
         let layout = compute_layout(
@@ -601,14 +607,14 @@ mod tests {
             LayoutInput {
                 mode,
                 taskbar_height_px: 48.0,
-                fit_font: false,
+                fit_font,
                 dpi: 96,
                 font_size_pt: 9.0,
                 labels: config.display.labels,
                 icons: config.display.icons,
                 graph_inline: config.display.graph_inline,
                 upload_on_top: config.display.upload_on_top,
-                vertical_bar_px: None,
+                vertical_bar_px,
                 text_spacing: TextSpacing::default(),
             },
             &text,
@@ -642,6 +648,109 @@ mod tests {
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)
+    }
+
+    /// What `kind`'s first tile looks like.
+    fn tile_pixels(surface: &Surface, layout: &Layout, kind: ItemKind) -> Vec<u32> {
+        let all = pixels(surface);
+        let cell = layout.cells.iter().find(|c| c.kind == kind).unwrap();
+        let (x, y) = (cell.rect.x as i32, cell.rect.y as i32);
+        let (w, h) = (cell.rect.w as i32, cell.rect.h as i32);
+        (y..y + h)
+            .flat_map(|row| {
+                let start = (row * surface.width + x) as usize;
+                all[start..start + w as usize].to_vec()
+            })
+            .collect()
+    }
+
+    /// Only `first` and `second` shown, in that order, with `second` sized.
+    fn two_items(first: ItemKind, second: ItemKind, inline: bool, height: Option<u16>) -> Config {
+        let mut config = Config::default();
+        config.display.graph_inline = inline;
+        for item in &mut config.items {
+            item.enabled = false;
+        }
+        for kind in [second, first] {
+            let at = config.items.iter().position(|i| i.kind == kind).unwrap();
+            let mut item = config.items.remove(at);
+            item.enabled = true;
+            config.items.insert(0, item);
+        }
+        config.item_mut(second).unwrap().tile_height = height;
+        config
+    }
+
+    #[test]
+    fn each_tile_draws_its_own_text_size_in_either_order() {
+        let graph = DisplayMode::Graph;
+        let samples = [10.0, 50.0, 90.0];
+        for inline in [false, true] {
+            for other in [ItemKind::Ram, ItemKind::Network] {
+                let height = if inline { 12 } else { 20 };
+                let draw = |config: &Config, kind| {
+                    let (surface, layout) = render_on(graph, &samples, config, false, None);
+                    tile_pixels(&surface, &layout, kind)
+                };
+                let auto = two_items(ItemKind::Cpu, other, inline, None);
+                let before = two_items(ItemKind::Cpu, other, inline, Some(height));
+                let after = two_items(other, ItemKind::Cpu, inline, None);
+                let mut after_sized = after.clone();
+                after_sized.item_mut(other).unwrap().tile_height = Some(height);
+                assert_eq!(
+                    draw(&before, ItemKind::Cpu),
+                    draw(&auto, ItemKind::Cpu),
+                    "a short tile after it leaves the first tile alone"
+                );
+                assert_eq!(
+                    draw(&after_sized, ItemKind::Cpu),
+                    draw(&auto, ItemKind::Cpu),
+                    "a short tile before it leaves the second tile alone"
+                );
+                assert_eq!(
+                    draw(&before, other),
+                    draw(&after_sized, other),
+                    "the short tile looks the same in either order"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_tall_floating_tile_grows_the_surface_and_leaves_the_others_alone() {
+        let samples = [10.0, 50.0, 90.0];
+        let auto = two_items(ItemKind::Cpu, ItemKind::Ram, false, None);
+        let tall = two_items(ItemKind::Ram, ItemKind::Cpu, false, None);
+        let mut tall = tall;
+        tall.item_mut(ItemKind::Ram).unwrap().tile_height = Some(100);
+        let (surface, layout) = render_on(DisplayMode::Graph, &samples, &auto, true, None);
+        let expected = tile_pixels(&surface, &layout, ItemKind::Cpu);
+        let (surface, layout) = render_on(DisplayMode::Graph, &samples, &tall, true, None);
+        assert_eq!(surface.height, 108);
+        assert_eq!(tile_pixels(&surface, &layout, ItemKind::Cpu), expected);
+        let tile = layout
+            .cells
+            .iter()
+            .find(|c| c.kind == ItemKind::Ram)
+            .unwrap();
+        assert_eq!(tile.rect.h, 100.0);
+    }
+
+    #[test]
+    fn vertical_tiles_draw_their_own_text_size_in_either_order() {
+        let samples = [10.0, 50.0, 90.0];
+        let draw = |config: &Config| {
+            let (surface, layout) =
+                render_on(DisplayMode::Graph, &samples, config, false, Some(120.0));
+            tile_pixels(&surface, &layout, ItemKind::Cpu)
+        };
+        let auto = draw(&two_items(ItemKind::Cpu, ItemKind::Ram, false, None));
+        let mut first = two_items(ItemKind::Ram, ItemKind::Cpu, false, None);
+        first.item_mut(ItemKind::Ram).unwrap().tile_height = Some(20);
+        let mut second = two_items(ItemKind::Cpu, ItemKind::Ram, false, None);
+        second.item_mut(ItemKind::Ram).unwrap().tile_height = Some(20);
+        assert_eq!(draw(&first), auto);
+        assert_eq!(draw(&second), auto);
     }
 
     /// An overlay showing only the network, with three samples per metric; the

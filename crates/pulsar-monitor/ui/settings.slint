@@ -13,6 +13,9 @@ export struct ItemRow {
     // 0 follows the Popups page.
     popup-width: int,
     popup-graph-height: int,
+    // 0 is automatic.
+    tile-width: int,
+    tile-height: int,
     expanded: bool,
 }
 
@@ -390,12 +393,17 @@ component OptionalRow inherits Rectangle {
     in property <bool> shown;
     in property <string> title;
     in property <string> description;
+    in property <string> search-key;
+    in property <length> row-padding: 12px;
     visible: root.shown;
     height: root.shown ? row.preferred-height : 0;
     row := SettingRow {
         title: root.title;
         description: root.description;
         available: root.shown;
+        search-key: root.search-key;
+        padding-top: root.row-padding;
+        padding-bottom: root.row-padding;
         @children
     }
 }
@@ -1060,6 +1068,62 @@ export component SettingsWindow inherits Window {
                                     model: root.styles;
                                     current-index: row.style;
                                     selected => { root.item-choice(i, 0, self.current-index); }
+                                }
+                            }
+                            OptionalRow {
+                                title: @tr("Tile width");
+                                description: @tr("Turn off for automatic. A tile never gets narrower than its text. A wider overlay can cover taskbar buttons.");
+                                search-key: row.id + "/Tile width";
+                                shown: root.mode == 0;
+                                row-padding: 4px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    item-tile-width := SpinBox {
+                                        width: 140px;
+                                        enabled: row.tile-width > 0;
+                                        minimum: 16;
+                                        maximum: 400;
+                                        step-size: 4;
+                                        value: row.tile-width > 0 ? row.tile-width : 80;
+                                        edited(value) => { root.item-choice(i, 5, value); }
+                                    }
+                                }
+                                Switch {
+                                    checked: row.tile-width > 0;
+                                    toggled => {
+                                        if (!self.checked) {
+                                            item-tile-width.value = 80;
+                                        }
+                                        root.item-choice(i, 5, self.checked ? item-tile-width.value : 0);
+                                    }
+                                }
+                            }
+                            OptionalRow {
+                                title: @tr("Tile height");
+                                description: @tr("Turn off for automatic. On the taskbar a tile stays within the bar and is centred; a floating overlay grows to fit it.");
+                                search-key: row.id + "/Tile height";
+                                shown: root.mode == 0;
+                                row-padding: 4px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    item-tile-height := SpinBox {
+                                        width: 140px;
+                                        enabled: row.tile-height > 0;
+                                        minimum: 16;
+                                        maximum: 200;
+                                        step-size: 4;
+                                        value: row.tile-height > 0 ? row.tile-height : 32;
+                                        edited(value) => { root.item-choice(i, 6, value); }
+                                    }
+                                }
+                                Switch {
+                                    checked: row.tile-height > 0;
+                                    toggled => {
+                                        if (!self.checked) {
+                                            item-tile-height.value = 32;
+                                        }
+                                        root.item-choice(i, 6, self.checked ? item-tile-height.value : 0);
+                                    }
                                 }
                             }
                             SettingRow {

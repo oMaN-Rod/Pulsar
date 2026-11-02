@@ -261,6 +261,7 @@ mod tests {
         .map(|kind| ItemSpec {
             kind,
             parts: vec![CellPart::Main],
+            tile: Default::default(),
         })
         .to_vec()
     }

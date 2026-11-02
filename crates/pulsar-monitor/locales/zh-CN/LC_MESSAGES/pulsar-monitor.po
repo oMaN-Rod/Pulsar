@@ -1538,6 +1538,22 @@ msgid "Graph style"
 msgstr "图表样式"
 
 #: ui/settings.slint
+msgid "Tile width"
+msgstr "磁贴宽度"
+
+#: ui/settings.slint
+msgid "Turn off for automatic. A tile never gets narrower than its text. A wider overlay can cover taskbar buttons."
+msgstr "关闭即为自动。磁贴不会窄于其文字。叠加层变宽后可能会遮挡任务栏按钮。"
+
+#: ui/settings.slint
+msgid "Tile height"
+msgstr "磁贴高度"
+
+#: ui/settings.slint
+msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is centred; a floating overlay grows to fit it."
+msgstr "关闭即为自动。在任务栏上，磁贴不会超出任务栏并居中显示；浮动叠加层会变大以容纳磁贴。"
+
+#: ui/settings.slint
 msgid "Colour"
 msgstr "颜色"
 

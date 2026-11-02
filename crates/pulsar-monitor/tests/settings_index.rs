@@ -91,6 +91,8 @@ fn optional_and_conditional_rows_are_listed() {
         "Drives",
         "Drive value",
         "Graph style",
+        "Tile width",
+        "Tile height",
     ] {
         assert!(rows.iter().any(|r| r.title == title), "{title}");
     }
@@ -107,6 +109,8 @@ fn the_rows_of_the_item_template_belong_to_every_item() {
         per_item,
         [
             "Graph style",
+            "Tile width",
+            "Tile height",
             "Colour",
             "Popup detail",
             "Popup width",

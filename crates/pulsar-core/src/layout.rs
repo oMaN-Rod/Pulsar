@@ -76,6 +76,8 @@ pub struct Cell {
     /// or sit on the line above when a vertical taskbar is too narrow for both).
     pub value_x: f32,
     pub value_y: f32,
+    /// The size a graph tile draws its text at; shared by measuring and drawing.
+    pub text_px: f32,
 }
 
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -138,11 +140,20 @@ impl Default for TextSpacing {
     }
 }
 
+/// A requested graph tile size, in DIPs; `None` is automatic.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct TileSize {
+    pub width: Option<u16>,
+    pub height: Option<u16>,
+}
+
 /// An enabled item and the cells it draws.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ItemSpec {
     pub kind: ItemKind,
     pub parts: Vec<CellPart>,
+    /// Applies to each of the item's tiles.
+    pub tile: TileSize,
 }
 
 const PADDING_DIP: f32 = 4.0;
@@ -153,6 +164,7 @@ const MAX_TEXT_ROWS: usize = 3;
 const STACKED_PADDING_DIP: f32 = 2.0;
 const STACKED_TILE_GAP_DIP: f32 = 2.0;
 const MIN_STACKED_TILE_DIP: f32 = 36.0;
+const MAX_TILE_HEIGHT_DIP: f32 = 200.0;
 /// Graph tiles draw their text at this fraction of the font size.
 pub const GRAPH_FONT_SCALE: f32 = 0.85;
 /// A stacked tile draws two lines, each 1.3 × the text size, inside this inset.
@@ -251,6 +263,28 @@ pub fn stacked_text_px(font_px: f32, tile_h: f32, scale: f32) -> f32 {
     (font_px * GRAPH_FONT_SCALE).min(stacked_fit_px(tile_h, scale))
 }
 
+/// The text size of a tile that may be `shorter` than its automatic height.
+/// Only then does a single line shrink, so automatic tiles keep the font size.
+fn tile_text_px(
+    font_px: f32,
+    tile_h: f32,
+    shorter: bool,
+    scale: f32,
+    inline: bool,
+    m: &dyn TextMeasure,
+) -> f32 {
+    if !inline {
+        return stacked_text_px(font_px, tile_h, scale);
+    }
+    let px = font_px * GRAPH_FONT_SCALE;
+    let line_h = m.line_height(px);
+    if shorter && line_h > tile_h {
+        (px * tile_h / line_h).max(1.0)
+    } else {
+        px
+    }
+}
+
 /// Space between an icon and the text after it.
 pub fn icon_gap(font_px: f32) -> f32 {
     (font_px * 0.3).round()
@@ -331,6 +365,7 @@ fn with_pairs_split(items: &[ItemSpec], upload_on_top: bool) -> Vec<ItemSpec> {
                 .iter()
                 .flat_map(|&p| single_parts(spec.kind, p, upload_on_top))
                 .collect(),
+            tile: spec.tile,
         })
         .collect()
 }
@@ -353,12 +388,21 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
     // With both on, each GPU's load and temperature sit side by side, where
     // the first of the two items is.
     let paired = !gpus.is_empty() && kinds.iter().filter(|k| is_gpu(k)).count() == 2;
+    let tile = |kind| {
+        config
+            .item(kind)
+            .map_or_else(TileSize::default, |i| TileSize {
+                width: i.tile_width,
+                height: i.tile_height,
+            })
+    };
     let mut specs = Vec::with_capacity(kinds.len());
     for &kind in &kinds {
         if !(paired && is_gpu(&kind)) {
             specs.push(ItemSpec {
                 kind,
                 parts: item_parts(kind, config, gpus),
+                tile: tile(kind),
             });
         } else if !specs.iter().any(|s| is_gpu(&s.kind)) {
             let order: Vec<ItemKind> = kinds.iter().copied().filter(is_gpu).collect();
@@ -366,6 +410,7 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
                 specs.extend(order.iter().map(|&kind| ItemSpec {
                     kind,
                     parts: vec![CellPart::Gpu(i)],
+                    tile: tile(kind),
                 }));
             }
         }
@@ -470,7 +515,9 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput, m: &dyn TextMeasur
             DisplayMode::Text => {
                 stacked_text(&items, bar_w, scale, font_px, labels, input.text_spacing, m)
             }
-            DisplayMode::Graph => stacked_tiles(&items, bar_w, scale, font_px, labels, m),
+            DisplayMode::Graph => {
+                stacked_tiles(&items, bar_w, scale, font_px, labels, input.graph_inline, m)
+            }
         };
     }
     match input.mode {
@@ -612,6 +659,7 @@ fn text_layout(
                 },
                 value_x: x + label_w + label_gap,
                 value_y: y,
+                text_px: font_px,
             });
         }
         x += col_w + item_gap;
@@ -695,6 +743,7 @@ fn stacked_text(
                 },
                 value_x,
                 value_y,
+                text_px: font_px,
             });
             y += h;
         }
@@ -717,6 +766,7 @@ fn stacked_tiles(
     scale: f32,
     font_px: f32,
     labels: Labels,
+    inline: bool,
     m: &dyn TextMeasure,
 ) -> Layout {
     let padding = STACKED_PADDING_DIP * scale;
@@ -732,12 +782,16 @@ fn stacked_tiles(
         })
         .fold(0.0, f32::max);
     let small_px = small_px * (available / widest.max(1.0)).min(1.0);
-    let tile_h =
+    let font_px = small_px / GRAPH_FONT_SCALE;
+    let auto_h =
         (MIN_STACKED_TILE_DIP * scale).max(small_px * STACKED_LINES + STACKED_INSET_DIP * scale);
 
     let mut cells = Vec::new();
     let mut y = padding;
     for spec in items {
+        let tile_h =
+            requested_height(spec, scale).map_or(auto_h, |h| h.min(MAX_TILE_HEIGHT_DIP * scale));
+        let text_px = tile_text_px(font_px, tile_h, tile_h < auto_h, scale, inline, m);
         for &part in &spec.parts {
             cells.push(Cell {
                 kind: spec.kind,
@@ -750,6 +804,7 @@ fn stacked_tiles(
                 },
                 value_x: padding + PADDING_DIP * scale,
                 value_y: y,
+                text_px,
             });
             y += tile_h + STACKED_TILE_GAP_DIP * scale;
         }
@@ -757,7 +812,7 @@ fn stacked_tiles(
     Layout {
         width: bar_w,
         height: y - STACKED_TILE_GAP_DIP * scale + padding,
-        font_px: small_px / GRAPH_FONT_SCALE,
+        font_px,
         cells,
         vertical: true,
     }
@@ -827,6 +882,12 @@ pub fn inline_slots(
     (slots, x)
 }
 
+fn requested_height(spec: &ItemSpec, scale: f32) -> Option<f32> {
+    spec.tile
+        .height
+        .map(|h| (f32::from(h) * scale).round().max(1.0))
+}
+
 fn graph_layout(
     items: &[ItemSpec],
     height: f32,
@@ -838,15 +899,36 @@ fn graph_layout(
 ) -> Layout {
     let inline = input.graph_inline;
     let padding = PADDING_DIP * scale;
-    let tile_h = (height - 2.0 * padding).max(1.0);
-    // A short tile stops widening once its text stops growing.
-    let stacked_px = font_px.min(stacked_fit_px(tile_h, scale) / GRAPH_FONT_SCALE);
+    let auto_h = (height - 2.0 * padding).max(1.0);
+    let max_h = if input.fit_font {
+        auto_h.max(MAX_TILE_HEIGHT_DIP * scale)
+    } else {
+        auto_h
+    };
+    let tile_height =
+        |spec: &ItemSpec| requested_height(spec, scale).map_or(auto_h, |h| h.min(max_h));
+    let tallest = items.iter().map(tile_height).fold(auto_h, f32::max);
+    let height = if tallest > auto_h {
+        (tallest + 2.0 * padding).ceil()
+    } else {
+        height
+    };
+    let row_h = (height - 2.0 * padding).max(1.0);
     let mut cells = Vec::with_capacity(items.len());
     let mut x = padding;
     for spec in items {
+        let tile_h = tile_height(spec);
+        let y = if tile_h < row_h {
+            (padding + (row_h - tile_h) / 2.0).round()
+        } else {
+            padding
+        };
+        let text_px = tile_text_px(font_px, tile_h, tile_h < auto_h, scale, inline, m);
+        // A short tile stops widening once its text stops growing.
+        let stacked_px = font_px.min(stacked_fit_px(tile_h, scale) / GRAPH_FONT_SCALE);
+        let min_w = spec.tile.width.map_or(MIN_TILE_DIP, f32::from) * scale;
         for &part in &spec.parts {
             let text_w = if inline {
-                let text_px = font_px * GRAPH_FONT_SCALE;
                 let text = TileText {
                     labels: labels.style,
                     icons: labels.icons,
@@ -856,18 +938,14 @@ fn graph_layout(
             } else {
                 graph_text_width(spec.kind, part, labels, stacked_px, m)
             };
-            let w = (text_w + 2.0 * padding).max(MIN_TILE_DIP * scale);
+            let w = (text_w + 2.0 * padding).max(min_w);
             cells.push(Cell {
                 kind: spec.kind,
                 part,
-                rect: Rect {
-                    x,
-                    y: padding,
-                    w,
-                    h: tile_h,
-                },
+                rect: Rect { x, y, w, h: tile_h },
                 value_x: x + padding,
-                value_y: padding,
+                value_y: y,
+                text_px,
             });
             x += w + TILE_GAP_DIP * scale;
         }
@@ -1363,11 +1441,443 @@ mod tests {
             .map(|&kind| ItemSpec {
                 kind,
                 parts: vec![CellPart::Main],
+                tile: TileSize::default(),
             })
             .collect()
     }
 
     const ALL: [ItemKind; 14] = ItemKind::ALL;
+
+    fn sized_specs(sizes: &[(ItemKind, Option<u16>, Option<u16>)]) -> Vec<ItemSpec> {
+        sizes
+            .iter()
+            .map(|&(kind, width, height)| ItemSpec {
+                kind,
+                parts: vec![CellPart::Main],
+                tile: TileSize { width, height },
+            })
+            .collect()
+    }
+
+    fn graph_input(fit_font: bool) -> LayoutInput {
+        LayoutInput {
+            fit_font,
+            ..input(DisplayMode::Graph, 48.0, 96)
+        }
+    }
+
+    fn cell_of(l: &Layout, kind: ItemKind) -> &Cell {
+        l.cells.iter().find(|c| c.kind == kind).unwrap()
+    }
+
+    /// The text a tile draws fits the tile it was measured for.
+    fn assert_text_fits(l: &Layout, i: LayoutInput) {
+        let scale = i.dpi as f32 / 96.0;
+        let padding = PADDING_DIP * scale;
+        let labels = Labels {
+            style: i.labels,
+            icons: i.icons,
+        };
+        let text = TileText {
+            labels: i.labels,
+            icons: i.icons,
+            upload_on_top: i.upload_on_top,
+        };
+        for c in &l.cells {
+            let (w, h) = if i.graph_inline {
+                let (_, line) = inline_slots(c.kind, c.part, text, c.text_px, scale, &Fixed);
+                (line, Fixed.line_height(c.text_px))
+            } else {
+                (
+                    graph_text_width(c.kind, c.part, labels, c.text_px, &Fixed),
+                    c.text_px * STACKED_LINES + STACKED_INSET_DIP * scale,
+                )
+            };
+            if i.vertical_bar_px.is_none() {
+                assert!(w + 2.0 * padding <= c.rect.w + 0.01, "{c:?}");
+            }
+            assert!(h <= c.rect.h + 0.01, "{c:?}");
+        }
+    }
+
+    #[test]
+    fn a_width_request_replaces_the_minimum_but_not_the_text() {
+        let cpu = |width| {
+            let items = sized_specs(&[(ItemKind::Cpu, width, None)]);
+            cell_of(
+                &compute_layout(&items, graph_input(false), &Fixed),
+                ItemKind::Cpu,
+            )
+            .rect
+            .w
+        };
+        let labels = Labels {
+            style: LabelStyle::Full,
+            icons: false,
+        };
+        let text = graph_text_width(ItemKind::Cpu, CellPart::Main, labels, 12.0, &Fixed) + 8.0;
+        assert!(text < 44.0, "{text}");
+        assert_eq!(cpu(None), 44.0);
+        assert_eq!(cpu(Some(40)), 40.0, "below the automatic minimum");
+        assert_eq!(cpu(Some(16)), text, "never below the text");
+        assert_eq!(cpu(Some(90)), 90.0);
+        let mut i = graph_input(false);
+        i.dpi = 192;
+        let items = sized_specs(&[(ItemKind::Cpu, Some(90), None)]);
+        assert_eq!(compute_layout(&items, i, &Fixed).cells[0].rect.w, 180.0);
+    }
+
+    #[test]
+    fn a_wider_tile_moves_the_ones_after_it() {
+        let auto = compute_layout(
+            &sized_specs(&[(ItemKind::Cpu, None, None), (ItemKind::Ram, None, None)]),
+            graph_input(false),
+            &Fixed,
+        );
+        let wide = compute_layout(
+            &sized_specs(&[
+                (ItemKind::Cpu, Some(100), None),
+                (ItemKind::Ram, None, None),
+            ]),
+            graph_input(false),
+            &Fixed,
+        );
+        let grown = 100.0 - cell_of(&auto, ItemKind::Cpu).rect.w;
+        assert_eq!(wide.width, auto.width + grown);
+        assert_eq!(
+            cell_of(&wide, ItemKind::Ram).rect.x,
+            cell_of(&auto, ItemKind::Ram).rect.x + grown
+        );
+        assert_no_overlap(&wide);
+    }
+
+    #[test]
+    fn a_docked_tile_stays_in_the_bar_and_centres() {
+        let auto = compute_layout(
+            &sized_specs(&[(ItemKind::Cpu, None, None), (ItemKind::Ram, None, None)]),
+            graph_input(false),
+            &Fixed,
+        );
+        let tall = compute_layout(
+            &sized_specs(&[
+                (ItemKind::Cpu, None, Some(200)),
+                (ItemKind::Ram, None, None),
+            ]),
+            graph_input(false),
+            &Fixed,
+        );
+        assert_eq!(tall, auto, "taller than the bar is the same as automatic");
+
+        let l = compute_layout(
+            &sized_specs(&[(ItemKind::Cpu, None, Some(20)), (ItemKind::Ram, None, None)]),
+            graph_input(false),
+            &Fixed,
+        );
+        assert_eq!(l.height, 48.0);
+        let (cpu, ram) = (cell_of(&l, ItemKind::Cpu), cell_of(&l, ItemKind::Ram));
+        assert_eq!((cpu.rect.y, cpu.rect.h), (14.0, 20.0));
+        assert_eq!(cpu.value_y, 14.0);
+        assert_eq!((ram.rect.y, ram.rect.h), (4.0, 40.0));
+    }
+
+    #[test]
+    fn a_floating_tile_grows_the_window_and_leaves_the_others_alone() {
+        let auto = compute_layout(
+            &sized_specs(&[(ItemKind::Cpu, None, None), (ItemKind::Ram, None, None)]),
+            graph_input(true),
+            &Fixed,
+        );
+        let l = compute_layout(
+            &sized_specs(&[
+                (ItemKind::Cpu, None, Some(100)),
+                (ItemKind::Ram, None, None),
+            ]),
+            graph_input(true),
+            &Fixed,
+        );
+        assert_eq!(l.height, 108.0);
+        let (cpu, ram) = (cell_of(&l, ItemKind::Cpu), cell_of(&l, ItemKind::Ram));
+        let auto_ram = cell_of(&auto, ItemKind::Ram);
+        assert_eq!((cpu.rect.y, cpu.rect.h), (4.0, 100.0));
+        assert_eq!((ram.rect.w, ram.rect.h), (auto_ram.rect.w, auto_ram.rect.h));
+        assert_eq!(ram.text_px, auto_ram.text_px);
+        assert_eq!(ram.rect.y, 34.0, "centred");
+        assert_inside(&l);
+    }
+
+    #[test]
+    fn a_floating_tile_stops_at_the_limit_at_any_scale() {
+        for (dpi, tile, window) in [(96, 200.0, 208.0), (144, 300.0, 312.0)] {
+            let mut i = graph_input(true);
+            i.dpi = dpi;
+            let items = sized_specs(&[(ItemKind::Cpu, None, Some(5000))]);
+            let l = compute_layout(&items, i, &Fixed);
+            assert_eq!(l.cells[0].rect.h, tile);
+            assert_eq!(l.height, window);
+        }
+    }
+
+    #[test]
+    fn a_floating_font_taller_than_a_request_keeps_the_window() {
+        let mut i = graph_input(true);
+        i.font_size_pt = 20.0;
+        let auto = compute_layout(&specs(&[ItemKind::Cpu, ItemKind::Ram]), i, &Fixed);
+        let items = sized_specs(&[(ItemKind::Cpu, None, Some(30)), (ItemKind::Ram, None, None)]);
+        let l = compute_layout(&items, i, &Fixed);
+        assert_eq!(l.height, auto.height);
+        assert_eq!(cell_of(&l, ItemKind::Cpu).rect.h, 30.0);
+        assert_text_fits(&l, i);
+    }
+
+    #[test]
+    fn mixed_heights_fit_each_tile_in_either_order() {
+        for fit_font in [false, true] {
+            for pt in [9.0, 20.0] {
+                let mut i = graph_input(fit_font);
+                i.font_size_pt = pt;
+                let short = (ItemKind::Cpu, None, Some(20));
+                let auto = (ItemKind::Network, None, None);
+                let tall = (ItemKind::Ram, None, Some(40));
+                let one = compute_layout(&sized_specs(&[short, auto, tall]), i, &Fixed);
+                let two = compute_layout(&sized_specs(&[tall, auto, short]), i, &Fixed);
+                for l in [&one, &two] {
+                    assert_text_fits(l, i);
+                    assert_no_overlap(l);
+                    for c in &l.cells {
+                        assert_eq!(c.text_px, stacked_text_px(l.font_px, c.rect.h, 1.0));
+                    }
+                    assert!(
+                        cell_of(l, ItemKind::Cpu).text_px < cell_of(l, ItemKind::Ram).text_px,
+                        "{pt}"
+                    );
+                }
+                for kind in [ItemKind::Cpu, ItemKind::Network, ItemKind::Ram] {
+                    let (a, b) = (cell_of(&one, kind), cell_of(&two, kind));
+                    assert_eq!(
+                        (a.rect.w, a.rect.h, a.rect.y),
+                        (b.rect.w, b.rect.h, b.rect.y)
+                    );
+                    assert_eq!(a.text_px, b.text_px);
+                }
+                assert_eq!(one.width, two.width);
+            }
+        }
+    }
+
+    #[test]
+    fn a_short_tile_measures_narrower_than_a_tall_one() {
+        let mut i = graph_input(false);
+        i.font_size_pt = 12.0;
+        let items = sized_specs(&[(ItemKind::Network, None, Some(20))]);
+        let short = compute_layout(&items, i, &Fixed).cells[0].rect.w;
+        let items = sized_specs(&[(ItemKind::Network, None, None)]);
+        let auto = compute_layout(&items, i, &Fixed).cells[0].rect.w;
+        assert!(short < auto, "{short} vs {auto}");
+    }
+
+    #[test]
+    fn inline_text_shrinks_only_in_a_tile_too_short_for_its_line() {
+        for fit_font in [false, true] {
+            let mut i = graph_input(fit_font);
+            i.graph_inline = true;
+            let auto = compute_layout(&specs(&[ItemKind::Cpu, ItemKind::Network]), i, &Fixed);
+            let px = 12.0 * GRAPH_FONT_SCALE;
+            assert!(auto.cells.iter().all(|c| c.text_px == px));
+            for sizes in [
+                [
+                    (ItemKind::Cpu, None, Some(16)),
+                    (ItemKind::Network, None, Some(12)),
+                ],
+                [
+                    (ItemKind::Network, None, Some(12)),
+                    (ItemKind::Cpu, None, Some(16)),
+                ],
+            ] {
+                let l = compute_layout(&sized_specs(&sizes), i, &Fixed);
+                assert_eq!(
+                    cell_of(&l, ItemKind::Cpu).text_px,
+                    px,
+                    "the line still fits"
+                );
+                let net = cell_of(&l, ItemKind::Network);
+                assert!(net.text_px < px, "{}", net.text_px);
+                assert!(net.rect.w < cell_of(&auto, ItemKind::Network).rect.w);
+                assert_text_fits(&l, i);
+            }
+        }
+    }
+
+    #[test]
+    fn a_size_applies_to_each_network_tile_of_any_arrangement() {
+        for (adapters, split, show, cells) in [
+            (0, false, NetworkShow::Both, 1),
+            (0, true, NetworkShow::Both, 2),
+            (0, false, NetworkShow::Upload, 1),
+            (2, false, NetworkShow::Both, 2),
+            (2, true, NetworkShow::Both, 4),
+            (2, false, NetworkShow::Download, 2),
+        ] {
+            let mut c = Config::default();
+            c.display.mode = DisplayMode::Graph;
+            c.network.adapters = (0..adapters).map(|i| format!("a{i}")).collect();
+            c.network.split_tiles = split;
+            c.network.show = show;
+            let net = c.item_mut(ItemKind::Network).unwrap();
+            net.tile_width = Some(150);
+            net.tile_height = Some(24);
+            let specs = item_specs(&c, &GpuSlots::new());
+            for fit_font in [false, true] {
+                let i = graph_input(fit_font);
+                let l = compute_layout(&specs, i, &Fixed);
+                let tiles: Vec<_> = l
+                    .cells
+                    .iter()
+                    .filter(|c| c.kind == ItemKind::Network)
+                    .collect();
+                assert_eq!(tiles.len(), cells);
+                for tile in tiles {
+                    assert_eq!((tile.rect.w, tile.rect.h), (150.0, 24.0), "{:?}", tile.part);
+                }
+                assert!(
+                    l.cells
+                        .iter()
+                        .filter(|c| c.kind != ItemKind::Network)
+                        .all(|c| c.rect.h != 24.0)
+                );
+                assert_text_fits(&l, i);
+                assert_no_overlap(&l);
+            }
+        }
+    }
+
+    #[test]
+    fn a_size_applies_to_each_gpu_and_drive_tile() {
+        let mut c = gpu_config(&["A", "B"]);
+        c.display.mode = DisplayMode::Graph;
+        c.disk.drives = vec!["C".into(), "D".into()];
+        c.item_mut(ItemKind::Gpu).unwrap().tile_width = Some(100);
+        c.item_mut(ItemKind::GpuTemp).unwrap().tile_height = Some(20);
+        let disk = c.item_mut(ItemKind::Disk).unwrap();
+        disk.enabled = true;
+        disk.tile_width = Some(120);
+        let gpus = GpuSlots::listing(&[adapter("A", 1), adapter("B", 2)]);
+        let l = compute_layout(&item_specs(&c, &gpus), graph_input(false), &Fixed);
+        let of = |kind| l.cells.iter().filter(move |c| c.kind == kind);
+        assert_eq!(of(ItemKind::Gpu).count(), 2);
+        assert!(of(ItemKind::Gpu).all(|c| c.rect.w == 100.0 && c.rect.h == 40.0));
+        assert_eq!(of(ItemKind::GpuTemp).count(), 2);
+        assert!(of(ItemKind::GpuTemp).all(|c| c.rect.h == 20.0));
+        assert_eq!(of(ItemKind::Disk).count(), 2);
+        assert!(of(ItemKind::Disk).all(|c| c.rect.w == 120.0));
+    }
+
+    #[test]
+    fn a_vertical_bar_ignores_width_and_honours_height() {
+        for bar in [48.0, 120.0] {
+            let i = vertical(DisplayMode::Graph, bar);
+            let auto = compute_layout(&specs(&[ItemKind::Cpu, ItemKind::Network]), i, &Fixed);
+            let wide = compute_layout(
+                &sized_specs(&[
+                    (ItemKind::Cpu, Some(300), None),
+                    (ItemKind::Network, Some(300), None),
+                ]),
+                i,
+                &Fixed,
+            );
+            assert_eq!(wide, auto);
+            for sizes in [
+                [
+                    (ItemKind::Cpu, None, Some(20)),
+                    (ItemKind::Network, None, Some(90)),
+                ],
+                [
+                    (ItemKind::Network, None, Some(90)),
+                    (ItemKind::Cpu, None, Some(20)),
+                ],
+            ] {
+                let l = compute_layout(&sized_specs(&sizes), i, &Fixed);
+                assert_eq!(l.width, bar);
+                assert_eq!(cell_of(&l, ItemKind::Cpu).rect.h, 20.0);
+                let net: Vec<_> = l
+                    .cells
+                    .iter()
+                    .filter(|c| c.kind == ItemKind::Network)
+                    .collect();
+                assert_eq!(net.len(), 2, "split, each with the size");
+                assert!(net.iter().all(|c| c.rect.h == 90.0));
+                assert!(net[0].text_px > cell_of(&l, ItemKind::Cpu).text_px);
+                assert!(l.cells.iter().all(|c| c.rect.w == auto.cells[0].rect.w));
+                assert_no_overlap(&l);
+                assert_inside(&l);
+                assert_text_fits(&l, i);
+            }
+            let inline = LayoutInput {
+                graph_inline: true,
+                ..i
+            };
+            let auto = compute_layout(&specs(&[ItemKind::Cpu]), inline, &Fixed);
+            assert_eq!(auto.cells[0].text_px, auto.font_px * GRAPH_FONT_SCALE);
+        }
+    }
+
+    #[test]
+    fn text_mode_ignores_tile_sizes() {
+        let sizes = [
+            (ItemKind::Cpu, Some(300), Some(10)),
+            (ItemKind::Ram, Some(300), Some(200)),
+        ];
+        for i in [
+            input(DisplayMode::Text, 48.0, 96),
+            vertical(DisplayMode::Text, 48.0),
+            LayoutInput {
+                fit_font: true,
+                ..input(DisplayMode::Text, 48.0, 96)
+            },
+        ] {
+            assert_eq!(
+                compute_layout(&sized_specs(&sizes), i, &Fixed),
+                compute_layout(&specs(&[ItemKind::Cpu, ItemKind::Ram]), i, &Fixed)
+            );
+        }
+    }
+
+    #[test]
+    fn hit_testing_follows_the_sized_tiles() {
+        for fit_font in [false, true] {
+            let items = sized_specs(&[
+                (ItemKind::Cpu, Some(80), Some(20)),
+                (ItemKind::Ram, None, None),
+            ]);
+            let l = compute_layout(&items, graph_input(fit_font), &Fixed);
+            let cpu = cell_of(&l, ItemKind::Cpu).rect;
+            let middle = cpu.x + cpu.w - 1.0;
+            assert_eq!(l.hit_test(middle, cpu.y + 1.0), Some(ItemKind::Cpu));
+            assert_eq!(l.hit_test(middle, cpu.y + cpu.h - 1.0), Some(ItemKind::Cpu));
+            assert_eq!(
+                l.hit_test(middle, cpu.y - 1.0),
+                None,
+                "above the short tile"
+            );
+            assert_eq!(l.hit_test(middle, cpu.y + cpu.h + 1.0), None, "below it");
+            let ram = cell_of(&l, ItemKind::Ram).rect;
+            assert_eq!(l.hit_test(ram.x + 1.0, ram.y + 1.0), Some(ItemKind::Ram));
+        }
+    }
+
+    #[test]
+    fn automatic_tiles_ask_for_nothing() {
+        let c = Config::default();
+        let specs = item_specs(&c, &GpuSlots::new());
+        assert!(specs.iter().all(|s| s.tile == TileSize::default()));
+    }
+
+    #[test]
+    fn a_tile_size_is_part_of_the_spec_key() {
+        let mut c = Config::default();
+        let before = item_specs(&c, &GpuSlots::new());
+        c.items[0].tile_height = Some(30);
+        assert_ne!(item_specs(&c, &GpuSlots::new()), before);
+    }
 
     fn assert_no_overlap(layout: &Layout) {
         for (i, a) in layout.cells.iter().enumerate() {
@@ -1791,6 +2301,7 @@ mod tests {
             let items = [ItemSpec {
                 kind: ItemKind::Network,
                 parts: vec![part],
+                tile: TileSize::default(),
             }];
             compute_layout(&items, i, &Fixed).cells[0].rect.w
         };
@@ -1978,6 +2489,7 @@ mod tests {
         let items = [ItemSpec {
             kind: ItemKind::Disk,
             parts: vec![CellPart::DriveActive(b'C'), CellPart::DriveActive(b'D')],
+            tile: TileSize::default(),
         }];
         let l = compute_layout(&items, input(DisplayMode::Graph, 48.0, 96), &Fixed);
         assert_eq!(l.cells.len(), 2);
@@ -2188,6 +2700,7 @@ mod tests {
             let items = [ItemSpec {
                 kind: ItemKind::Network,
                 parts: item_parts(ItemKind::Network, &c, &[]),
+                tile: TileSize::default(),
             }];
             compute_layout(&items, i, &Fixed)
                 .cells
@@ -2232,6 +2745,7 @@ mod tests {
         vec![ItemSpec {
             kind: ItemKind::Network,
             parts: (0..n).map(CellPart::AdapterPair).collect(),
+            tile: TileSize::default(),
         }]
     }
 

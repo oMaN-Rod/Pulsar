@@ -1537,6 +1537,22 @@ msgid "Graph style"
 msgstr "그래프 스타일"
 
 #: ui/settings.slint
+msgid "Tile width"
+msgstr "타일 너비"
+
+#: ui/settings.slint
+msgid "Turn off for automatic. A tile never gets narrower than its text. A wider overlay can cover taskbar buttons."
+msgstr "끄면 자동으로 설정됩니다. 타일은 텍스트보다 좁아지지 않습니다. 오버레이가 넓어지면 작업 표시줄 단추를 가릴 수 있습니다."
+
+#: ui/settings.slint
+msgid "Tile height"
+msgstr "타일 높이"
+
+#: ui/settings.slint
+msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is centred; a floating overlay grows to fit it."
+msgstr "끄면 자동으로 설정됩니다. 작업 표시줄에서는 타일이 표시줄 안에서 가운데에 놓이고, 떠 있는 오버레이는 타일에 맞게 커집니다."
+
+#: ui/settings.slint
 msgid "Colour"
 msgstr "색"
 

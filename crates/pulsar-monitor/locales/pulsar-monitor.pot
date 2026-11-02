@@ -1535,6 +1535,22 @@ msgid "Graph style"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Tile width"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Turn off for automatic. A tile never gets narrower than its text. A wider overlay can cover taskbar buttons."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Tile height"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is centred; a floating overlay grows to fit it."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Colour"
 msgstr ""
 

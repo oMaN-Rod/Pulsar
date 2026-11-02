@@ -330,6 +330,7 @@ mod tests {
             .map(|kind| pulsar_core::layout::ItemSpec {
                 kind,
                 parts: vec![CellPart::Main],
+                tile: Default::default(),
             })
             .collect();
         let l = compute_layout(&specs, input, &Fixed);

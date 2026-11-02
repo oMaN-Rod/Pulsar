@@ -468,6 +468,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 popup: r.popup,
                 popup_width: r.popup_width,
                 popup_graph_height: r.popup_graph_height,
+                tile_width: r.tile_width,
+                tile_height: r.tile_height,
             }
         })
         .collect();
@@ -554,6 +556,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 popup: r.popup,
                 popup_width: r.popup_width,
                 popup_graph_height: r.popup_graph_height,
+                tile_width: r.tile_width,
+                tile_height: r.tile_height,
                 widget_style: w.style,
                 widget_detail: w.detail,
             })
@@ -1087,6 +1091,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                     1 => r.color_mode = value,
                     3 => r.popup_width = value,
                     4 => r.popup_graph_height = value,
+                    5 => r.tile_width = value,
+                    6 => r.tile_height = value,
                     _ => r.popup = value,
                 });
                 ui.invoke_changed();

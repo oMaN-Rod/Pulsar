@@ -886,6 +886,39 @@ mod tests {
     }
 
     #[test]
+    fn a_tile_size_redoes_the_layout_on_the_taskbar_and_on_the_game_strip() {
+        let mut overlay = overlay();
+        overlay.taskbar.rect = Rect32 {
+            left: 0,
+            top: 1032,
+            right: 1920,
+            bottom: 1080,
+        };
+        let mut config = Config::default();
+        let text = Text::new(None, false).unwrap();
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
+        let (auto_w, auto_h) = overlay.size();
+        let first = config.enabled_items()[0];
+        let item = config.item_mut(first).unwrap();
+        item.tile_width = Some(200);
+        item.tile_height = Some(100);
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
+        assert!(overlay.size().0 > auto_w);
+        assert_eq!(overlay.size().1, auto_h, "the bar limits a docked tile");
+
+        // The game strip floats with its own copy of the settings.
+        let strip = crate::game::strip_config(&config);
+        overlay.float_dpi = Some(96);
+        overlay.update_layout(&strip, &GpuSlots::new(), &text);
+        assert_eq!(overlay.size().1, 108);
+        assert!(overlay.layout.cells.iter().any(|c| c.rect.h == 100.0));
+
+        overlay.float_dpi = None;
+        overlay.update_layout(&config, &GpuSlots::new(), &text);
+        assert_eq!(overlay.size().1, auto_h);
+    }
+
+    #[test]
     fn changing_the_network_cells_redoes_the_layout() {
         use pulsar_core::config::NetworkShow;
         use pulsar_core::layout::CellPart;
