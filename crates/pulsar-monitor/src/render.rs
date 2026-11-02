@@ -21,7 +21,7 @@ use windows::Win32::Graphics::Direct2D::{
     D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_SOFTWARE, D2D1_RENDER_TARGET_USAGE_NONE,
     D2D1_ROUNDED_RECT, D2D1_STROKE_STYLE_PROPERTIES, D2D1_SWEEP_DIRECTION_CLOCKWISE,
     D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE, D2D1CreateFactory, ID2D1DCRenderTarget, ID2D1Factory,
-    ID2D1PathGeometry, ID2D1StrokeStyle,
+    ID2D1PathGeometry, ID2D1SolidColorBrush, ID2D1StrokeStyle,
 };
 use windows::Win32::Graphics::DirectWrite::IDWriteTextFormat;
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -173,6 +173,7 @@ pub struct Renderer {
     factory: ID2D1Factory,
     target: ID2D1DCRenderTarget,
     round_stroke: ID2D1StrokeStyle,
+    brush: ID2D1SolidColorBrush,
 }
 
 impl Renderer {
@@ -190,11 +191,19 @@ impl Renderer {
             dashOffset: 0.0,
         };
         let round_stroke = unsafe { factory.CreateStrokeStyle(&round, None)? };
+        let brush = create_brush(&target)?;
         Ok(Self {
             factory,
             target,
             round_stroke,
+            brush,
         })
+    }
+
+    /// The renderer's one brush, set to `color`, so a fill allocates nothing.
+    fn brush(&self, color: Color) -> &ID2D1SolidColorBrush {
+        unsafe { self.brush.SetColor(&d2d(color)) };
+        &self.brush
     }
 
     pub fn draw(&mut self, surface: &Surface, frame: &Frame, text: &Text) -> Result<()> {
@@ -234,6 +243,7 @@ impl Renderer {
             && e.code() == D2DERR_RECREATE_TARGET
         {
             self.target = create_target(&self.factory)?;
+            self.brush = create_brush(&self.target)?;
         }
         drawn.and(ended)
     }
@@ -581,8 +591,8 @@ impl Renderer {
             radiusY: radius,
         };
         unsafe {
-            let brush = self.target.CreateSolidColorBrush(&d2d(track), None)?;
-            self.target.DrawEllipse(&ellipse, &brush, stroke, None);
+            self.target
+                .DrawEllipse(&ellipse, self.brush(track), stroke, None);
         }
         let Some(arc) = ring_arc(center, radius, fraction) else {
             return Ok(());
@@ -607,9 +617,8 @@ impl Renderer {
             });
             sink.EndFigure(D2D1_FIGURE_END_OPEN);
             sink.Close()?;
-            let brush = self.target.CreateSolidColorBrush(&d2d(color), None)?;
             self.target
-                .DrawGeometry(&geometry, &brush, stroke, &self.round_stroke);
+                .DrawGeometry(&geometry, self.brush(color), stroke, &self.round_stroke);
         }
         Ok(())
     }
@@ -778,8 +787,7 @@ impl Renderer {
 
     fn fill_rect(&self, r: Rect, color: Color) -> Result<()> {
         unsafe {
-            let brush = self.target.CreateSolidColorBrush(&d2d(color), None)?;
-            self.target.FillRectangle(&rect_f(r), &brush);
+            self.target.FillRectangle(&rect_f(r), self.brush(color));
         }
         Ok(())
     }
@@ -797,15 +805,14 @@ impl Renderer {
         }
         if fill {
             let area = self.path(points, true)?;
-            let brush = unsafe {
-                self.target
-                    .CreateSolidColorBrush(&d2d(color.with_alpha(0.35)), None)?
-            };
-            unsafe { self.target.FillGeometry(&area, &brush, None) };
+            let brush = self.brush(color.with_alpha(0.35));
+            unsafe { self.target.FillGeometry(&area, brush, None) };
         }
         let line = self.path(&points[1..points.len() - 1], false)?;
-        let brush = unsafe { self.target.CreateSolidColorBrush(&d2d(color), None)? };
-        unsafe { self.target.DrawGeometry(&line, &brush, width, None) };
+        unsafe {
+            self.target
+                .DrawGeometry(&line, self.brush(color), width, None);
+        }
         Ok(())
     }
 
@@ -840,8 +847,8 @@ impl Renderer {
             radiusY: radius,
         };
         unsafe {
-            let brush = self.target.CreateSolidColorBrush(&d2d(color), None)?;
-            self.target.FillRoundedRectangle(&rounded, &brush);
+            self.target
+                .FillRoundedRectangle(&rounded, self.brush(color));
         }
         Ok(())
     }
@@ -857,14 +864,13 @@ impl Renderer {
     ) -> Result<()> {
         let layout = text.layout(s, format)?;
         unsafe {
-            let brush = self.target.CreateSolidColorBrush(&d2d(color), None)?;
             self.target.DrawTextLayout(
                 Vector2 {
                     X: x.round(),
                     Y: y.round(),
                 },
                 &layout,
-                &brush,
+                self.brush(color),
                 D2D1_DRAW_TEXT_OPTIONS_NONE,
             );
         }
@@ -887,6 +893,10 @@ fn create_target(factory: &ID2D1Factory) -> Result<ID2D1DCRenderTarget> {
         minLevel: D2D1_FEATURE_LEVEL_DEFAULT,
     };
     unsafe { factory.CreateDCRenderTarget(&props) }
+}
+
+fn create_brush(target: &ID2D1DCRenderTarget) -> Result<ID2D1SolidColorBrush> {
+    unsafe { target.CreateSolidColorBrush(&d2d(Color::rgb(0, 0, 0)), None) }
 }
 
 fn d2d(c: Color) -> D2D1_COLOR_F {
