@@ -1337,6 +1337,22 @@ msgid "Unlimited"
 msgstr "Sin límite"
 
 #: src/popup/content.rs
+msgid "Internet"
+msgstr "Internet"
+
+#: src/popup/content.rs
+msgid "Local network only"
+msgstr "Solo red local"
+
+#: src/popup/content.rs
+msgid "Not connected"
+msgstr "Sin conexión"
+
+#: src/popup/content.rs
+msgid "Connection"
+msgstr "Conexión"
+
+#: src/popup/content.rs
 msgid "Hottest core"
 msgstr "Núcleo más caliente"
 
@@ -2479,6 +2495,14 @@ msgstr "Las velocidades de disco se mantienen en bytes."
 #: ui/settings.slint
 msgid "Show the upload rate above the download rate."
 msgstr "Muestra la velocidad de subida encima de la de bajada."
+
+#: ui/settings.slint
+msgid "Connection dot"
+msgstr "Punto de conexión"
+
+#: ui/settings.slint
+msgid "A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors."
+msgstr "Un punto antes de las flechas: verde con acceso a internet, naranja solo con la red local y rojo sin conexión. Usa los colores bajo, alto y crítico."
 
 #: ui/settings.slint
 msgid "An IPv4 address or a name."

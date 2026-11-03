@@ -201,6 +201,7 @@ While the display is off, the PC is locked or the session is disconnected, Pulsa
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
 - temperatures in °C or °F, memory and GPU memory as a percentage or the amount in use, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
+- a dot before the network arrows in the color of the connection: internet, the local network only, or none, as Windows judges it for the tray's network icon
 - network as download, upload or both, on one graph tile or a tile for each, with a separate choice for the popup
 - each drive as its own item, showing its activity or used space; each GPU with its own load, temperature and memory; and all physical network adapters, one, or several side by side
 
@@ -236,7 +237,7 @@ Popups are translucent by default, blurring what is behind them, or solid if you
 | **GPU power** | share of the power limit, load and temperature, while the GPU and GPU temperature items are on | |
 | **Disk** | read and write rates, chosen drives, top processes by I/O | free space per drive |
 | **Drive temperature** | each drive, by letter and model; hard drives are read at most every 5 minutes and show the reading's age, or that they are asleep | |
-| **Network** | traffic per adapter, numbered when each has its own cells | totals since Pulsar started |
+| **Network** | whether there is a connection to the internet, traffic per adapter, numbered when each has its own cells | totals since Pulsar started |
 | **Ping** | host, min/avg/max, packet loss | jitter |
 | **Battery** | state, time remaining | charge rate, energy, capacity when new, health, charge cycles, voltage |
 | **Frame rate** | application, frame time, 1% and 0.1% lows, how often its monitor's picture changed | min/avg/max |

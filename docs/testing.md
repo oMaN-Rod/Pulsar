@@ -61,6 +61,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Hover each item | Its popup shows a graph and details, and updates live |
 | GPU temperature on | TEMP roughly matches Task Manager; on a machine without a sensor it shows "—" and the popup explains why |
 | Disks: *Each drive*, then *Used space* | One cell per ticked drive; values match Explorer |
+| Devices → Network: *Connection dot* on, in text, graph, single-line and split-tile modes, with *Upload on top* on and off; then turn Wi-Fi off, and join a network with no internet | A green dot leads the first arrow shown and the arrows stay in line; it turns red, then orange, within a second or two of the tray's network icon; the popup's *Connection* row agrees |
 | Network: choose one adapter, then unplug it | Only that adapter is counted; unplugged shows "—" with the reason |
 | Network: tick two adapters | A numbered ↓/↑ pair per adapter (a tile each in graph mode); the popup lists both by number |
 | Network: Show set to Upload only, with one and two adapters, in graphs, single-line graphs and text | One ↑ cell or tile per adapter, and no ↓ anywhere on the taskbar |

@@ -177,6 +177,8 @@ pub enum MetricKey {
     /// Received and sent since sampling started.
     NetDownTotalBytes,
     NetUpTotalBytes,
+    /// 2 with internet access, 1 with the local network only, 0 with neither.
+    NetConnectivity,
     /// By place in `NetworkConfig::adapters`.
     NetAdapterDownBps(u8),
     NetAdapterUpBps(u8),
@@ -369,7 +371,7 @@ impl MetricKey {
             | NetDownTotalBytes
             | NetUpTotalBytes => Unit::Bytes,
             ProcessCount | ThreadCount | HandleCount | BatteryPluggedIn | BatteryCharging
-            | BatteryCycles | DiskAsleep(_) => Unit::Count,
+            | BatteryCycles | DiskAsleep(_) | NetConnectivity => Unit::Count,
             UptimeSeconds | BatterySecondsLeft | DiskTempAgeSeconds(_) => Unit::Seconds,
             BatteryRemainingWh | BatteryFullWh | BatteryDesignWh => Unit::WattHours,
             DiskReadBps | DiskWriteBps => Unit::BytesPerSec,

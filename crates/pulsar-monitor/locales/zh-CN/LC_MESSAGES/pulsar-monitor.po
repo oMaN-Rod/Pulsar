@@ -1338,6 +1338,22 @@ msgid "Unlimited"
 msgstr "无限制"
 
 #: src/popup/content.rs
+msgid "Internet"
+msgstr "互联网"
+
+#: src/popup/content.rs
+msgid "Local network only"
+msgstr "仅本地网络"
+
+#: src/popup/content.rs
+msgid "Not connected"
+msgstr "未连接"
+
+#: src/popup/content.rs
+msgid "Connection"
+msgstr "连接"
+
+#: src/popup/content.rs
 msgid "Hottest core"
 msgstr "最热核心"
 
@@ -2480,6 +2496,14 @@ msgstr "磁盘速率仍以字节显示。"
 #: ui/settings.slint
 msgid "Show the upload rate above the download rate."
 msgstr "将上传速率显示在下载速率上方。"
+
+#: ui/settings.slint
+msgid "Connection dot"
+msgstr "连接状态点"
+
+#: ui/settings.slint
+msgid "A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors."
+msgstr "箭头前的圆点：可访问互联网时为绿色，仅有本地网络时为橙色，未连接时为红色。使用低、高和危急颜色。"
 
 #: ui/settings.slint
 msgid "An IPv4 address or a name."

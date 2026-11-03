@@ -6,7 +6,7 @@ use pulsar_core::hardware::cpu::cached_topology;
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{
     Cell, CellPart, Layout, Rect, StackedLabel, TextMeasure, TileGraphic, TileLook, TileText,
-    cell_icon, cell_label, heat_rows, icon_gap, inline_slots, label_width, network_pair,
+    cell_icon, cell_label, dot_size, heat_rows, icon_gap, inline_slots, label_width, network_pair,
     stacked_label, tile_regions,
 };
 use pulsar_core::metric::{ItemKind, MetricKey, Snapshot};
@@ -170,6 +170,18 @@ impl Frame<'_> {
             .filter(|_| !failed)
             .map(|v| self.network_floor.value(key, v));
         self.palette.value_at(kind, part, value)
+    }
+}
+
+/// The load colors for the connection: low with internet access, high with
+/// the local network only, critical with neither; faint until Windows says.
+fn connection_color(frame: &Frame) -> Color {
+    let palette = frame.palette;
+    match frame.snapshot.get(MetricKey::NetConnectivity) {
+        Some(level) if level >= 2.0 => palette.load_color(Load::Low),
+        Some(level) if level >= 1.0 => palette.load_color(Load::High),
+        Some(_) => palette.load_color(Load::Critical),
+        None => palette.label.with_alpha(0.4),
     }
 }
 
@@ -372,6 +384,20 @@ impl Renderer {
     ) -> Result<()> {
         let color = frame.palette.label_for(kind, part);
         let mut x = x;
+        let names = frame.text.names;
+        if names.dot_room(part) {
+            let size = dot_size(font_px);
+            if names.draws_dot(part) {
+                let dot = Rect {
+                    x,
+                    y: y + (text.line_height(font_px) - size) / 2.0,
+                    w: size,
+                    h: size,
+                };
+                self.fill_rounded(dot, size / 2.0, connection_color(frame))?;
+            }
+            x += size + icon_gap(font_px);
+        }
         if frame.text.icons {
             let glyph = cell_icon(kind, part);
             let format = text.icon_format(font_px)?;
@@ -1502,6 +1528,7 @@ mod tests {
         snapshot.set(MetricKey::CpuTempC, 60.0);
         snapshot.set(MetricKey::BatteryPercent, 64.0);
         snapshot.set(MetricKey::BatteryCharging, 1.0);
+        snapshot.set(MetricKey::NetConnectivity, 2.0);
         for core in 0..24 {
             snapshot.set(MetricKey::CpuCore(core), f64::from(core) * 4.0);
         }
@@ -2290,6 +2317,33 @@ mod tests {
         let (low, critical) = (bubble_pixel(&[10.0; 8]), bubble_pixel(&[95.0; 8]));
         assert!(low >> 24 == 0xFF && critical >> 24 == 0xFF);
         assert_ne!(low, critical);
+    }
+
+    #[test]
+    fn the_connection_dot_leads_the_download_arrow_in_the_low_color() {
+        let mut config = Config::default();
+        config.network.connection_dot = true;
+        let (surface, layout) = render_with(DisplayMode::Text, &[10.0; 8], &config);
+        let size = pulsar_core::layout::dot_size(layout.font_px);
+        let text = Text::new(None, false).unwrap();
+        let center = |part| {
+            let cell = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Network && c.part == part)
+                .unwrap();
+            let y = cell.rect.y + text.line_height(layout.font_px) / 2.0;
+            pixels(&surface)
+                [(y as i32 * surface.width + (cell.rect.x + size / 2.0) as i32) as usize]
+        };
+        let dot = center(CellPart::Down);
+        let (r, g, b) = ((dot >> 16) & 0xFF, (dot >> 8) & 0xFF, dot & 0xFF);
+        assert_eq!(dot >> 24, 0xFF);
+        assert!(g > r && g > b, "{dot:08X} is not green");
+        assert!(
+            center(CellPart::Up) >> 24 < 0x40,
+            "only the first arrow has it"
+        );
     }
 
     #[test]

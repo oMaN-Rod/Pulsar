@@ -579,6 +579,9 @@ pub struct NetworkConfig {
     /// On the overlay, instead of the arrow; `None` keeps it.
     pub down_label: Option<String>,
     pub up_label: Option<String>,
+    /// On the overlay, a dot before the arrows in the color of the
+    /// connection: to the internet, the local network only, or none.
+    pub connection_dot: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

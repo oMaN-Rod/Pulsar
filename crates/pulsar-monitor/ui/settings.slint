@@ -1191,6 +1191,7 @@ export component SettingsWindow inherits Window {
     in property <bool> network-floor-bits;
     property <[string]> network-floor-units: root.network-floor-bits ? ["bps", "Kbps", "Mbps"] : ["B/s", "KB/s", "MB/s"];
     in-out property <bool> upload-on-top;
+    in-out property <bool> connection-dot;
     in-out property <int> network-show;
     in-out property <bool> network-split-tiles;
     in-out property <int> network-popup-show;
@@ -2873,6 +2874,15 @@ export component SettingsWindow inherits Window {
                         description: @tr("Show the upload rate above the download rate.");
                         Switch {
                             checked <=> root.upload-on-top;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Connection dot");
+                        description: @tr("A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors.");
+                        Switch {
+                            checked <=> root.connection-dot;
                             toggled => { root.changed(); }
                         }
                     }

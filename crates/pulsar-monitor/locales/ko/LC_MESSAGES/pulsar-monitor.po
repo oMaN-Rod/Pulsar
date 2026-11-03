@@ -1337,6 +1337,22 @@ msgid "Unlimited"
 msgstr "무제한"
 
 #: src/popup/content.rs
+msgid "Internet"
+msgstr "인터넷"
+
+#: src/popup/content.rs
+msgid "Local network only"
+msgstr "로컬 네트워크만"
+
+#: src/popup/content.rs
+msgid "Not connected"
+msgstr "연결 안 됨"
+
+#: src/popup/content.rs
+msgid "Connection"
+msgstr "연결"
+
+#: src/popup/content.rs
 msgid "Hottest core"
 msgstr "가장 뜨거운 코어"
 
@@ -2479,6 +2495,14 @@ msgstr "디스크 속도는 바이트 단위로 유지됩니다."
 #: ui/settings.slint
 msgid "Show the upload rate above the download rate."
 msgstr "업로드 속도를 다운로드 속도 위에 표시합니다."
+
+#: ui/settings.slint
+msgid "Connection dot"
+msgstr "연결 상태 점"
+
+#: ui/settings.slint
+msgid "A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors."
+msgstr "화살표 앞의 점: 인터넷에 연결되면 초록색, 로컬 네트워크만 있으면 주황색, 연결이 없으면 빨간색입니다. 낮음, 높음, 위험 색상을 사용합니다."
 
 #: ui/settings.slint
 msgid "An IPv4 address or a name."

@@ -1335,6 +1335,22 @@ msgid "Unlimited"
 msgstr ""
 
 #: src/popup/content.rs
+msgid "Internet"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Local network only"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Not connected"
+msgstr ""
+
+#: src/popup/content.rs
+msgid "Connection"
+msgstr ""
+
+#: src/popup/content.rs
 msgid "Hottest core"
 msgstr ""
 
@@ -2476,6 +2492,14 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Show the upload rate above the download rate."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Connection dot"
+msgstr ""
+
+#: ui/settings.slint
+msgid "A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors."
 msgstr ""
 
 #: ui/settings.slint

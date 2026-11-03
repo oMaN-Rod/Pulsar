@@ -346,7 +346,7 @@ pub fn icon_gap(font_px: f32) -> f32 {
     (font_px * 0.3).round()
 }
 
-/// Icon and label text together, as drawn.
+/// Connection dot, icon and label text together, as drawn.
 pub fn label_width(
     kind: ItemKind,
     part: CellPart,
@@ -356,6 +356,11 @@ pub fn label_width(
     font_px: f32,
     m: &dyn TextMeasure,
 ) -> f32 {
+    let dot = if names.dot_room(part) {
+        dot_size(font_px) + icon_gap(font_px)
+    } else {
+        0.0
+    };
     let text = cell_label(kind, part, labels, icons, names);
     let text_w = if text.is_empty() {
         0.0
@@ -363,14 +368,19 @@ pub fn label_width(
         m.width(&text, font_px)
     };
     if !icons {
-        return text_w;
+        return dot + text_w;
     }
     let icon_w = m.icon_width(cell_icon(kind, part), font_px);
     if text_w > 0.0 {
-        icon_w + icon_gap(font_px) + text_w
+        dot + icon_w + icon_gap(font_px) + text_w
     } else {
-        icon_w
+        dot + icon_w
     }
+}
+
+/// The diameter of the connection dot.
+pub fn dot_size(font_px: f32) -> f32 {
+    (font_px * 0.45).round().max(3.0)
 }
 
 #[derive(Clone, Copy)]

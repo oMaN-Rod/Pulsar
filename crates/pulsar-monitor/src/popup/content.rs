@@ -552,6 +552,16 @@ fn sensors(snapshot: &Snapshot) -> Vec<(String, String)> {
     rows
 }
 
+/// How Windows judges the connection, as the network icon in the tray does.
+fn connection(snapshot: &Snapshot) -> Option<(String, String)> {
+    let state = match snapshot.get(MetricKey::NetConnectivity)? {
+        level if level >= 2.0 => tr!("Internet"),
+        level if level >= 1.0 => tr!("Local network only"),
+        _ => tr!("Not connected"),
+    };
+    Some((tr!("Connection").into(), state.into()))
+}
+
 /// The other GPU items' readings, when they are on.
 fn gpu_power_rows(snapshot: &Snapshot) -> Vec<(String, String)> {
     [
@@ -803,14 +813,20 @@ pub fn build_with(
                     floored_cell_value(kind, CellPart::Up, snapshot, options.network_floor),
                 ),
                 series,
-                vec![Block::Rows {
-                    heading: Some(tr!("Adapters")),
-                    rows: if adapters.is_empty() {
-                        vec![(tr!("No traffic").into(), String::new())]
-                    } else {
-                        adapters
+                vec![
+                    Block::Rows {
+                        heading: None,
+                        rows: connection(snapshot).into_iter().collect(),
                     },
-                }],
+                    Block::Rows {
+                        heading: Some(tr!("Adapters")),
+                        rows: if adapters.is_empty() {
+                            vec![(tr!("No traffic").into(), String::new())]
+                        } else {
+                            adapters
+                        },
+                    },
+                ],
             )
         }
         ItemKind::Gpu => (

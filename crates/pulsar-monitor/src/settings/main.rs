@@ -347,6 +347,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_upload_on_top(f.upload_on_top);
     ui.set_network_show(f.network_show);
     ui.set_network_split_tiles(f.network_split_tiles);
+    ui.set_connection_dot(f.connection_dot);
     ui.set_network_popup_show(f.network_popup_show);
     ui.set_network_down_label(f.network_down_label.as_str().into());
     ui.set_network_up_label(f.network_up_label.as_str().into());
@@ -688,6 +689,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         upload_on_top: ui.get_upload_on_top(),
         network_show: ui.get_network_show(),
         network_split_tiles: ui.get_network_split_tiles(),
+        connection_dot: ui.get_connection_dot(),
         network_popup_show: ui.get_network_popup_show(),
         network_down_label: ui.get_network_down_label().to_string(),
         network_up_label: ui.get_network_up_label().to_string(),
