@@ -2329,6 +2329,22 @@ msgid "The games Windows recognises, as Game Bar does. To change that for an app
 msgstr "Los juegos que reconoce Windows, igual que Game Bar. Para cambiarlo en una aplicación, tráela al primer plano, haz clic derecho en Pulsar y usa Considerar como juego."
 
 #: ui/settings.slint
+msgid "Memory use"
+msgstr "Uso de memoria"
+
+#: ui/settings.slint
+msgid "For the memory and GPU memory items. Their graphs and colors still follow how full the memory is."
+msgstr "Para los elementos de memoria y memoria de la GPU. Sus gráficas y colores siguen mostrando lo llena que está la memoria."
+
+#: ui/settings.slint
+msgid "Percent used"
+msgstr "Porcentaje en uso"
+
+#: ui/settings.slint
+msgid "Amount used"
+msgstr "Cantidad en uso"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "Discos"
 

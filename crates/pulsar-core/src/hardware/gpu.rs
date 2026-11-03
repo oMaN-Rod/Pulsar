@@ -52,14 +52,20 @@ pub struct AdapterMemory {
 }
 
 impl AdapterMemory {
-    /// How full the adapter's memory is. An integrated part's carve-out says
-    /// little, as it spills into system RAM, so both kinds count for it.
-    pub fn percent_used(self, dedicated_used: f64, shared_used: f64) -> Option<f64> {
-        let (used, total) = if self.integrated {
+    /// The memory that counts, in use and in all. An integrated part's
+    /// carve-out says little, as it spills into system RAM, so both kinds
+    /// count for it.
+    pub fn counted(self, dedicated_used: f64, shared_used: f64) -> (f64, u64) {
+        if self.integrated {
             (dedicated_used + shared_used, self.dedicated + self.shared)
         } else {
             (dedicated_used, self.dedicated)
-        };
+        }
+    }
+
+    /// How full the adapter's memory is.
+    pub fn percent_used(self, dedicated_used: f64, shared_used: f64) -> Option<f64> {
+        let (used, total) = self.counted(dedicated_used, shared_used);
         (total > 0).then(|| (used / total as f64 * 100.0).clamp(0.0, 100.0))
     }
 }

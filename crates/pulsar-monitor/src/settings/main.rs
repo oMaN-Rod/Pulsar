@@ -342,6 +342,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_value_color_light(f.value_color_light.as_str().into());
     ui.set_color_labels(f.color_labels);
     ui.set_temperature_unit(i32::from(f.fahrenheit));
+    ui.set_memory_unit(i32::from(f.memory_bytes));
     ui.set_network_unit(i32::from(f.network_bits));
     ui.set_upload_on_top(f.upload_on_top);
     ui.set_network_show(f.network_show);
@@ -682,6 +683,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
             .map(|l| l.code.to_string())
             .unwrap_or_default(),
         fahrenheit: ui.get_temperature_unit() == 1,
+        memory_bytes: ui.get_memory_unit() == 1,
         network_bits: ui.get_network_unit() == 1,
         upload_on_top: ui.get_upload_on_top(),
         network_show: ui.get_network_show(),

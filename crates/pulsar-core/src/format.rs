@@ -1,12 +1,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::config::{RateUnit, TemperatureUnit, Units};
+use crate::config::{MemoryUnit, RateUnit, TemperatureUnit, Units};
 use crate::metric::Unit;
 
 const PLACEHOLDER: &str = "—";
 
 static FAHRENHEIT: AtomicBool = AtomicBool::new(false);
 static NETWORK_BITS: AtomicBool = AtomicBool::new(false);
+static MEMORY_BYTES: AtomicBool = AtomicBool::new(false);
 
 /// Sets the units every later `format_value` call in this process uses.
 pub fn set_units(units: Units) {
@@ -15,6 +16,7 @@ pub fn set_units(units: Units) {
         Ordering::Relaxed,
     );
     NETWORK_BITS.store(units.network == RateUnit::Bits, Ordering::Relaxed);
+    MEMORY_BYTES.store(units.memory == MemoryUnit::Bytes, Ordering::Relaxed);
 }
 
 pub fn temperature(celsius: f64) -> (f64, &'static str) {
@@ -25,7 +27,8 @@ pub fn temperature(celsius: f64) -> (f64, &'static str) {
     }
 }
 
-fn units() -> Units {
+/// The units set by `set_units`.
+pub fn units() -> Units {
     Units {
         temperature: if FAHRENHEIT.load(Ordering::Relaxed) {
             TemperatureUnit::Fahrenheit
@@ -36,6 +39,11 @@ fn units() -> Units {
             RateUnit::Bits
         } else {
             RateUnit::Bytes
+        },
+        memory: if MEMORY_BYTES.load(Ordering::Relaxed) {
+            MemoryUnit::Bytes
+        } else {
+            MemoryUnit::Percent
         },
     }
 }
@@ -208,6 +216,7 @@ mod tests {
         let other = Units {
             temperature: TemperatureUnit::Fahrenheit,
             network: RateUnit::Bits,
+            memory: MemoryUnit::Bytes,
         };
         assert_eq!(format_in(45.0, Unit::Celsius, other), "113°F");
         assert_eq!(format_in(-40.0, Unit::Celsius, other), "-40°F");

@@ -5,8 +5,8 @@ use pulsar_core::colors::Rgb;
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadColors, LoadThresholds,
-    NetworkShow, NoRoom, PopupBackground, Position, RateUnit, RemoveFrom, TemperatureUnit,
-    WidgetLayer, WidgetStyle, sanitize_label,
+    MemoryUnit, NetworkShow, NoRoom, PopupBackground, Position, RateUnit, RemoveFrom,
+    TemperatureUnit, WidgetLayer, WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -129,6 +129,7 @@ pub struct Form {
     /// A language code, or empty to follow Windows.
     pub language: String,
     pub fahrenheit: bool,
+    pub memory_bytes: bool,
     /// Alerts and their limits; temperatures in the unit the form was
     /// filled in, which `alert_fahrenheit` records.
     pub alert_cpu: bool,
@@ -391,6 +392,7 @@ pub fn to_form(c: &Config) -> Form {
         frame_monitor: c.frames.monitor.clone().unwrap_or_default(),
         language: c.general.language.clone().unwrap_or_default(),
         fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
+        memory_bytes: c.units.memory == MemoryUnit::Bytes,
         alert_cpu: c.alerts.cpu.on,
         alert_cpu_limit: shown_temp(c.alerts.cpu.limit, c),
         alert_gpu: c.alerts.gpu.on,
@@ -700,6 +702,11 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         RateUnit::Bits
     } else {
         RateUnit::Bytes
+    };
+    c.units.memory = if f.memory_bytes {
+        MemoryUnit::Bytes
+    } else {
+        MemoryUnit::Percent
     };
     c.popup.detail = at(&DETAILS, f.popup_detail).unwrap_or_default();
     c.popup.graph = f.popup_graph;

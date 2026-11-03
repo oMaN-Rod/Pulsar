@@ -1182,6 +1182,7 @@ export component SettingsWindow inherits Window {
     in property <color> value-light-swatch;
     in-out property <bool> color-labels;
     in-out property <int> temperature-unit;
+    in-out property <int> memory-unit;
     in-out property <int> network-unit;
     in-out property <int> min-down;
     in-out property <int> min-down-unit;
@@ -2622,6 +2623,17 @@ export component SettingsWindow inherits Window {
                             width: 200px;
                             model: [@tr("Celsius (°C)"), @tr("Fahrenheit (°F)")];
                             current-index <=> root.temperature-unit;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Memory use");
+                        description: @tr("For the memory and GPU memory items. Their graphs and colors still follow how full the memory is.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Percent used"), @tr("Amount used")];
+                            current-index <=> root.memory-unit;
                             selected => { root.changed(); }
                         }
                     }

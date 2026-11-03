@@ -113,11 +113,24 @@ pub enum RateUnit {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryUnit {
+    /// How full it is.
+    #[default]
+    Percent,
+    /// How much is in use.
+    Bytes,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Units {
     pub temperature: TemperatureUnit,
     /// Network rates only; disk rates stay in bytes.
     pub network: RateUnit,
+    /// What the memory and GPU memory items show as text; their graphs and
+    /// colors keep following how full the memory is.
+    pub memory: MemoryUnit,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

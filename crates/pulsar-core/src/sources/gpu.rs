@@ -83,9 +83,10 @@ impl GpuSource {
             self.listed.clone_from(&seen);
             self.listed_at = Some(Instant::now());
         }
-        let percents = memory_percents(&self.memory, &dedicated, &shared);
-        if let Some(fullest) = percents.values().copied().reduce(f64::max) {
-            out.set(MetricKey::GpuMemoryPercent, fullest);
+        let memory_use = memory_use(&self.memory, &dedicated, &shared);
+        if let Some(&(percent, used)) = memory_use.values().max_by(|a, b| a.0.total_cmp(&b.0)) {
+            out.set(MetricKey::GpuMemoryPercent, percent);
+            out.set(MetricKey::GpuMemoryUsedBytes, used);
         }
         let total: u64 = self
             .memory
@@ -98,7 +99,8 @@ impl GpuSource {
         }
         let readings = &mut out.gpu_readings;
         readings.seen.extend(seen);
-        readings.memory_percent = percents;
+        readings.memory_percent = memory_use.iter().map(|(&l, &(p, _))| (l, p)).collect();
+        readings.memory_used = memory_use.into_iter().map(|(l, (_, u))| (l, u)).collect();
         readings.load = Some(usage.per_adapter);
         readings.dedicated = dedicated;
         readings.shared = shared;
@@ -118,18 +120,20 @@ fn should_list_memory(
     seen != listed || (age >= MEMORY_RETRY && seen.iter().any(|luid| !memory.contains_key(luid)))
 }
 
-/// How full each adapter with a reading is.
-fn memory_percents(
+/// How full each adapter with a reading is, and the bytes in use that counted.
+fn memory_use(
     memory: &HashMap<u64, AdapterMemory>,
     dedicated: &HashMap<u64, f64>,
     shared: &HashMap<u64, f64>,
-) -> HashMap<u64, f64> {
+) -> HashMap<u64, (f64, f64)> {
     memory
         .iter()
         .filter(|(luid, _)| dedicated.contains_key(luid) || shared.contains_key(luid))
         .filter_map(|(&luid, memory)| {
             let used = |values: &HashMap<u64, f64>| values.get(&luid).copied().unwrap_or(0.0);
-            Some((luid, memory.percent_used(used(dedicated), used(shared))?))
+            let (dedicated, shared) = (used(dedicated), used(shared));
+            let percent = memory.percent_used(dedicated, shared)?;
+            Some((luid, (percent, memory.counted(dedicated, shared).0)))
         })
         .collect()
 }
@@ -252,8 +256,22 @@ pub(crate) mod tests {
         };
         let memory = HashMap::from([(1, card), (2, card)]);
         let dedicated = HashMap::from([(1, (2u64 << 30) as f64), (3, 1.0)]);
-        let percents = memory_percents(&memory, &dedicated, &HashMap::new());
-        assert_eq!(percents, HashMap::from([(1, 25.0)]));
+        let usage = memory_use(&memory, &dedicated, &HashMap::new());
+        assert_eq!(usage, HashMap::from([(1, (25.0, (2u64 << 30) as f64))]));
+    }
+
+    #[test]
+    fn an_integrated_gpu_counts_its_shared_memory_as_in_use() {
+        let igpu = AdapterMemory {
+            dedicated: 1 << 30,
+            shared: 15 << 30,
+            integrated: true,
+        };
+        let memory = HashMap::from([(1, igpu)]);
+        let dedicated = HashMap::from([(1, (1u64 << 29) as f64)]);
+        let shared = HashMap::from([(1, (7u64 << 29) as f64)]);
+        let usage = memory_use(&memory, &dedicated, &shared);
+        assert_eq!(usage, HashMap::from([(1, (25.0, (4u64 << 30) as f64))]));
     }
 
     #[test]

@@ -2329,6 +2329,22 @@ msgid "The games Windows recognises, as Game Bar does. To change that for an app
 msgstr "Game Bar와 마찬가지로 Windows가 인식하는 게임입니다. 앱별로 바꾸려면 앱을 앞으로 가져온 다음 Pulsar를 마우스 오른쪽 단추로 클릭하고 게임으로 간주를 사용하세요."
 
 #: ui/settings.slint
+msgid "Memory use"
+msgstr "메모리 사용량"
+
+#: ui/settings.slint
+msgid "For the memory and GPU memory items. Their graphs and colors still follow how full the memory is."
+msgstr "메모리 및 GPU 메모리 항목에 적용됩니다. 그래프와 색상은 계속 메모리가 얼마나 찼는지를 따릅니다."
+
+#: ui/settings.slint
+msgid "Percent used"
+msgstr "사용 비율"
+
+#: ui/settings.slint
+msgid "Amount used"
+msgstr "사용량"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "디스크"
 

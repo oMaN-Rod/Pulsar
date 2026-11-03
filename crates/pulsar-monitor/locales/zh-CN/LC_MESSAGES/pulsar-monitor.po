@@ -2330,6 +2330,22 @@ msgid "The games Windows recognises, as Game Bar does. To change that for an app
 msgstr "即 Windows 识别的游戏，与 Game Bar 相同。要更改某个应用，请将其切换到前台，然后右键单击 Pulsar 并使用“视为游戏”。"
 
 #: ui/settings.slint
+msgid "Memory use"
+msgstr "内存占用"
+
+#: ui/settings.slint
+msgid "For the memory and GPU memory items. Their graphs and colors still follow how full the memory is."
+msgstr "用于内存和 GPU 显存项目。它们的图表和颜色仍按内存的占用比例显示。"
+
+#: ui/settings.slint
+msgid "Percent used"
+msgstr "已用百分比"
+
+#: ui/settings.slint
+msgid "Amount used"
+msgstr "已用容量"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "磁盘"
 

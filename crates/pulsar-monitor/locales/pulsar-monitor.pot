@@ -2327,6 +2327,22 @@ msgid "The games Windows recognises, as Game Bar does. To change that for an app
 msgstr ""
 
 #: ui/settings.slint
+msgid "Memory use"
+msgstr ""
+
+#: ui/settings.slint
+msgid "For the memory and GPU memory items. Their graphs and colors still follow how full the memory is."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Percent used"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Amount used"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr ""
 

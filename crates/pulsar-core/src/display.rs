@@ -6,7 +6,7 @@ use crate::config::NetworkConfig;
 use crate::format::format_value;
 use crate::history::{History, HistoryStore};
 pub use crate::layout::part_metric as metric_for;
-use crate::layout::{CellPart, Rect};
+use crate::layout::{CellPart, Rect, value_metric};
 use crate::metric::{ItemKind, MetricKey, Snapshot, Unit};
 
 /// Projects rates below the configured minimums to zero for drawing. Each
@@ -66,7 +66,7 @@ pub fn floored_cell_value(
     snapshot: &Snapshot,
     floor: NetworkFloor,
 ) -> String {
-    let key = metric_for(kind, part);
+    let key = value_metric(kind, part);
     match snapshot.get(key) {
         Some(v) if snapshot.item_error(kind).is_none() => {
             format_value(floor.value(key, v), key.unit())

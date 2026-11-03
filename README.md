@@ -198,7 +198,7 @@ While the display is off, the PC is locked or the session is disconnected, Pulsa
 - label, value and item colors, with separate label and value colors for a light taskbar
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
-- temperatures in °C or °F, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
+- temperatures in °C or °F, memory and GPU memory as a percentage or the amount in use, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
 - network as download, upload or both, on one graph tile or a tile for each, with a separate choice for the popup
 - each drive as its own item, showing its activity or used space; each GPU with its own load, temperature and memory; and all physical network adapters, one, or several side by side
 
