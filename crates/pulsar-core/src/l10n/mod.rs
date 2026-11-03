@@ -32,7 +32,7 @@ pub struct Language {
 }
 
 /// English first: it needs no catalog.
-pub const LANGUAGES: [Language; 4] = [
+pub const LANGUAGES: [Language; 5] = [
     Language {
         code: "en",
         name: "English",
@@ -56,6 +56,12 @@ pub const LANGUAGES: [Language; 4] = [
         name: "한국어",
         font: Some("Malgun Gothic"),
         tags: &["ko"],
+    },
+    Language {
+        code: "ja",
+        name: "日本語",
+        font: Some("Yu Gothic UI"),
+        tags: &["ja"],
     },
 ];
 
@@ -286,6 +292,8 @@ mod tests {
         assert_eq!(detect(&tags(&["zh-Hans-HK"])).code, "zh-CN");
         assert_eq!(detect(&tags(&["zh-TW", "es"])).code, "es");
         assert_eq!(detect(&tags(&["ko-KR", "en-US"])).code, "ko");
+        assert_eq!(detect(&tags(&["ja-JP", "en-US"])).code, "ja");
+        assert_eq!(detect(&tags(&["fr-FR", "ja"])).code, "ja");
         assert_eq!(detect(&tags(&["en-GB", "es-ES"])).code, "en");
         assert_eq!(detect(&tags(&["fr-FR"])).code, "en");
         assert_eq!(detect(&[]).code, "en");
@@ -303,6 +311,8 @@ mod tests {
     fn codes_are_found_regardless_of_case() {
         assert_eq!(find("zh-cn").map(|l| l.name), Some("简体中文"));
         assert_eq!(find("KO").map(|l| l.name), Some("한국어"));
+        assert_eq!(find("JA").map(|l| l.name), Some("日本語"));
+        assert_eq!(find("ja").and_then(|l| l.font), Some("Yu Gothic UI"));
         assert_eq!(find("fr"), None);
     }
 

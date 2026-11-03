@@ -1,0 +1,221 @@
+# Japanese translations for Pulsar.
+msgid ""
+msgstr ""
+"Project-Id-Version: Pulsar\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/config.rs
+msgid "Could not read {}: {}"
+msgstr "{}を読み取れませんでした: {}"
+
+#: src/config.rs
+msgid "Settings file was invalid and defaults were used."
+msgstr "設定ファイルが無効なため、既定の設定を使用しました。"
+
+#: src/config.rs
+msgid "It was saved as {}."
+msgstr "元のファイルは{}に保存しました。"
+
+#: src/config.rs
+msgid "the file is not UTF-8 text"
+msgstr "ファイルが UTF-8 形式のテキストではありません"
+
+#: src/display.rs
+msgid "Asleep"
+msgstr "スリープ中"
+
+#: src/display.rs
+msgid "{} · asleep"
+msgstr "{} · スリープ中"
+
+#: src/display.rs
+msgid "{} · asleep, read {} min ago"
+msgstr "{} · スリープ中、{}分前に取得"
+
+#: src/display.rs
+msgid "{} · just now"
+msgstr "{} · たった今"
+
+#: src/display.rs
+msgid "{} · {} min ago"
+msgstr "{} · {}分前"
+
+#: src/hardware/cpu.rs
+msgid "L{} data"
+msgstr "L{} データ"
+
+#: src/hardware/cpu.rs
+msgid "L{} instruction"
+msgstr "L{} 命令"
+
+#: src/hardware/storage.rs
+msgid "Drive"
+msgstr "ドライブ"
+
+#: src/hardware/storage.rs
+msgid "Virtual"
+msgstr "仮想"
+
+#: src/hardware/storage.rs
+msgid "Storage Spaces"
+msgstr "記憶域スペース"
+
+#: src/hardware/storage.rs
+msgid "No drive reports a temperature"
+msgstr "温度を取得できるドライブがありません"
+
+#: src/ipc.rs
+msgid "Pulsar Settings"
+msgstr "Pulsar 設定"
+
+#: src/ipc.rs
+msgid "Pulsar Details"
+msgstr "Pulsar 詳細"
+
+#: src/metric.rs
+msgid "CPU"
+msgstr "CPU"
+
+#: src/metric.rs
+msgid "RAM"
+msgstr "RAM"
+
+#: src/metric.rs
+msgid "DSK"
+msgstr "DSK"
+
+#: src/metric.rs
+msgid "NET"
+msgstr "NET"
+
+#: src/metric.rs
+msgid "GPU"
+msgstr "GPU"
+
+#: src/metric.rs
+msgid "PING"
+msgstr "PING"
+
+#: src/metric.rs
+msgid "TEMP"
+msgstr "TEMP"
+
+#: src/metric.rs
+msgid "VRAM"
+msgstr "VRAM"
+
+#: src/metric.rs
+msgid "CPU°"
+msgstr "CPU°"
+
+#: src/metric.rs
+msgid "PWR"
+msgstr "PWR"
+
+#: src/metric.rs
+msgid "CLK"
+msgstr "CLK"
+
+#: src/metric.rs
+msgid "DSK°"
+msgstr "DSK°"
+
+#: src/metric.rs
+msgid "PCH°"
+msgstr "PCH°"
+
+#: src/metric.rs
+msgid "BAT"
+msgstr "BAT"
+
+#: src/metric.rs
+msgid "FPS"
+msgstr "FPS"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service is not installed"
+msgstr "Pulsar センサーサービスがインストールされていません"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service is not running"
+msgstr "Pulsar センサーサービスが実行されていません"
+
+#: src/sensors.rs
+msgid "The Pulsar sensor service needs updating"
+msgstr "Pulsar センサーサービスの更新が必要です"
+
+#: src/sensors.rs
+msgid "PawnIO is not installed"
+msgstr "PawnIO がインストールされていません"
+
+#: src/sensors.rs
+msgid "This CPU is not supported yet"
+msgstr "この CPU にはまだ対応していません"
+
+#: src/sensors.rs
+msgid "The CPU sensors could not be read"
+msgstr "CPU センサーを読み取れませんでした"
+
+#: src/sources/battery.rs
+msgid "This PC has no battery"
+msgstr "この PC にはバッテリーがありません"
+
+#: src/sources/gpu.rs
+msgid "GPU counters unavailable"
+msgstr "GPU カウンターを利用できません"
+
+#: src/sources/gpu_sensors.rs
+msgid "GPU temperature unavailable"
+msgstr "GPU 温度を取得できません"
+
+#: src/sources/network.rs
+msgid "Adapter \"{}\" not found"
+msgstr "アダプター「{}」が見つかりません"
+
+#: src/sources/ping.rs
+msgid "Waiting for first reply"
+msgstr "最初の応答を待機中"
+
+#: src/sources/ping.rs
+msgid "ICMP unavailable: {}"
+msgstr "ICMP を利用できません: {}"
+
+#: src/sources/ping.rs
+msgid "Cannot resolve {} (IPv4)"
+msgstr "{}の名前を解決できません（IPv4）"
+
+#: src/theme.rs
+msgid "Windows default"
+msgstr "Windows の既定"
+
+#: src/theme.rs
+msgid "Aurora"
+msgstr "オーロラ"
+
+#: src/theme.rs
+msgid "Ember"
+msgstr "熾火"
+
+#: src/theme.rs
+msgid "Ocean"
+msgstr "海"
+
+#: src/theme.rs
+msgid "Forest"
+msgstr "森"
+
+#: src/theme.rs
+msgid "Mono"
+msgstr "モノクロ"
+
+#: src/theme.rs
+msgid "Neon"
+msgstr "ネオン"
+
+#: src/theme.rs
+msgid "Sunset"
+msgstr "夕焼け"
