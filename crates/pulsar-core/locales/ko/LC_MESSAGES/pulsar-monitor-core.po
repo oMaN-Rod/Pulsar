@@ -136,6 +136,10 @@ msgstr "배터리"
 msgid "FPS"
 msgstr "FPS"
 
+#: src/metric.rs
+msgid "GPWR"
+msgstr "GPU W"
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr "Pulsar 센서 서비스가 설치되지 않음"
@@ -167,6 +171,18 @@ msgstr "이 PC에는 배터리가 없음"
 #: src/sources/gpu.rs
 msgid "GPU counters unavailable"
 msgstr "GPU 카운터를 사용할 수 없음"
+
+#: src/sources/gpu_power.rs
+msgid "GPU power needs an NVIDIA GPU"
+msgstr "GPU 전력은 NVIDIA GPU에서만 표시됩니다"
+
+#: src/sources/gpu_power.rs
+msgid "This GPU does not report its power"
+msgstr "이 GPU는 전력을 보고하지 않습니다"
+
+#: src/sources/gpu_power.rs
+msgid "GPU power unavailable"
+msgstr "GPU 전력을 사용할 수 없음"
 
 #: src/sources/gpu_sensors.rs
 msgid "GPU temperature unavailable"

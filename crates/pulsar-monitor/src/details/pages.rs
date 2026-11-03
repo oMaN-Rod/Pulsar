@@ -1159,6 +1159,8 @@ fn gpu(data: &Data) -> View {
             .filter(|_| data.get(MetricKey::GpuFanRpm).is_some_and(|v| v > 0.0)),
     );
     view.stats
+        .extend(data.stat(tr!("GPU power"), MetricKey::GpuPowerW));
+    view.stats
         .extend(data.stat(tr!("Power"), MetricKey::GpuPowerPercent));
     view.stats.extend(
         data.stat(tr!("Memory clock"), MetricKey::GpuMemClockMhz)
@@ -1801,6 +1803,7 @@ fn sensors(data: &Data) -> View {
     );
     tree.add(tr_noop!("Clocks"), tr!("Memory"), MetricKey::GpuMemClockMhz);
     tree.add(tr_noop!("Fans"), tr!("Fan"), MetricKey::GpuFanRpm);
+    tree.add(tr_noop!("Powers"), tr!("Board"), MetricKey::GpuPowerW);
     tree.add(tr_noop!("Powers"), tr!("Power"), MetricKey::GpuPowerPercent);
     tree.add(
         tr_noop!("Data"),

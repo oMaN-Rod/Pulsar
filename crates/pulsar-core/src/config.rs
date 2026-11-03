@@ -1717,6 +1717,7 @@ sample_interval_ms = 1
                 ItemKind::Gpu,
                 ItemKind::GpuTemp,
                 ItemKind::GpuMemory,
+                ItemKind::GpuPower,
                 ItemKind::Disk,
                 ItemKind::DiskTemp,
                 ItemKind::Network,
@@ -1819,6 +1820,7 @@ panel_opacity = 60
         let c = Config::default();
         assert!(!c.is_enabled(ItemKind::GpuTemp));
         assert!(!c.is_enabled(ItemKind::GpuMemory));
+        assert!(!c.is_enabled(ItemKind::GpuPower));
         assert!(!c.is_enabled(ItemKind::CpuTemp));
         assert!(!c.is_enabled(ItemKind::CpuPower));
         assert!(!c.is_enabled(ItemKind::CpuClock));

@@ -44,6 +44,8 @@ pub struct PciDevice {
     /// Bus, device and function.
     pub location: Option<(u32, u32, u32)>,
     pub link: Option<Link>,
+    /// Its device node, for asking Windows about it later.
+    pub node: u32,
 }
 
 /// `PCI\VEN_10DE&DEV_2484&SUBSYS_404C1458&REV_A1`, as Windows writes the
@@ -214,6 +216,7 @@ pub fn read() -> Vec<PciDevice> {
                 max_generation: link(MAX_LINK_SPEED).unwrap_or(0),
                 max_width: link(MAX_LINK_WIDTH).unwrap_or(0),
             }),
+            node: device.DevInst,
         });
     }
     unsafe {
@@ -257,6 +260,7 @@ mod tests {
             },
             location: Some(INTEL_LPC),
             link: None,
+            node: 0,
         };
         assert_eq!(chipset(&[bridge]).as_deref(), Some("Intel Z690"));
     }

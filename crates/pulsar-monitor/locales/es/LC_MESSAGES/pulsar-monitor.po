@@ -516,6 +516,10 @@ msgstr "Temperatura de la memoria"
 msgid "Fan"
 msgstr "Ventilador"
 
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU power"
+msgstr "Consumo de la GPU"
+
 #: src/details/pages.rs src/popup/content.rs
 msgid "Power"
 msgstr "Potencia"
@@ -544,7 +548,7 @@ msgstr "Fabricante de la tarjeta"
 msgid "Revision"
 msgstr "Revisión"
 
-#: src/details/pages.rs ui/details.slint
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
 msgid "Load"
 msgstr "Carga"
 
@@ -787,6 +791,10 @@ msgstr "Núcleo"
 #: src/details/pages.rs
 msgid "Fans"
 msgstr "Ventiladores"
+
+#: src/details/pages.rs
+msgid "Board"
+msgstr "Placa"
 
 #: src/details/pages.rs
 msgid "Data"

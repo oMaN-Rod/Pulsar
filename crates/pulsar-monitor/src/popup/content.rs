@@ -552,6 +552,21 @@ fn sensors(snapshot: &Snapshot) -> Vec<(String, String)> {
     rows
 }
 
+/// The other GPU items' readings, when they are on.
+fn gpu_power_rows(snapshot: &Snapshot) -> Vec<(String, String)> {
+    [
+        (tr!("Power"), MetricKey::GpuPowerPercent),
+        (tr!("Load"), MetricKey::GpuUtil),
+        (tr!("Temperature"), MetricKey::GpuTempC),
+    ]
+    .into_iter()
+    .filter_map(|(label, key)| {
+        let value = snapshot.get(key)?;
+        Some((label.into(), format_value(value, key.unit())))
+    })
+    .collect()
+}
+
 fn core_temps(snapshot: &Snapshot) -> Vec<f64> {
     core_values(snapshot, MetricKey::CpuCoreTempC)
 }
@@ -830,6 +845,15 @@ pub fn build_with(
                 },
                 processes(snapshot, ProcessSort::Gpu, count),
             ],
+        ),
+        ItemKind::GpuPower => (
+            tr!("GPU power"),
+            cell_value(kind, CellPart::Main, snapshot),
+            vec![CellPart::Main],
+            vec![Block::Rows {
+                heading: None,
+                rows: gpu_power_rows(snapshot),
+            }],
         ),
         ItemKind::GpuMemory => (
             tr!("GPU memory"),

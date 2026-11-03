@@ -198,6 +198,7 @@ pub fn primary_metric(kind: ItemKind) -> MetricKey {
         ItemKind::Ping => MetricKey::PingMs,
         ItemKind::GpuTemp => MetricKey::GpuTempC,
         ItemKind::GpuMemory => MetricKey::GpuMemoryPercent,
+        ItemKind::GpuPower => MetricKey::GpuPowerW,
         ItemKind::CpuTemp => MetricKey::CpuTempC,
         ItemKind::CpuPower => MetricKey::CpuPowerW,
         ItemKind::CpuClock => MetricKey::CpuClockMhz,
@@ -300,7 +301,7 @@ pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
         (ItemKind::GpuTemp | ItemKind::CpuTemp | ItemKind::DiskTemp | ItemKind::ChipsetTemp, _) => {
             "\u{E9CA}"
         }
-        (ItemKind::CpuPower, _) => "\u{E945}",
+        (ItemKind::CpuPower | ItemKind::GpuPower, _) => "\u{E945}",
         (ItemKind::CpuClock, _) => "\u{EC4A}",
         (ItemKind::Disk, _) => "\u{EDA2}",
         (ItemKind::Network, _) => "\u{E968}",
@@ -1659,7 +1660,7 @@ mod tests {
             .collect()
     }
 
-    const ALL: [ItemKind; 15] = ItemKind::ALL;
+    const ALL: [ItemKind; ItemKind::ALL.len()] = ItemKind::ALL;
 
     fn sized_specs(sizes: &[(ItemKind, Option<u16>, Option<u16>)]) -> Vec<ItemSpec> {
         sizes

@@ -517,6 +517,10 @@ msgstr "显存温度"
 msgid "Fan"
 msgstr "风扇"
 
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU power"
+msgstr "GPU 功耗"
+
 #: src/details/pages.rs src/popup/content.rs
 msgid "Power"
 msgstr "功耗"
@@ -545,7 +549,7 @@ msgstr "板卡厂商"
 msgid "Revision"
 msgstr "修订版本"
 
-#: src/details/pages.rs ui/details.slint
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
 msgid "Load"
 msgstr "负载"
 
@@ -788,6 +792,10 @@ msgstr "核心"
 #: src/details/pages.rs
 msgid "Fans"
 msgstr "风扇"
+
+#: src/details/pages.rs
+msgid "Board"
+msgstr "板卡"
 
 #: src/details/pages.rs
 msgid "Data"

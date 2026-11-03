@@ -119,7 +119,9 @@ Each item draws an area graph, a line, bars, a dot matrix, a level meter, a segm
 
 ### Every item
 
-CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, GPU memory, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order: drag an item along the taskbar to move it, or drag its handle in *Settings → Items*.
+CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, GPU memory, GPU power, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order: drag an item along the taskbar to move it, or drag its handle in *Settings → Items*.
+
+GPU power is in watts, for NVIDIA cards, read through the management library their driver installs; no sensor service is needed. A laptop GPU that Windows has powered down counts as 0 W and is not woken to ask.
 
 ![Every item at once](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-all.png)
 
@@ -231,6 +233,7 @@ Popups are translucent by default, blurring what is behind them, or solid if you
 | **GPU** | temperature, dedicated and shared memory, each GPU's load, memory and temperature, top processes | engines, fan, power, memory clock, and hot spot and memory temperature where the card has them |
 | **GPU temperature** | fan, power, memory clock, hot spot, memory temperature, each GPU's temperature | |
 | **GPU memory** | dedicated memory in use out of the total, shared memory, how full each GPU's memory is | |
+| **GPU power** | share of the power limit, load and temperature, while the GPU and GPU temperature items are on | |
 | **Disk** | read and write rates, chosen drives, top processes by I/O | free space per drive |
 | **Drive temperature** | each drive, by letter and model; hard drives are read at most every 5 minutes and show the reading's age, or that they are asleep | |
 | **Network** | traffic per adapter, numbered when each has its own cells | totals since Pulsar started |

@@ -22,6 +22,7 @@ pub enum SourceId {
     Frames,
     ThermalZones,
     EnergyMeter,
+    GpuPower,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -42,11 +43,12 @@ pub enum ItemKind {
     ChipsetTemp,
     Battery,
     Fps,
+    GpuPower,
 }
 
 impl ItemKind {
     /// Default display order; adjacent pairs share a text-mode column.
-    pub const ALL: [ItemKind; 15] = [
+    pub const ALL: [ItemKind; 16] = [
         ItemKind::Cpu,
         ItemKind::CpuTemp,
         ItemKind::CpuPower,
@@ -56,6 +58,7 @@ impl ItemKind {
         ItemKind::Gpu,
         ItemKind::GpuTemp,
         ItemKind::GpuMemory,
+        ItemKind::GpuPower,
         ItemKind::Disk,
         ItemKind::DiskTemp,
         ItemKind::Network,
@@ -79,6 +82,7 @@ impl ItemKind {
             ItemKind::DiskTemp => SourceId::DriveTemps,
             ItemKind::Battery => SourceId::Battery,
             ItemKind::Fps => SourceId::Frames,
+            ItemKind::GpuPower => SourceId::GpuPower,
         }
     }
 
@@ -99,6 +103,7 @@ impl ItemKind {
             ItemKind::ChipsetTemp => crate::tr!("PCH°"),
             ItemKind::Battery => crate::tr!("BAT"),
             ItemKind::Fps => crate::tr!("FPS"),
+            ItemKind::GpuPower => crate::tr!("GPWR"),
         }
     }
 
@@ -120,6 +125,7 @@ impl ItemKind {
             ItemKind::ChipsetTemp => "B",
             ItemKind::Battery => "E",
             ItemKind::Fps => "R",
+            ItemKind::GpuPower => "Q",
         }
     }
 }
@@ -192,7 +198,10 @@ pub enum MetricKey {
     GpuAdapterTempC(u8),
     GpuTempC,
     GpuFanRpm,
+    /// Of the card's power limit, from the display driver.
     GpuPowerPercent,
+    /// Every NVIDIA card's, together.
+    GpuPowerW,
     GpuMemClockMhz,
     GpuHotSpotC,
     GpuMemTempC,
@@ -383,7 +392,7 @@ impl MetricKey {
             | DiskCriticalC(_) | ChipsetTempC => Unit::Celsius,
             GpuFanRpm => Unit::Rpm,
             CpuPowerW | CpuCorePowerW(_) | CpuCoresPowerW | CpuGraphicsPowerW | CpuDramPowerW
-            | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W | BatteryRateW => Unit::Watts,
+            | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W | BatteryRateW | GpuPowerW => Unit::Watts,
         }
     }
 }

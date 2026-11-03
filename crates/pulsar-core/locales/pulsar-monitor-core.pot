@@ -134,6 +134,10 @@ msgstr ""
 msgid "FPS"
 msgstr ""
 
+#: src/metric.rs
+msgid "GPWR"
+msgstr ""
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr ""
@@ -164,6 +168,18 @@ msgstr ""
 
 #: src/sources/gpu.rs
 msgid "GPU counters unavailable"
+msgstr ""
+
+#: src/sources/gpu_power.rs
+msgid "GPU power needs an NVIDIA GPU"
+msgstr ""
+
+#: src/sources/gpu_power.rs
+msgid "This GPU does not report its power"
+msgstr ""
+
+#: src/sources/gpu_power.rs
+msgid "GPU power unavailable"
 msgstr ""
 
 #: src/sources/gpu_sensors.rs

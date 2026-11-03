@@ -514,6 +514,10 @@ msgstr ""
 msgid "Fan"
 msgstr ""
 
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU power"
+msgstr ""
+
 #: src/details/pages.rs src/popup/content.rs
 msgid "Power"
 msgstr ""
@@ -542,7 +546,7 @@ msgstr ""
 msgid "Revision"
 msgstr ""
 
-#: src/details/pages.rs ui/details.slint
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
 msgid "Load"
 msgstr ""
 
@@ -784,6 +788,10 @@ msgstr ""
 
 #: src/details/pages.rs
 msgid "Fans"
+msgstr ""
+
+#: src/details/pages.rs
+msgid "Board"
 msgstr ""
 
 #: src/details/pages.rs
