@@ -79,9 +79,9 @@ pub fn format_in(value: f64, unit: Unit, units: Units) -> String {
         }
         Unit::Celsius => format!("{:.0}°C", value.clamp(-99.0, 199.0)),
         Unit::Rpm => format!("{:.0} RPM", value.clamp(0.0, 99_999.0)),
-        Unit::Watts if value < 10.0 => format!("{:.1} W", value.max(0.0)),
+        Unit::Watts if value < 9.95 => format!("{:.1} W", value.max(0.0)),
         Unit::Watts => format!("{:.0} W", value.clamp(0.0, 999.0)),
-        Unit::Volts if value < 10.0 => format!("{:.3} V", value.max(0.0)),
+        Unit::Volts if value < 9.9995 => format!("{:.3} V", value.max(0.0)),
         Unit::Volts => format!("{:.2} V", value.min(99.99)),
         Unit::Ratio if value.fract() == 0.0 => format!("×{:.0}", value.clamp(0.0, 999.0)),
         Unit::Ratio => format!("×{:.2}", value.clamp(0.0, 999.0)),
@@ -127,7 +127,7 @@ pub fn widest_in(unit: Unit, units: Units) -> &'static str {
         Unit::WattHours => "999.9 Wh",
         Unit::Seconds => "23 h 59 min",
         Unit::Count => "9999999",
-        Unit::FramesPerSec => "999 fps",
+        Unit::FramesPerSec => "9999 fps",
     }
 }
 
@@ -279,11 +279,20 @@ mod tests {
             Unit::Celsius,
             Unit::Rpm,
             Unit::Watts,
+            Unit::Volts,
+            Unit::FramesPerSec,
         ];
+        // Just below where a reading drops a decimal or gains a digit.
+        let edges = [9.96, 9.9996, 99.96, 999.6, 9999.6];
         let mut v: f64 = 0.0;
-        while v < 1e13 {
+        for v in std::iter::from_fn(|| {
+            v = v * 1.07 + 1.0;
+            (v < 1e13).then_some(v)
+        })
+        .chain(edges)
+        {
             for unit in units {
-                if unit == Unit::MHz && v >= 10_000.0 {
+                if unit == Unit::MHz && v >= 9_995.0 {
                     continue;
                 }
                 let formatted = format_value(v, unit);
@@ -293,7 +302,6 @@ mod tests {
                     widest_value(unit)
                 );
             }
-            v = v * 1.07 + 1.0;
         }
     }
 }
