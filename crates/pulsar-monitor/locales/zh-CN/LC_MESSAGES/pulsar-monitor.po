@@ -90,6 +90,10 @@ msgid "Recording saved"
 msgstr "记录已保存"
 
 #: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr "Pulsar 已停止记录"
+
+#: src/app.rs
 msgid "Recording readings"
 msgstr "正在记录读数"
 
@@ -100,10 +104,6 @@ msgstr "每次采样都会写入 {}，直到你停止。"
 #: src/app.rs
 msgid "Pulsar could not start recording"
 msgstr "Pulsar 无法开始记录"
-
-#: src/app.rs
-msgid "Pulsar stopped recording"
-msgstr "Pulsar 已停止记录"
 
 #: src/app.rs
 msgid "Pulsar could not open the details window"

@@ -87,6 +87,10 @@ msgid "Recording saved"
 msgstr ""
 
 #: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr ""
+
+#: src/app.rs
 msgid "Recording readings"
 msgstr ""
 
@@ -96,10 +100,6 @@ msgstr ""
 
 #: src/app.rs
 msgid "Pulsar could not start recording"
-msgstr ""
-
-#: src/app.rs
-msgid "Pulsar stopped recording"
 msgstr ""
 
 #: src/app.rs

@@ -3,6 +3,7 @@
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use windows::Win32::System::SystemInformation::GetLocalTime;
 
@@ -84,8 +85,13 @@ fn local_time(date_sep: char, time_sep: char, between: char) -> String {
     )
 }
 
+/// How often rows reach the disk: a crash loses at most this much, and the
+/// disk is not written every second.
+const FLUSH_EVERY: Duration = Duration::from_secs(5);
+
 pub struct Recorder {
     out: BufWriter<File>,
+    flushed_at: Instant,
     columns: Vec<MetricKey>,
     pub path: PathBuf,
     pub items: Vec<ItemKind>,
@@ -114,17 +120,27 @@ impl Recorder {
         out.flush()?;
         Ok(Self {
             out,
+            flushed_at: Instant::now(),
             columns,
             path,
             items: items.to_vec(),
         })
     }
 
-    /// Flushed at once, so the file is whole whenever recording stops.
     pub fn record(&mut self, s: &Snapshot) -> io::Result<()> {
         let time = local_time('-', ':', ' ');
         writeln!(self.out, "{}", row(&time, &self.columns, s))?;
-        self.out.flush()
+        if self.flushed_at.elapsed() >= FLUSH_EVERY {
+            self.out.flush()?;
+            self.flushed_at = Instant::now();
+        }
+        Ok(())
+    }
+
+    /// Writes what is left; the file is whole only once this succeeds.
+    pub fn finish(mut self) -> io::Result<PathBuf> {
+        self.out.flush()?;
+        Ok(self.path)
     }
 }
 
@@ -178,7 +194,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut r = Recorder::start(dir.path(), &[ItemKind::Network]).unwrap();
         r.record(&s).unwrap();
-        let text = fs::read_to_string(&r.path).unwrap();
+        let text = fs::read_to_string(r.finish().unwrap()).unwrap();
         assert!(text.lines().nth(1).unwrap().ends_with(",300,"), "{text}");
     }
 
@@ -190,12 +206,17 @@ mod tests {
         s.set(MetricKey::CpuTotal, 40.0);
         r.record(&s).unwrap();
         r.record(&s).unwrap();
-        let text = fs::read_to_string(&r.path).unwrap();
+        let path = r.path.clone();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap().lines().count(),
+            1,
+            "rows wait for the next flush"
+        );
+        let text = fs::read_to_string(r.finish().unwrap()).unwrap();
         let lines: Vec<&str> = text.lines().collect();
         assert_eq!(lines.len(), 3);
         assert_eq!(lines[0], "time,cpu_total");
         assert!(lines[1].ends_with(",40"), "{}", lines[1]);
-        drop(r);
         let _ = fs::remove_dir_all(dir);
     }
 }

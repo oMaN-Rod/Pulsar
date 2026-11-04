@@ -1156,11 +1156,16 @@ impl App {
 
     fn toggle_recording(&mut self) {
         if let Some(r) = self.stop_recording() {
-            self.tray.offer(
-                tr!("Recording saved"),
-                &r.path.display().to_string(),
-                r.path.display().to_string(),
-            );
+            match r.finish() {
+                Ok(path) => self.tray.offer(
+                    tr!("Recording saved"),
+                    &path.display().to_string(),
+                    path.display().to_string(),
+                ),
+                Err(e) => self
+                    .tray
+                    .warn(tr!("Pulsar stopped recording"), &e.to_string()),
+            }
             return;
         }
         let Some(dir) = documents_dir().map(|d| d.join("Pulsar")) else {

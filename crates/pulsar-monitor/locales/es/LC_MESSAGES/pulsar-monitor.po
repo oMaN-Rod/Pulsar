@@ -89,6 +89,10 @@ msgid "Recording saved"
 msgstr "Grabación guardada"
 
 #: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr "Pulsar dejó de grabar"
+
+#: src/app.rs
 msgid "Recording readings"
 msgstr "Grabando lecturas"
 
@@ -99,10 +103,6 @@ msgstr "Cada muestra se guarda en {} hasta que la detengas."
 #: src/app.rs
 msgid "Pulsar could not start recording"
 msgstr "Pulsar no pudo empezar a grabar"
-
-#: src/app.rs
-msgid "Pulsar stopped recording"
-msgstr "Pulsar dejó de grabar"
 
 #: src/app.rs
 msgid "Pulsar could not open the details window"

@@ -89,6 +89,10 @@ msgid "Recording saved"
 msgstr "記録を保存しました"
 
 #: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr "記録を停止しました"
+
+#: src/app.rs
 msgid "Recording readings"
 msgstr "測定値を記録中"
 
@@ -99,10 +103,6 @@ msgstr "停止するまで、すべてのサンプルを {} に保存します�
 #: src/app.rs
 msgid "Pulsar could not start recording"
 msgstr "記録を開始できませんでした"
-
-#: src/app.rs
-msgid "Pulsar stopped recording"
-msgstr "記録を停止しました"
 
 #: src/app.rs
 msgid "Pulsar could not open the details window"

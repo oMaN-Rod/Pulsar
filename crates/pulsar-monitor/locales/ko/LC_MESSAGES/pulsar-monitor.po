@@ -89,6 +89,10 @@ msgid "Recording saved"
 msgstr "기록 저장됨"
 
 #: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr "Pulsar 기록 중지됨"
+
+#: src/app.rs
 msgid "Recording readings"
 msgstr "측정값 기록 중"
 
@@ -99,10 +103,6 @@ msgstr "중지할 때까지 모든 측정값을 {}에 기록합니다."
 #: src/app.rs
 msgid "Pulsar could not start recording"
 msgstr "Pulsar에서 기록을 시작할 수 없음"
-
-#: src/app.rs
-msgid "Pulsar stopped recording"
-msgstr "Pulsar 기록 중지됨"
 
 #: src/app.rs
 msgid "Pulsar could not open the details window"
