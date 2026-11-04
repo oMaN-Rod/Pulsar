@@ -12,9 +12,6 @@ use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
 use std::time::{Duration, Instant};
 
-use windows::Win32::Devices::DeviceAndDriverInstallation::{
-    CM_DRP_DEVICE_POWER_DATA, CM_Get_DevNode_Registry_PropertyW, CR_SUCCESS,
-};
 use windows::Win32::Foundation::{FreeLibrary, HMODULE};
 use windows::Win32::System::LibraryLoader::{
     GetProcAddress, LOAD_LIBRARY_SEARCH_SYSTEM32, LoadLibraryExW,
@@ -34,8 +31,6 @@ const RELOAD: Duration = Duration::from_secs(30);
 const NVML_SUCCESS: i32 = 0;
 const NVML_ERROR_NOT_SUPPORTED: i32 = 3;
 const NVML_ERROR_NOT_FOUND: i32 = 6;
-/// `DEVICE_POWER_STATE`: D3 and below are powered down.
-const POWER_DEVICE_D3: u32 = 4;
 
 /// A card's reading this tick.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -78,24 +73,6 @@ fn list_cards() -> Vec<Card> {
             _ => None,
         })
         .collect()
-}
-
-/// `None` when Windows cannot say, as for a device node gone stale.
-fn asleep(node: u32) -> Option<bool> {
-    // `CM_POWER_DATA`: its size, then the most recent device power state.
-    let mut data = [0u32; 14];
-    let mut len = size_of_val(&data) as u32;
-    let read = unsafe {
-        CM_Get_DevNode_Registry_PropertyW(
-            node,
-            CM_DRP_DEVICE_POWER_DATA,
-            None,
-            Some(data.as_mut_ptr().cast()),
-            &mut len,
-            0,
-        )
-    };
-    (read == CR_SUCCESS).then_some(data[1] >= POWER_DEVICE_D3)
 }
 
 type Device = *mut c_void;
@@ -245,7 +222,7 @@ impl Source for GpuPowerSource {
         let mut readings = Vec::with_capacity(self.cards.len());
         let mut awake = Vec::new();
         for card in self.cards.clone() {
-            let state = asleep(card.node);
+            let state = pci::powered_down(card.node);
             match state {
                 _ if self.no_sensor.contains(&(card.bus, card.device)) => {
                     readings.push(CardPower::Unknown);

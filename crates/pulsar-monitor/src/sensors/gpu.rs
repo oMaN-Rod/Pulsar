@@ -1,6 +1,7 @@
 //! NVIDIA temperatures the display driver does not report: the hot spot and
 //! the memory chips.
 
+use pulsar_core::hardware::pci::powered_down;
 use pulsar_core::sensors::Sensor;
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
     DIGCF_PRESENT, GUID_DEVCLASS_DISPLAY, SETUP_DI_REGISTRY_PROPERTY, SP_DEVINFO_DATA,
@@ -81,8 +82,9 @@ fn text(bytes: Vec<u8>) -> String {
     String::from_utf16_lossy(&units)
 }
 
-/// Where the first NVIDIA display adapter sits on the PCI bus.
-fn find_nvidia() -> Option<[u64; 3]> {
+/// Where the first NVIDIA display adapter sits on the PCI bus, and its
+/// device node.
+fn find_nvidia() -> Option<([u64; 3], u32)> {
     let set =
         unsafe { SetupDiGetClassDevsW(Some(&GUID_DEVCLASS_DISPLAY), None, None, DIGCF_PRESENT) }
             .ok()?;
@@ -100,7 +102,7 @@ fn find_nvidia() -> Option<[u64; 3]> {
         let bus = property(set, &device, SPDRP_BUSNUMBER).and_then(number);
         let address = property(set, &device, SPDRP_ADDRESS).and_then(number);
         if let (true, Some(bus), Some(address)) = (nvidia, bus, address) {
-            found = Some(location(bus, address));
+            found = Some((location(bus, address), device.DevInst));
             break;
         }
     }
@@ -115,6 +117,7 @@ fn find_nvidia() -> Option<[u64; 3]> {
 pub struct Gpu {
     io: PawnIo,
     location: [u64; 3],
+    node: u32,
     has_hot_spot: bool,
     has_memory_temp: bool,
 }
@@ -122,20 +125,26 @@ pub struct Gpu {
 impl Gpu {
     /// `None` without an NVIDIA card.
     pub fn connect() -> Option<Self> {
-        let location = find_nvidia()?;
+        let (location, node) = find_nvidia()?;
         let io = PawnIo::open().ok()?;
         io.load(MODULE).ok()?;
         Some(Self {
             io,
             location,
+            node,
             has_hot_spot: true,
             has_memory_temp: true,
         })
     }
 
-    /// A reading the card refuses once is not asked for again.
+    /// A reading the card refuses once is not asked for again. A laptop's
+    /// card that is powered down, or whose state is unknown, is left alone:
+    /// reading its registers would wake it.
     pub fn sample(&mut self) -> Vec<(Sensor, f64)> {
         let mut values = Vec::new();
+        if powered_down(self.node) != Some(false) {
+            return values;
+        }
         if self.has_hot_spot {
             let mut channels = [0u64; THERMAL_CHANNELS];
             let read = self.io.execute(
@@ -199,7 +208,7 @@ mod tests {
 
     #[test]
     fn looking_for_a_card_never_fails_hard() {
-        if let Some([bus, device, function]) = find_nvidia() {
+        if let Some(([bus, device, function], _)) = find_nvidia() {
             assert!(bus <= 0xFF && device <= 0x1F && function <= 7);
         }
     }

@@ -2,9 +2,10 @@
 //! fast their link is running.
 
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
-    DIGCF_ALLCLASSES, DIGCF_PRESENT, GUID_DEVCLASS_DISPLAY, HDEVINFO, SETUP_DI_REGISTRY_PROPERTY,
-    SP_DEVINFO_DATA, SPDRP_ADDRESS, SPDRP_BUSNUMBER, SPDRP_DEVICEDESC, SPDRP_FRIENDLYNAME,
-    SPDRP_HARDWAREID, SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsW,
+    CM_DRP_DEVICE_POWER_DATA, CM_Get_DevNode_Registry_PropertyW, CR_SUCCESS, DIGCF_ALLCLASSES,
+    DIGCF_PRESENT, GUID_DEVCLASS_DISPLAY, HDEVINFO, SETUP_DI_REGISTRY_PROPERTY, SP_DEVINFO_DATA,
+    SPDRP_ADDRESS, SPDRP_BUSNUMBER, SPDRP_DEVICEDESC, SPDRP_FRIENDLYNAME, SPDRP_HARDWAREID,
+    SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsW,
     SetupDiGetDevicePropertyW, SetupDiGetDeviceRegistryPropertyW,
 };
 use windows::Win32::Devices::Properties::DEVPROPTYPE;
@@ -262,6 +263,28 @@ pub fn display_adapters() -> Vec<DisplayAdapter> {
         }
     });
     adapters
+}
+
+/// `DEVICE_POWER_STATE`: D3 and below are powered down.
+const POWER_DEVICE_D3: u32 = 4;
+
+/// Whether the device is powered down, read without touching it; `None`
+/// when Windows cannot say, as for a device node gone stale.
+pub fn powered_down(node: u32) -> Option<bool> {
+    // `CM_POWER_DATA`: its size, then the most recent device power state.
+    let mut data = [0u32; 14];
+    let mut len = size_of_val(&data) as u32;
+    let read = unsafe {
+        CM_Get_DevNode_Registry_PropertyW(
+            node,
+            CM_DRP_DEVICE_POWER_DATA,
+            None,
+            Some(data.as_mut_ptr().cast()),
+            &mut len,
+            0,
+        )
+    };
+    (read == CR_SUCCESS).then_some(data[1] >= POWER_DEVICE_D3)
 }
 
 #[cfg(test)]
