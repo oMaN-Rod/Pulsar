@@ -19,9 +19,10 @@ mod titlebar;
 use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::io::BufRead;
+use std::path::Path;
 use std::rc::Rc;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 use pulsar_core::config::{self, Config};
 use pulsar_core::feed::{self, Message};
@@ -133,7 +134,15 @@ struct App {
     latest: Snapshot,
     extremes: Extremes,
     config: Config,
+    /// The config file's time and size when last read, to read it again only
+    /// once it changes; a failed read leaves it, so the next refresh retries.
+    config_stamp: Option<(SystemTime, u64)>,
     page: Page,
+}
+
+fn stamp(path: &Path) -> Option<(SystemTime, u64)> {
+    let meta = std::fs::metadata(path).ok()?;
+    Some((meta.modified().ok()?, meta.len()))
 }
 
 thread_local! {
@@ -151,8 +160,19 @@ fn with_app(f: impl FnOnce(&mut App)) {
 }
 
 impl App {
+    fn changed_config(&mut self) -> Option<Config> {
+        let path = config::default_path()?;
+        let stamp = stamp(&path);
+        if stamp.is_some() && stamp == self.config_stamp {
+            return None;
+        }
+        let config = config::read(&path).ok()?;
+        self.config_stamp = stamp;
+        Some(config)
+    }
+
     fn refresh(&mut self) {
-        if let Some(config) = config::default_path().and_then(|p| config::read(&p).ok())
+        if let Some(config) = self.changed_config()
             && config != self.config
         {
             pulsar_core::format::set_units(config.units);
@@ -381,6 +401,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         extremes: Extremes::default(),
         page: Page::Overview,
         config: config.clone(),
+        config_stamp: None,
     };
     APP.with(|cell| *cell.borrow_mut() = Some(app));
     with_app(App::refresh);
