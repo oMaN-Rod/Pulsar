@@ -3,13 +3,16 @@
 //! picture changes.
 
 use std::collections::HashSet;
+use std::time::{Duration, Instant};
 
+use windows::Win32::Foundation::FILETIME;
 use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM};
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
 use windows::Win32::System::Threading::{
-    OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION, QueryFullProcessImageNameW,
+    GetProcessTimes, OpenProcess, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    QueryFullProcessImageNameW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     EnumWindows, GetForegroundWindow, GetWindowThreadProcessId, IsWindowVisible,
@@ -20,10 +23,44 @@ use crate::hardware::displays::{self, Display};
 use crate::metric::{FrameLabels, MetricKey, Snapshot, Source, SourceError, SourceId};
 use crate::sensors::{self, DisplayRate, FrameRate};
 
+/// How long the helpers found for the foreground app are trusted while
+/// nothing else changes, for one that gains or loses a window.
+const HELPERS_FOR: Duration = Duration::from_secs(10);
+
 pub struct FramesSource {
     /// The monitor whose rate the item shows, by device path; `None` for
     /// the foreground application.
-    pub monitor: Option<String>,
+    monitor: Option<String>,
+    app: Option<App>,
+}
+
+impl FramesSource {
+    pub fn new(monitor: Option<String>) -> Self {
+        Self { monitor, app: None }
+    }
+}
+
+struct App {
+    pid: u32,
+    /// Its start time, so a reused process ID is not taken for it.
+    started: u64,
+    name: Option<String>,
+    /// The other processes the service had rates for when they were found,
+    /// sorted. One that stops drawing and starts again is already judged.
+    drawing: Vec<u32>,
+    helpers: Vec<u32>,
+    found: Instant,
+}
+
+/// Whether the helpers must be found again. Taking a snapshot of every
+/// process costs several milliseconds, so it waits for a change.
+fn helpers_stale(app: &App, pid: u32, started: u64, drawing: &[u32], now: Instant) -> bool {
+    app.pid != pid
+        || app.started != started
+        || drawing
+            .iter()
+            .any(|p| app.drawing.binary_search(p).is_err())
+        || now.duration_since(app.found) >= HELPERS_FOR
 }
 
 impl Source for FramesSource {
@@ -36,11 +73,44 @@ impl Source for FramesSource {
         let rates = sensors::read_frames().map_err(|e| SourceError::Unavailable(e.to_string()))?;
         let window = unsafe { GetForegroundWindow() };
         let pid = window_pid(window);
+        let now = Instant::now();
         let app = pid.and_then(|pid| {
-            let processes = processes();
-            let helpers = helpers(pid, &processes, &visible_window_pids());
-            app_rate(&rates.apps, pid, &helpers)
+            let (started, name) = process_info(pid);
+            let mut drawing: Vec<u32> = rates
+                .apps
+                .iter()
+                .map(|r| r.pid)
+                .filter(|&p| p != pid)
+                .collect();
+            drawing.sort_unstable();
+            drawing.dedup();
+            let cached = self
+                .app
+                .take()
+                .filter(|a| !helpers_stale(a, pid, started, &drawing, now));
+            let app = cached.unwrap_or_else(|| {
+                // With nothing else drawing, no helper can be.
+                let helpers = if drawing.is_empty() {
+                    Vec::new()
+                } else {
+                    helpers(pid, &processes(), &visible_window_pids())
+                };
+                App {
+                    pid,
+                    started,
+                    name,
+                    drawing,
+                    helpers,
+                    found: now,
+                }
+            });
+            let rate = app_rate(&rates.apps, pid, &app.helpers);
+            self.app = Some(app);
+            rate
         });
+        if pid.is_none() {
+            self.app = None;
+        }
         if let Some(r) = app {
             out.set(MetricKey::FrameTimeMs, r.frame_time);
             out.set(MetricKey::FrameRateLow1, r.low_1);
@@ -72,7 +142,7 @@ impl Source for FramesSource {
             out.set(MetricKey::FrameRate, fps);
         }
         out.frames = FrameLabels {
-            app: pid.and_then(app_name),
+            app: self.app.as_ref().and_then(|a| a.name.clone()),
             display: shown.map(|d| d.name.clone()),
             pinned: pinned.is_some(),
         };
@@ -160,23 +230,41 @@ fn window_pid(window: HWND) -> Option<u32> {
     (pid != 0).then_some(pid)
 }
 
-/// The executable's name without its folder or extension.
-fn app_name(pid: u32) -> Option<String> {
-    let path = unsafe {
-        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
-        let mut buf = [0u16; 512];
-        let mut len = buf.len() as u32;
-        let ok = QueryFullProcessImageNameW(
+/// When the process started, and its executable's name without its folder
+/// or extension.
+fn process_info(pid: u32) -> (u64, Option<String>) {
+    let Ok(process) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) })
+    else {
+        return (0, None);
+    };
+    let (mut created, mut exited, mut kernel, mut user) = (
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+        FILETIME::default(),
+    );
+    let started =
+        unsafe { GetProcessTimes(process, &mut created, &mut exited, &mut kernel, &mut user) }
+            .map_or(0, |()| {
+                (u64::from(created.dwHighDateTime) << 32) | u64::from(created.dwLowDateTime)
+            });
+    let mut buf = [0u16; 512];
+    let mut len = buf.len() as u32;
+    let named = unsafe {
+        QueryFullProcessImageNameW(
             process,
             PROCESS_NAME_WIN32,
             PWSTR(buf.as_mut_ptr()),
             &mut len,
-        );
-        let _ = CloseHandle(process);
-        ok.ok()?;
-        String::from_utf16_lossy(&buf[..len as usize])
+        )
     };
-    Some(stem(&path).to_string())
+    unsafe {
+        let _ = CloseHandle(process);
+    }
+    let name = named
+        .ok()
+        .map(|()| stem(&String::from_utf16_lossy(&buf[..len as usize])).to_string());
+    (started, name)
 }
 
 fn stem(path: &str) -> &str {
@@ -221,6 +309,38 @@ mod tests {
         found.sort_unstable();
         assert_eq!(found, [11, 12]);
         assert!(helpers(40, &processes, &windowed).is_empty());
+    }
+
+    #[test]
+    fn helpers_are_found_again_only_on_a_change() {
+        let now = Instant::now();
+        let app = App {
+            pid: 10,
+            started: 7,
+            name: None,
+            drawing: vec![20, 30],
+            helpers: vec![20],
+            found: now,
+        };
+        let later = |s| now + Duration::from_secs(s);
+        assert!(!helpers_stale(&app, 10, 7, &[20, 30], later(1)));
+        assert!(
+            !helpers_stale(&app, 10, 7, &[30], later(1)),
+            "one stopped drawing"
+        );
+        assert!(
+            helpers_stale(&app, 10, 7, &[20, 40], later(1)),
+            "a new one draws"
+        );
+        assert!(
+            helpers_stale(&app, 11, 7, &[20, 30], later(1)),
+            "another app"
+        );
+        assert!(
+            helpers_stale(&app, 10, 8, &[20, 30], later(1)),
+            "its ID was reused"
+        );
+        assert!(helpers_stale(&app, 10, 7, &[20, 30], later(10)), "too old");
     }
 
     #[test]

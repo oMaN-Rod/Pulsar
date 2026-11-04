@@ -320,9 +320,7 @@ fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
         ))],
         ItemKind::DiskTemp => vec![Box::new(DriveTempSource::new())],
         ItemKind::Battery => vec![Box::new(BatterySource::default())],
-        ItemKind::Fps => vec![Box::new(FramesSource {
-            monitor: config.frames.monitor.clone(),
-        })],
+        ItemKind::Fps => vec![Box::new(FramesSource::new(config.frames.monitor.clone()))],
         ItemKind::GpuPower => vec![Box::new(GpuPowerSource::default())],
         ItemKind::GpuTemp
         | ItemKind::GpuMemory
