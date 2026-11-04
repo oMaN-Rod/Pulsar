@@ -41,7 +41,8 @@ pub enum CardPower {
     Unknown,
 }
 
-/// The cards' total; `None` when none is asleep or reports its power.
+/// The total of the cards that report their power, with sleeping ones at
+/// zero; `None` when none is asleep or reports it.
 pub fn total_watts(cards: &[CardPower]) -> Option<f64> {
     cards.iter().fold(None, |total, card| match card {
         CardPower::Asleep => Some(total.unwrap_or(0.0)),
@@ -225,7 +226,12 @@ impl Source for GpuPowerSource {
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
         let now = Instant::now();
         if self.listed.is_none_or(|t| now.duration_since(t) >= RELIST) {
-            self.cards = list_cards();
+            let cards = list_cards();
+            if cards != self.cards {
+                // The library finds the cards once, when it starts.
+                self.nvml = None;
+                self.cards = cards;
+            }
             self.listed = Some(now);
         }
         if self.cards.is_empty() {

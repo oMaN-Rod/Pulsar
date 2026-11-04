@@ -202,7 +202,7 @@ pub enum MetricKey {
     GpuFanRpm,
     /// Of the card's power limit, from the display driver.
     GpuPowerPercent,
-    /// Every NVIDIA card's, together.
+    /// The NVIDIA cards that report it, together.
     GpuPowerW,
     GpuMemClockMhz,
     GpuHotSpotC,
