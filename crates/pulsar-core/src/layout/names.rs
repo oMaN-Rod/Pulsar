@@ -77,15 +77,19 @@ impl ItemNames {
     }
 
     /// Whether `part` leaves room before its label for the connection dot,
-    /// so the arrows of a pair stay in line.
+    /// so the arrows of a pair stay in line. The connection is the whole
+    /// PC's, so only the first adapter carries it.
     pub fn dot_room(&self, part: CellPart) -> bool {
-        self.connection_dot.is_some() && matches!(part.base(), CellPart::Down | CellPart::Up)
+        self.connection_dot.is_some()
+            && matches!(
+                part,
+                CellPart::Down | CellPart::Up | CellPart::AdapterDown(0) | CellPart::AdapterUp(0)
+            )
     }
 
-    /// Whether `part` draws the connection dot: once per adapter, on the
-    /// first direction shown.
+    /// Whether `part` draws the connection dot: on the first direction shown.
     pub fn draws_dot(&self, part: CellPart) -> bool {
-        self.connection_dot == Some(part.base())
+        self.dot_room(part) && self.connection_dot == Some(part.base())
     }
 }
 
@@ -397,7 +401,7 @@ mod tests {
             c.network.show = show;
             c.display.upload_on_top = upload_on_top;
             let names = ItemNames::resolve(&c);
-            for part in [CellPart::Down, CellPart::Up, CellPart::AdapterDown(1)] {
+            for part in [CellPart::Down, CellPart::Up, CellPart::AdapterDown(0)] {
                 assert!(names.dot_room(part));
                 assert_eq!(
                     names.draws_dot(part),
@@ -406,6 +410,10 @@ mod tests {
                 );
             }
             assert!(!names.dot_room(CellPart::Main), "a pair measures each line");
+            assert!(
+                !names.dot_room(CellPart::AdapterDown(1)),
+                "the PC has one connection"
+            );
         }
 
         let names = ItemNames::resolve(&c);
