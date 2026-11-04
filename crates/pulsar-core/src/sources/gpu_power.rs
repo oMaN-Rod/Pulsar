@@ -227,7 +227,12 @@ impl Source for GpuPowerSource {
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
         let now = Instant::now();
         if self.listed.is_none_or(|t| now.duration_since(t) >= RELIST) {
-            self.cards = list_cards();
+            let cards = list_cards();
+            if cards != self.cards {
+                // Another card may now sit at a sensorless card's address.
+                self.no_sensor.clear();
+            }
+            self.cards = cards;
             self.listed = Some(now);
         }
         if self.cards.is_empty() {
@@ -238,27 +243,33 @@ impl Source for GpuPowerSource {
         }
         let mut readings = Vec::with_capacity(self.cards.len());
         let mut awake = Vec::new();
+        let mut all_asleep = true;
         for card in self.cards.clone() {
-            match asleep(card.node) {
+            let state = asleep(card.node);
+            all_asleep &= state == Some(true);
+            match state {
                 _ if self.no_sensor.contains(&(card.bus, card.device)) => {
                     readings.push(CardPower::Unknown);
                 }
                 Some(true) => readings.push(CardPower::Asleep),
                 Some(false) => awake.push(card),
-                None => {
-                    // Not asked, as it may be asleep; its node may be stale.
-                    self.listed = None;
-                    readings.push(CardPower::Unknown);
-                }
+                None => readings.push(CardPower::Unknown),
+            }
+            if state.is_none() {
+                // Not asked, as it may be asleep; its node may be stale.
+                self.listed = None;
             }
         }
-        if awake.is_empty() {
+        if !all_asleep {
+            self.all_asleep = None;
+        }
+        if all_asleep {
             let since = *self.all_asleep.get_or_insert(now);
             if now.duration_since(since) >= UNLOAD_AFTER {
                 self.nvml = None;
             }
-        } else {
-            self.all_asleep = None;
+        }
+        if !awake.is_empty() {
             let nvml = self.nvml(now).ok_or_else(unavailable)?;
             let read: Option<Vec<Read>> = awake.iter().map(|&c| nvml.watts(c)).collect();
             let Some(read) = read else {
