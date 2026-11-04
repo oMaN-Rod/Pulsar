@@ -56,7 +56,7 @@ impl Source for BatterySource {
             self.device = Device::first();
             self.search_at = Some(now + SEARCH_AGAIN);
         }
-        if let Some(device) = &self.device {
+        if let Some(device) = &mut self.device {
             match device.read() {
                 Some(details) => details.write(out),
                 None => self.device = None,
@@ -163,9 +163,14 @@ impl BatteryDetails {
     }
 }
 
+/// How long the battery's capacities and cycle count are reused: they change
+/// over weeks, while the charge and rate change every second.
+const INFO_FOR: Duration = Duration::from_secs(60);
+
 struct Device {
     handle: HANDLE,
     tag: u32,
+    info: Option<(Instant, BATTERY_INFORMATION)>,
 }
 
 // The handle is only used from the sampler thread that owns the source.
@@ -184,7 +189,7 @@ impl Device {
         interface_paths()
             .iter()
             .filter_map(|path| Self::open(path))
-            .find(|device| device.read().is_some())
+            .find_map(|mut device| device.read().is_some().then_some(device))
     }
 
     fn open(path: &[u16]) -> Option<Self> {
@@ -200,7 +205,11 @@ impl Device {
             )
         }
         .ok()?;
-        let mut device = Self { handle, tag: 0 };
+        let mut device = Self {
+            handle,
+            tag: 0,
+            info: None,
+        };
         let wait = 0u32;
         let tag: u32 = device.control(IOCTL_BATTERY_QUERY_TAG, &wait)?;
         (tag != 0).then_some(())?;
@@ -227,13 +236,22 @@ impl Device {
         (returned as usize == size_of::<O>()).then_some(output)
     }
 
-    fn read(&self) -> Option<BatteryDetails> {
-        let query = BATTERY_QUERY_INFORMATION {
-            BatteryTag: self.tag,
-            InformationLevel: BatteryInformation,
-            AtRate: 0,
+    fn read(&mut self) -> Option<BatteryDetails> {
+        let now = Instant::now();
+        let info = match self.info {
+            Some((at, info)) if now.duration_since(at) < INFO_FOR => info,
+            _ => {
+                let query = BATTERY_QUERY_INFORMATION {
+                    BatteryTag: self.tag,
+                    InformationLevel: BatteryInformation,
+                    AtRate: 0,
+                };
+                let info: BATTERY_INFORMATION =
+                    self.control(IOCTL_BATTERY_QUERY_INFORMATION, &query)?;
+                self.info = Some((now, info));
+                info
+            }
         };
-        let info: BATTERY_INFORMATION = self.control(IOCTL_BATTERY_QUERY_INFORMATION, &query)?;
         let wait = BATTERY_WAIT_STATUS {
             BatteryTag: self.tag,
             ..Default::default()
