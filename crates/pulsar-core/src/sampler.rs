@@ -166,12 +166,8 @@ impl Sampler {
         .with_extras(Box::new(move || {
             let mut extras: Vec<Box<dyn Source>> = ItemKind::ALL
                 .into_iter()
-                // Pinging is traffic the user turned off, and asking for
-                // frame rates starts a trace in the service.
                 .filter(|&kind| {
-                    sources_of(kind) == kind
-                        && !enabled.contains(&kind)
-                        && !matches!(kind, ItemKind::Ping | ItemKind::Fps)
+                    sources_of(kind) == kind && !enabled.contains(&kind) && sampled_as_extra(kind)
                 })
                 .flat_map(|kind| item_sources(kind, &config))
                 .collect();
@@ -344,6 +340,14 @@ fn sources_of(kind: ItemKind) -> ItemKind {
         ItemKind::GpuMemory => ItemKind::Gpu,
         kind => kind,
     }
+}
+
+/// Whether the details window samples `kind` while its item is off. Pinging
+/// is traffic the user turned off, asking for frame rates starts a trace in
+/// the service, and NVIDIA's library keeps about 20 MB once loaded, even
+/// after it is freed.
+fn sampled_as_extra(kind: ItemKind) -> bool {
+    !matches!(kind, ItemKind::Ping | ItemKind::Fps | ItemKind::GpuPower)
 }
 
 /// Windows' own readings, for what the sensor service did not provide;
@@ -650,6 +654,14 @@ mod tests {
         flag.store(false, Ordering::Relaxed);
         assert_eq!(sampler.sample().get(MetricKey::CpuTotal), None);
         assert!(sampler.extras.is_none(), "released when no longer wanted");
+    }
+
+    #[test]
+    fn details_leaves_out_traffic_traces_and_nvml() {
+        for kind in [ItemKind::Ping, ItemKind::Fps, ItemKind::GpuPower] {
+            assert!(!sampled_as_extra(kind), "{kind:?}");
+        }
+        assert!(sampled_as_extra(ItemKind::Gpu));
     }
 
     #[test]

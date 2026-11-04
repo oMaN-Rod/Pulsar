@@ -5,8 +5,8 @@
 //! A laptop's NVIDIA GPU sleeps while nothing uses it, and asking the library
 //! about a card wakes it. So a card that Windows reports powered down counts
 //! as drawing nothing and is never asked, and a card's handle is only fetched
-//! while it is awake. Shutting the library down wakes the card too, so it is
-//! only unloaded once every card has slept for a while.
+//! while it is awake. Once loaded, the library stays: freeing it gives back
+//! none of its memory, and shutting it down wakes the card.
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
@@ -29,7 +29,6 @@ const NVIDIA: u16 = 0x10DE;
 const RELIST: Duration = Duration::from_secs(30);
 /// How soon to load the library again after it failed.
 const RELOAD: Duration = Duration::from_secs(30);
-const UNLOAD_AFTER: Duration = Duration::from_secs(120);
 const NVML_SUCCESS: i32 = 0;
 const NVML_ERROR_NOT_SUPPORTED: i32 = 3;
 const NVML_ERROR_NOT_FOUND: i32 = 6;
@@ -203,8 +202,6 @@ pub struct GpuPowerSource {
     listed: Option<Instant>,
     nvml: Option<Nvml>,
     failed: Option<Instant>,
-    /// Since when every card has slept.
-    all_asleep: Option<Instant>,
     no_sensor: HashSet<(u32, u32)>,
 }
 
@@ -243,10 +240,8 @@ impl Source for GpuPowerSource {
         }
         let mut readings = Vec::with_capacity(self.cards.len());
         let mut awake = Vec::new();
-        let mut all_asleep = true;
         for card in self.cards.clone() {
             let state = asleep(card.node);
-            all_asleep &= state == Some(true);
             match state {
                 _ if self.no_sensor.contains(&(card.bus, card.device)) => {
                     readings.push(CardPower::Unknown);
@@ -258,15 +253,6 @@ impl Source for GpuPowerSource {
             if state.is_none() {
                 // Not asked, as it may be asleep; its node may be stale.
                 self.listed = None;
-            }
-        }
-        if !all_asleep {
-            self.all_asleep = None;
-        }
-        if all_asleep {
-            let since = *self.all_asleep.get_or_insert(now);
-            if now.duration_since(since) >= UNLOAD_AFTER {
-                self.nvml = None;
             }
         }
         if !awake.is_empty() {
