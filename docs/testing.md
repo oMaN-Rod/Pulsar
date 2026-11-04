@@ -134,3 +134,11 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 ## Footprint
 
 After 5 minutes idle with Settings closed, check that Pulsar uses **< 15 MB** private working set (Task Manager → Details → *Memory (private working set)*) and **< 1%** CPU.
+
+Before merging a change to a source, compare what each source costs before and after:
+
+```
+cargo run --release -p pulsar-monitor-core --example source_costs -- [config.toml] [seconds]
+```
+
+It samples your own config (or the one given) once a second, in the monitor's order, for 65 seconds by default so the 30 s and 60 s refreshes are included. It prints each source's median, p95, max and mean time per reading, and the process's CPU time per tick, private memory and handles. Timings vary by machine, so compare runs on the same machine.

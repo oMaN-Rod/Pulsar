@@ -222,7 +222,19 @@ impl Sampler {
 
     /// How long each source takes per reading, averaged over `rounds`.
     pub fn source_costs(&mut self, rounds: u32, settle: Duration) -> Vec<(SourceId, Duration)> {
-        let mut costs: Vec<(SourceId, Duration)> = Vec::new();
+        self.source_timings(rounds, settle)
+            .into_iter()
+            .map(|(id, times)| (id, times.iter().sum::<Duration>() / rounds.max(1)))
+            .collect()
+    }
+
+    /// Each source's time for every one of `rounds` readings, in sampling order.
+    pub fn source_timings(
+        &mut self,
+        rounds: u32,
+        settle: Duration,
+    ) -> Vec<(SourceId, Vec<Duration>)> {
+        let mut timings: Vec<(SourceId, Vec<Duration>)> = Vec::new();
         for round in 0..rounds {
             if round > 0 {
                 std::thread::sleep(settle);
@@ -238,16 +250,13 @@ impl Sampler {
                 let start = Instant::now();
                 run(source.as_mut(), &mut snapshot);
                 let spent = start.elapsed();
-                match costs.get_mut(i) {
-                    Some((_, total)) => *total += spent,
-                    None => costs.push((source.id(), spent)),
+                match timings.get_mut(i) {
+                    Some((_, times)) => times.push(spent),
+                    None => timings.push((source.id(), vec![spent])),
                 }
             }
         }
-        for (_, total) in &mut costs {
-            *total /= rounds.max(1);
-        }
-        costs
+        timings
     }
 
     pub fn sample(&mut self) -> Snapshot {
