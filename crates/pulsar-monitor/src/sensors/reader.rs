@@ -1,10 +1,11 @@
 use std::arch::x86_64::{__cpuid, CpuidResult};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use pulsar_core::sensors::{CoreReadings, FramesWanted, Publisher, Sensor, Status};
+use pulsar_core::sensors::{CoreReadings, Publisher, Sensor, Status, Wanted};
+use windows::Win32::Foundation::{HANDLE, WAIT_FAILED, WAIT_OBJECT_0};
 use windows::Win32::System::SystemInformation::GROUP_AFFINITY;
+use windows::Win32::System::Threading::{INFINITE, WaitForMultipleObjects};
 
 use crate::chipset::Chipset;
 use crate::cores;
@@ -43,7 +44,27 @@ const AMD_SMN_CUR_TEMP: u32 = 0x0005_9800;
 const SAMPLE: Duration = Duration::from_secs(1);
 /// How often to look for a driver that was missing or went away.
 const RETRY: Duration = Duration::from_secs(10);
-const STOP_POLL: Duration = Duration::from_millis(100);
+/// How long one request for readings keeps the service sampling: readings
+/// count as stale after five seconds, and the app may sample every five.
+const LEASE: Duration = Duration::from_secs(15);
+
+/// Whether anyone wants readings. Until the first request the service
+/// samples all the time, as an app that predates the request never asks.
+#[derive(Default)]
+struct Lease {
+    asked_at: Option<Instant>,
+}
+
+impl Lease {
+    fn ask(&mut self, now: Instant) {
+        self.asked_at = Some(now);
+    }
+
+    fn active(&self, now: Instant) -> bool {
+        self.asked_at
+            .is_none_or(|at| now.saturating_duration_since(at) < LEASE)
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Vendor {
@@ -430,6 +451,16 @@ impl Session {
         (values, readings)
     }
 
+    /// After a pause, so rates are not averaged over it.
+    fn forget_previous(&mut self) {
+        self.previous.clear();
+        self.previous_at = None;
+        self.package.last = None;
+        for (_, energy) in &mut self.domains {
+            energy.last = None;
+        }
+    }
+
     /// Every sensor that answered; none at all means the driver went away.
     fn sample(&mut self) -> (Vec<(Sensor, f64)>, CoreReadings) {
         let (mut values, cores) = self.cpu();
@@ -461,38 +492,74 @@ impl Session {
     }
 }
 
-/// Publishes the readings every second until `stop` is set.
-pub fn run(stop: &AtomicBool) {
+/// Publishes the readings every second while an app wants them, and frame
+/// rates while one wants those, until `stop` is signalled. Wanting neither,
+/// it waits without waking.
+pub fn run(stop: HANDLE) {
     let Ok(publisher) = Publisher::create() else {
         return;
     };
-    let wanted = FramesWanted::create().ok();
+    let frames_wanted = Wanted::frames().ok();
+    let readings_wanted = Wanted::readings().ok();
     super::frames::clear_leftover();
     let mut frames = Frames::default();
     let mut session: Result<Session, Status> = Err(Status::NoDriver);
     let mut retry_at = Instant::now();
-    while !stop.load(Ordering::Relaxed) {
-        let asked = wanted.as_ref().is_some_and(FramesWanted::take);
+    let mut lease = Lease::default();
+    let mut sampled = true;
+    loop {
+        let now = Instant::now();
+        if readings_wanted.as_ref().is_some_and(Wanted::take) {
+            lease.ask(now);
+        }
+        let asked = frames_wanted.as_ref().is_some_and(Wanted::take);
         publisher.publish_frames(&frames.update(asked));
-        if session.is_err() && Instant::now() >= retry_at {
-            session = Session::connect();
-            retry_at = Instant::now() + RETRY;
-        }
-        match &mut session {
-            Ok(s) => {
-                let (values, cores) = s.sample();
-                if values.is_empty() {
-                    session = Err(Status::ReadFailed);
-                    publisher.publish(Status::ReadFailed, &[], &CoreReadings::default());
-                } else {
-                    publisher.publish(Status::Ok, &values, &cores);
-                }
+        let sampling = lease.active(now);
+        if sampling {
+            if session.is_err() && Instant::now() >= retry_at {
+                session = Session::connect();
+                retry_at = Instant::now() + RETRY;
             }
-            Err(reason) => publisher.publish(*reason, &[], &CoreReadings::default()),
+            match &mut session {
+                Ok(s) => {
+                    if !sampled {
+                        s.forget_previous();
+                    }
+                    let (values, cores) = s.sample();
+                    if values.is_empty() {
+                        session = Err(Status::ReadFailed);
+                        publisher.publish(Status::ReadFailed, &[], &CoreReadings::default());
+                    } else {
+                        publisher.publish(Status::Ok, &values, &cores);
+                    }
+                }
+                Err(reason) => publisher.publish(*reason, &[], &CoreReadings::default()),
+            }
         }
-        let wake = Instant::now() + SAMPLE;
-        while Instant::now() < wake && !stop.load(Ordering::Relaxed) {
-            sleep(STOP_POLL);
+        sampled = sampling;
+        // While busy only the stop matters: requests are looked at each turn
+        // anyway, and waking on them would also sample at the app's pace.
+        let busy = sampling || frames.busy();
+        let handles: Vec<HANDLE> = if busy {
+            vec![stop]
+        } else {
+            [Some(stop)]
+                .into_iter()
+                .chain([&readings_wanted, &frames_wanted].map(|w| w.as_ref().map(Wanted::handle)))
+                .flatten()
+                .collect()
+        };
+        let timeout = if busy {
+            SAMPLE.as_millis() as u32
+        } else {
+            INFINITE
+        };
+        let woke = unsafe { WaitForMultipleObjects(&handles, false, timeout) };
+        if woke == WAIT_OBJECT_0 {
+            return;
+        }
+        if woke == WAIT_FAILED {
+            sleep(SAMPLE);
         }
     }
 }
@@ -500,6 +567,24 @@ pub fn run(stop: &AtomicBool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn readings_go_on_until_a_request_then_last_a_lease_past_the_latest() {
+        let start = Instant::now();
+        let at = |s| start + Duration::from_secs(s);
+        let mut lease = Lease::default();
+        assert!(
+            lease.active(at(3600)),
+            "never asked: an older app may be reading"
+        );
+        lease.ask(at(10));
+        assert!(lease.active(at(24)));
+        assert!(!lease.active(at(25)));
+        lease.ask(at(30));
+        assert!(lease.active(at(30)), "asked again after idling");
+        assert!(lease.active(at(44)));
+        assert!(!lease.active(at(45)));
+    }
 
     #[test]
     fn this_machine_has_a_known_vendor_and_a_brand() {

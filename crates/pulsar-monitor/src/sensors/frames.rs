@@ -517,6 +517,12 @@ impl Default for Frames {
 }
 
 impl Frames {
+    /// Whether `update` must go on being called: the trace runs, or was
+    /// asked for recently enough to start or keep it.
+    pub fn busy(&self) -> bool {
+        self.trace.is_some() || self.asked_at.is_some_and(|at| at.elapsed() < LINGER)
+    }
+
     pub fn update(&mut self, asked: bool) -> FrameRates {
         if asked {
             self.asked_at = Some(Instant::now());

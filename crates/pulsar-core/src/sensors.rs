@@ -1,7 +1,7 @@
 //! The shared memory through which the elevated sensor service hands
 //! readings to the unelevated app. It carries values one way only. The app
-//! sends the service a single bit: an event it sets while it wants frame
-//! rates, which the service clears whenever it looks.
+//! sends the service two bits: events it sets while it wants readings and
+//! while it wants frame rates, which the service clears whenever it looks.
 
 use std::sync::atomic::{AtomicI64, AtomicU32, AtomicU64, Ordering};
 
@@ -25,14 +25,15 @@ use windows::core::{HSTRING, PCWSTR, w};
 pub const SERVICE_NAME: &str = "PulsarSensors";
 const MAPPING_NAME: &str = r"Global\Pulsar.Sensors";
 const FRAMES_EVENT_NAME: &str = r"Global\Pulsar.FramesWanted";
+const READINGS_EVENT_NAME: &str = r"Global\Pulsar.ReadingsWanted";
 const MAGIC: u32 = 0x534E_5350;
 const VERSION: u32 = 7;
 /// A reading older than this means the service has stopped.
 const STALE_MS: u64 = 5000;
 /// The service and administrators own the section; everyone else reads it.
 const SECURITY: PCWSTR = w!("D:(A;;GA;;;SY)(A;;GA;;;BA)(A;;GR;;;AU)");
-/// Signed-in users may only set the event; waiting on it is the service's.
-const FRAMES_EVENT_SECURITY: PCWSTR = w!("D:(A;;GA;;;SY)(A;;GA;;;BA)(A;;0x2;;;AU)");
+/// Signed-in users may only set the events; waiting on them is the service's.
+const EVENT_SECURITY: PCWSTR = w!("D:(A;;GA;;;SY)(A;;GA;;;BA)(A;;0x2;;;AU)");
 /// Processes whose frame rates the section holds at once.
 pub const FRAME_SLOTS: usize = 16;
 /// Displays whose update rates the section holds at once.
@@ -432,7 +433,17 @@ fn write_slot(slot: &FrameSlot, rate: Option<&FrameRate>) {
 
 /// Asks the service for frame rates for the next few seconds.
 pub fn want_frames() {
-    let name = HSTRING::from(FRAMES_EVENT_NAME);
+    signal(FRAMES_EVENT_NAME);
+}
+
+/// Asks the service for readings for the next few seconds. A service that
+/// has never been asked samples all the time, for apps that predate this.
+pub fn want_readings() {
+    signal(READINGS_EVENT_NAME);
+}
+
+fn signal(name: &str) {
+    let name = HSTRING::from(name);
     if let Ok(event) = unsafe { OpenEventW(EVENT_MODIFY_STATE, false, &name) } {
         unsafe {
             let _ = SetEvent(event);
@@ -441,23 +452,30 @@ pub fn want_frames() {
     }
 }
 
-/// The service's side of the app's request for frame rates.
-pub struct FramesWanted(HANDLE);
+/// The service's side of an app's request.
+pub struct Wanted(HANDLE);
 
 // Only signalled, waited on and reset.
-unsafe impl Send for FramesWanted {}
+unsafe impl Send for Wanted {}
 
-impl FramesWanted {
-    pub fn create() -> windows::core::Result<Self> {
-        let handle = with_security(FRAMES_EVENT_SECURITY, |attributes| unsafe {
-            CreateEventW(
-                Some(attributes),
-                true,
-                false,
-                &HSTRING::from(FRAMES_EVENT_NAME),
-            )
+impl Wanted {
+    pub fn frames() -> windows::core::Result<Self> {
+        Self::create(FRAMES_EVENT_NAME)
+    }
+
+    pub fn readings() -> windows::core::Result<Self> {
+        Self::create(READINGS_EVENT_NAME)
+    }
+
+    fn create(name: &str) -> windows::core::Result<Self> {
+        let handle = with_security(EVENT_SECURITY, |attributes| unsafe {
+            CreateEventW(Some(attributes), true, false, &HSTRING::from(name))
         })?;
         Ok(Self(handle))
+    }
+
+    pub fn handle(&self) -> HANDLE {
+        self.0
     }
 
     /// Whether the app asked since the last call.
@@ -472,7 +490,7 @@ impl FramesWanted {
     }
 }
 
-impl Drop for FramesWanted {
+impl Drop for Wanted {
     fn drop(&mut self) {
         unsafe {
             let _ = CloseHandle(self.0);

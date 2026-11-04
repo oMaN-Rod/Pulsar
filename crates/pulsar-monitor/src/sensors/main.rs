@@ -16,16 +16,19 @@ mod reader;
 mod service;
 mod setup;
 
-use std::sync::atomic::AtomicBool;
+use windows::Win32::System::Threading::CreateEventW;
 
 fn main() {
     let code = match std::env::args().nth(1).as_deref() {
         Some("--service") => service::run(),
         // In the foreground, for trying it from an elevated terminal.
-        Some("--run") => {
-            reader::run(&AtomicBool::new(false));
-            0
-        }
+        Some("--run") => match unsafe { CreateEventW(None, true, false, None) } {
+            Ok(never) => {
+                reader::run(never);
+                0
+            }
+            Err(_) => 1,
+        },
         Some("--frames") => {
             frames::print();
             0

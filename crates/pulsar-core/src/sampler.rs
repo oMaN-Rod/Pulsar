@@ -148,9 +148,7 @@ impl Sampler {
         .any(|kind| config.is_sampled(kind));
         let sensors = sensors_required || sensors_shown;
         if sensors {
-            sources.push(Box::new(SensorServiceSource {
-                required: sensors_required,
-            }));
+            sources.push(Box::new(SensorServiceSource::new(sensors_required)));
             sources.extend(sensor_fallbacks());
         }
         // The GPU popup shows the sensors too, so either item needs them.
@@ -172,7 +170,7 @@ impl Sampler {
                 .flat_map(|kind| item_sources(kind, &config))
                 .collect();
             if !sensors {
-                extras.push(Box::new(SensorServiceSource { required: false }));
+                extras.push(Box::new(SensorServiceSource::new(false)));
                 extras.extend(sensor_fallbacks());
             }
             if !gpu_sensors {
