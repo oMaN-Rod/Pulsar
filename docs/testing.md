@@ -114,6 +114,10 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | *Language* set to each language in turn, with Pulsar running | The taskbar labels, menu and popups switch at once; Settings switches when the choice saves; Details on its next opening |
 | *Windows default* with the Windows display language set to Spanish, then Chinese (Traditional) | Spanish, then English |
 | Chinese: Settings, Details, a popup and the taskbar | No missing or Japanese-style glyphs |
+| *Windows default* with the Windows display language set to Japanese | Japanese is selected automatically |
+| Japanese: Settings, Details, a popup, the taskbar and a search for 言語 | Japanese glyphs render correctly with Yu Gothic UI; labels fit and the language setting is found |
+| Settings open in Japanese, then run the installer | The installer closes the settings window before installing |
+| The installer started on Japanese Windows | Its pages, including *CPU temperature*, are in Japanese |
 | Settings open in Spanish or Chinese, then run the installer | The installer closes the settings window before installing |
 | The installer started on Spanish and Chinese Windows | Its pages, including *CPU temperature*, are in that language |
 

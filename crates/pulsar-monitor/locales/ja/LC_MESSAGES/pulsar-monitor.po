@@ -1,0 +1,2745 @@
+# Japanese translations for Pulsar.
+msgid ""
+msgstr ""
+"Project-Id-Version: Pulsar\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: src/alerts.rs
+msgid "CPU at {}"
+msgstr "CPU が {} に到達"
+
+#: src/alerts.rs
+msgid "Above your limit of {} for half a minute."
+msgstr "設定した上限の{}を30秒間超えています。"
+
+#: src/alerts.rs
+msgid "GPU at {}"
+msgstr "GPU が {} に到達"
+
+#: src/alerts.rs
+msgid "Battery at {}"
+msgstr "バッテリー残量が {}"
+
+#: src/alerts.rs
+msgid "Plug in soon."
+msgstr "まもなく電源に接続してください。"
+
+#: src/alerts.rs
+msgid "Drive {}: is nearly full"
+msgstr "ドライブ {}: の空き容量がわずかです"
+
+#: src/alerts.rs
+msgid "{} free."
+msgstr "空き容量: {}"
+
+#: src/app.rs
+msgid "Pulsar settings reset"
+msgstr "Pulsar の設定をリセットしました"
+
+#: src/app.rs
+msgid "Pulsar closed unexpectedly"
+msgstr "Pulsar が予期せず終了しました"
+
+#: src/app.rs
+msgid "Select to open the crash report. Attaching it to a GitHub issue helps get it fixed."
+msgstr "選択するとクラッシュレポートが開きます。GitHub の Issue に添付すると、問題の解決に役立ちます。"
+
+#: src/app.rs
+msgid "Pulsar restarted"
+msgstr "Pulsar を再起動しました"
+
+#: src/app.rs
+msgid "It stopped responding. Its items stay separate from the taskbar until Pulsar next starts."
+msgstr "応答が停止しました。次回の起動まで、項目をタスクバーから分離して表示します。"
+
+#: src/app.rs
+msgid "Shortcut already in use"
+msgstr "ショートカットは使用中です"
+
+#: src/app.rs
+msgid "Another app uses {}. Choose another in Settings."
+msgstr "別のアプリが {} を使用しています。設定で別のキーを選んでください。"
+
+#: src/app.rs
+msgid "{} closed"
+msgstr "{} が終了しました"
+
+#: src/app.rs
+msgid "Pulsar could not load the profile"
+msgstr "プロファイルを読み込めませんでした"
+
+#: src/app.rs src/menu.rs
+msgid "No profiles saved"
+msgstr "保存されたプロファイルはありません"
+
+#: src/app.rs
+msgid "Save one in Settings → Profiles."
+msgstr "設定 → プロファイルで保存してください。"
+
+#: src/app.rs
+msgid "Profile"
+msgstr "プロファイル"
+
+#: src/app.rs
+msgid "Recording saved"
+msgstr "記録を保存しました"
+
+#: src/app.rs
+msgid "Recording readings"
+msgstr "測定値を記録中"
+
+#: src/app.rs
+msgid "Every sample goes to {} until you stop."
+msgstr "停止するまで、すべてのサンプルを {} に保存します。"
+
+#: src/app.rs
+msgid "Pulsar could not start recording"
+msgstr "記録を開始できませんでした"
+
+#: src/app.rs
+msgid "Pulsar stopped recording"
+msgstr "記録を停止しました"
+
+#: src/app.rs
+msgid "Pulsar could not open the details window"
+msgstr "詳細ウィンドウを開けませんでした"
+
+#: src/app.rs src/settings/main.rs
+msgid "Pulsar {} is available"
+msgstr "Pulsar {} が利用できます"
+
+#: src/app.rs
+msgid "Select to open the release page."
+msgstr "選択するとリリースページが開きます。"
+
+#: src/app.rs
+msgid "Pulsar could not open Settings"
+msgstr "設定を開けませんでした"
+
+#: src/app.rs
+msgid "Pulsar could not save settings"
+msgstr "設定を保存できませんでした"
+
+#: src/details/pages.rs
+msgid "Overview"
+msgstr "概要"
+
+#: src/details/pages.rs
+msgid "Processor"
+msgstr "プロセッサ"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "Memory"
+msgstr "メモリ"
+
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
+msgid "Graphics"
+msgstr "グラフィックス"
+
+#: src/details/pages.rs
+msgid "Storage"
+msgstr "ストレージ"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Network"
+msgstr "ネットワーク"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "System"
+msgstr "システム"
+
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
+msgid "Sensors"
+msgstr "センサー"
+
+#: src/details/pages.rs
+msgid "Temperatures, power draw and clocks come from the optional Pulsar sensor service, which reads them through PawnIO."
+msgstr "温度、消費電力、クロックは、任意で導入できる Pulsar センサーサービスが PawnIO を通じて取得します。"
+
+#: src/details/pages.rs
+msgid "{}. Temperatures, power draw and clocks are unavailable until it is fixed."
+msgstr "{}。この問題が解決するまで、温度、消費電力、クロックは取得できません。"
+
+#: src/details/pages.rs
+msgid "Learn how"
+msgstr "手順を見る"
+
+#: src/details/pages.rs
+msgid "{} h {} min"
+msgstr "{}時間{}分"
+
+#: src/details/pages.rs
+msgid "{} d {} h"
+msgstr "{}日{}時間"
+
+#: src/details/pages.rs
+msgid "fully associative"
+msgstr "フルアソシアティブ"
+
+#: src/details/pages.rs
+msgid "{}-way"
+msgstr "{}ウェイ"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Collecting…"
+msgstr "収集中…"
+
+#: src/details/pages.rs src/menu.rs src/popup/content.rs ui/settings.slint
+msgid "Top processes"
+msgstr "上位プロセス"
+
+#: src/details/pages.rs
+msgid "{} active"
+msgstr "{} が稼働中"
+
+#: src/details/pages.rs
+msgid "Motherboard"
+msgstr "マザーボード"
+
+#: src/details/pages.rs
+msgid "{} across {} drives"
+msgstr "{}（{}台のドライブ）"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "CPU temperature"
+msgstr "CPU 温度"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "CPU power"
+msgstr "CPU 電力"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU temperature"
+msgstr "GPU 温度"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Ping"
+msgstr "Ping"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Up time"
+msgstr "稼働時間"
+
+#: src/details/pages.rs
+msgid "build {}"
+msgstr "ビルド{}"
+
+#: src/details/pages.rs
+msgid "{} cores ({}P + {}E)"
+msgstr "{}コア（P: {} + E: {}）"
+
+#: src/details/pages.rs
+msgid "{} cores"
+msgstr "{}コア"
+
+#: src/details/pages.rs
+msgid "{} threads"
+msgstr "{}スレッド"
+
+#: src/details/pages.rs
+msgid "Utilization"
+msgstr "使用率"
+
+#: src/details/pages.rs
+msgid "Running at {}"
+msgstr "動作周波数: {}"
+
+#: src/details/pages.rs src/popup/content.rs ui/settings.slint
+msgid "Temperature"
+msgstr "温度"
+
+#: src/details/pages.rs
+msgid "Hottest core {}"
+msgstr "最高温度のコア: {}"
+
+#: src/details/pages.rs
+msgid "Package power"
+msgstr "パッケージ電力"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Speed"
+msgstr "速度"
+
+#: src/details/pages.rs
+msgid "Multiplier"
+msgstr "倍率"
+
+#: src/details/pages.rs
+msgid "Ring clock"
+msgstr "リングクロック"
+
+#: src/details/pages.rs
+msgid "Cores power"
+msgstr "コア電力"
+
+#: src/details/pages.rs
+msgid "Graphics power"
+msgstr "グラフィックス電力"
+
+#: src/details/pages.rs
+msgid "Memory power"
+msgstr "メモリ電力"
+
+#: src/details/pages.rs
+msgid "Core voltage"
+msgstr "コア電圧"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Thermal throttling"
+msgstr "高温による性能制限"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Yes"
+msgstr "はい"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "No"
+msgstr "いいえ"
+
+#: src/details/pages.rs
+msgid "Cores / threads"
+msgstr "コア / スレッド"
+
+#: src/details/pages.rs
+msgid "Vendor"
+msgstr "ベンダー"
+
+#: src/details/pages.rs
+msgid "Microarchitecture"
+msgstr "マイクロアーキテクチャ"
+
+#: src/details/pages.rs
+msgid "Family · model · stepping"
+msgstr "ファミリ · モデル · ステッピング"
+
+#: src/details/pages.rs
+msgid "Socket"
+msgstr "ソケット"
+
+#: src/details/pages.rs
+msgid "Base clock"
+msgstr "ベースクロック"
+
+#: src/details/pages.rs
+msgid "Bus clock"
+msgstr "バスクロック"
+
+#: src/details/pages.rs
+msgid "Multiplier range"
+msgstr "倍率の範囲"
+
+#: src/details/pages.rs
+msgid "Power limits"
+msgstr "電力制限"
+
+#: src/details/pages.rs
+msgid "Microcode"
+msgstr "マイクロコード"
+
+#: src/details/pages.rs
+msgid "Packages"
+msgstr "パッケージ数"
+
+#: src/details/pages.rs
+msgid "Instructions"
+msgstr "命令セット"
+
+#: src/details/pages.rs
+msgid "Caches"
+msgstr "キャッシュ"
+
+#: src/details/pages.rs
+msgid "L1 data"
+msgstr "L1 データ"
+
+#: src/details/pages.rs
+msgid "L1 instruction"
+msgstr "L1 命令"
+
+#: src/details/pages.rs
+msgid "P-cores show both threads' load"
+msgstr "P コアは両スレッドの負荷を表示します"
+
+#: src/details/pages.rs
+msgid "Each core shows both threads' load"
+msgstr "各コアは両スレッドの負荷を表示します"
+
+#: src/details/pages.rs
+msgid "fastest {} GHz"
+msgstr "最高 {} GHz"
+
+#: src/details/pages.rs
+msgid "hottest {}"
+msgstr "最高温度 {}"
+
+#: src/details/pages.rs
+msgid "{} of {} slots used"
+msgstr "{1}スロット中{0}スロットを使用"
+
+#: src/details/pages.rs
+msgid "Up to {} GB"
+msgstr "最大 {} GB"
+
+#: src/details/pages.rs
+msgid "Memory in use"
+msgstr "使用中のメモリ"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "{} of {}"
+msgstr "{1} 中 {0}"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "In use"
+msgstr "使用中"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Available"
+msgstr "利用可能"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Committed"
+msgstr "確保済み容量"
+
+#: src/details/pages.rs
+msgid "Commit limit"
+msgstr "確保できる上限"
+
+#: src/details/pages.rs
+msgid "Module"
+msgstr "モジュール"
+
+#: src/details/pages.rs
+msgid "Manufacturer"
+msgstr "製造元"
+
+#: src/details/pages.rs
+msgid "Type"
+msgstr "種類"
+
+#: src/details/pages.rs
+msgid "{} MT/s (rated {})"
+msgstr "{} MT/s（定格 {}）"
+
+#: src/details/pages.rs
+msgid "Ranks"
+msgstr "ランク数"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Voltage"
+msgstr "電圧"
+
+#: src/details/pages.rs
+msgid "Bank"
+msgstr "バンク"
+
+#: src/details/pages.rs
+msgid "{} unlimited"
+msgstr "{}（制限なし）"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Memory clock"
+msgstr "メモリクロック"
+
+#: src/details/pages.rs
+msgid "Controller clock"
+msgstr "コントローラークロック"
+
+#: src/details/pages.rs
+msgid "{} MHz (gear {})"
+msgstr "{} MHz（ギア{}）"
+
+#: src/details/pages.rs
+msgid "Command rate"
+msgstr "コマンドレート"
+
+#: src/details/pages.rs
+msgid "Timings"
+msgstr "タイミング"
+
+#: src/details/pages.rs
+msgid "Link"
+msgstr "リンク"
+
+#: src/details/pages.rs
+msgid "Max link"
+msgstr "最大リンク"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "3D"
+msgstr "3D"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Compute"
+msgstr "コンピュート"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Video decode"
+msgstr "動画デコード"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Video encode"
+msgstr "動画エンコード"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Copy"
+msgstr "コピー"
+
+#: src/details/pages.rs
+msgid "{} dedicated"
+msgstr "専用: {}"
+
+#: src/details/pages.rs
+msgid "Driver {}"
+msgstr "ドライバー {}"
+
+#: src/details/pages.rs
+msgid "{} dedicated memory in use"
+msgstr "専用メモリ使用量: {}"
+
+#: src/details/pages.rs
+msgid "Hot spot {}"
+msgstr "ホットスポット {}"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Hot spot"
+msgstr "ホットスポット"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Memory temperature"
+msgstr "メモリ温度"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Fan"
+msgstr "ファン"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Power"
+msgstr "電力"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Engines"
+msgstr "エンジン"
+
+#: src/details/pages.rs
+msgid "Graphics memory"
+msgstr "グラフィックスメモリ"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Dedicated"
+msgstr "専用"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Shared"
+msgstr "共有"
+
+#: src/details/pages.rs
+msgid "Board maker"
+msgstr "ボード製造元"
+
+#: src/details/pages.rs
+msgid "Revision"
+msgstr "リビジョン"
+
+#: src/details/pages.rs ui/details.slint
+msgid "Load"
+msgstr "負荷"
+
+#: src/details/pages.rs
+msgid "Dedicated memory"
+msgstr "専用メモリ"
+
+#: src/details/pages.rs
+msgid "Shared memory"
+msgstr "共有メモリ"
+
+#: src/details/pages.rs
+msgid "Driver"
+msgstr "ドライバー"
+
+#: src/details/pages.rs
+msgid "Device ID"
+msgstr "デバイス ID"
+
+#: src/details/pages.rs
+msgid "Integrated"
+msgstr "内蔵"
+
+#: src/details/pages.rs
+msgid "Discrete"
+msgstr "独立 GPU"
+
+#: src/details/pages.rs
+msgid "Download {}"
+msgstr "ダウンロード {}"
+
+#: src/details/pages.rs
+msgid "Upload {}"
+msgstr "アップロード {}"
+
+#: src/details/pages.rs
+msgid "Interface"
+msgstr "インターフェイス"
+
+#: src/details/pages.rs
+msgid "Firmware"
+msgstr "ファームウェア"
+
+#: src/details/pages.rs
+msgid "Temperature limits"
+msgstr "温度上限"
+
+#: src/details/pages.rs
+msgid "Warning {}°C · critical {}°C"
+msgstr "警告 {}°C · 危険 {}°C"
+
+#: src/details/pages.rs
+msgid "Warning {}°C"
+msgstr "警告 {}°C"
+
+#: src/details/pages.rs
+msgid "Critical {}°C"
+msgstr "危険 {}°C"
+
+#: src/details/pages.rs
+msgid "Removable"
+msgstr "リムーバブル"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "{} free of {}"
+msgstr "{1} 中 {0} が空き"
+
+#: src/details/pages.rs
+msgid "1 drive"
+msgstr "1台のドライブ"
+
+#: src/details/pages.rs
+msgid "{} drives"
+msgstr "{}台のドライブ"
+
+#: src/details/pages.rs
+msgid "{} in total"
+msgstr "合計 {}"
+
+#: src/details/pages.rs ui/settings.slint
+msgid "Activity"
+msgstr "アクティビティ"
+
+#: src/details/pages.rs
+msgid "Transfer rate"
+msgstr "転送速度"
+
+#: src/details/pages.rs
+msgid "Read {}"
+msgstr "読み取り {}"
+
+#: src/details/pages.rs
+msgid "Write {}"
+msgstr "書き込み {}"
+
+#: src/details/pages.rs
+msgid "Active"
+msgstr "アクティブ"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Read"
+msgstr "読み取り"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Write"
+msgstr "書き込み"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Hottest drive"
+msgstr "最高温度のドライブ"
+
+#: src/details/pages.rs
+msgid "Latency"
+msgstr "遅延"
+
+#: src/details/pages.rs
+msgid "{} · {} loss"
+msgstr "{} · 損失 {}"
+
+#: src/details/pages.rs
+msgid "Download"
+msgstr "ダウンロード"
+
+#: src/details/pages.rs
+msgid "Upload"
+msgstr "アップロード"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Packet loss"
+msgstr "パケット損失"
+
+#: src/details/pages.rs ui/settings.slint
+msgid "Traffic"
+msgstr "通信量"
+
+#: src/details/pages.rs
+msgid "Link speed"
+msgstr "リンク速度"
+
+#: src/details/pages.rs
+msgid "Gateway"
+msgstr "ゲートウェイ"
+
+#: src/details/pages.rs
+msgid "MAC address"
+msgstr "MAC アドレス"
+
+#: src/details/pages.rs
+msgid "Wi-Fi"
+msgstr "Wi-Fi"
+
+#: src/details/pages.rs
+msgid "Ethernet"
+msgstr "イーサネット"
+
+#: src/details/pages.rs
+msgid "Model"
+msgstr "モデル"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Chipset"
+msgstr "チップセット"
+
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "Chipset temperature"
+msgstr "チップセット温度"
+
+#: src/details/pages.rs
+msgid "CPU socket"
+msgstr "CPU ソケット"
+
+#: src/details/pages.rs
+msgid "Memory slots"
+msgstr "メモリスロット"
+
+#: src/details/pages.rs
+msgid "Version"
+msgstr "バージョン"
+
+#: src/details/pages.rs
+msgid "Release date"
+msgstr "公開日"
+
+#: src/details/pages.rs
+msgid "Edition"
+msgstr "エディション"
+
+#: src/details/pages.rs
+msgid "Build"
+msgstr "ビルド"
+
+#: src/details/pages.rs
+msgid "Every reading, with the lowest and highest seen while this window has been open"
+msgstr "このウィンドウを開いている間の各測定値と最小値・最大値"
+
+#: src/details/pages.rs
+msgid "Temperatures"
+msgstr "温度"
+
+#: src/details/pages.rs
+msgid "Core {}"
+msgstr "コア {}"
+
+#: src/details/pages.rs
+msgid "Total"
+msgstr "合計"
+
+#: src/details/pages.rs
+msgid "Clocks"
+msgstr "クロック"
+
+#: src/details/pages.rs src/popup/content.rs
+msgid "Average"
+msgstr "平均"
+
+#: src/details/pages.rs
+msgid "Ring"
+msgstr "リング"
+
+#: src/details/pages.rs
+msgid "Package"
+msgstr "パッケージ"
+
+#: src/details/pages.rs
+msgid "Voltages"
+msgstr "電圧"
+
+#: src/details/pages.rs
+msgid "Powers"
+msgstr "消費電力"
+
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
+msgid "Cores"
+msgstr "コア数"
+
+#: src/details/pages.rs
+msgid "Core"
+msgstr "コア"
+
+#: src/details/pages.rs
+msgid "Fans"
+msgstr "ファン"
+
+#: src/details/pages.rs
+msgid "Data"
+msgstr "データ"
+
+#: src/details/pages.rs ui/details.slint
+msgid "Physical"
+msgstr "物理"
+
+#: src/details/pages.rs
+msgid "Drive"
+msgstr "ドライブ"
+
+#: src/details/pages.rs
+msgid "{}: activity"
+msgstr "{}: アクティビティ"
+
+#: src/details/pages.rs
+msgid "{}: used space"
+msgstr "{}: 使用済み容量"
+
+#: src/details/pages.rs
+msgid "All drives"
+msgstr "すべてのドライブ"
+
+#: src/details/pages.rs
+msgid "Throughput"
+msgstr "転送速度"
+
+#: src/game.rs
+msgid "{} average"
+msgstr "平均 {}"
+
+#: src/game.rs
+msgid "1% low {}"
+msgstr "1% Low {}"
+
+#: src/game.rs
+msgid "CPU up to {}"
+msgstr "CPU 最大 {}"
+
+#: src/game.rs
+msgid "GPU up to {}"
+msgstr "GPU 最大 {}"
+
+#: src/menu.rs ui/settings.slint
+msgid "Trend arrow"
+msgstr "傾向の矢印"
+
+#: src/menu.rs
+msgid "Same as other items ({})"
+msgstr "他の項目と同じ（{}）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Popup detail"
+msgstr "ポップアップの詳細度"
+
+#: src/menu.rs
+msgid "On the widget"
+msgstr "ウィジェットに表示"
+
+#: src/menu.rs
+msgid "Swap with item on the left"
+msgstr "左の項目と入れ替え"
+
+#: src/menu.rs
+msgid "Swap with item on the right"
+msgstr "右の項目と入れ替え"
+
+#: src/menu.rs
+msgid "Hide"
+msgstr "非表示"
+
+#: src/menu.rs
+msgid "Same as the widget ({})"
+msgstr "ウィジェットと同じ（{}）"
+
+#: src/menu.rs
+msgid "Same detail as the widget ({})"
+msgstr "ウィジェットと同じ詳細度（{}）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Graph"
+msgstr "グラフ"
+
+#: src/menu.rs ui/settings.slint
+msgid "Translucent background"
+msgstr "半透明の背景"
+
+#: src/menu.rs
+msgid "None"
+msgstr "なし"
+
+#: src/menu.rs ui/settings.slint
+msgid "Details on hover"
+msgstr "ホバー時の詳細"
+
+#: src/menu.rs ui/settings.slint
+msgid "Celsius (°C)"
+msgstr "摂氏（°C）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Fahrenheit (°F)"
+msgstr "華氏（°F）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Bytes per second (MB/s)"
+msgstr "バイト/秒（MB/s）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Bits per second (Mbps)"
+msgstr "ビット/秒（Mbps）"
+
+#: src/menu.rs ui/settings.slint
+msgid "Upload on top"
+msgstr "アップロードを上に表示"
+
+#: src/menu.rs
+msgid "Manage profiles…"
+msgstr "プロファイルの管理…"
+
+#: src/menu.rs
+msgid "{} s"
+msgstr "{}秒"
+
+#: src/menu.rs
+msgid "System details…"
+msgstr "システム詳細…"
+
+#: src/menu.rs ui/details.slint ui/settings.slint
+msgid "Graphs"
+msgstr "グラフ"
+
+#: src/menu.rs src/names.rs ui/settings.slint
+msgid "Text only"
+msgstr "テキストのみ"
+
+#: src/menu.rs ui/settings.slint
+msgid "Items"
+msgstr "項目"
+
+#: src/menu.rs ui/settings.slint
+msgid "Popups"
+msgstr "ポップアップ"
+
+#: src/menu.rs ui/settings.slint
+msgid "Units"
+msgstr "単位"
+
+#: src/menu.rs ui/settings.slint
+msgid "Update interval"
+msgstr "更新間隔"
+
+#: src/menu.rs ui/settings.slint
+msgid "Profiles"
+msgstr "プロファイル"
+
+#: src/menu.rs
+msgid "Short labels"
+msgstr "短いラベル"
+
+#: src/menu.rs ui/settings.slint
+msgid "Vertical labels"
+msgstr "縦書きラベル"
+
+#: src/menu.rs ui/settings.slint
+msgid "Icons"
+msgstr "アイコン"
+
+#: src/menu.rs ui/settings.slint
+msgid "Hide in fullscreen"
+msgstr "全画面表示中は非表示"
+
+#: src/menu.rs ui/settings.slint
+msgid "Floating"
+msgstr "フローティング"
+
+#: src/menu.rs ui/settings.slint
+msgid "Lock position"
+msgstr "位置を固定"
+
+#: src/menu.rs
+msgid "Desktop widget"
+msgstr "ウィジェット"
+
+#: src/menu.rs
+msgid "Lock widget"
+msgstr "ウィジェットを固定"
+
+#: src/menu.rs
+msgid "Count {} as a game"
+msgstr "{} をゲームとして扱う"
+
+#: src/menu.rs
+msgid "Record to CSV"
+msgstr "CSV に記録"
+
+#: src/menu.rs
+msgid "Settings…"
+msgstr "設定…"
+
+#: src/menu.rs
+msgid "Open Task Manager"
+msgstr "タスクマネージャーを開く"
+
+#: src/menu.rs
+msgid "About Pulsar"
+msgstr "Pulsar について"
+
+#: src/menu.rs
+msgid "Exit Pulsar"
+msgstr "Pulsar を終了"
+
+#: src/names.rs src/popup/content.rs
+msgid "CPU"
+msgstr "CPU"
+
+#: src/names.rs src/popup/content.rs
+msgid "GPU"
+msgstr "GPU"
+
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Disk"
+msgstr "ディスク"
+
+#: src/names.rs src/popup/content.rs
+msgid "GPU memory"
+msgstr "GPU メモリ"
+
+#: src/names.rs src/popup/content.rs
+msgid "CPU clock"
+msgstr "CPU クロック"
+
+#: src/names.rs src/popup/content.rs
+msgid "Drive temperature"
+msgstr "ドライブ温度"
+
+#: src/names.rs src/popup/content.rs ui/settings.slint
+msgid "Frame rate"
+msgstr "フレームレート"
+
+#: src/names.rs src/popup/content.rs
+msgid "Battery"
+msgstr "バッテリー"
+
+#: src/names.rs
+msgid "Area graph"
+msgstr "面グラフ"
+
+#: src/names.rs
+msgid "Line graph"
+msgstr "折れ線グラフ"
+
+#: src/names.rs
+msgid "Bar graph"
+msgstr "棒グラフ"
+
+#: src/names.rs
+msgid "Level meter"
+msgstr "レベルメーター"
+
+#: src/names.rs
+msgid "Ring gauge"
+msgstr "リングゲージ"
+
+#: src/names.rs
+msgid "Segment meter"
+msgstr "セグメントメーター"
+
+#: src/names.rs
+msgid "Spark underline"
+msgstr "下線型のミニ折れ線グラフ"
+
+#: src/names.rs
+msgid "Core bars"
+msgstr "コア別の棒グラフ"
+
+#: src/names.rs
+msgid "Heat cells"
+msgstr "ヒートセル"
+
+#: src/names.rs
+msgid "Heat strip"
+msgstr "ヒートストリップ"
+
+#: src/names.rs
+msgid "Dot matrix"
+msgstr "ドットマトリックス"
+
+#: src/names.rs
+msgid "Bullet meter"
+msgstr "ブレットメーター"
+
+#: src/names.rs
+msgid "Range rail"
+msgstr "最小値から最大値の範囲"
+
+#: src/names.rs
+msgid "Status tint"
+msgstr "状態の背景色"
+
+#: src/names.rs
+msgid "Status bubble"
+msgstr "状態の丸印"
+
+#: src/names.rs
+msgid "Mirror bars"
+msgstr "ミラーバー"
+
+#: src/names.rs
+msgid "Uptime strip"
+msgstr "稼働状況ストリップ"
+
+#: src/names.rs
+msgid "Battery cell"
+msgstr "バッテリーセル"
+
+#: src/names.rs
+msgid "Load with temperature"
+msgstr "負荷と温度"
+
+#: src/names.rs
+msgid "Core type meters"
+msgstr "コア種別メーター"
+
+#: src/names.rs
+msgid "Item color"
+msgstr "項目の色"
+
+#: src/names.rs
+msgid "Windows accent"
+msgstr "Windows のアクセント色"
+
+#: src/names.rs
+msgid "Color by load"
+msgstr "負荷に応じた色"
+
+#: src/names.rs
+msgid "Sparkline"
+msgstr "ミニ折れ線グラフ"
+
+#: src/names.rs
+msgid "Tile"
+msgstr "タイル"
+
+#: src/names.rs
+msgid "Meter"
+msgstr "メーター"
+
+#: src/names.rs
+msgid "Dial"
+msgstr "ダイヤル"
+
+#: src/names.rs
+msgid "Core wall"
+msgstr "コア別の縦棒グラフ"
+
+#: src/names.rs
+msgid "Simple"
+msgstr "簡易"
+
+#: src/names.rs
+msgid "Standard"
+msgstr "標準"
+
+#: src/names.rs
+msgid "Detailed"
+msgstr "詳細"
+
+#: src/popup/content.rs
+msgid "No activity"
+msgstr "アクティビティなし"
+
+#: src/popup/content.rs
+msgid "Top processes (I/O)"
+msgstr "上位プロセス（I/O）"
+
+#: src/popup/content.rs
+msgid "Breakdown"
+msgstr "内訳"
+
+#: src/popup/content.rs
+msgid "Modified"
+msgstr "変更済み"
+
+#: src/popup/content.rs
+msgid "Standby"
+msgstr "スタンバイ"
+
+#: src/popup/content.rs
+msgid "Free"
+msgstr "空き"
+
+#: src/popup/content.rs
+msgid "Charging"
+msgstr "充電中"
+
+#: src/popup/content.rs
+msgid "On AC power"
+msgstr "AC 電源に接続中"
+
+#: src/popup/content.rs
+msgid "On battery"
+msgstr "バッテリー使用中"
+
+#: src/popup/content.rs
+msgid "State"
+msgstr "状態"
+
+#: src/popup/content.rs
+msgid "Time to full"
+msgstr "満充電まで"
+
+#: src/popup/content.rs
+msgid "Remaining"
+msgstr "残り時間"
+
+#: src/popup/content.rs
+msgid "Charge rate"
+msgstr "充電速度"
+
+#: src/popup/content.rs
+msgid "Discharge rate"
+msgstr "放電速度"
+
+#: src/popup/content.rs
+msgid "Energy"
+msgstr "電力量"
+
+#: src/popup/content.rs
+msgid "Capacity when new"
+msgstr "設計容量"
+
+#: src/popup/content.rs
+msgid "Health"
+msgstr "健全性"
+
+#: src/popup/content.rs
+msgid "Charge cycles"
+msgstr "充電サイクル数"
+
+#: src/popup/content.rs
+msgid "Application"
+msgstr "アプリケーション"
+
+#: src/popup/content.rs
+msgid "Application rate"
+msgstr "アプリのフレームレート"
+
+#: src/popup/content.rs
+msgid "Frame time"
+msgstr "フレーム時間"
+
+#: src/popup/content.rs
+msgid "1% low"
+msgstr "1% Low"
+
+#: src/popup/content.rs
+msgid "0.1% low"
+msgstr "0.1% Low"
+
+#: src/popup/content.rs
+msgid "Display ({})"
+msgstr "ディスプレイ（{}）"
+
+#: src/popup/content.rs
+msgid "Jitter"
+msgstr "応答時間のばらつき"
+
+#: src/popup/content.rs
+msgid "Min / avg / max"
+msgstr "最小 / 平均 / 最大"
+
+#: src/popup/content.rs
+msgid "Processes"
+msgstr "プロセス数"
+
+#: src/popup/content.rs
+msgid "Threads"
+msgstr "スレッド数"
+
+#: src/popup/content.rs
+msgid "Handles"
+msgstr "ハンドル数"
+
+#: src/popup/content.rs
+msgid "Kernel"
+msgstr "カーネル"
+
+#: src/popup/content.rs
+msgid "Paged pool"
+msgstr "ページプール"
+
+#: src/popup/content.rs
+msgid "Non-paged pool"
+msgstr "非ページプール"
+
+#: src/popup/content.rs
+msgid "Reserved by hardware"
+msgstr "ハードウェア予約済み"
+
+#: src/popup/content.rs
+msgid "Received"
+msgstr "受信"
+
+#: src/popup/content.rs
+msgid "Sent"
+msgstr "送信"
+
+#: src/popup/content.rs
+msgid "Since Pulsar started"
+msgstr "Pulsar の起動以降"
+
+#: src/popup/content.rs
+msgid "Free space"
+msgstr "空き容量"
+
+#: src/popup/content.rs
+msgid "Core temperatures"
+msgstr "コア温度"
+
+#: src/popup/content.rs
+msgid "Core power"
+msgstr "コア電力"
+
+#: src/popup/content.rs
+msgid "Core clocks"
+msgstr "コアクロック"
+
+#: src/popup/content.rs
+msgid "Sustained limit"
+msgstr "持続電力制限"
+
+#: src/popup/content.rs
+msgid "Burst limit"
+msgstr "短時間電力制限"
+
+#: src/popup/content.rs
+msgid "Unlimited"
+msgstr "制限なし"
+
+#: src/popup/content.rs
+msgid "Hottest core"
+msgstr "最高温度のコア"
+
+#: src/popup/content.rs
+msgid "Disk {}"
+msgstr "ディスク {}"
+
+#: src/popup/content.rs
+msgid "{} active · {} used"
+msgstr "アクティブ {} · 使用済み {}"
+
+#: src/popup/content.rs ui/settings.slint
+msgid "Drives"
+msgstr "ドライブ"
+
+#: src/popup/content.rs ui/settings.slint
+msgid "Adapters"
+msgstr "アダプター"
+
+#: src/popup/content.rs
+msgid "No traffic"
+msgstr "通信なし"
+
+#: src/popup/content.rs
+msgid "Fastest core"
+msgstr "最速のコア"
+
+#: src/popup/content.rs ui/settings.slint
+msgid "Host"
+msgstr "ホスト"
+
+#: src/popup/mod.rs
+msgid "More in the details window"
+msgstr "詳細ウィンドウでさらに表示"
+
+#: src/settings/main.rs
+msgid "Monitor: {}"
+msgstr "モニター: {}"
+
+#: src/settings/main.rs
+msgid "A monitor that is not connected"
+msgstr "接続されていないモニター"
+
+#: src/settings/main.rs
+msgid "not connected"
+msgstr "未接続"
+
+#: src/settings/main.rs ui/settings.slint
+msgid "Default"
+msgstr "既定"
+
+#: src/settings/main.rs
+msgid "not installed"
+msgstr "未インストール"
+
+#: src/settings/main.rs
+msgid "Primary monitor"
+msgstr "プライマリモニター"
+
+#: src/settings/main.rs
+msgid "The app in front"
+msgstr "前面のアプリ"
+
+#: src/settings/main.rs
+msgid "Widget style"
+msgstr "ウィジェットのスタイル"
+
+#: src/settings/main.rs
+msgid "Same as other items"
+msgstr "他の項目と同じ"
+
+#: src/settings/main.rs
+msgid "Widget detail"
+msgstr "ウィジェットの詳細度"
+
+#: src/settings/main.rs
+msgid "Windows default ({})"
+msgstr "Windows の既定（{}）"
+
+#: src/settings/main.rs
+msgid "You have the latest version."
+msgstr "最新バージョンです。"
+
+#: src/settings/main.rs
+msgid "No release has been published yet."
+msgstr "リリースはまだ公開されていません。"
+
+#: src/settings/main.rs
+msgid "Could not check for updates: {}"
+msgstr "更新を確認できませんでした: {}"
+
+#: src/settings/main.rs
+msgid "Reading every source…"
+msgstr "すべてのソースを読み取り中…"
+
+#: src/settings/main.rs
+msgid "Saved to {}"
+msgstr "{} に保存しました"
+
+#: src/settings/main.rs
+msgid "Could not save the report: {}"
+msgstr "レポートを保存できませんでした: {}"
+
+#: src/settings/main.rs
+msgid "Checking for updates…"
+msgstr "更新を確認中…"
+
+#: src/settings/main.rs
+msgid "Saved."
+msgstr "保存しました。"
+
+#: src/settings/main.rs
+msgid "Could not save the theme: {}"
+msgstr "テーマを保存できませんでした: {}"
+
+#: src/settings/main.rs
+msgid "Could not save the profile: {}"
+msgstr "プロファイルを保存できませんでした: {}"
+
+#: src/settings/main.rs
+msgid "Could not read the profile."
+msgstr "プロファイルを読み取れませんでした。"
+
+#: src/settings/search.rs
+msgid "Settings page"
+msgstr "設定ページ"
+
+#: src/widget.rs
+msgid "P-cores, {} threads"
+msgstr "P コア、{}スレッド"
+
+#: src/widget.rs
+msgid "E-cores, {} threads"
+msgstr "E コア、{}スレッド"
+
+#: ui/details.slint
+msgid "Load by thread"
+msgstr "スレッド別の負荷"
+
+#: ui/details.slint
+msgid "Clock by core"
+msgstr "コア別のクロック"
+
+#: ui/details.slint
+msgid "Temperature by core"
+msgstr "コア別の温度"
+
+#: ui/details.slint
+msgid "Matrix"
+msgstr "マトリックス"
+
+#: ui/details.slint
+msgid "Strips"
+msgstr "ストリップ"
+
+#: ui/details.slint
+msgid "Rings"
+msgstr "リング"
+
+#: ui/details.slint
+msgid "Outer ring: load"
+msgstr "外側のリング: 負荷"
+
+#: ui/details.slint
+msgid "Inner ring: temperature"
+msgstr "内側のリング: 温度"
+
+#: ui/details.slint
+msgid "Centre: GHz"
+msgstr "中央: GHz"
+
+#: ui/details.slint
+msgid "Centre: load"
+msgstr "中央: 負荷"
+
+#: ui/details.slint
+msgid "Usage"
+msgstr "使用量"
+
+#: ui/details.slint
+msgid "Stick"
+msgstr "メモリモジュール"
+
+#: ui/details.slint
+msgid "{} used"
+msgstr "{} 使用中"
+
+#: ui/details.slint
+msgid "in use of {}"
+msgstr "総容量 {} に対する使用量"
+
+#: ui/details.slint
+msgid "available"
+msgstr "利用可能"
+
+#: ui/details.slint
+msgid "committed (white line)"
+msgstr "確保済み容量（白線）"
+
+#: ui/details.slint
+msgid "This PC"
+msgstr "この PC"
+
+#: ui/details.slint
+msgid "Expand all"
+msgstr "すべて展開"
+
+#: ui/details.slint
+msgid "Collapse to hardware"
+msgstr "ハードウェア単位に折りたたむ"
+
+#: ui/details.slint
+msgid "Sensor"
+msgstr "センサー"
+
+#: ui/details.slint
+msgid "Value"
+msgstr "値"
+
+#: ui/details.slint
+msgid "Min"
+msgstr "最小"
+
+#: ui/details.slint
+msgid "Max"
+msgstr "最大"
+
+#: ui/settings.slint
+msgid "Press keys…"
+msgstr "キーを押してください…"
+
+#: ui/settings.slint
+msgid "Not set"
+msgstr "未設定"
+
+#: ui/settings.slint
+msgid "Moderate from"
+msgstr "中程度の開始値"
+
+#: ui/settings.slint
+msgid "High from"
+msgstr "高負荷の開始値"
+
+#: ui/settings.slint
+msgid "Critical from"
+msgstr "危険の開始値"
+
+#: ui/settings.slint
+msgid "Use default"
+msgstr "既定値を使用"
+
+#: ui/settings.slint
+msgid "This setting isn't showing right now. Another option controls when it appears."
+msgstr "この設定は現在表示されていません。別のオプションによって表示条件が決まります。"
+
+#: ui/settings.slint
+msgid "Search settings"
+msgstr "設定を検索"
+
+#: ui/settings.slint
+msgid "Overlay"
+msgstr "重ねて表示するパネル"
+
+#: ui/settings.slint
+msgid "Layout"
+msgstr "レイアウト"
+
+#: ui/settings.slint
+msgid "Theme"
+msgstr "テーマ"
+
+#: ui/settings.slint
+msgid "Widget"
+msgstr "ウィジェット"
+
+#: ui/settings.slint
+msgid "Readings"
+msgstr "測定値"
+
+#: ui/settings.slint
+msgid "Devices"
+msgstr "デバイス"
+
+#: ui/settings.slint
+msgid "App"
+msgstr "アプリ"
+
+#: ui/settings.slint
+msgid "General"
+msgstr "全般"
+
+#: ui/settings.slint
+msgid "About"
+msgstr "バージョン情報"
+
+#: ui/settings.slint
+msgid "Search results"
+msgstr "検索結果"
+
+#: ui/settings.slint
+msgid "No settings match your search."
+msgstr "検索に一致する設定はありません。"
+
+#: ui/settings.slint
+msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
+msgstr "重ねて表示するパネルに表示する項目、順序、各項目の色を選びます（空欄は既定色）。各項目を開くと、グラフのスタイル、配色、ポップアップを設定できます。タスクバーの項目を右クリックしても同じ設定ができます。"
+
+#: ui/settings.slint
+msgid "Overlay label"
+msgstr "重ねて表示するパネルのラベル"
+
+#: ui/settings.slint
+msgid "Labels are off on the Layout page, so this doesn't show."
+msgstr "レイアウトページでラベルが無効になっているため、表示されません。"
+
+#: ui/settings.slint
+msgid "Set Download label and Upload label on the Devices page."
+msgstr "デバイスページでダウンロードとアップロードのラベルを設定してください。"
+
+#: ui/settings.slint
+msgid "With a cell per drive, the overlay shows drive letters instead."
+msgstr "ドライブごとに表示する場合は、代わりにドライブ文字が表示されます。"
+
+#: ui/settings.slint
+msgid "Replaces the name on the overlay, up to 12 characters. Settings and popups keep the item's name."
+msgstr "重ねて表示するパネル上の名前を最大12文字で変更します。設定とポップアップでは元の項目名を使います。"
+
+#: ui/settings.slint
+msgid "Short overlay label"
+msgstr "重ねて表示するパネルの短いラベル"
+
+#: ui/settings.slint
+msgid "Used with short labels, and when the overlay shrinks to fit the taskbar."
+msgstr "短いラベルの使用時や、タスクバーに収めるために縮小したときに使います。"
+
+#: ui/settings.slint
+msgid "Graph style"
+msgstr "グラフのスタイル"
+
+#: ui/settings.slint
+msgid "Shows whether the latest reading is above or below the recent average."
+msgstr "最新の測定値が直近の平均より高いか低いかを表示します。"
+
+#: ui/settings.slint
+msgid "Tile width"
+msgstr "タイルの幅"
+
+#: ui/settings.slint
+msgid "Turn off for automatic. A tile never gets narrower than its text. A wider overlay can cover taskbar buttons."
+msgstr "無効にすると自動調整します。テキストより狭くはなりません。幅を広げるとタスクバーのボタンに重なることがあります。"
+
+#: ui/settings.slint
+msgid "Tile height"
+msgstr "タイルの高さ"
+
+#: ui/settings.slint
+msgid "Turn off for automatic. On the taskbar a tile stays within the bar and is centred; a floating overlay grows to fit it."
+msgstr "無効にすると自動調整します。タスクバー上ではバーの高さに収めて中央に配置し、フローティング時は指定の高さに合わせます。"
+
+#: ui/settings.slint
+msgid "Color"
+msgstr "色"
+
+#: ui/settings.slint
+msgid "Popup width"
+msgstr "ポップアップの幅"
+
+#: ui/settings.slint
+msgid "Popup graph height"
+msgstr "ポップアップのグラフの高さ"
+
+#: ui/settings.slint
+msgid "Color by load thresholds"
+msgstr "負荷別配色のしきい値"
+
+#: ui/settings.slint
+msgid "An item set to color by load changes color as its value reaches each threshold. Drag a handle, or focus it and use the arrow keys. Other values keep the item color."
+msgstr "負荷に応じた色を使う項目は、値が各しきい値に達すると色が変わります。ハンドルをドラッグするか、フォーカスして矢印キーで調整します。それ以外は項目の色を使います。"
+
+#: ui/settings.slint
+msgid "Presets"
+msgstr "プリセット"
+
+#: ui/settings.slint
+msgid "Balanced is the default."
+msgstr "既定は「バランス」です。"
+
+#: ui/settings.slint
+msgid "Balanced"
+msgstr "バランス"
+
+#: ui/settings.slint
+msgid "Relaxed"
+msgstr "緩やか"
+
+#: ui/settings.slint
+msgid "Strict"
+msgstr "厳格"
+
+#: ui/settings.slint
+msgid "Percent (%)"
+msgstr "割合（%）"
+
+#: ui/settings.slint
+msgid "Default: 50, 75, 90"
+msgstr "既定: 50, 75, 90"
+
+#: ui/settings.slint
+msgid "Temperature (°F)"
+msgstr "温度（°F）"
+
+#: ui/settings.slint
+msgid "Temperature (°C)"
+msgstr "温度（°C）"
+
+#: ui/settings.slint
+msgid "Default: 158, 176, 194"
+msgstr "既定: 158, 176, 194"
+
+#: ui/settings.slint
+msgid "Default: 70, 80, 90"
+msgstr "既定: 70, 80, 90"
+
+#: ui/settings.slint
+msgid "Ping (ms)"
+msgstr "Ping（ms）"
+
+#: ui/settings.slint
+msgid "Default: 50, 100, 200"
+msgstr "既定: 50, 100, 200"
+
+#: ui/settings.slint
+msgid "Low color"
+msgstr "低負荷の色"
+
+#: ui/settings.slint
+msgid "Below the first threshold. Empty uses green."
+msgstr "最初のしきい値未満。空欄は緑です。"
+
+#: ui/settings.slint
+msgid "Moderate color"
+msgstr "中負荷の色"
+
+#: ui/settings.slint
+msgid "From the first threshold. Empty uses yellow."
+msgstr "最初のしきい値以上。空欄は黄色です。"
+
+#: ui/settings.slint
+msgid "High color"
+msgstr "高負荷の色"
+
+#: ui/settings.slint
+msgid "From the second threshold. Empty uses orange."
+msgstr "2番目のしきい値以上。空欄はオレンジです。"
+
+#: ui/settings.slint
+msgid "Critical color"
+msgstr "危険の色"
+
+#: ui/settings.slint
+msgid "From the third threshold. Empty uses red."
+msgstr "3番目のしきい値以上。空欄は赤です。"
+
+#: ui/settings.slint
+msgid "Mode"
+msgstr "モード"
+
+#: ui/settings.slint
+msgid "Graphs, or compact text only."
+msgstr "グラフ、またはコンパクトなテキストのみで表示します。"
+
+#: ui/settings.slint
+msgid "Single-line graphs"
+msgstr "1行グラフ"
+
+#: ui/settings.slint
+msgid "Put the icon, label and value on one line, for short taskbars."
+msgstr "高さの低いタスクバー向けに、アイコン、ラベル、値を1行に配置します。"
+
+#: ui/settings.slint
+msgid "Stack each label one letter per line, with the value beside it."
+msgstr "ラベルを1行1文字で縦に並べ、値を横に表示します。"
+
+#: ui/settings.slint
+msgid "Labels"
+msgstr "ラベル"
+
+#: ui/settings.slint
+msgid "Full names, one letter per item (C, H, W, M, G, T, D, P), or none with icons alone."
+msgstr "完全な名前、項目ごとの1文字（C 、H 、W 、M 、G 、T 、D 、P）、またはアイコンのみを表示します。"
+
+#: ui/settings.slint
+msgid "Full"
+msgstr "完全"
+
+#: ui/settings.slint
+msgid "Short"
+msgstr "短縮"
+
+#: ui/settings.slint
+msgid "None (icons only)"
+msgstr "なし（アイコンのみ）"
+
+#: ui/settings.slint
+msgid "An icon before each label, or on its own."
+msgstr "各ラベルの前、または単独でアイコンを表示します。"
+
+#: ui/settings.slint
+msgid "Fade out while a fullscreen game or video is in front."
+msgstr "全画面のゲームや動画が前面にある間はフェードアウトします。"
+
+#: ui/settings.slint
+msgid "Text"
+msgstr "テキスト"
+
+#: ui/settings.slint
+msgid "Font"
+msgstr "フォント"
+
+#: ui/settings.slint
+msgid "Fonts without fixed-width digits may shift slightly as values change."
+msgstr "数字が等幅でないフォントでは、値の変化に伴って表示位置が少しずれることがあります。"
+
+#: ui/settings.slint
+msgid "Bold"
+msgstr "太字"
+
+#: ui/settings.slint
+msgid "Font size"
+msgstr "フォントサイズ"
+
+#: ui/settings.slint
+msgid "Points. On the taskbar, the text of two-line graphs only grows as far as the taskbar can hold it."
+msgstr "単位はポイント。タスクバー上の2行グラフでは、バーに収まる大きさまで拡大します。"
+
+#: ui/settings.slint
+msgid "Space between items"
+msgstr "項目間の余白"
+
+#: ui/settings.slint
+msgid "Pixels between columns, or between items on a vertical taskbar. A wider overlay can cover taskbar buttons."
+msgstr "列間、または縦向きタスクバーの項目間のピクセル数。幅を広げるとタスクバーのボタンに重なることがあります。"
+
+#: ui/settings.slint
+msgid "Space after labels"
+msgstr "ラベル後の余白"
+
+#: ui/settings.slint
+msgid "Pixels between a label and its value. A wider overlay can cover taskbar buttons."
+msgstr "ラベルと値の間のピクセル数。幅を広げるとタスクバーのボタンに重なることがあります。"
+
+#: ui/settings.slint
+msgid "Space between rows"
+msgstr "行間の余白"
+
+#: ui/settings.slint
+msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
+msgstr "行間のピクセル数。タスクバー上では収まるように縮めますが、行は削除しません。"
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "位置"
+
+#: ui/settings.slint
+msgid "Placement"
+msgstr "配置"
+
+#: ui/settings.slint
+msgid "Where the overlay sits on the taskbar."
+msgstr "タスクバー上の重ねて表示するパネルの位置です。"
+
+#: ui/settings.slint
+msgid "Next to the tray"
+msgstr "トレイの横"
+
+#: ui/settings.slint
+msgid "Left edge"
+msgstr "左端"
+
+#: ui/settings.slint
+msgid "Drag the overlay to move it. Add a panel background so it stays readable over any window."
+msgstr "ドラッグで移動できます。パネル背景を追加すると、どのウィンドウの上でも読みやすくなります。"
+
+#: ui/settings.slint
+msgid "Reset position"
+msgstr "位置をリセット"
+
+#: ui/settings.slint
+msgid "Attach to the taskbar"
+msgstr "タスクバーに固定"
+
+#: ui/settings.slint
+msgid "Keeps items visible while Start is open. Turn this off if the taskbar misbehaves; items then hide while Start is open."
+msgstr "スタートを開いている間も項目を表示します。タスクバーが正常に動作しない場合は無効にしてください。その場合、スタートを開いている間は項目が非表示になります。"
+
+#: ui/settings.slint
+msgid "Offset"
+msgstr "オフセット"
+
+#: ui/settings.slint
+msgid "Extra space in pixels, moving away from the anchor."
+msgstr "基準位置から離す余白のピクセル数です。"
+
+#: ui/settings.slint
+msgid "Tray fallback margin"
+msgstr "トレイ位置不明時の余白"
+
+#: ui/settings.slint
+msgid "Used when the tray position cannot be read."
+msgstr "トレイの位置を読み取れない場合に使います。"
+
+#: ui/settings.slint
+msgid "Every taskbar"
+msgstr "すべてのタスクバー"
+
+#: ui/settings.slint
+msgid "Also show on the taskbars of other monitors."
+msgstr "他のモニターのタスクバーにも表示します。"
+
+#: ui/settings.slint
+msgid "Taskbar"
+msgstr "タスクバー"
+
+#: ui/settings.slint
+msgid "Which monitor's taskbar to use. If that monitor is not connected, the primary one is used."
+msgstr "表示先のタスクバーを選びます。指定のモニターが未接続の場合は、プライマリモニターを使います。"
+
+#: ui/settings.slint
+msgid "When the taskbar is full"
+msgstr "タスクバーがいっぱいのとき"
+
+#: ui/settings.slint
+msgid "Fit to the taskbar"
+msgstr "タスクバーに収める"
+
+#: ui/settings.slint
+msgid "Leaves items as they are until they would cover taskbar buttons. Then items get more compact, are removed one at a time, and finally follow the choice below."
+msgstr "ボタンに重なるまでは通常のまま表示し、重なりそうになると項目を縮め、1つずつ非表示にして、最後に下の設定に従います。"
+
+#: ui/settings.slint
+msgid "Remove items starting from"
+msgstr "項目を非表示にする方向"
+
+#: ui/settings.slint
+msgid "The side items go from first, in the order they are shown."
+msgstr "表示順に沿って、どちら側から項目を非表示にするかを選びます。"
+
+#: ui/settings.slint
+msgid "The right"
+msgstr "右側"
+
+#: ui/settings.slint
+msgid "The left"
+msgstr "左側"
+
+#: ui/settings.slint
+msgid "When no item fits"
+msgstr "項目が1つも収まらないとき"
+
+#: ui/settings.slint
+msgid "A tray icon shows the first item's value; its tooltip lists the rest."
+msgstr "トレイアイコンに最初の項目の値を表示し、ツールチップに残りを表示します。"
+
+#: ui/settings.slint
+msgid "Float above the taskbar"
+msgstr "タスクバー上にフロート表示"
+
+#: ui/settings.slint
+msgid "Show in the tray icon"
+msgstr "トレイアイコンに表示"
+
+#: ui/settings.slint
+msgid "Stay hidden"
+msgstr "非表示のまま"
+
+#: ui/settings.slint
+msgid "Use the other side first"
+msgstr "先に反対側を使う"
+
+#: ui/settings.slint
+msgid "On a centred taskbar, moves items to the other side of the buttons before making them smaller."
+msgstr "中央揃えのタスクバーでは、縮小する前にボタンの反対側へ項目を移動します。"
+
+#: ui/settings.slint
+msgid "If the taskbar cannot be read"
+msgstr "タスクバーを読み取れない場合"
+
+#: ui/settings.slint
+msgid "Some custom taskbars do not report their buttons, and Windows may not answer for a while. Items then stay in their usual place at full size, where they can cover taskbar buttons."
+msgstr "一部のカスタムタスクバーはボタンの情報を返さず、Windows が一時的に応答しないこともあります。その場合、項目は通常の位置と大きさを保つため、ボタンに重なることがあります。"
+
+#: ui/settings.slint
+msgid "A theme sets item, label, value, tile and panel colors, with a variant for light taskbars. Choosing one clears the custom colors below."
+msgstr "テーマは項目、ラベル、値、タイル、パネルの色を設定し、明るいタスクバー用の配色も含みます。選択すると、下のカスタム色はクリアされます。"
+
+#: ui/settings.slint
+msgid "Save as a theme"
+msgstr "テーマとして保存"
+
+#: ui/settings.slint
+msgid "Keeps the current colors as a new theme in the themes folder."
+msgstr "現在の配色をテーマフォルダーに新しいテーマとして保存します。"
+
+#: ui/settings.slint
+msgid "Name"
+msgstr "名前"
+
+#: ui/settings.slint
+msgid "Save"
+msgstr "保存"
+
+#: ui/settings.slint
+msgid "Themes folder"
+msgstr "テーマフォルダー"
+
+#: ui/settings.slint
+msgid "Theme files to share or edit. Changes show after choosing the theme again."
+msgstr "共有・編集用のテーマファイルです。変更はテーマを再選択すると反映されます。"
+
+#: ui/settings.slint
+msgid "Open"
+msgstr "開く"
+
+#: ui/settings.slint
+msgid "Custom colors"
+msgstr "カスタム色"
+
+#: ui/settings.slint
+msgid "Label color"
+msgstr "ラベルの色"
+
+#: ui/settings.slint
+msgid "Empty uses the theme."
+msgstr "空欄はテーマの色を使います。"
+
+#: ui/settings.slint
+msgid "Value color"
+msgstr "値の色"
+
+#: ui/settings.slint
+msgid "Label color on a light taskbar"
+msgstr "明るいタスクバーのラベル色"
+
+#: ui/settings.slint
+msgid "Empty uses the label color above."
+msgstr "空欄は上のラベル色を使います。"
+
+#: ui/settings.slint
+msgid "Value color on a light taskbar"
+msgstr "明るいタスクバーの値の色"
+
+#: ui/settings.slint
+msgid "Empty uses the value color above."
+msgstr "空欄は上の値の色を使います。"
+
+#: ui/settings.slint
+msgid "Color labels by item"
+msgstr "項目の色でラベルを表示"
+
+#: ui/settings.slint
+msgid "Draw each label in its item's color."
+msgstr "各ラベルを項目の色で描画します。"
+
+#: ui/settings.slint
+msgid "Accent color graphs"
+msgstr "アクセント色のグラフ"
+
+#: ui/settings.slint
+msgid "Draw graphs in your Windows accent color."
+msgstr "Windows のアクセント色でグラフを描画します。"
+
+#: ui/settings.slint
+msgid "Background"
+msgstr "背景"
+
+#: ui/settings.slint
+msgid "Tile color"
+msgstr "タイルの色"
+
+#: ui/settings.slint
+msgid "Empty uses the theme tint."
+msgstr "空欄はテーマの背景色を使います。"
+
+#: ui/settings.slint
+msgid "Custom tile opacity"
+msgstr "タイルの不透明度を指定"
+
+#: ui/settings.slint
+msgid "{}% — 0% removes the tiles."
+msgstr "{}% — 0%でタイルを非表示にします。"
+
+#: ui/settings.slint
+msgid "Using the theme default."
+msgstr "テーマの既定値を使用中です。"
+
+#: ui/settings.slint
+msgid "Panel color"
+msgstr "パネルの色"
+
+#: ui/settings.slint
+msgid "A panel behind the whole overlay. Empty uses the theme."
+msgstr "重ねて表示するパネル全体の背面に表示するパネルです。空欄はテーマの色を使います。"
+
+#: ui/settings.slint
+msgid "Custom panel opacity"
+msgstr "パネルの不透明度を指定"
+
+#: ui/settings.slint
+msgid "Off"
+msgstr "オフ"
+
+#: ui/settings.slint
+msgid "Show a graph and details when the mouse rests on an item."
+msgstr "項目にマウスを重ねると、グラフと詳細を表示します。"
+
+#: ui/settings.slint
+msgid "Detail"
+msgstr "詳細度"
+
+#: ui/settings.slint
+msgid "Simple shows the value and its graph; Detailed adds everything Pulsar reads. Items can choose their own on the Items page."
+msgstr "簡易は値とグラフを表示し、詳細は取得できるすべての情報を表示します。項目ページで個別に指定できます。"
+
+#: ui/settings.slint
+msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
+msgstr "ポップアップの背後をぼかします。Windows が許可しない場合は不透明で表示します。"
+
+#: ui/settings.slint
+msgid "The recent history at the top of each popup."
+msgstr "各ポップアップの上部に直近の履歴を表示します。"
+
+#: ui/settings.slint
+msgid "Processes listed for CPU, memory, GPU and disk; 0 hides the lists."
+msgstr "CPU 、メモリ、GPU 、ディスクのプロセス表示数。0で一覧を非表示にします。"
+
+#: ui/settings.slint
+msgid "Width"
+msgstr "幅"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. Items can choose their own on the Items page."
+msgstr "表示スケール100%でのピクセル数。項目ページで個別に指定できます。"
+
+#: ui/settings.slint
+msgid "Graph height"
+msgstr "グラフの高さ"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling. The graph shrinks when a popup would not fit on the monitor. Items can choose their own on the Items page."
+msgstr "表示スケール100%でのピクセル数。ポップアップが画面に収まらない場合は縮小します。項目ページで個別に指定できます。"
+
+#: ui/settings.slint
+msgid "A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu."
+msgstr "各項目のグラフと詳細を表示するデスクトップ上のパネルです。開いたままのポップアップのように使えます。ドラッグで移動、右クリックでメニューを開きます。"
+
+#: ui/settings.slint
+msgid "Show the widget"
+msgstr "ウィジェットを表示"
+
+#: ui/settings.slint
+msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
+msgstr "「デスクトップ上」は他のウィンドウの背面に配置し、デスクトップを表示すると前面に出ます。"
+
+#: ui/settings.slint
+msgid "On the desktop"
+msgstr "デスクトップ上"
+
+#: ui/settings.slint
+msgid "Always on top"
+msgstr "常に手前に表示"
+
+#: ui/settings.slint
+msgid "Click-through while locked"
+msgstr "固定中はクリックを透過"
+
+#: ui/settings.slint
+msgid "Clicks go to whatever is underneath. Unlock it from the tray icon's menu."
+msgstr "クリックは背後のウィンドウに届きます。トレイアイコンのメニューから固定を解除できます。"
+
+#: ui/settings.slint
+msgid "While a fullscreen app is on the widget's monitor."
+msgstr "ウィジェットと同じモニターに全画面アプリがある間に適用します。"
+
+#: ui/settings.slint
+msgid "Look"
+msgstr "外観"
+
+#: ui/settings.slint
+msgid "Style"
+msgstr "スタイル"
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings."
+msgstr "ミニ折れ線グラフ: 項目ごとに小さなグラフ付きの1行表示。タイル: 小さなグラフの一覧。メーター: 現在値のバー。ダイヤル: リングの一覧。"
+
+#: ui/settings.slint
+msgid "Sparklines"
+msgstr "ミニ折れ線グラフ"
+
+#: ui/settings.slint
+msgid "Tiles"
+msgstr "タイル"
+
+#: ui/settings.slint
+msgid "Meters"
+msgstr "メーター"
+
+#: ui/settings.slint
+msgid "Dials"
+msgstr "ダイヤル"
+
+#: ui/settings.slint
+msgid "Tiles show the value and graph only."
+msgstr "タイルは値とグラフのみを表示します。"
+
+#: ui/settings.slint
+msgid "Dials show the value only."
+msgstr "ダイヤルは値のみを表示します。"
+
+#: ui/settings.slint
+msgid "How much each item shows. Colors follow the theme."
+msgstr "各項目に表示する情報量です。色はテーマに従います。"
+
+#: ui/settings.slint
+msgid "Pixels at 100 % scaling."
+msgstr "表示スケール100%でのピクセル数です。"
+
+#: ui/settings.slint
+msgid "Background color"
+msgstr "背景色"
+
+#: ui/settings.slint
+msgid "Empty uses the theme's panel color."
+msgstr "空欄はテーマのパネル色を使います。"
+
+#: ui/settings.slint
+msgid "Background opacity"
+msgstr "背景の不透明度"
+
+#: ui/settings.slint
+msgid "Choose items"
+msgstr "項目を選択"
+
+#: ui/settings.slint
+msgid "Off shows the same items as the taskbar. To reorder, drag a handle here or Shift+drag an item on the widget."
+msgstr "無効にするとタスクバーと同じ項目を表示します。並べ替えるには、ここのハンドルをドラッグするか、ウィジェット上で Shift を押しながら項目をドラッグします。"
+
+#: ui/settings.slint
+msgid "Temperatures and power"
+msgstr "温度と電力"
+
+#: ui/settings.slint
+msgid "Sensor service"
+msgstr "センサーサービス"
+
+#: ui/settings.slint
+msgid "CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO."
+msgstr "CPU 温度、CPU 電力、チップセット温度は、任意で導入できる Pulsar センサーサービスと PawnIO ドライバーから取得します。導入には管理者権限が必要です。追加するにはインストーラーを再実行してください。Intel CPU と Zen 以降の AMD Ryzen に対応し、チップセット温度は Intel のみ対応します。未導入でも、PC が Windows に公開する CPU 電力と温度は取得できます。フレームレートにはサービスが必要ですが、PawnIO は不要です。"
+
+#: ui/settings.slint
+msgid "About PawnIO"
+msgstr "PawnIO について"
+
+#: ui/settings.slint
+msgid "Measure"
+msgstr "測定対象"
+
+#: ui/settings.slint
+msgid "The app in front counts the frames it draws, on whichever monitor it is. A monitor counts how often its picture changes, whichever apps draw it."
+msgstr "「前面のアプリ」は表示先のモニターにかかわらず、そのアプリが描画したフレームを数えます。「モニター」は描画したアプリにかかわらず、画面が変化した回数を数えます。"
+
+#: ui/settings.slint
+msgid "Games"
+msgstr "ゲーム"
+
+#: ui/settings.slint
+msgid "Show the strip in games"
+msgstr "ゲーム中に情報バーを表示"
+
+#: ui/settings.slint
+msgid "While a game is in front, the frame rate and your taskbar items appear in the top-left corner of its monitor. Borderless and windowed games only."
+msgstr "ゲームが前面にある間、フレームレートとタスクバーの項目を、そのモニターの左上に表示します。ボーダーレスとウィンドウモードのゲームに対応します。"
+
+#: ui/settings.slint
+msgid "Summary when a game closes"
+msgstr "ゲーム終了時にサマリーを表示"
+
+#: ui/settings.slint
+msgid "A notification with the time played, frame rate and peak temperatures, also saved to sessions.csv in the logs folder."
+msgstr "プレイ時間、フレームレート、最高温度を通知し、ログフォルダーの sessions.csv にも保存します。"
+
+#: ui/settings.slint
+msgid "Which apps are games"
+msgstr "ゲームとして扱うアプリ"
+
+#: ui/settings.slint
+msgid "The games Windows recognises, as Game Bar does. To change that for an app, bring it to the front, then right-click Pulsar and use Count as a game."
+msgstr "Game Bar と同様に、Windows が認識するゲームを対象にします。変更するにはアプリを前面に出し、Pulsar を右クリックして「ゲームとして扱う」を選んでください。"
+
+#: ui/settings.slint
+msgid "Disks"
+msgstr "ディスク"
+
+#: ui/settings.slint
+msgid "One combined cell, or a cell per drive."
+msgstr "全体を1つにまとめるか、ドライブごとに表示します。"
+
+#: ui/settings.slint
+msgid "All disks combined"
+msgstr "すべてのディスクを集計"
+
+#: ui/settings.slint
+msgid "Each drive"
+msgstr "ドライブごと"
+
+#: ui/settings.slint
+msgid "Drive value"
+msgstr "ドライブの表示値"
+
+#: ui/settings.slint
+msgid "Used space"
+msgstr "使用済み容量"
+
+#: ui/settings.slint
+msgid "GPUs"
+msgstr "GPU"
+
+#: ui/settings.slint
+msgid "One combined cell, or a cell per GPU. GPU temperature follows."
+msgstr "全体を1つにまとめるか、GPU ごとに表示します。GPU 温度も同じ設定に従います。"
+
+#: ui/settings.slint
+msgid "All GPUs combined"
+msgstr "すべての GPU を集計"
+
+#: ui/settings.slint
+msgid "Each GPU"
+msgstr "GPU ごと"
+
+#: ui/settings.slint
+msgid "Cards"
+msgstr "カード"
+
+#: ui/settings.slint
+msgid "Every physical adapter combined, or only the ones you tick. Several get a cell each."
+msgstr "すべての物理アダプターを集計するか、選択したものだけを表示します。複数選択すると個別に表示します。"
+
+#: ui/settings.slint
+msgid "All hardware adapters"
+msgstr "すべての物理アダプター"
+
+#: ui/settings.slint
+msgid "Chosen adapters"
+msgstr "選択したアダプター"
+
+#: ui/settings.slint
+msgid "Show"
+msgstr "表示"
+
+#: ui/settings.slint
+msgid "The rates shown on the taskbar."
+msgstr "タスクバーに表示する通信速度です。"
+
+#: ui/settings.slint
+msgid "Download and upload"
+msgstr "ダウンロードとアップロード"
+
+#: ui/settings.slint
+msgid "Download only"
+msgstr "ダウンロードのみ"
+
+#: ui/settings.slint
+msgid "Upload only"
+msgstr "アップロードのみ"
+
+#: ui/settings.slint
+msgid "Separate tiles"
+msgstr "タイルを分ける"
+
+#: ui/settings.slint
+msgid "Give download and upload a graph tile each. A wider overlay can cover taskbar buttons."
+msgstr "ダウンロードとアップロードに個別のグラフタイルを使います。幅を広げるとタスクバーのボタンに重なることがあります。"
+
+#: ui/settings.slint
+msgid "Show in popup"
+msgstr "ポップアップに表示"
+
+#: ui/settings.slint
+msgid "The rates shown in the network popup, whatever the taskbar shows."
+msgstr "タスクバーの設定にかかわらず、ネットワークのポップアップに表示する通信速度です。"
+
+#: ui/settings.slint
+msgid "Download label"
+msgstr "ダウンロードのラベル"
+
+#: ui/settings.slint
+msgid "Replaces the arrow on the overlay, up to 12 characters. With several adapters, each adds its number."
+msgstr "重ねて表示するパネルの矢印を最大12文字のラベルに置き換えます。複数のアダプターがある場合は番号を付けます。"
+
+#: ui/settings.slint
+msgid "Upload label"
+msgstr "アップロードのラベル"
+
+#: ui/settings.slint
+msgid "Minimum download speed"
+msgstr "ダウンロードの最小速度"
+
+#: ui/settings.slint
+msgid "Below this, the taskbar and widget show 0. Details and recordings keep the real rate."
+msgstr "この値未満はタスクバーとウィジェットに0と表示します。詳細と記録には実際の速度を残します。"
+
+#: ui/settings.slint
+msgid "Minimum upload speed"
+msgstr "アップロードの最小速度"
+
+#: ui/settings.slint
+msgid "Network rates"
+msgstr "ネットワーク速度"
+
+#: ui/settings.slint
+msgid "Disk speeds stay in bytes."
+msgstr "ディスク速度はバイト単位のままです。"
+
+#: ui/settings.slint
+msgid "Show the upload rate above the download rate."
+msgstr "アップロード速度をダウンロード速度の上に表示します。"
+
+#: ui/settings.slint
+msgid "An IPv4 address or a name."
+msgstr "IPv4 アドレスまたはホスト名を指定します。"
+
+#: ui/settings.slint
+msgid "Interval"
+msgstr "間隔"
+
+#: ui/settings.slint
+msgid "Milliseconds between pings."
+msgstr "Ping の送信間隔（ミリ秒）。"
+
+#: ui/settings.slint
+msgid "Language"
+msgstr "言語"
+
+#: ui/settings.slint
+msgid "For Pulsar's windows, menus and labels."
+msgstr "Pulsar のウィンドウ、メニュー、ラベルに使う言語です。"
+
+#: ui/settings.slint
+msgid "Start with Windows"
+msgstr "Windows と同時に起動"
+
+#: ui/settings.slint
+msgid "Launch Pulsar when you sign in."
+msgstr "サインイン時に Pulsar を起動します。"
+
+#: ui/settings.slint
+msgid "Check for updates"
+msgstr "更新を確認"
+
+#: ui/settings.slint
+msgid "Look for a new release once a day. Nothing is downloaded automatically."
+msgstr "1日1回、新しいリリースを確認します。自動ではダウンロードしません。"
+
+#: ui/settings.slint
+msgid "Tray icon"
+msgstr "トレイアイコン"
+
+#: ui/settings.slint
+msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
+msgstr "通知領域に Pulsar を表示します。非表示の場合は、重ねて表示するパネルを右クリックしてメニューを開くか、Pulsar を再実行して設定を開けます。"
+
+#: ui/settings.slint
+msgid "Shortcuts"
+msgstr "ショートカット"
+
+#: ui/settings.slint
+msgid "Keyboard shortcuts"
+msgstr "キーボードショートカット"
+
+#: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr "入力欄を選び、Ctrl 、Alt 、Win のいずれかと組み合わせたキーを押します。Backspace で解除します。Windows のどこからでも使えます。"
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr "Pulsar の表示・非表示"
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr "ウィジェットのオン・オフ"
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr "システム詳細を開く"
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr "CSV 記録の開始・停止"
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr "次のプロファイルに切り替え"
+
+#: ui/settings.slint
+msgid "Alerts"
+msgstr "アラート"
+
+#: ui/settings.slint
+msgid "CPU temperature (°F)"
+msgstr "CPU 温度（°F）"
+
+#: ui/settings.slint
+msgid "CPU temperature (°C)"
+msgstr "CPU 温度（°C）"
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute. Needs the sensor service."
+msgstr "この温度以上が30秒間続くと通知します。センサーサービスが必要です。"
+
+#: ui/settings.slint
+msgid "GPU temperature (°F)"
+msgstr "GPU 温度（°F）"
+
+#: ui/settings.slint
+msgid "GPU temperature (°C)"
+msgstr "GPU 温度（°C）"
+
+#: ui/settings.slint
+msgid "When it stays at or above this for half a minute."
+msgstr "この温度以上が30秒間続くと通知します。"
+
+#: ui/settings.slint
+msgid "Battery charge (%)"
+msgstr "バッテリー残量（%）"
+
+#: ui/settings.slint
+msgid "When it falls to this on battery power."
+msgstr "バッテリー使用中にこの残量まで低下すると通知します。"
+
+#: ui/settings.slint
+msgid "Drive free space (%)"
+msgstr "ドライブの空き容量（%）"
+
+#: ui/settings.slint
+msgid "When any drive falls to this."
+msgstr "いずれかのドライブの空き容量がこの値まで低下すると通知します。"
+
+#: ui/settings.slint
+msgid "Sampling"
+msgstr "測定"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings."
+msgstr "測定間隔（ミリ秒）。"
+
+#: ui/settings.slint
+msgid "Update interval on battery"
+msgstr "バッテリー使用中の更新間隔"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr "電源未接続時の測定間隔（ミリ秒）。無効にすると上の間隔を使います。"
+
+#: ui/settings.slint
+msgid "History length"
+msgstr "履歴の長さ"
+
+#: ui/settings.slint
+msgid "Readings kept for the graphs."
+msgstr "グラフ用に保持する測定値の数です。"
+
+#: ui/settings.slint
+msgid "Reset"
+msgstr "リセット"
+
+#: ui/settings.slint
+msgid "Reset all settings"
+msgstr "すべての設定をリセット"
+
+#: ui/settings.slint
+msgid "Everything except Start with Windows and the language goes back to its default."
+msgstr "「Windows と同時に起動」と言語を除き、すべての設定を既定値に戻します。"
+
+#: ui/settings.slint
+msgid "Start over with the default look and items."
+msgstr "既定の外観と項目でやり直します。"
+
+#: ui/settings.slint
+msgid "Reset…"
+msgstr "リセット…"
+
+#: ui/settings.slint
+msgid "Cancel"
+msgstr "キャンセル"
+
+#: ui/settings.slint
+msgid "A profile keeps what the overlay and widget show and how they look: items, layout, theme, popups, widget, units, drives and network. Language, startup, update interval, games, alerts and shortcuts stay the same in every profile. Switch profiles here or from the Profiles menu."
+msgstr "プロファイルには重ねて表示するパネルとウィジェットの表示内容と外観（項目、レイアウト、テーマ、ポップアップ、ウィジェット、単位、ドライブ、ネットワーク）を保存します。言語、自動起動、更新間隔、ゲーム、アラート、ショートカットは共通です。ここかプロファイルメニューで切り替えます。"
+
+#: ui/settings.slint
+msgid "Save as a profile"
+msgstr "プロファイルとして保存"
+
+#: ui/settings.slint
+msgid "Keeps the current settings under a name. Saving with a profile's name again updates it."
+msgstr "現在の設定に名前を付けて保存します。同じ名前で保存すると更新します。"
+
+#: ui/settings.slint
+msgid "Profiles folder"
+msgstr "プロファイルフォルダー"
+
+#: ui/settings.slint
+msgid "Profile files to back up or share."
+msgstr "バックアップや共有に使うプロファイルファイルです。"
+
+#: ui/settings.slint
+msgid "Saved profiles"
+msgstr "保存済みプロファイル"
+
+#: ui/settings.slint
+msgid "Current"
+msgstr "現在"
+
+#: ui/settings.slint
+msgid "Apply"
+msgstr "適用"
+
+#: ui/settings.slint
+msgid "Delete"
+msgstr "削除"
+
+#: ui/settings.slint
+msgid "Pulsar {}"
+msgstr "Pulsar {}"
+
+#: ui/settings.slint
+msgid "A Windows 11 taskbar system monitor."
+msgstr "Windows 11 のタスクバー用システムモニター。"
+
+#: ui/settings.slint
+msgid "Updates"
+msgstr "更新"
+
+#: ui/settings.slint
+msgid "Ask GitHub for the latest release now. Nothing is downloaded."
+msgstr "GitHub で最新リリースを今すぐ確認します。ダウンロードは行いません。"
+
+#: ui/settings.slint
+msgid "Check now"
+msgstr "今すぐ確認"
+
+#: ui/settings.slint
+msgid "Release page"
+msgstr "リリースページ"
+
+#: ui/settings.slint
+msgid "Open release page"
+msgstr "リリースページを開く"
+
+#: ui/settings.slint
+msgid "What's new"
+msgstr "更新内容"
+
+#: ui/settings.slint
+msgid "License"
+msgstr "ライセンス"
+
+#: ui/settings.slint
+msgid "GNU General Public License v3.0 or later. Built with Slint."
+msgstr "GNU General Public License v3.0 以降。Slint を使用しています。"
+
+#: ui/settings.slint
+msgid "Settings file"
+msgstr "設定ファイル"
+
+#: ui/settings.slint
+msgid "Open folder"
+msgstr "フォルダーを開く"
+
+#: ui/settings.slint
+msgid "Logs"
+msgstr "ログ"
+
+#: ui/settings.slint
+msgid "Diagnostics"
+msgstr "診断"
+
+#: ui/settings.slint
+msgid "Save every reading Pulsar can take to a text file in the logs folder, to attach to an issue. It lists process and network adapter names; read it before sharing."
+msgstr "取得可能なすべての測定値をログフォルダーのテキストファイルに保存し、Issue に添付できます。プロセス名とネットワークアダプター名を含むため、共有前に内容を確認してください。"
+
+#: ui/settings.slint
+msgid "Save report"
+msgstr "レポートを保存"
+
+#: ui/settings.slint
+msgid "Source code"
+msgstr "ソースコード"
+
+#: ui/settings.slint
+msgid "Open on GitHub"
+msgstr "GitHub で開く"
+
+#: ui/settings.slint
+msgid "Report a problem"
+msgstr "問題を報告"
+
+#: ui/settings.slint
+msgid "Attach pulsar.log, and any crash report, from the logs folder."
+msgstr "ログフォルダーの pulsar.log と、あればクラッシュレポートを添付してください。"
+
+#: ui/settings.slint
+msgid "Report an issue"
+msgstr "Issue を作成"

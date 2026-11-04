@@ -455,7 +455,7 @@ The GPU rows appear only where the card has those sensors, and they need one of 
 
 ## Languages
 
-Pulsar is available in English, Spanish (Español), Simplified Chinese (简体中文) and Korean (한국어). It follows the Windows display language; pick another under *Settings → General → Language*. To add or improve a translation, see [docs/translating.md](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/translating.md).
+Pulsar is available in English, Spanish (Español), Simplified Chinese (简体中文), Korean (한국어) and Japanese (日本語). It follows the Windows display language; pick another under *Settings → General → Language*. To add or improve a translation, see [docs/translating.md](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/translating.md).
 
 ## Settings and files
 
