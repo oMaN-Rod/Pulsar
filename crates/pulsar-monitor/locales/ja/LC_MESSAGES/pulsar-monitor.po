@@ -516,6 +516,10 @@ msgstr "メモリ温度"
 msgid "Fan"
 msgstr "ファン"
 
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU power"
+msgstr "GPU 電力"
+
 #: src/details/pages.rs src/popup/content.rs
 msgid "Power"
 msgstr "電力"
@@ -544,7 +548,7 @@ msgstr "ボード製造元"
 msgid "Revision"
 msgstr "リビジョン"
 
-#: src/details/pages.rs ui/details.slint
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
 msgid "Load"
 msgstr "負荷"
 
@@ -787,6 +791,10 @@ msgstr "コア"
 #: src/details/pages.rs
 msgid "Fans"
 msgstr "ファン"
+
+#: src/details/pages.rs
+msgid "Board"
+msgstr "ボード"
 
 #: src/details/pages.rs
 msgid "Data"
@@ -1327,6 +1335,22 @@ msgstr "短時間電力制限"
 #: src/popup/content.rs
 msgid "Unlimited"
 msgstr "制限なし"
+
+#: src/popup/content.rs
+msgid "Internet"
+msgstr "インターネット"
+
+#: src/popup/content.rs
+msgid "Local network only"
+msgstr "ローカル ネットワークのみ"
+
+#: src/popup/content.rs
+msgid "Not connected"
+msgstr "未接続"
+
+#: src/popup/content.rs
+msgid "Connection"
+msgstr "接続"
 
 #: src/popup/content.rs
 msgid "Hottest core"
@@ -2329,6 +2353,22 @@ msgid "The games Windows recognises, as Game Bar does. To change that for an app
 msgstr "Game Bar と同様に、Windows が認識するゲームを対象にします。変更するにはアプリを前面に出し、Pulsar を右クリックして「ゲームとして扱う」を選んでください。"
 
 #: ui/settings.slint
+msgid "Memory use"
+msgstr "メモリ使用量"
+
+#: ui/settings.slint
+msgid "For the memory and GPU memory items. Their graphs and colors still follow how full the memory is."
+msgstr "メモリと GPU メモリの項目に適用されます。グラフと色は引き続きメモリの使用率に従います。"
+
+#: ui/settings.slint
+msgid "Percent used"
+msgstr "使用率"
+
+#: ui/settings.slint
+msgid "Amount used"
+msgstr "使用量"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "ディスク"
 
@@ -2455,6 +2495,14 @@ msgstr "ディスク速度はバイト単位のままです。"
 #: ui/settings.slint
 msgid "Show the upload rate above the download rate."
 msgstr "アップロード速度をダウンロード速度の上に表示します。"
+
+#: ui/settings.slint
+msgid "Connection dot"
+msgstr "接続状態ドット"
+
+#: ui/settings.slint
+msgid "A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors."
+msgstr "矢印の前に点を表示します。インターネットに接続していれば緑、ローカル ネットワークのみならオレンジ、未接続なら赤です。低負荷・高負荷・危険の色を使います。"
 
 #: ui/settings.slint
 msgid "An IPv4 address or a name."

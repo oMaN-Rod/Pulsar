@@ -136,6 +136,10 @@ msgstr "BAT"
 msgid "FPS"
 msgstr "FPS"
 
+#: src/metric.rs
+msgid "GPWR"
+msgstr "GPWR"
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr "Pulsar センサーサービスがインストールされていません"
@@ -167,6 +171,18 @@ msgstr "この PC にはバッテリーがありません"
 #: src/sources/gpu.rs
 msgid "GPU counters unavailable"
 msgstr "GPU カウンターを利用できません"
+
+#: src/sources/gpu_power.rs
+msgid "GPU power needs an NVIDIA GPU"
+msgstr "GPU 電力には NVIDIA GPU が必要です"
+
+#: src/sources/gpu_power.rs
+msgid "This GPU does not report its power"
+msgstr "この GPU は電力を報告しません"
+
+#: src/sources/gpu_power.rs
+msgid "GPU power unavailable"
+msgstr "GPU 電力を取得できません"
 
 #: src/sources/gpu_sensors.rs
 msgid "GPU temperature unavailable"
