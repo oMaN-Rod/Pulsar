@@ -195,9 +195,12 @@ fn physical(number: u32) -> Option<Handle> {
     open(&format!(r"\\.\PhysicalDrive{number}"))
 }
 
-/// Temperature queries can be audible on a hard drive, so only solid state
-/// drives are read every tick.
+/// Temperature queries can be audible on a hard drive, so it is read far
+/// less often than a solid state drive.
 const ROTATIONAL_INTERVAL: Duration = Duration::from_secs(5 * 60);
+/// Each query is a command to the drive, which costs milliseconds and can
+/// keep it from its deeper idle states.
+const SOLID_STATE_INTERVAL: Duration = Duration::from_secs(10);
 const MAX_BACKOFF: Duration = Duration::from_secs(60 * 60);
 /// How long a rotational drive's last reading still counts as its temperature.
 const STALE_AFTER: Duration = Duration::from_secs(30 * 60);
@@ -467,6 +470,9 @@ struct TrackedDrive {
     rotational: bool,
     /// The last call failed, so its handle may be to a drive that has gone.
     suspect: bool,
+    /// A solid state drive's last read and its temperature; a failed read
+    /// leaves none.
+    last_read: Option<(Instant, Option<i16>)>,
 }
 
 pub struct DriveTempSource {
@@ -505,7 +511,12 @@ impl DriveTempSource {
 
     /// Keeps the drives that still answer and opens the other drive numbers.
     fn discover(&mut self) {
-        let Self { calls, drives, .. } = self;
+        let Self {
+            calls,
+            drives,
+            clock,
+            ..
+        } = self;
         drives.retain(|drive| {
             if drive.suspect {
                 calls.forget(drive.number);
@@ -519,9 +530,13 @@ impl DriveTempSource {
             let Some(facts) = calls.describe(number) else {
                 continue;
             };
-            if !facts.is_rotational() && calls.temperature(number).is_none() {
-                calls.forget(number);
-                continue;
+            let mut last_read = None;
+            if !facts.is_rotational() {
+                let Some(read) = calls.temperature(number) else {
+                    calls.forget(number);
+                    continue;
+                };
+                last_read = Some((clock(), Some(read.0).filter(|&t| t > 0)));
             }
             let mut id = DriveId::of(&facts, number);
             if let Some(holder) = drives.iter().position(|d| d.id == id) {
@@ -537,6 +552,7 @@ impl DriveTempSource {
                 id,
                 rotational: facts.is_rotational(),
                 suspect: false,
+                last_read,
             });
         }
         drives.sort_by_key(|d| d.number);
@@ -613,9 +629,16 @@ impl Source for DriveTempSource {
                 fresh.map(|r| r.temp_c)
             } else {
                 reporting = true;
-                let read = self.calls.temperature(drive.number);
-                drive.suspect = read.is_none();
-                read.map(|t| t.0).filter(|&t| t > 0)
+                let due = drive.last_read.is_none_or(|(at, _)| {
+                    now.saturating_duration_since(at) >= SOLID_STATE_INTERVAL
+                });
+                if due {
+                    let read = self.calls.temperature(drive.number);
+                    drive.suspect = read.is_none();
+                    let temp = read.map(|t| t.0).filter(|&t| t > 0);
+                    drive.last_read = Some((now, temp));
+                }
+                drive.last_read.and_then(|(_, temp)| temp)
             };
             if let Some(temp) = temp {
                 let temp = f64::from(temp);
@@ -1065,17 +1088,35 @@ mod tests {
     }
 
     #[test]
-    fn a_solid_state_drive_is_read_every_tick() {
+    fn a_solid_state_drive_is_read_every_ten_seconds() {
         let rig = Rig::new([(0, ssd("S"))]);
         let mut source = rig.source();
         assert_eq!(rig.temps(0), 1, "building the source probes it");
         rig.run(&mut source, 5 * MIN);
-        assert_eq!(rig.temps(0), 301);
+        assert_eq!(rig.temps(0), 30);
         assert_eq!(rig.powers(0), 0);
         let s = sample(&mut source);
         assert_eq!(s.get(MetricKey::DiskTempC(0)), Some(45.0));
         assert_eq!(s.get(MetricKey::DiskTempAgeSeconds(0)), None);
         assert_eq!(s.get(MetricKey::DiskAsleep(0)), None);
+    }
+
+    #[test]
+    fn a_solid_state_drive_keeps_its_value_between_reads_but_not_after_a_failure() {
+        let rig = Rig::new([(0, ssd("S"))]);
+        let mut source = rig.source();
+        assert_eq!(sample(&mut source).get(MetricKey::DiskTempC(0)), Some(45.0));
+        rig.drive(0, |d| d.temp = Some((50, None, None)));
+        rig.advance(9 * SEC);
+        assert_eq!(sample(&mut source).get(MetricKey::DiskTempC(0)), Some(45.0));
+        rig.advance(SEC);
+        assert_eq!(sample(&mut source).get(MetricKey::DiskTempC(0)), Some(50.0));
+        rig.drive(0, |d| d.temp = None);
+        rig.advance(10 * SEC);
+        assert_eq!(sample(&mut source).get(MetricKey::DiskTempC(0)), None);
+        rig.drive(0, |d| d.temp = Some((48, None, None)));
+        rig.advance(10 * SEC);
+        assert_eq!(sample(&mut source).get(MetricKey::DiskTempC(0)), Some(48.0));
     }
 
     #[test]
@@ -1176,7 +1217,7 @@ mod tests {
         rig.run(&mut source, 10 * MIN);
         assert_eq!(rig.temps(0), 0);
         assert_eq!(rig.powers(0), 0);
-        assert!(rig.temps(1) > 600, "solid state drives are not affected");
+        assert_eq!(rig.temps(1), 60, "solid state drives are not affected");
 
         rig.calls.0.lock().unwrap().yields = false;
         rig.run(&mut source, 5 * MIN);
