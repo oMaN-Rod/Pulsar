@@ -584,6 +584,11 @@ impl App {
     }
 
     fn sync_space(&mut self) {
+        // Reading the taskbar is cross-process work for nobody to see.
+        if self.unseen {
+            self.space.set_targets(Vec::new());
+            return;
+        }
         let targets = self
             .overlays
             .iter()
@@ -1347,6 +1352,7 @@ impl App {
                     let _ = KillTimer(Some(self.host), TIMER_WATCH);
                     let _ = KillTimer(Some(self.host), TIMER_VALIDATE);
                 }
+                self.sync_space();
             } else {
                 self.start_periodic_timers();
                 self.refresh();
