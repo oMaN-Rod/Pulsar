@@ -27,6 +27,8 @@ use crate::metric::{MetricKey, Snapshot, Source, SourceError, SourceId};
 const NVIDIA: u16 = 0x10DE;
 /// How often the cards are listed again, to notice one that came or went.
 const RELIST: Duration = Duration::from_secs(30);
+/// How soon to list them again when a card's power state could not be read.
+const RELIST_SOON: Duration = Duration::from_secs(5);
 /// How soon to load the library again after it failed.
 const RELOAD: Duration = Duration::from_secs(30);
 const NVML_SUCCESS: i32 = 0;
@@ -64,7 +66,7 @@ struct Card {
 }
 
 fn list_cards() -> Vec<Card> {
-    pci::read()
+    pci::display_adapters()
         .into_iter()
         .filter(|d| d.ids.vendor == NVIDIA)
         .filter_map(|d| match d.location? {
@@ -200,6 +202,7 @@ impl Drop for Nvml {
 pub struct GpuPowerSource {
     cards: Vec<Card>,
     listed: Option<Instant>,
+    relist_soon: bool,
     nvml: Option<Nvml>,
     failed: Option<Instant>,
     no_sensor: HashSet<(u32, u32)>,
@@ -223,7 +226,8 @@ impl Source for GpuPowerSource {
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
         let now = Instant::now();
-        if self.listed.is_none_or(|t| now.duration_since(t) >= RELIST) {
+        if relist_due(self.listed, self.relist_soon, now) {
+            self.relist_soon = false;
             let cards = list_cards();
             if cards != self.cards {
                 // Another card may now sit at a sensorless card's address.
@@ -252,7 +256,7 @@ impl Source for GpuPowerSource {
             }
             if state.is_none() {
                 // Not asked, as it may be asleep; its node may be stale.
-                self.listed = None;
+                self.relist_soon = true;
             }
         }
         if !awake.is_empty() {
@@ -283,6 +287,11 @@ impl Source for GpuPowerSource {
     }
 }
 
+fn relist_due(listed: Option<Instant>, soon: bool, now: Instant) -> bool {
+    let wait = if soon { RELIST_SOON } else { RELIST };
+    listed.is_none_or(|t| now.duration_since(t) >= wait)
+}
+
 fn unavailable() -> SourceError {
     SourceError::Unavailable(crate::tr!("GPU power unavailable").into())
 }
@@ -300,6 +309,17 @@ mod tests {
         assert_eq!(total_watts(&[Unknown, Watts(12.0)]), Some(12.0));
         assert_eq!(total_watts(&[Unknown]), None);
         assert_eq!(total_watts(&[]), None);
+    }
+
+    #[test]
+    fn an_unreadable_power_state_relists_soon_but_not_every_tick() {
+        let start = Instant::now();
+        let at = |s| start + Duration::from_secs(s);
+        assert!(relist_due(None, false, start));
+        assert!(!relist_due(Some(start), true, at(4)));
+        assert!(relist_due(Some(start), true, at(5)));
+        assert!(!relist_due(Some(start), false, at(29)));
+        assert!(relist_due(Some(start), false, at(30)));
     }
 
     #[test]

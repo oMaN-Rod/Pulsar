@@ -2,9 +2,9 @@
 //! fast their link is running.
 
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
-    DIGCF_ALLCLASSES, DIGCF_PRESENT, HDEVINFO, SETUP_DI_REGISTRY_PROPERTY, SP_DEVINFO_DATA,
-    SPDRP_ADDRESS, SPDRP_BUSNUMBER, SPDRP_DEVICEDESC, SPDRP_FRIENDLYNAME, SPDRP_HARDWAREID,
-    SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsW,
+    DIGCF_ALLCLASSES, DIGCF_PRESENT, GUID_DEVCLASS_DISPLAY, HDEVINFO, SETUP_DI_REGISTRY_PROPERTY,
+    SP_DEVINFO_DATA, SPDRP_ADDRESS, SPDRP_BUSNUMBER, SPDRP_DEVICEDESC, SPDRP_FRIENDLYNAME,
+    SPDRP_HARDWAREID, SetupDiDestroyDeviceInfoList, SetupDiEnumDeviceInfo, SetupDiGetClassDevsW,
     SetupDiGetDevicePropertyW, SetupDiGetDeviceRegistryPropertyW,
 };
 use windows::Win32::Devices::Properties::DEVPROPTYPE;
@@ -177,13 +177,17 @@ fn pci_property(set: HDEVINFO, device: &SP_DEVINFO_DATA, pid: u32) -> Option<u32
     Some(u32::from_le_bytes(buffer)).filter(|&v| v > 0)
 }
 
-pub fn read() -> Vec<PciDevice> {
-    let Ok(set) =
-        (unsafe { SetupDiGetClassDevsW(None, w!("PCI"), None, DIGCF_ALLCLASSES | DIGCF_PRESENT) })
-    else {
-        return Vec::new();
+fn each_device(class: Option<&GUID>, mut visit: impl FnMut(HDEVINFO, &SP_DEVINFO_DATA)) {
+    let flags = if class.is_some() {
+        DIGCF_PRESENT
+    } else {
+        DIGCF_ALLCLASSES | DIGCF_PRESENT
     };
-    let mut devices = Vec::new();
+    let Ok(set) =
+        (unsafe { SetupDiGetClassDevsW(class.map(|c| c as *const GUID), w!("PCI"), None, flags) })
+    else {
+        return;
+    };
     for index in 0.. {
         let mut device = SP_DEVINFO_DATA {
             cbSize: size_of::<SP_DEVINFO_DATA>() as u32,
@@ -192,24 +196,37 @@ pub fn read() -> Vec<PciDevice> {
         if unsafe { SetupDiEnumDeviceInfo(set, index, &mut device) }.is_err() {
             break;
         }
+        visit(set, &device);
+    }
+    unsafe {
+        let _ = SetupDiDestroyDeviceInfoList(set);
+    }
+}
+
+fn location(set: HDEVINFO, device: &SP_DEVINFO_DATA) -> Option<(u32, u32, u32)> {
+    let bus = registry_property(set, device, SPDRP_BUSNUMBER).and_then(|b| number(&b));
+    let address = registry_property(set, device, SPDRP_ADDRESS).and_then(|a| number(&a));
+    bus.zip(address)
+        .map(|(bus, address)| (bus, address >> 16, address & 0xFFFF))
+}
+
+pub fn read() -> Vec<PciDevice> {
+    let mut devices = Vec::new();
+    each_device(None, |set, device| {
         let Some(ids) =
-            registry_property(set, &device, SPDRP_HARDWAREID).and_then(|id| parse_ids(&text(&id)))
+            registry_property(set, device, SPDRP_HARDWAREID).and_then(|id| parse_ids(&text(&id)))
         else {
-            continue;
+            return;
         };
-        let name = registry_property(set, &device, SPDRP_FRIENDLYNAME)
-            .or_else(|| registry_property(set, &device, SPDRP_DEVICEDESC))
+        let name = registry_property(set, device, SPDRP_FRIENDLYNAME)
+            .or_else(|| registry_property(set, device, SPDRP_DEVICEDESC))
             .map(|n| text(&n))
             .unwrap_or_default();
-        let bus = registry_property(set, &device, SPDRP_BUSNUMBER).and_then(|b| number(&b));
-        let address = registry_property(set, &device, SPDRP_ADDRESS).and_then(|a| number(&a));
-        let link = |pid| pci_property(set, &device, pid);
+        let link = |pid| pci_property(set, device, pid);
         devices.push(PciDevice {
             name,
             ids,
-            location: bus
-                .zip(address)
-                .map(|(bus, address)| (bus, address >> 16, address & 0xFFFF)),
+            location: location(set, device),
             link: link(CURRENT_LINK_SPEED).map(|generation| Link {
                 generation,
                 width: link(CURRENT_LINK_WIDTH).unwrap_or(0),
@@ -218,11 +235,33 @@ pub fn read() -> Vec<PciDevice> {
             }),
             node: device.DevInst,
         });
-    }
-    unsafe {
-        let _ = SetupDiDestroyDeviceInfoList(set);
-    }
+    });
     devices
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DisplayAdapter {
+    pub ids: Ids,
+    /// Bus, device and function.
+    pub location: Option<(u32, u32, u32)>,
+    pub node: u32,
+}
+
+/// A fraction of `read`'s cost: one device class and three properties.
+pub fn display_adapters() -> Vec<DisplayAdapter> {
+    let mut adapters = Vec::new();
+    each_device(Some(&GUID_DEVCLASS_DISPLAY), |set, device| {
+        if let Some(ids) =
+            registry_property(set, device, SPDRP_HARDWAREID).and_then(|id| parse_ids(&text(&id)))
+        {
+            adapters.push(DisplayAdapter {
+                ids,
+                location: location(set, device),
+                node: device.DevInst,
+            });
+        }
+    });
+    adapters
 }
 
 #[cfg(test)]
