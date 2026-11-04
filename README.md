@@ -119,7 +119,9 @@ Each item draws an area graph, a line, bars, a dot matrix, a level meter, a segm
 
 ### Every item
 
-CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, GPU memory, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order: drag an item along the taskbar to move it, or drag its handle in *Settings → Items*.
+CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, GPU memory, GPU power, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order: drag an item along the taskbar to move it, or drag its handle in *Settings → Items*.
+
+GPU power is in watts, for NVIDIA cards, read through the management library their driver installs; no sensor service is needed. A laptop GPU that Windows has powered down counts as 0 W and is not woken to ask.
 
 ![Every item at once](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-all.png)
 
@@ -198,7 +200,8 @@ While the display is off, the PC is locked or the session is disconnected, Pulsa
 - label, value and item colors, with separate label and value colors for a light taskbar
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
-- temperatures in °C or °F, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
+- temperatures in °C or °F, memory and GPU memory as a percentage or the amount in use, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
+- a dot before the network arrows in the color of the connection: internet, the local network only, or none, as Windows judges it for the tray's network icon
 - network as download, upload or both, on one graph tile or a tile for each, with a separate choice for the popup
 - each drive as its own item, showing its activity or used space; each GPU with its own load, temperature and memory; and all physical network adapters, one, or several side by side
 
@@ -231,9 +234,10 @@ Popups are translucent by default, blurring what is behind them, or solid if you
 | **GPU** | temperature, dedicated and shared memory, each GPU's load, memory and temperature, top processes | engines, fan, power, memory clock, and hot spot and memory temperature where the card has them |
 | **GPU temperature** | fan, power, memory clock, hot spot, memory temperature, each GPU's temperature | |
 | **GPU memory** | dedicated memory in use out of the total, shared memory, how full each GPU's memory is | |
+| **GPU power** | share of the power limit, load and temperature, while the GPU and GPU temperature items are on | |
 | **Disk** | read and write rates, chosen drives, top processes by I/O | free space per drive |
 | **Drive temperature** | each drive, by letter and model; hard drives are read at most every 5 minutes and show the reading's age, or that they are asleep | |
-| **Network** | traffic per adapter, numbered when each has its own cells | totals since Pulsar started |
+| **Network** | whether there is a connection to the internet, traffic per adapter, numbered when each has its own cells | totals since Pulsar started |
 | **Ping** | host, min/avg/max, packet loss | jitter |
 | **Battery** | state, time remaining | charge rate, energy, capacity when new, health, charge cycles, voltage |
 | **Frame rate** | application, frame time, 1% and 0.1% lows, how often its monitor's picture changed | min/avg/max |

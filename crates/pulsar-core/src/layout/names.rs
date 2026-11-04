@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
-use crate::config::Config;
+use super::CellPart;
+use crate::config::{Config, NetworkShow};
 use crate::metric::ItemKind;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -16,6 +17,8 @@ pub struct ItemNames {
     kinds: [KindNames; ItemKind::ALL.len()],
     down: Option<String>,
     up: Option<String>,
+    /// The direction whose arrow the connection dot leads, when it is on.
+    connection_dot: Option<CellPart>,
 }
 
 impl ItemNames {
@@ -37,6 +40,14 @@ impl ItemNames {
             kinds,
             down: config.network.down_label.clone(),
             up: config.network.up_label.clone(),
+            connection_dot: config
+                .network
+                .connection_dot
+                .then_some(match config.network.show {
+                    NetworkShow::Upload => CellPart::Up,
+                    NetworkShow::Both if config.display.upload_on_top => CellPart::Up,
+                    NetworkShow::Both | NetworkShow::Download => CellPart::Down,
+                }),
         }
     }
 
@@ -63,6 +74,18 @@ impl ItemNames {
 
     pub fn renames_directions(&self) -> bool {
         self.down.is_some() || self.up.is_some()
+    }
+
+    /// Whether `part` leaves room before its label for the connection dot,
+    /// so the arrows of a pair stay in line.
+    pub fn dot_room(&self, part: CellPart) -> bool {
+        self.connection_dot.is_some() && matches!(part.base(), CellPart::Down | CellPart::Up)
+    }
+
+    /// Whether `part` draws the connection dot: once per adapter, on the
+    /// first direction shown.
+    pub fn draws_dot(&self, part: CellPart) -> bool {
+        self.connection_dot == Some(part.base())
     }
 }
 
@@ -358,5 +381,52 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn the_connection_dot_leads_the_first_direction_shown_and_aligns_the_other() {
+        let mut c = Config::default();
+        assert!(!ItemNames::resolve(&c).dot_room(CellPart::Down));
+        c.network.connection_dot = true;
+        for (show, upload_on_top, lead) in [
+            (NetworkShow::Both, false, CellPart::Down),
+            (NetworkShow::Both, true, CellPart::Up),
+            (NetworkShow::Download, true, CellPart::Down),
+            (NetworkShow::Upload, false, CellPart::Up),
+        ] {
+            c.network.show = show;
+            c.display.upload_on_top = upload_on_top;
+            let names = ItemNames::resolve(&c);
+            for part in [CellPart::Down, CellPart::Up, CellPart::AdapterDown(1)] {
+                assert!(names.dot_room(part));
+                assert_eq!(
+                    names.draws_dot(part),
+                    part.base() == lead,
+                    "{show:?} {part:?}"
+                );
+            }
+            assert!(!names.dot_room(CellPart::Main), "a pair measures each line");
+        }
+
+        let names = ItemNames::resolve(&c);
+        let width = |names: &ItemNames, part| {
+            crate::layout::label_width(
+                ItemKind::Network,
+                part,
+                LabelStyle::Full,
+                false,
+                names,
+                12.0,
+                &Fixed,
+            )
+        };
+        let plain = ItemNames::resolve(&Config::default());
+        assert!(width(&names, CellPart::Down) > width(&plain, CellPart::Down));
+        assert_eq!(width(&names, CellPart::Down), width(&names, CellPart::Up));
+        assert_eq!(
+            width(&names, CellPart::Main),
+            width(&plain, CellPart::Main),
+            "other cells keep their width"
+        );
     }
 }

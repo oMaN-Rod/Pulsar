@@ -22,6 +22,7 @@ pub enum SourceId {
     Frames,
     ThermalZones,
     EnergyMeter,
+    GpuPower,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -42,11 +43,12 @@ pub enum ItemKind {
     ChipsetTemp,
     Battery,
     Fps,
+    GpuPower,
 }
 
 impl ItemKind {
     /// Default display order; adjacent pairs share a text-mode column.
-    pub const ALL: [ItemKind; 15] = [
+    pub const ALL: [ItemKind; 16] = [
         ItemKind::Cpu,
         ItemKind::CpuTemp,
         ItemKind::CpuPower,
@@ -56,6 +58,7 @@ impl ItemKind {
         ItemKind::Gpu,
         ItemKind::GpuTemp,
         ItemKind::GpuMemory,
+        ItemKind::GpuPower,
         ItemKind::Disk,
         ItemKind::DiskTemp,
         ItemKind::Network,
@@ -79,6 +82,7 @@ impl ItemKind {
             ItemKind::DiskTemp => SourceId::DriveTemps,
             ItemKind::Battery => SourceId::Battery,
             ItemKind::Fps => SourceId::Frames,
+            ItemKind::GpuPower => SourceId::GpuPower,
         }
     }
 
@@ -99,6 +103,7 @@ impl ItemKind {
             ItemKind::ChipsetTemp => crate::tr!("PCH°"),
             ItemKind::Battery => crate::tr!("BAT"),
             ItemKind::Fps => crate::tr!("FPS"),
+            ItemKind::GpuPower => crate::tr!("GPWR"),
         }
     }
 
@@ -120,6 +125,7 @@ impl ItemKind {
             ItemKind::ChipsetTemp => "B",
             ItemKind::Battery => "E",
             ItemKind::Fps => "R",
+            ItemKind::GpuPower => "Q",
         }
     }
 }
@@ -171,6 +177,8 @@ pub enum MetricKey {
     /// Received and sent since sampling started.
     NetDownTotalBytes,
     NetUpTotalBytes,
+    /// 2 with internet access, 1 with the local network only, 0 with neither.
+    NetConnectivity,
     /// By place in `NetworkConfig::adapters`.
     NetAdapterDownBps(u8),
     NetAdapterUpBps(u8),
@@ -181,15 +189,21 @@ pub enum MetricKey {
     GpuSharedBytes,
     /// The fullest card's.
     GpuMemoryPercent,
+    /// The bytes in use that `GpuMemoryPercent` counts.
+    GpuMemoryUsedBytes,
     /// By slot in `GpuSlots`.
     GpuAdapterUtil(u8),
     GpuAdapterMemoryPercent(u8),
+    GpuAdapterMemoryUsedBytes(u8),
     GpuAdapterDedicatedBytes(u8),
     GpuAdapterSharedBytes(u8),
     GpuAdapterTempC(u8),
     GpuTempC,
     GpuFanRpm,
+    /// Of the card's power limit, from the display driver.
     GpuPowerPercent,
+    /// Every NVIDIA card's, together.
+    GpuPowerW,
     GpuMemClockMhz,
     GpuHotSpotC,
     GpuMemTempC,
@@ -299,6 +313,7 @@ impl MetricKey {
         match self {
             GpuAdapterUtil(slot)
             | GpuAdapterMemoryPercent(slot)
+            | GpuAdapterMemoryUsedBytes(slot)
             | GpuAdapterDedicatedBytes(slot)
             | GpuAdapterSharedBytes(slot)
             | GpuAdapterTempC(slot) => Some(slot),
@@ -349,12 +364,14 @@ impl MetricKey {
             | GpuDedicatedBytes
             | GpuDedicatedTotalBytes
             | GpuSharedBytes
+            | GpuMemoryUsedBytes
+            | GpuAdapterMemoryUsedBytes(_)
             | GpuAdapterDedicatedBytes(_)
             | GpuAdapterSharedBytes(_)
             | NetDownTotalBytes
             | NetUpTotalBytes => Unit::Bytes,
             ProcessCount | ThreadCount | HandleCount | BatteryPluggedIn | BatteryCharging
-            | BatteryCycles | DiskAsleep(_) => Unit::Count,
+            | BatteryCycles | DiskAsleep(_) | NetConnectivity => Unit::Count,
             UptimeSeconds | BatterySecondsLeft | DiskTempAgeSeconds(_) => Unit::Seconds,
             BatteryRemainingWh | BatteryFullWh | BatteryDesignWh => Unit::WattHours,
             DiskReadBps | DiskWriteBps => Unit::BytesPerSec,
@@ -377,7 +394,7 @@ impl MetricKey {
             | DiskCriticalC(_) | ChipsetTempC => Unit::Celsius,
             GpuFanRpm => Unit::Rpm,
             CpuPowerW | CpuCorePowerW(_) | CpuCoresPowerW | CpuGraphicsPowerW | CpuDramPowerW
-            | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W | BatteryRateW => Unit::Watts,
+            | CpuTdpW | CpuPowerLimit1W | CpuPowerLimit2W | BatteryRateW | GpuPowerW => Unit::Watts,
         }
     }
 }

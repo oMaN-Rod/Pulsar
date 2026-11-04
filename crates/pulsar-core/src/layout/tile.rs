@@ -5,7 +5,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     CellPart, GRAPH_FONT_SCALE, Labels, PADDING_DIP, Rect, TextMeasure, TileText, cell_icon,
-    cell_label, graph_text_width, inline_slots, network_pair, part_metric,
+    cell_label, graph_text_width, inline_slots, network_pair, value_metric,
 };
 use crate::config::GraphStyle;
 use crate::format::widest_value;
@@ -229,7 +229,7 @@ pub fn tile_chrome(
                     names: look.text.names,
                 };
                 let label = labels.width(kind, part, px, m);
-                let value = m.width(widest_value(part_metric(kind, part).unit()), px);
+                let value = m.width(widest_value(value_metric(kind, part).unit()), px);
                 label.min(value) + STRIP_LABEL_GAP_DIP * scale
             }
         }

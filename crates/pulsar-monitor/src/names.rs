@@ -19,6 +19,7 @@ pub fn item_msgid(kind: ItemKind) -> &'static str {
         ItemKind::Ping => tr_noop!("Ping"),
         ItemKind::GpuTemp => tr_noop!("GPU temperature"),
         ItemKind::GpuMemory => tr_noop!("GPU memory"),
+        ItemKind::GpuPower => tr_noop!("GPU power"),
         ItemKind::CpuTemp => tr_noop!("CPU temperature"),
         ItemKind::CpuPower => tr_noop!("CPU power"),
         ItemKind::CpuClock => tr_noop!("CPU clock"),

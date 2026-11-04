@@ -1,12 +1,13 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use crate::config::{RateUnit, TemperatureUnit, Units};
+use crate::config::{MemoryUnit, RateUnit, TemperatureUnit, Units};
 use crate::metric::Unit;
 
 const PLACEHOLDER: &str = "—";
 
 static FAHRENHEIT: AtomicBool = AtomicBool::new(false);
 static NETWORK_BITS: AtomicBool = AtomicBool::new(false);
+static MEMORY_BYTES: AtomicBool = AtomicBool::new(false);
 
 /// Sets the units every later `format_value` call in this process uses.
 pub fn set_units(units: Units) {
@@ -15,6 +16,7 @@ pub fn set_units(units: Units) {
         Ordering::Relaxed,
     );
     NETWORK_BITS.store(units.network == RateUnit::Bits, Ordering::Relaxed);
+    MEMORY_BYTES.store(units.memory == MemoryUnit::Bytes, Ordering::Relaxed);
 }
 
 pub fn temperature(celsius: f64) -> (f64, &'static str) {
@@ -25,7 +27,8 @@ pub fn temperature(celsius: f64) -> (f64, &'static str) {
     }
 }
 
-fn units() -> Units {
+/// The units set by `set_units`.
+pub fn units() -> Units {
     Units {
         temperature: if FAHRENHEIT.load(Ordering::Relaxed) {
             TemperatureUnit::Fahrenheit
@@ -36,6 +39,11 @@ fn units() -> Units {
             RateUnit::Bits
         } else {
             RateUnit::Bytes
+        },
+        memory: if MEMORY_BYTES.load(Ordering::Relaxed) {
+            MemoryUnit::Bytes
+        } else {
+            MemoryUnit::Percent
         },
     }
 }
@@ -71,9 +79,9 @@ pub fn format_in(value: f64, unit: Unit, units: Units) -> String {
         }
         Unit::Celsius => format!("{:.0}°C", value.clamp(-99.0, 199.0)),
         Unit::Rpm => format!("{:.0} RPM", value.clamp(0.0, 99_999.0)),
-        Unit::Watts if value < 10.0 => format!("{:.1} W", value.max(0.0)),
+        Unit::Watts if value < 9.95 => format!("{:.1} W", value.max(0.0)),
         Unit::Watts => format!("{:.0} W", value.clamp(0.0, 999.0)),
-        Unit::Volts if value < 10.0 => format!("{:.3} V", value.max(0.0)),
+        Unit::Volts if value < 9.9995 => format!("{:.3} V", value.max(0.0)),
         Unit::Volts => format!("{:.2} V", value.min(99.99)),
         Unit::Ratio if value.fract() == 0.0 => format!("×{:.0}", value.clamp(0.0, 999.0)),
         Unit::Ratio => format!("×{:.2}", value.clamp(0.0, 999.0)),
@@ -119,7 +127,7 @@ pub fn widest_in(unit: Unit, units: Units) -> &'static str {
         Unit::WattHours => "999.9 Wh",
         Unit::Seconds => "23 h 59 min",
         Unit::Count => "9999999",
-        Unit::FramesPerSec => "999 fps",
+        Unit::FramesPerSec => "9999 fps",
     }
 }
 
@@ -208,6 +216,7 @@ mod tests {
         let other = Units {
             temperature: TemperatureUnit::Fahrenheit,
             network: RateUnit::Bits,
+            memory: MemoryUnit::Bytes,
         };
         assert_eq!(format_in(45.0, Unit::Celsius, other), "113°F");
         assert_eq!(format_in(-40.0, Unit::Celsius, other), "-40°F");
@@ -270,11 +279,20 @@ mod tests {
             Unit::Celsius,
             Unit::Rpm,
             Unit::Watts,
+            Unit::Volts,
+            Unit::FramesPerSec,
         ];
+        // Just below where a reading drops a decimal or gains a digit.
+        let edges = [9.96, 9.9996, 99.96, 999.6, 9999.6];
         let mut v: f64 = 0.0;
-        while v < 1e13 {
+        for v in std::iter::from_fn(|| {
+            v = v * 1.07 + 1.0;
+            (v < 1e13).then_some(v)
+        })
+        .chain(edges)
+        {
             for unit in units {
-                if unit == Unit::MHz && v >= 10_000.0 {
+                if unit == Unit::MHz && v >= 9_995.0 {
                     continue;
                 }
                 let formatted = format_value(v, unit);
@@ -284,7 +302,6 @@ mod tests {
                     widest_value(unit)
                 );
             }
-            v = v * 1.07 + 1.0;
         }
     }
 }

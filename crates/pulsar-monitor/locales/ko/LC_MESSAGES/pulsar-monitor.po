@@ -516,6 +516,10 @@ msgstr "메모리 온도"
 msgid "Fan"
 msgstr "팬"
 
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU power"
+msgstr "GPU 전력"
+
 #: src/details/pages.rs src/popup/content.rs
 msgid "Power"
 msgstr "전력"
@@ -544,7 +548,7 @@ msgstr "보드 제조업체"
 msgid "Revision"
 msgstr "리비전"
 
-#: src/details/pages.rs ui/details.slint
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
 msgid "Load"
 msgstr "부하"
 
@@ -787,6 +791,10 @@ msgstr "코어"
 #: src/details/pages.rs
 msgid "Fans"
 msgstr "팬"
+
+#: src/details/pages.rs
+msgid "Board"
+msgstr "보드"
 
 #: src/details/pages.rs
 msgid "Data"
@@ -1327,6 +1335,22 @@ msgstr "순간 전력 제한"
 #: src/popup/content.rs
 msgid "Unlimited"
 msgstr "무제한"
+
+#: src/popup/content.rs
+msgid "Internet"
+msgstr "인터넷"
+
+#: src/popup/content.rs
+msgid "Local network only"
+msgstr "로컬 네트워크만"
+
+#: src/popup/content.rs
+msgid "Not connected"
+msgstr "연결 안 됨"
+
+#: src/popup/content.rs
+msgid "Connection"
+msgstr "연결"
 
 #: src/popup/content.rs
 msgid "Hottest core"
@@ -2329,6 +2353,22 @@ msgid "The games Windows recognises, as Game Bar does. To change that for an app
 msgstr "Game Bar와 마찬가지로 Windows가 인식하는 게임입니다. 앱별로 바꾸려면 앱을 앞으로 가져온 다음 Pulsar를 마우스 오른쪽 단추로 클릭하고 게임으로 간주를 사용하세요."
 
 #: ui/settings.slint
+msgid "Memory use"
+msgstr "메모리 사용량"
+
+#: ui/settings.slint
+msgid "For the memory and GPU memory items. Their graphs and colors still follow how full the memory is."
+msgstr "메모리 및 GPU 메모리 항목에 적용됩니다. 그래프와 색상은 계속 메모리가 얼마나 찼는지를 따릅니다."
+
+#: ui/settings.slint
+msgid "Percent used"
+msgstr "사용 비율"
+
+#: ui/settings.slint
+msgid "Amount used"
+msgstr "사용량"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "디스크"
 
@@ -2455,6 +2495,14 @@ msgstr "디스크 속도는 바이트 단위로 유지됩니다."
 #: ui/settings.slint
 msgid "Show the upload rate above the download rate."
 msgstr "업로드 속도를 다운로드 속도 위에 표시합니다."
+
+#: ui/settings.slint
+msgid "Connection dot"
+msgstr "연결 상태 점"
+
+#: ui/settings.slint
+msgid "A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors."
+msgstr "화살표 앞의 점: 인터넷에 연결되면 초록색, 로컬 네트워크만 있으면 주황색, 연결이 없으면 빨간색입니다. 낮음, 높음, 위험 색상을 사용합니다."
 
 #: ui/settings.slint
 msgid "An IPv4 address or a name."

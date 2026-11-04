@@ -113,11 +113,24 @@ pub enum RateUnit {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryUnit {
+    /// How full it is.
+    #[default]
+    Percent,
+    /// How much is in use.
+    Bytes,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Units {
     pub temperature: TemperatureUnit,
     /// Network rates only; disk rates stay in bytes.
     pub network: RateUnit,
+    /// What the memory and GPU memory items show as text; their graphs and
+    /// colors keep following how full the memory is.
+    pub memory: MemoryUnit,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -566,6 +579,9 @@ pub struct NetworkConfig {
     /// On the overlay, instead of the arrow; `None` keeps it.
     pub down_label: Option<String>,
     pub up_label: Option<String>,
+    /// On the overlay, a dot before the arrows in the color of the
+    /// connection: to the internet, the local network only, or none.
+    pub connection_dot: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -1704,6 +1720,7 @@ sample_interval_ms = 1
                 ItemKind::Gpu,
                 ItemKind::GpuTemp,
                 ItemKind::GpuMemory,
+                ItemKind::GpuPower,
                 ItemKind::Disk,
                 ItemKind::DiskTemp,
                 ItemKind::Network,
@@ -1806,6 +1823,7 @@ panel_opacity = 60
         let c = Config::default();
         assert!(!c.is_enabled(ItemKind::GpuTemp));
         assert!(!c.is_enabled(ItemKind::GpuMemory));
+        assert!(!c.is_enabled(ItemKind::GpuPower));
         assert!(!c.is_enabled(ItemKind::CpuTemp));
         assert!(!c.is_enabled(ItemKind::CpuPower));
         assert!(!c.is_enabled(ItemKind::CpuClock));

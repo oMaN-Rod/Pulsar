@@ -1182,6 +1182,7 @@ export component SettingsWindow inherits Window {
     in property <color> value-light-swatch;
     in-out property <bool> color-labels;
     in-out property <int> temperature-unit;
+    in-out property <int> memory-unit;
     in-out property <int> network-unit;
     in-out property <int> min-down;
     in-out property <int> min-down-unit;
@@ -1190,6 +1191,7 @@ export component SettingsWindow inherits Window {
     in property <bool> network-floor-bits;
     property <[string]> network-floor-units: root.network-floor-bits ? ["bps", "Kbps", "Mbps"] : ["B/s", "KB/s", "MB/s"];
     in-out property <bool> upload-on-top;
+    in-out property <bool> connection-dot;
     in-out property <int> network-show;
     in-out property <bool> network-split-tiles;
     in-out property <int> network-popup-show;
@@ -2625,6 +2627,17 @@ export component SettingsWindow inherits Window {
                             selected => { root.changed(); }
                         }
                     }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Memory use");
+                        description: @tr("For the memory and GPU memory items. Their graphs and colors still follow how full the memory is.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Percent used"), @tr("Amount used")];
+                            current-index <=> root.memory-unit;
+                            selected => { root.changed(); }
+                        }
+                    }
                 }
             }
 
@@ -2861,6 +2874,15 @@ export component SettingsWindow inherits Window {
                         description: @tr("Show the upload rate above the download rate.");
                         Switch {
                             checked <=> root.upload-on-top;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Connection dot");
+                        description: @tr("A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors.");
+                        Switch {
+                            checked <=> root.connection-dot;
                             toggled => { root.changed(); }
                         }
                     }

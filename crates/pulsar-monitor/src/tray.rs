@@ -86,7 +86,11 @@ fn metric_icon(text: &str, size: i32, light_taskbar: bool) -> Option<HICON> {
             ..Default::default()
         };
         let mut bits = std::ptr::null_mut();
-        let color = CreateDIBSection(Some(dc), &info, DIB_RGB_COLORS, &mut bits, None, 0).ok()?;
+        let Ok(color) = CreateDIBSection(Some(dc), &info, DIB_RGB_COLORS, &mut bits, None, 0)
+        else {
+            let _ = DeleteDC(dc);
+            return None;
+        };
         let old_bitmap = SelectObject(dc, color.into());
         let font = CreateFontW(
             -(size * 3 / 4),

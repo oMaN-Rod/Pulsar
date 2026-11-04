@@ -516,6 +516,10 @@ msgstr "Temperatura de la memoria"
 msgid "Fan"
 msgstr "Ventilador"
 
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU power"
+msgstr "Consumo de la GPU"
+
 #: src/details/pages.rs src/popup/content.rs
 msgid "Power"
 msgstr "Potencia"
@@ -544,7 +548,7 @@ msgstr "Fabricante de la tarjeta"
 msgid "Revision"
 msgstr "Revisión"
 
-#: src/details/pages.rs ui/details.slint
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
 msgid "Load"
 msgstr "Carga"
 
@@ -787,6 +791,10 @@ msgstr "Núcleo"
 #: src/details/pages.rs
 msgid "Fans"
 msgstr "Ventiladores"
+
+#: src/details/pages.rs
+msgid "Board"
+msgstr "Placa"
 
 #: src/details/pages.rs
 msgid "Data"
@@ -1327,6 +1335,22 @@ msgstr "Límite de ráfaga"
 #: src/popup/content.rs
 msgid "Unlimited"
 msgstr "Sin límite"
+
+#: src/popup/content.rs
+msgid "Internet"
+msgstr "Internet"
+
+#: src/popup/content.rs
+msgid "Local network only"
+msgstr "Solo red local"
+
+#: src/popup/content.rs
+msgid "Not connected"
+msgstr "Sin conexión"
+
+#: src/popup/content.rs
+msgid "Connection"
+msgstr "Conexión"
 
 #: src/popup/content.rs
 msgid "Hottest core"
@@ -2329,6 +2353,22 @@ msgid "The games Windows recognises, as Game Bar does. To change that for an app
 msgstr "Los juegos que reconoce Windows, igual que Game Bar. Para cambiarlo en una aplicación, tráela al primer plano, haz clic derecho en Pulsar y usa Considerar como juego."
 
 #: ui/settings.slint
+msgid "Memory use"
+msgstr "Uso de memoria"
+
+#: ui/settings.slint
+msgid "For the memory and GPU memory items. Their graphs and colors still follow how full the memory is."
+msgstr "Para los elementos de memoria y memoria de la GPU. Sus gráficas y colores siguen mostrando lo llena que está la memoria."
+
+#: ui/settings.slint
+msgid "Percent used"
+msgstr "Porcentaje en uso"
+
+#: ui/settings.slint
+msgid "Amount used"
+msgstr "Cantidad en uso"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "Discos"
 
@@ -2455,6 +2495,14 @@ msgstr "Las velocidades de disco se mantienen en bytes."
 #: ui/settings.slint
 msgid "Show the upload rate above the download rate."
 msgstr "Muestra la velocidad de subida encima de la de bajada."
+
+#: ui/settings.slint
+msgid "Connection dot"
+msgstr "Punto de conexión"
+
+#: ui/settings.slint
+msgid "A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors."
+msgstr "Un punto antes de las flechas: verde con acceso a internet, naranja solo con la red local y rojo sin conexión. Usa los colores bajo, alto y crítico."
 
 #: ui/settings.slint
 msgid "An IPv4 address or a name."

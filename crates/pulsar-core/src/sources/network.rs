@@ -1,7 +1,16 @@
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
-use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
+use windows::Win32::Foundation::NO_ERROR;
+use windows::Win32::NetworkManagement::IpHelper::{
+    FreeMibTable, GetIfTable2, GetNetworkConnectivityHint, MIB_IF_TABLE2,
+};
+use windows::Win32::Networking::WinSock::{
+    NL_NETWORK_CONNECTIVITY_HINT, NL_NETWORK_CONNECTIVITY_LEVEL_HINT,
+    NetworkConnectivityLevelHintConstrainedInternetAccess,
+    NetworkConnectivityLevelHintInternetAccess, NetworkConnectivityLevelHintLocalAccess,
+    NetworkConnectivityLevelHintNone,
+};
 
 use crate::metric::{AdapterRate, MetricKey, Snapshot, Source, SourceError, SourceId};
 use crate::pdh::{Counter, Query};
@@ -65,11 +74,41 @@ impl Source for NetworkSource {
     }
 
     fn sample(&mut self, out: &mut Snapshot) -> Result<(), SourceError> {
+        if let Some(level) = connectivity() {
+            out.set(MetricKey::NetConnectivity, level);
+        }
         let result = self.read(out);
         if result.is_err() {
             self.totals.last = None;
         }
         result
+    }
+}
+
+/// As Windows judges it for the network icon in the tray.
+fn connectivity() -> Option<f64> {
+    let mut hint = NL_NETWORK_CONNECTIVITY_HINT::default();
+    if unsafe { GetNetworkConnectivityHint(&mut hint) } != NO_ERROR {
+        return None;
+    }
+    connectivity_level(hint.ConnectivityLevel)
+}
+
+/// `MetricKey::NetConnectivity` for a level; a captive portal counts as
+/// the local network only.
+pub fn connectivity_level(level: NL_NETWORK_CONNECTIVITY_LEVEL_HINT) -> Option<f64> {
+    let local = [
+        NetworkConnectivityLevelHintLocalAccess,
+        NetworkConnectivityLevelHintConstrainedInternetAccess,
+    ];
+    if level == NetworkConnectivityLevelHintInternetAccess {
+        Some(2.0)
+    } else if local.contains(&level) {
+        Some(1.0)
+    } else if level == NetworkConnectivityLevelHintNone {
+        Some(0.0)
+    } else {
+        None
     }
 }
 
@@ -380,5 +419,28 @@ mod tests {
         let mut sorted = list.clone();
         sorted.sort();
         assert_eq!(list, sorted);
+    }
+
+    #[test]
+    fn connectivity_reads_as_internet_local_or_none() {
+        assert_eq!(
+            connectivity_level(NetworkConnectivityLevelHintInternetAccess),
+            Some(2.0)
+        );
+        for local in [
+            NetworkConnectivityLevelHintLocalAccess,
+            NetworkConnectivityLevelHintConstrainedInternetAccess,
+        ] {
+            assert_eq!(connectivity_level(local), Some(1.0));
+        }
+        assert_eq!(
+            connectivity_level(NetworkConnectivityLevelHintNone),
+            Some(0.0)
+        );
+        assert_eq!(
+            connectivity_level(NL_NETWORK_CONNECTIVITY_LEVEL_HINT(0)),
+            None
+        );
+        assert!(connectivity().is_some(), "Windows answers on any machine");
     }
 }

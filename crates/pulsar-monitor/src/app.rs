@@ -2037,6 +2037,10 @@ impl App {
         }
         if new.units != self.config.units {
             pulsar_core::format::set_units(new.units);
+            // Memory in bytes is wider than as a percentage.
+            self.overlays
+                .iter_mut()
+                .for_each(Overlay::invalidate_layout);
         }
         if new.popup.background != self.config.popup.background {
             self.close_popup();

@@ -1,7 +1,9 @@
 //! Pure layout: turns the enabled items, display mode and taskbar metrics into
 //! rectangles. All values are physical pixels.
 
-use crate::config::{Config, Display, DisplayMode, DriveValue, LabelStyle, NetworkShow};
+use crate::config::{
+    Config, Display, DisplayMode, DriveValue, LabelStyle, MemoryUnit, NetworkShow, Units,
+};
 use crate::format::widest_value;
 use crate::gpu_slots::GpuSlots;
 use crate::metric::{ItemKind, MetricKey};
@@ -196,6 +198,7 @@ pub fn primary_metric(kind: ItemKind) -> MetricKey {
         ItemKind::Ping => MetricKey::PingMs,
         ItemKind::GpuTemp => MetricKey::GpuTempC,
         ItemKind::GpuMemory => MetricKey::GpuMemoryPercent,
+        ItemKind::GpuPower => MetricKey::GpuPowerW,
         ItemKind::CpuTemp => MetricKey::CpuTempC,
         ItemKind::CpuPower => MetricKey::CpuPowerW,
         ItemKind::CpuClock => MetricKey::CpuClockMhz,
@@ -217,6 +220,25 @@ pub fn part_metric(kind: ItemKind, part: CellPart) -> MetricKey {
         CellPart::AdapterDown(i) | CellPart::AdapterPair(i) => MetricKey::NetAdapterDownBps(i),
         CellPart::AdapterUp(i) => MetricKey::NetAdapterUpBps(i),
         CellPart::Main | CellPart::Down => primary_metric(kind),
+    }
+}
+
+/// The metric a cell's text shows: memory can read as the bytes in use,
+/// while its graph and colors keep following `part_metric`.
+pub fn value_metric(kind: ItemKind, part: CellPart) -> MetricKey {
+    value_metric_in(kind, part, crate::format::units())
+}
+
+pub fn value_metric_in(kind: ItemKind, part: CellPart, units: Units) -> MetricKey {
+    let key = part_metric(kind, part);
+    if units.memory == MemoryUnit::Percent {
+        return key;
+    }
+    match key {
+        MetricKey::MemUsedPercent => MetricKey::MemUsedBytes,
+        MetricKey::GpuMemoryPercent => MetricKey::GpuMemoryUsedBytes,
+        MetricKey::GpuAdapterMemoryPercent(i) => MetricKey::GpuAdapterMemoryUsedBytes(i),
+        key => key,
     }
 }
 
@@ -279,7 +301,7 @@ pub fn cell_icon(kind: ItemKind, part: CellPart) -> &'static str {
         (ItemKind::GpuTemp | ItemKind::CpuTemp | ItemKind::DiskTemp | ItemKind::ChipsetTemp, _) => {
             "\u{E9CA}"
         }
-        (ItemKind::CpuPower, _) => "\u{E945}",
+        (ItemKind::CpuPower | ItemKind::GpuPower, _) => "\u{E945}",
         (ItemKind::CpuClock, _) => "\u{EC4A}",
         (ItemKind::Disk, _) => "\u{EDA2}",
         (ItemKind::Network, _) => "\u{E968}",
@@ -324,7 +346,7 @@ pub fn icon_gap(font_px: f32) -> f32 {
     (font_px * 0.3).round()
 }
 
-/// Icon and label text together, as drawn.
+/// Connection dot, icon and label text together, as drawn.
 pub fn label_width(
     kind: ItemKind,
     part: CellPart,
@@ -334,6 +356,11 @@ pub fn label_width(
     font_px: f32,
     m: &dyn TextMeasure,
 ) -> f32 {
+    let dot = if names.dot_room(part) {
+        dot_size(font_px) + icon_gap(font_px)
+    } else {
+        0.0
+    };
     let text = cell_label(kind, part, labels, icons, names);
     let text_w = if text.is_empty() {
         0.0
@@ -341,14 +368,19 @@ pub fn label_width(
         m.width(&text, font_px)
     };
     if !icons {
-        return text_w;
+        return dot + text_w;
     }
     let icon_w = m.icon_width(cell_icon(kind, part), font_px);
     if text_w > 0.0 {
-        icon_w + icon_gap(font_px) + text_w
+        dot + icon_w + icon_gap(font_px) + text_w
     } else {
-        icon_w
+        dot + icon_w
     }
+}
+
+/// The diameter of the connection dot.
+pub fn dot_size(font_px: f32) -> f32 {
+    (font_px * 0.45).round().max(3.0)
 }
 
 #[derive(Clone, Copy)]
@@ -741,7 +773,7 @@ fn text_layout(
             .fold(0.0, f32::max);
         let value_w = column
             .iter()
-            .map(|&(k, p)| m.width(widest_value(part_metric(k, p).unit()), font_px))
+            .map(|&(k, p)| m.width(widest_value(value_metric(k, p).unit()), font_px))
             .fold(0.0, f32::max);
         let col_w = label_w + label_gap + value_w;
         for (row, &(kind, part)) in column.iter().enumerate() {
@@ -814,7 +846,7 @@ fn stacked_text(
         items
             .iter()
             .flat_map(|s| s.parts.iter().map(move |&p| (s.kind, p)))
-            .map(|(k, p)| m.width(widest_value(part_metric(k, p).unit()), px))
+            .map(|(k, p)| m.width(widest_value(value_metric(k, p).unit()), px))
             .fold(0.0, f32::max)
     };
     let (label_w, value_w) = (widest_label(font_px), widest_text(font_px));
@@ -902,7 +934,7 @@ fn stacked_tiles(
         .iter()
         .flat_map(|s| s.parts.iter().map(move |&p| (s, p)))
         .map(|(s, p)| {
-            let value = m.width(widest_value(part_metric(s.kind, p).unit()), small_px);
+            let value = m.width(widest_value(value_metric(s.kind, p).unit()), small_px);
             let text = if labels.vertical {
                 value
             } else {
@@ -963,7 +995,7 @@ fn graph_text_width(
     font_px: f32,
     m: &dyn TextMeasure,
 ) -> f32 {
-    let widest = widest_value(part_metric(kind, part).unit());
+    let widest = widest_value(value_metric(kind, part).unit());
     let labels = Labels {
         style: text.labels,
         icons: text.icons,
@@ -1034,7 +1066,7 @@ pub fn inline_slots(
             label_x: x,
             value_x,
         });
-        x = value_x + m.width(widest_value(part_metric(kind, part).unit()), font_px);
+        x = value_x + m.width(widest_value(value_metric(kind, part).unit()), font_px);
     }
     (slots, x)
 }
@@ -1638,7 +1670,7 @@ mod tests {
             .collect()
     }
 
-    const ALL: [ItemKind; 15] = ItemKind::ALL;
+    const ALL: [ItemKind; ItemKind::ALL.len()] = ItemKind::ALL;
 
     fn sized_specs(sizes: &[(ItemKind, Option<u16>, Option<u16>)]) -> Vec<ItemSpec> {
         sizes
@@ -3561,5 +3593,41 @@ mod tests {
             assert_no_overlap(&l);
             assert_inside(&l);
         }
+    }
+
+    #[test]
+    fn memory_text_reads_in_bytes_while_its_graph_stays_a_percentage() {
+        let bytes = Units {
+            memory: MemoryUnit::Bytes,
+            ..Units::default()
+        };
+        for (kind, part, percent, used) in [
+            (
+                ItemKind::Ram,
+                CellPart::Main,
+                MetricKey::MemUsedPercent,
+                MetricKey::MemUsedBytes,
+            ),
+            (
+                ItemKind::GpuMemory,
+                CellPart::Main,
+                MetricKey::GpuMemoryPercent,
+                MetricKey::GpuMemoryUsedBytes,
+            ),
+            (
+                ItemKind::GpuMemory,
+                CellPart::Gpu(1),
+                MetricKey::GpuAdapterMemoryPercent(1),
+                MetricKey::GpuAdapterMemoryUsedBytes(1),
+            ),
+        ] {
+            assert_eq!(part_metric(kind, part), percent);
+            assert_eq!(value_metric_in(kind, part, Units::default()), percent);
+            assert_eq!(value_metric_in(kind, part, bytes), used);
+        }
+        assert_eq!(
+            value_metric_in(ItemKind::Gpu, CellPart::Gpu(1), bytes),
+            MetricKey::GpuAdapterUtil(1)
+        );
     }
 }

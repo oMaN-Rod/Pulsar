@@ -137,6 +137,10 @@ msgstr "电池"
 msgid "FPS"
 msgstr "FPS"
 
+#: src/metric.rs
+msgid "GPWR"
+msgstr "GPU W"
+
 #: src/sensors.rs
 msgid "The Pulsar sensor service is not installed"
 msgstr "未安装 Pulsar 传感器服务"
@@ -168,6 +172,18 @@ msgstr "此电脑没有电池"
 #: src/sources/gpu.rs
 msgid "GPU counters unavailable"
 msgstr "GPU 计数器不可用"
+
+#: src/sources/gpu_power.rs
+msgid "GPU power needs an NVIDIA GPU"
+msgstr "GPU 功耗需要 NVIDIA GPU"
+
+#: src/sources/gpu_power.rs
+msgid "This GPU does not report its power"
+msgstr "此 GPU 不报告功耗"
+
+#: src/sources/gpu_power.rs
+msgid "GPU power unavailable"
+msgstr "GPU 功耗不可用"
 
 #: src/sources/gpu_sensors.rs
 msgid "GPU temperature unavailable"

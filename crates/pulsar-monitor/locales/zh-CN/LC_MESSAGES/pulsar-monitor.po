@@ -517,6 +517,10 @@ msgstr "显存温度"
 msgid "Fan"
 msgstr "风扇"
 
+#: src/details/pages.rs src/names.rs src/popup/content.rs
+msgid "GPU power"
+msgstr "GPU 功耗"
+
 #: src/details/pages.rs src/popup/content.rs
 msgid "Power"
 msgstr "功耗"
@@ -545,7 +549,7 @@ msgstr "板卡厂商"
 msgid "Revision"
 msgstr "修订版本"
 
-#: src/details/pages.rs ui/details.slint
+#: src/details/pages.rs src/popup/content.rs ui/details.slint
 msgid "Load"
 msgstr "负载"
 
@@ -788,6 +792,10 @@ msgstr "核心"
 #: src/details/pages.rs
 msgid "Fans"
 msgstr "风扇"
+
+#: src/details/pages.rs
+msgid "Board"
+msgstr "板卡"
 
 #: src/details/pages.rs
 msgid "Data"
@@ -1328,6 +1336,22 @@ msgstr "短时功耗限制"
 #: src/popup/content.rs
 msgid "Unlimited"
 msgstr "无限制"
+
+#: src/popup/content.rs
+msgid "Internet"
+msgstr "互联网"
+
+#: src/popup/content.rs
+msgid "Local network only"
+msgstr "仅本地网络"
+
+#: src/popup/content.rs
+msgid "Not connected"
+msgstr "未连接"
+
+#: src/popup/content.rs
+msgid "Connection"
+msgstr "连接"
 
 #: src/popup/content.rs
 msgid "Hottest core"
@@ -2330,6 +2354,22 @@ msgid "The games Windows recognises, as Game Bar does. To change that for an app
 msgstr "即 Windows 识别的游戏，与 Game Bar 相同。要更改某个应用，请将其切换到前台，然后右键单击 Pulsar 并使用“视为游戏”。"
 
 #: ui/settings.slint
+msgid "Memory use"
+msgstr "内存占用"
+
+#: ui/settings.slint
+msgid "For the memory and GPU memory items. Their graphs and colors still follow how full the memory is."
+msgstr "用于内存和 GPU 显存项目。它们的图表和颜色仍按内存的占用比例显示。"
+
+#: ui/settings.slint
+msgid "Percent used"
+msgstr "已用百分比"
+
+#: ui/settings.slint
+msgid "Amount used"
+msgstr "已用容量"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "磁盘"
 
@@ -2456,6 +2496,14 @@ msgstr "磁盘速率仍以字节显示。"
 #: ui/settings.slint
 msgid "Show the upload rate above the download rate."
 msgstr "将上传速率显示在下载速率上方。"
+
+#: ui/settings.slint
+msgid "Connection dot"
+msgstr "连接状态点"
+
+#: ui/settings.slint
+msgid "A dot before the arrows: green with internet access, orange with the local network only, red with no connection. It takes the low, high and critical colors."
+msgstr "箭头前的圆点：可访问互联网时为绿色，仅有本地网络时为橙色，未连接时为红色。使用低、高和危急颜色。"
 
 #: ui/settings.slint
 msgid "An IPv4 address or a name."

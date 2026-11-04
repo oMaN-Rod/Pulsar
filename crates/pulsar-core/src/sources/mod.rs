@@ -5,6 +5,7 @@ mod disk_space;
 mod energy_meter;
 mod frames;
 mod gpu;
+mod gpu_power;
 mod gpu_sensors;
 mod memory;
 mod network;
@@ -20,6 +21,7 @@ pub use disk_space::{DiskSpaceSource, fixed_drives, used_percent};
 pub use energy_meter::EnergyMeterSource;
 pub use frames::FramesSource;
 pub use gpu::{GpuSource, GpuUsage, aggregate_engines, parse_engine_instance};
+pub use gpu_power::{CardPower, GpuPowerSource, total_watts};
 pub use gpu_sensors::{GpuSensorsSource, SensorReading, pick_reading};
 pub use memory::MemorySource;
 pub use network::{

@@ -5,8 +5,8 @@ use pulsar_core::colors::Rgb;
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadColors, LoadThresholds,
-    NetworkShow, NoRoom, PopupBackground, Position, RateUnit, RemoveFrom, TemperatureUnit,
-    WidgetLayer, WidgetStyle, sanitize_label,
+    MemoryUnit, NetworkShow, NoRoom, PopupBackground, Position, RateUnit, RemoveFrom,
+    TemperatureUnit, WidgetLayer, WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -129,6 +129,7 @@ pub struct Form {
     /// A language code, or empty to follow Windows.
     pub language: String,
     pub fahrenheit: bool,
+    pub memory_bytes: bool,
     /// Alerts and their limits; temperatures in the unit the form was
     /// filled in, which `alert_fahrenheit` records.
     pub alert_cpu: bool,
@@ -156,6 +157,7 @@ pub struct Form {
     pub upload_on_top: bool,
     pub network_show: i32,
     pub network_split_tiles: bool,
+    pub connection_dot: bool,
     pub network_popup_show: i32,
     /// Empty uses the arrow.
     pub network_down_label: String,
@@ -391,6 +393,7 @@ pub fn to_form(c: &Config) -> Form {
         frame_monitor: c.frames.monitor.clone().unwrap_or_default(),
         language: c.general.language.clone().unwrap_or_default(),
         fahrenheit: c.units.temperature == TemperatureUnit::Fahrenheit,
+        memory_bytes: c.units.memory == MemoryUnit::Bytes,
         alert_cpu: c.alerts.cpu.on,
         alert_cpu_limit: shown_temp(c.alerts.cpu.limit, c),
         alert_gpu: c.alerts.gpu.on,
@@ -418,6 +421,7 @@ pub fn to_form(c: &Config) -> Form {
         upload_on_top: d.upload_on_top,
         network_show: index_of(&NETWORK_SHOW, &c.network.show),
         network_split_tiles: c.network.split_tiles,
+        connection_dot: c.network.connection_dot,
         network_popup_show: index_of(&NETWORK_SHOW, &c.network.popup_show),
         network_down_label: c.network.down_label.clone().unwrap_or_default(),
         network_up_label: c.network.up_label.clone().unwrap_or_default(),
@@ -686,6 +690,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     );
     c.network.show = at(&NETWORK_SHOW, f.network_show).unwrap_or_default();
     c.network.split_tiles = f.network_split_tiles;
+    c.network.connection_dot = f.connection_dot;
     c.network.popup_show = at(&NETWORK_SHOW, f.network_popup_show).unwrap_or_default();
     c.network.down_label = sanitize_label(&f.network_down_label);
     c.network.up_label = sanitize_label(&f.network_up_label);
@@ -700,6 +705,11 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         RateUnit::Bits
     } else {
         RateUnit::Bytes
+    };
+    c.units.memory = if f.memory_bytes {
+        MemoryUnit::Bytes
+    } else {
+        MemoryUnit::Percent
     };
     c.popup.detail = at(&DETAILS, f.popup_detail).unwrap_or_default();
     c.popup.graph = f.popup_graph;

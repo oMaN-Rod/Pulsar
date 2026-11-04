@@ -9,8 +9,8 @@ use crate::hardware::DriveTempSource;
 use crate::metric::{ItemKind, Snapshot, Source, SourceError, SourceId};
 use crate::sources::{
     BatterySource, CpuSource, DiskIoSource, DiskSpaceSource, EnergyMeterSource, FramesSource,
-    GpuSensorsSource, GpuSource, MemorySource, NetworkSource, PingSource, ProcessesSource,
-    SensorServiceSource, ThermalZoneSource,
+    GpuPowerSource, GpuSensorsSource, GpuSource, MemorySource, NetworkSource, PingSource,
+    ProcessesSource, SensorServiceSource, ThermalZoneSource,
 };
 
 pub type ProcessesFactory = Box<dyn Fn() -> Box<dyn Source> + Send>;
@@ -318,6 +318,7 @@ fn item_sources(kind: ItemKind, config: &Config) -> Vec<Box<dyn Source>> {
         ItemKind::Fps => vec![Box::new(FramesSource {
             monitor: config.frames.monitor.clone(),
         })],
+        ItemKind::GpuPower => vec![Box::new(GpuPowerSource::default())],
         ItemKind::GpuTemp
         | ItemKind::GpuMemory
         | ItemKind::CpuTemp

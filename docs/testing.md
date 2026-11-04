@@ -20,6 +20,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | CPU item: *Ring* and *Core bars*; another item: *Ring*, with no *Core bars* in its list | The ring shows load with temperature inside once sensors report it; one bar per logical processor, moving with Task Manager's per-core view |
 | CPU item: *Core bars* on a hybrid CPU, then a burst of load | Efficient cores sit apart and darker; a mark holds each core's peak for about ten samples |
 | CPU item: *Heat cells*, with custom color thresholds | One cell per logical processor; colors follow the thresholds whatever the item's color mode |
+| Settings → Sensors → Units: *Memory use* set to *Amount used*, with *Memory* and *GPU memory* on, in text and graph mode, then with *Each GPU* | The cells show the amount in use, matching Task Manager's *In use* and *Dedicated GPU memory*; the graphs, load colors and alerts still follow the percentage; switching back resizes the items |
 | *GPU memory* on, while a game or a GPU-heavy app starts and closes; with two GPUs chosen in Settings → Devices | The percentage follows *Dedicated GPU memory* in Task Manager's Performance tab; each GPU gets its own tile; an integrated GPU counts shared memory too |
 | *Segment meter* and *Spark underline*, each with *Single-line graphs* and on Network | Under the text on one reading; beside the text on a single line or a network pair |
 | *Heat strip*, *Bullet meter* and *Range rail*, each with *Single-line graphs* and on Network | Under the text on one reading; beside the text on a single line; one row per direction on a network pair |
@@ -60,6 +61,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | Hover each item | Its popup shows a graph and details, and updates live |
 | GPU temperature on | TEMP roughly matches Task Manager; on a machine without a sensor it shows "—" and the popup explains why |
 | Disks: *Each drive*, then *Used space* | One cell per ticked drive; values match Explorer |
+| Devices → Network: *Connection dot* on, in text, graph, single-line and split-tile modes, with *Upload on top* on and off; then turn Wi-Fi off, and join a network with no internet | A green dot leads the first arrow shown and the arrows stay in line; it turns red, then orange, within a second or two of the tray's network icon; the popup's *Connection* row agrees |
 | Network: choose one adapter, then unplug it | Only that adapter is counted; unplugged shows "—" with the reason |
 | Network: tick two adapters | A numbered ↓/↑ pair per adapter (a tile each in graph mode); the popup lists both by number |
 | Network: Show set to Upload only, with one and two adapters, in graphs, single-line graphs and text | One ↑ cell or tile per adapter, and no ↓ anywhere on the taskbar |
@@ -72,6 +74,8 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 | CPU temperature on, without the sensor service | The cell shows "—" and the popup says the sensor service is not installed |
 | Hover CPU and CPU temperature with the sensor service running | CPU lists temperature, power, hottest core and thermal throttling; CPU temperature adds a bar per physical core (Intel) |
 | Hover GPU with the sensor service running, on an NVIDIA RTX card | *Hot spot* (RTX 50) and *Memory temperature* (cards with memory sensors) appear and roughly match HWiNFO; other cards show neither row |
+| *GPU power* on an NVIDIA GPU, idle and then under a game; on a laptop, unplug anything using the NVIDIA GPU and wait | Watts close to `nvidia-smi --query-gpu=power.draw --format=csv` and HWiNFO's *GPU Power*; on the laptop it drops to 0 W, and Device Manager shows the GPU in D3 while Pulsar keeps running |
+| *GPU power* on a machine without an NVIDIA GPU | The cell shows "—" and the popup says it needs an NVIDIA GPU |
 | CPU temperature on, with the sensor service and PawnIO | A plausible temperature that rises under load; *CPU power* shows watts that rise with it; stopping the *Pulsar Sensors* service turns it to "—" within a few seconds |
 
 ## Installer
