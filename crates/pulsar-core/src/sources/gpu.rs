@@ -84,7 +84,7 @@ impl GpuSource {
             self.listed_at = Some(Instant::now());
         }
         let memory_use = memory_use(&self.memory, &dedicated, &shared);
-        if let Some(&(percent, used)) = memory_use.values().max_by(|a, b| a.0.total_cmp(&b.0)) {
+        if let Some((percent, used)) = fullest(&memory_use) {
             out.set(MetricKey::GpuMemoryPercent, percent);
             out.set(MetricKey::GpuMemoryUsedBytes, used);
         }
@@ -136,6 +136,15 @@ fn memory_use(
             Some((luid, (percent, memory.counted(dedicated, shared).0)))
         })
         .collect()
+}
+
+/// The fullest adapter's reading: the same adapter each time when several
+/// tie, so the amount shown does not jump between them.
+fn fullest(memory_use: &HashMap<u64, (f64, f64)>) -> Option<(f64, f64)> {
+    memory_use
+        .iter()
+        .max_by(|a, b| a.1.0.total_cmp(&b.1.0).then(a.0.cmp(b.0)))
+        .map(|(_, &usage)| usage)
 }
 
 #[derive(Debug, Default, PartialEq)]
@@ -258,6 +267,15 @@ pub(crate) mod tests {
         let dedicated = HashMap::from([(1, (2u64 << 30) as f64), (3, 1.0)]);
         let usage = memory_use(&memory, &dedicated, &HashMap::new());
         assert_eq!(usage, HashMap::from([(1, (25.0, (2u64 << 30) as f64))]));
+    }
+
+    #[test]
+    fn equally_full_adapters_always_give_the_same_reading() {
+        for _ in 0..64 {
+            let usage = HashMap::from([(1, (50.0, 2.0)), (2, (50.0, 8.0)), (3, (10.0, 9.0))]);
+            assert_eq!(fullest(&usage), Some((50.0, 8.0)));
+        }
+        assert_eq!(fullest(&HashMap::new()), None);
     }
 
     #[test]
