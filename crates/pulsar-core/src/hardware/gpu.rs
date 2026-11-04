@@ -32,13 +32,13 @@ pub struct GpuInfo {
     pub dedicated_bytes: u64,
     pub shared_bytes: u64,
     pub driver: Option<String>,
-    pub unified_memory: Option<bool>,
+    pub reported_integrated: Option<bool>,
 }
 
 impl GpuInfo {
     /// Integrated parts carve their memory from system RAM.
     pub fn integrated(&self) -> bool {
-        self.unified_memory
+        self.reported_integrated
             .unwrap_or(self.dedicated_bytes < INTEGRATED_BELOW_BYTES)
     }
 }
@@ -70,6 +70,8 @@ impl AdapterMemory {
     }
 }
 
+/// Only where DXCore is missing: creating the device loads the driver and
+/// wakes a sleeping discrete GPU.
 fn unified_memory(adapter: &IDXGIAdapter1) -> Option<bool> {
     let mut device: Option<ID3D12Device> = None;
     unsafe { D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, &mut device) }.ok()?;
@@ -217,6 +219,7 @@ pub fn names() -> Vec<String> {
 
 /// The discrete card comes first: it is the one the sensors describe.
 pub fn read() -> Vec<GpuInfo> {
+    let factory = unsafe { DXCoreCreateAdapterFactory::<IDXCoreAdapterFactory>() }.ok();
     let adapters = enumerate();
     let mut names: Vec<String> = adapters.iter().map(|(_, _, n)| n.clone()).collect();
     number_duplicates(&mut names);
@@ -234,7 +237,14 @@ pub fn read() -> Vec<GpuInfo> {
             driver: unsafe { adapter.CheckInterfaceSupport(&IDXGIDevice::IID) }
                 .ok()
                 .map(|v| driver_version(v, desc.VendorId)),
-            unified_memory: unified_memory(&adapter),
+            reported_integrated: reports_integrated(factory.as_ref(), desc.AdapterLuid).or_else(
+                || {
+                    factory
+                        .is_none()
+                        .then(|| unified_memory(&adapter))
+                        .flatten()
+                },
+            ),
         })
         .collect()
 }
@@ -283,9 +293,9 @@ mod tests {
     fn probe() {
         for g in read() {
             println!(
-                "{} uma={:?} integrated={}",
+                "{} reported={:?} integrated={}",
                 g.name,
-                g.unified_memory,
+                g.reported_integrated,
                 g.integrated()
             );
         }
