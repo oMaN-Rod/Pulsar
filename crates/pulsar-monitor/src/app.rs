@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use pulsar_core::alerts::Alerts;
 use pulsar_core::config::{self, Config, NetworkShow, NoRoom, Position};
-use pulsar_core::display::{NetworkFloor, floored_cell_value};
+use pulsar_core::display::{NetworkFloor, floored_cell_value, floored_value, metric_for};
 use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::hardware::displays;
 use pulsar_core::history::HistoryStore;
@@ -674,8 +674,10 @@ impl App {
                     format!("{label} {}", value(reading))
                 })
                 .collect();
+            // The icon fits three characters, too few for an amount and its unit.
+            let icon = floored_value(first.0, metric_for(first.0, first.1), &self.latest, floor);
             Some(Metric {
-                text: icon_text(&value(first)),
+                text: icon_text(&icon),
                 tip: tip.join("\n"),
                 light_taskbar: self.palette.light(),
             })
@@ -2037,10 +2039,6 @@ impl App {
         }
         if new.units != self.config.units {
             pulsar_core::format::set_units(new.units);
-            // Memory in bytes is wider than as a percentage.
-            self.overlays
-                .iter_mut()
-                .for_each(Overlay::invalidate_layout);
         }
         if new.popup.background != self.config.popup.background {
             self.close_popup();

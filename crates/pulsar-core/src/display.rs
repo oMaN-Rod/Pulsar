@@ -66,7 +66,15 @@ pub fn floored_cell_value(
     snapshot: &Snapshot,
     floor: NetworkFloor,
 ) -> String {
-    let key = value_metric(kind, part);
+    floored_value(kind, value_metric(kind, part), snapshot, floor)
+}
+
+pub fn floored_value(
+    kind: ItemKind,
+    key: MetricKey,
+    snapshot: &Snapshot,
+    floor: NetworkFloor,
+) -> String {
     match snapshot.get(key) {
         Some(v) if snapshot.item_error(kind).is_none() => {
             format_value(floor.value(key, v), key.unit())
