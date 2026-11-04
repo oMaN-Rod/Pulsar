@@ -67,6 +67,10 @@ impl GpuTracker {
     }
 }
 
+/// How long the processes source outlives the popup that wanted it: building
+/// it costs about 200 ms of CPU and several MB, and popups are reopened.
+const PROCESSES_LINGER: Duration = Duration::from_secs(30);
+
 /// Runs every source once per tick. A failing source is reported in
 /// `Snapshot::errors` and never prevents the others from sampling.
 pub struct Sampler {
@@ -75,6 +79,8 @@ pub struct Sampler {
     processes_factory: Option<ProcessesFactory>,
     want_processes: Arc<AtomicBool>,
     processes_primed: bool,
+    processes_unwanted_at: Option<Instant>,
+    processes_linger: Duration,
     extras: Option<Vec<Box<dyn Source>>>,
     extras_factory: Option<ExtrasFactory>,
     want_extras: Arc<AtomicBool>,
@@ -89,6 +95,8 @@ impl Sampler {
             processes_factory: None,
             want_processes: Arc::new(AtomicBool::new(false)),
             processes_primed: false,
+            processes_unwanted_at: None,
+            processes_linger: PROCESSES_LINGER,
             extras: None,
             extras_factory: None,
             want_extras: Arc::new(AtomicBool::new(false)),
@@ -278,8 +286,14 @@ impl Sampler {
         {
             self.processes = Some(factory());
         }
-        if !wanted && self.processes_factory.is_some() {
-            self.processes = None;
+        if wanted {
+            self.processes_unwanted_at = None;
+        } else if self.processes_factory.is_some() && self.processes.is_some() {
+            let since = *self.processes_unwanted_at.get_or_insert_with(Instant::now);
+            if since.elapsed() >= self.processes_linger {
+                self.processes = None;
+                self.processes_unwanted_at = None;
+            }
         }
         if let (true, Some(processes)) = (wanted, self.processes.as_mut()) {
             if self.processes_primed {
@@ -627,10 +641,22 @@ mod tests {
         sampler.sample();
         flag.store(false, Ordering::Relaxed);
         sampler.sample();
+        flag.store(true, Ordering::Relaxed);
+        sampler.sample();
+        assert_eq!(
+            created.load(Ordering::SeqCst),
+            1,
+            "kept for a popup reopened soon"
+        );
+        assert_eq!(dropped.load(Ordering::SeqCst), 0);
+
+        sampler.processes_linger = Duration::ZERO;
+        flag.store(false, Ordering::Relaxed);
+        sampler.sample();
         assert_eq!(
             dropped.load(Ordering::SeqCst),
             1,
-            "released after the popup closes"
+            "released once no popup has wanted it for a while"
         );
 
         flag.store(true, Ordering::Relaxed);
