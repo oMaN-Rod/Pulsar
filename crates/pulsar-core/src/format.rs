@@ -282,8 +282,8 @@ mod tests {
             Unit::Volts,
             Unit::FramesPerSec,
         ];
-        // Just below where a reading drops a decimal or gains a digit.
-        let edges = [9.96, 9.9996, 99.96, 999.6, 9999.6];
+        // Zero, and just below where a reading drops a decimal or gains a digit.
+        let edges = [0.0, 9.96, 9.9996, 99.96, 999.6, 9999.6];
         let mut v: f64 = 0.0;
         for v in std::iter::from_fn(|| {
             v = v * 1.07 + 1.0;
