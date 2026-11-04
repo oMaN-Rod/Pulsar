@@ -24,10 +24,7 @@ pub use gpu::{GpuSource, GpuUsage, aggregate_engines, parse_engine_instance};
 pub use gpu_power::{CardPower, GpuPowerSource, total_watts};
 pub use gpu_sensors::{GpuSensorsSource, SensorReading, pick_reading};
 pub use memory::MemorySource;
-pub use network::{
-    NetworkSource, hardware_adapters, merge_adapters, pdh_instance_name, select_adapters,
-    select_hardware,
-};
+pub use network::{NetworkSource, hardware_adapters, pdh_instance_name};
 pub use ping::{PingSource, loss_percent};
 pub use processes::{ProcessSort, ProcessesSource, group_processes, top_by};
 pub use sensor_service::SensorServiceSource;
