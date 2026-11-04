@@ -1347,6 +1347,7 @@ impl App {
         let unseen = PRESENCE.get().hidden();
         if unseen != self.unseen {
             self.unseen = unseen;
+            self.watchdog.pause(unseen);
             if unseen {
                 unsafe {
                     let _ = KillTimer(Some(self.host), TIMER_WATCH);

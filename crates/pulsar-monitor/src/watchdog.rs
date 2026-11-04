@@ -6,7 +6,7 @@
 use std::process::Command;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::thread;
+use std::thread::{self, Thread};
 use std::time::Duration;
 
 use pulsar_core::single_instance::SingleInstance;
@@ -27,14 +27,26 @@ const RESTART_TRIES: u32 = 50;
 #[derive(Default)]
 struct Shared {
     armed: AtomicBool,
+    /// While nobody can see the overlay; a change of parent is still watched.
+    paused: AtomicBool,
     /// Odd while a change of parent is under way.
     attaches: AtomicU64,
+}
+
+impl Shared {
+    fn checks_replies(&self) -> bool {
+        self.armed.load(Ordering::Relaxed) && !self.paused.load(Ordering::Relaxed)
+    }
+
+    fn watching(&self) -> bool {
+        self.checks_replies() || self.attaches.load(Ordering::Relaxed) % 2 == 1
+    }
 }
 
 pub struct Watchdog {
     host: isize,
     shared: Arc<Shared>,
-    started: bool,
+    thread: Option<Thread>,
 }
 
 impl Watchdog {
@@ -42,18 +54,33 @@ impl Watchdog {
         Self {
             host: host.0 as isize,
             shared: Arc::default(),
-            started: false,
+            thread: None,
         }
     }
 
     pub fn arm(&mut self, armed: bool) {
         self.shared.armed.store(armed, Ordering::Relaxed);
-        if armed && !self.started {
+        if armed && self.thread.is_none() {
             let (host, shared) = (self.host, self.shared.clone());
-            self.started = thread::Builder::new()
+            self.thread = thread::Builder::new()
                 .name("pulsar-watchdog".into())
                 .spawn(move || watch(host, &shared))
-                .is_ok();
+                .ok()
+                .map(|handle| handle.thread().clone());
+        }
+        self.wake();
+    }
+
+    /// While the display is off or the session locked, the thread sleeps
+    /// instead of checking on the UI every two seconds.
+    pub fn pause(&self, paused: bool) {
+        self.shared.paused.store(paused, Ordering::Relaxed);
+        self.wake();
+    }
+
+    fn wake(&self) {
+        if let Some(thread) = &self.thread {
+            thread.unpark();
         }
     }
 
@@ -61,6 +88,7 @@ impl Watchdog {
     /// that wait, so it is timed separately.
     pub fn attaching<T>(&self, change: impl FnOnce() -> T) -> T {
         self.shared.attaches.fetch_add(1, Ordering::Relaxed);
+        self.wake();
         let result = change();
         self.shared.attaches.fetch_add(1, Ordering::Relaxed);
         result
@@ -90,12 +118,17 @@ impl Health {
 fn watch(host: isize, shared: &Shared) {
     let mut health = Health::default();
     loop {
+        if !shared.watching() {
+            health = Health::default();
+            thread::park();
+            continue;
+        }
         thread::sleep(POLL);
         if unsafe { IsDebuggerPresent() }.as_bool() {
             health = Health::default();
             continue;
         }
-        let answered = !shared.armed.load(Ordering::Relaxed) || answers(host);
+        let answered = !shared.checks_replies() || answers(host);
         if health.must_restart(answered, shared.attaches.load(Ordering::Relaxed)) {
             restart();
         }
@@ -163,6 +196,20 @@ mod tests {
             assert!(!health.must_restart(true, 1));
         }
         assert!(health.must_restart(true, 1));
+    }
+
+    #[test]
+    fn it_sleeps_while_disarmed_or_unseen_but_watches_a_change_of_parent() {
+        let shared = Shared::default();
+        assert!(!shared.watching());
+        shared.armed.store(true, Ordering::Relaxed);
+        assert!(shared.watching());
+        shared.paused.store(true, Ordering::Relaxed);
+        assert!(!shared.watching());
+        shared.attaches.store(1, Ordering::Relaxed);
+        assert!(shared.watching() && !shared.checks_replies());
+        shared.attaches.store(2, Ordering::Relaxed);
+        assert!(!shared.watching());
     }
 
     #[test]
