@@ -3,9 +3,12 @@
 //! card's limit, and other vendors offer watts only through their SDKs.
 //!
 //! A laptop's NVIDIA GPU sleeps while nothing uses it, and asking the library
-//! anything can wake it. So a card that Windows reports powered down counts
-//! as drawing nothing, and the library stays unloaded while every card sleeps.
+//! about a card wakes it. So a card that Windows reports powered down counts
+//! as drawing nothing and is never asked, and a card's handle is only fetched
+//! while it is awake. Shutting the library down wakes the card too, so it is
+//! only unloaded once every card has slept for a while.
 
+use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
 use std::time::{Duration, Instant};
 
@@ -26,8 +29,10 @@ const NVIDIA: u16 = 0x10DE;
 const RELIST: Duration = Duration::from_secs(30);
 /// How soon to load the library again after it failed.
 const RELOAD: Duration = Duration::from_secs(30);
+const UNLOAD_AFTER: Duration = Duration::from_secs(120);
 const NVML_SUCCESS: i32 = 0;
 const NVML_ERROR_NOT_SUPPORTED: i32 = 3;
+const NVML_ERROR_NOT_FOUND: i32 = 6;
 /// `DEVICE_POWER_STATE`: D3 and below are powered down.
 const POWER_DEVICE_D3: u32 = 4;
 
@@ -74,7 +79,8 @@ fn list_cards() -> Vec<Card> {
         .collect()
 }
 
-fn asleep(node: u32) -> bool {
+/// `None` when Windows cannot say, as for a device node gone stale.
+fn asleep(node: u32) -> Option<bool> {
     // `CM_POWER_DATA`: its size, then the most recent device power state.
     let mut data = [0u32; 14];
     let mut len = size_of_val(&data) as u32;
@@ -88,30 +94,17 @@ fn asleep(node: u32) -> bool {
             0,
         )
     };
-    read == CR_SUCCESS && data[1] >= POWER_DEVICE_D3
+    (read == CR_SUCCESS).then_some(data[1] >= POWER_DEVICE_D3)
 }
 
 type Device = *mut c_void;
 
-/// `nvmlPciInfo_t`.
-#[repr(C)]
-struct PciInfo {
-    bus_id_legacy: [u8; 16],
-    domain: u32,
-    bus: u32,
-    device: u32,
-    pci_device_id: u32,
-    pci_subsystem_id: u32,
-    bus_id: [u8; 32],
-}
-
-/// The library, loaded and started, with a handle per card.
 struct Nvml {
     module: HMODULE,
     shutdown: unsafe extern "C" fn() -> i32,
+    by_bus_id: unsafe extern "C" fn(PCSTR, *mut Device) -> i32,
     power_usage: unsafe extern "C" fn(Device, *mut u32) -> i32,
-    /// Each card's handle, with its bus and device numbers.
-    devices: Vec<(Device, u32, u32)>,
+    handles: HashMap<(u32, u32), Device>,
 }
 
 // The library's handles may be used from any thread.
@@ -134,59 +127,65 @@ impl Nvml {
     unsafe fn start(module: HMODULE) -> Option<Self> {
         let find = |name: PCSTR| unsafe { GetProcAddress(module, name) };
         type Init = unsafe extern "C" fn() -> i32;
-        type Count = unsafe extern "C" fn(*mut u32) -> i32;
-        type ByIndex = unsafe extern "C" fn(u32, *mut Device) -> i32;
-        type Pci = unsafe extern "C" fn(Device, *mut PciInfo) -> i32;
+        type ByBusId = unsafe extern "C" fn(PCSTR, *mut Device) -> i32;
         type Power = unsafe extern "C" fn(Device, *mut u32) -> i32;
         unsafe {
             let init: Init = std::mem::transmute(find(s!("nvmlInit_v2"))?);
             let shutdown: Init = std::mem::transmute(find(s!("nvmlShutdown"))?);
-            let count: Count = std::mem::transmute(find(s!("nvmlDeviceGetCount_v2"))?);
-            let by_index: ByIndex = std::mem::transmute(find(s!("nvmlDeviceGetHandleByIndex_v2"))?);
-            let pci: Pci = std::mem::transmute(find(s!("nvmlDeviceGetPciInfo_v3"))?);
+            let by_bus_id: ByBusId =
+                std::mem::transmute(find(s!("nvmlDeviceGetHandleByPciBusId_v2"))?);
             let power_usage: Power = std::mem::transmute(find(s!("nvmlDeviceGetPowerUsage"))?);
             if init() != NVML_SUCCESS {
                 return None;
             }
-            let mut n = 0;
-            if count(&mut n) != NVML_SUCCESS {
-                shutdown();
-                return None;
-            }
-            let devices = (0..n)
-                .filter_map(|i| {
-                    let mut device: Device = std::ptr::null_mut();
-                    let mut info: PciInfo = std::mem::zeroed();
-                    (by_index(i, &mut device) == NVML_SUCCESS
-                        && pci(device, &mut info) == NVML_SUCCESS)
-                        .then_some((device, info.bus, info.device))
-                })
-                .collect();
             Some(Self {
                 module,
                 shutdown,
+                by_bus_id,
                 power_usage,
-                devices,
+                handles: HashMap::new(),
             })
         }
     }
 
-    /// `None` when the library failed, rather than the card lacking a sensor.
-    fn watts(&self, bus: u32, device: u32) -> Option<CardPower> {
-        let Some(&(handle, ..)) = self
-            .devices
-            .iter()
-            .find(|&&(_, b, d)| (b, d) == (bus, device))
-        else {
-            return Some(CardPower::Unknown);
+    /// Fetching a handle starts that card, so only an awake card's is asked
+    /// for; enumerating by index would start every card.
+    fn handle(&mut self, card: Card) -> Result<Device, i32> {
+        if let Some(&handle) = self.handles.get(&(card.bus, card.device)) {
+            return Ok(handle);
+        }
+        let id = format!("00000000:{:02X}:{:02X}.0\0", card.bus, card.device);
+        let mut handle: Device = std::ptr::null_mut();
+        match unsafe { (self.by_bus_id)(PCSTR(id.as_ptr()), &mut handle) } {
+            NVML_SUCCESS => {
+                self.handles.insert((card.bus, card.device), handle);
+                Ok(handle)
+            }
+            e => Err(e),
+        }
+    }
+
+    /// `None` when the library failed, rather than the card.
+    fn watts(&mut self, card: Card) -> Option<Read> {
+        let handle = match self.handle(card) {
+            Ok(handle) => handle,
+            Err(NVML_ERROR_NOT_FOUND) => return Some(Read::NotFound),
+            Err(_) => return None,
         };
         let mut milliwatts = 0;
         match unsafe { (self.power_usage)(handle, &mut milliwatts) } {
-            NVML_SUCCESS => Some(CardPower::Watts(f64::from(milliwatts) / 1000.0)),
-            NVML_ERROR_NOT_SUPPORTED => Some(CardPower::Unknown),
+            NVML_SUCCESS => Some(Read::Watts(f64::from(milliwatts) / 1000.0)),
+            NVML_ERROR_NOT_SUPPORTED => Some(Read::NoSensor),
             _ => None,
         }
     }
+}
+
+enum Read {
+    Watts(f64),
+    /// The card has no power sensor, which stays true while it sleeps.
+    NoSensor,
+    NotFound,
 }
 
 impl Drop for Nvml {
@@ -204,16 +203,19 @@ pub struct GpuPowerSource {
     listed: Option<Instant>,
     nvml: Option<Nvml>,
     failed: Option<Instant>,
+    /// Since when every card has slept.
+    all_asleep: Option<Instant>,
+    no_sensor: HashSet<(u32, u32)>,
 }
 
 impl GpuPowerSource {
-    fn nvml(&mut self, now: Instant) -> Option<&Nvml> {
+    fn nvml(&mut self, now: Instant) -> Option<&mut Nvml> {
         let wait_over = self.failed.is_none_or(|t| now.duration_since(t) >= RELOAD);
         if self.nvml.is_none() && wait_over {
             self.nvml = Nvml::load();
             self.failed = self.nvml.is_none().then_some(now);
         }
-        self.nvml.as_ref()
+        self.nvml.as_mut()
     }
 }
 
@@ -234,28 +236,47 @@ impl Source for GpuPowerSource {
                 crate::tr!("GPU power needs an NVIDIA GPU").into(),
             ));
         }
-        let awake: Vec<Card> = self
-            .cards
-            .iter()
-            .copied()
-            .filter(|c| !asleep(c.node))
-            .collect();
-        if awake.is_empty() {
-            // Unloading lets the driver forget that anything is watching.
-            self.nvml = None;
+        let mut readings = Vec::with_capacity(self.cards.len());
+        let mut awake = Vec::new();
+        for card in self.cards.clone() {
+            match asleep(card.node) {
+                _ if self.no_sensor.contains(&(card.bus, card.device)) => {
+                    readings.push(CardPower::Unknown);
+                }
+                Some(true) => readings.push(CardPower::Asleep),
+                Some(false) => awake.push(card),
+                None => {
+                    // Not asked, as it may be asleep; its node may be stale.
+                    self.listed = None;
+                    readings.push(CardPower::Unknown);
+                }
+            }
         }
-        let mut readings = vec![CardPower::Asleep; self.cards.len() - awake.len()];
-        if !awake.is_empty() {
+        if awake.is_empty() {
+            let since = *self.all_asleep.get_or_insert(now);
+            if now.duration_since(since) >= UNLOAD_AFTER {
+                self.nvml = None;
+            }
+        } else {
+            self.all_asleep = None;
             let nvml = self.nvml(now).ok_or_else(unavailable)?;
-            let read: Option<Vec<CardPower>> =
-                awake.iter().map(|c| nvml.watts(c.bus, c.device)).collect();
+            let read: Option<Vec<Read>> = awake.iter().map(|&c| nvml.watts(c)).collect();
             let Some(read) = read else {
                 // A driver update or a reset leaves the handles stale.
                 self.nvml = None;
                 self.failed = Some(now);
                 return Err(unavailable());
             };
-            readings.extend(read);
+            for (card, read) in awake.iter().zip(read) {
+                readings.push(match read {
+                    Read::Watts(w) => CardPower::Watts(w),
+                    Read::NoSensor => {
+                        self.no_sensor.insert((card.bus, card.device));
+                        CardPower::Unknown
+                    }
+                    Read::NotFound => CardPower::Unknown,
+                });
+            }
         }
         let watts = total_watts(&readings).ok_or_else(|| {
             SourceError::Unavailable(crate::tr!("This GPU does not report its power").into())
