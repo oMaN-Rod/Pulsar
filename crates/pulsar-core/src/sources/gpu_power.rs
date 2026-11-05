@@ -190,6 +190,9 @@ pub struct GpuPowerSource {
     restart: bool,
     failed: Option<Instant>,
     no_sensor: HashSet<(u32, u32)>,
+    /// Cards the library did not find, each restarting it once: it may have
+    /// started before they appeared, even under another source.
+    not_found: HashSet<(u32, u32)>,
 }
 
 impl GpuPowerSource {
@@ -216,6 +219,7 @@ impl Source for GpuPowerSource {
             if cards != self.cards {
                 // Another card may now sit at a sensorless card's address.
                 self.no_sensor.clear();
+                self.not_found.clear();
             }
             if self.listed.is_some() && added_card(&self.cards, &cards) {
                 // The library finds the cards once, when it starts.
@@ -275,7 +279,12 @@ impl Source for GpuPowerSource {
                         self.no_sensor.insert((card.bus, card.device));
                         CardPower::Unknown
                     }
-                    Read::NotFound => CardPower::Unknown,
+                    Read::NotFound => {
+                        if self.not_found.insert((card.bus, card.device)) {
+                            self.restart = true;
+                        }
+                        CardPower::Unknown
+                    }
                 });
             }
         }
