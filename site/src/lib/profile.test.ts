@@ -34,6 +34,7 @@ function custom(): Profile {
   p.fit = { enabled: false, removeFrom: 'left', noRoom: 'tray', otherSide: false };
   p.load.thresholds.celsius = [60, 75, 95];
   p.load.colors.high = '#ABCDEF';
+  p.disk.value = 'used';
   p.popupDetail = 'detailed';
   p.popup = { width: 360, graphHeight: 90, processes: 3, background: 'solid', graph: false };
   p.widget = {
@@ -113,6 +114,8 @@ describe('profile files', () => {
         '[ping]',
         'host = "9.9.9.9"',
         'interval_ms = 2000',
+        '[disk]',
+        'drives = ["C", "D"]',
         '[network]',
         'show = "both"',
         'adapters = ["Ethernet"]',
@@ -135,6 +138,7 @@ describe('profile files', () => {
     expect(display.position).toBe('floating');
     expect(display.mode).toBe('text');
     expect(out.ping).toEqual({ host: '9.9.9.9', interval_ms: 2000 });
+    expect(out.disk).toEqual({ drives: ['C', 'D'] });
     expect((out.network as Record<string, unknown>).adapters).toEqual(['Ethernet']);
     const items = out.items as Record<string, unknown>[];
     const cpu = items.find((t) => t.kind === 'cpu');
@@ -156,6 +160,24 @@ describe('profile files', () => {
     >[];
     expect(items.map((t) => t.kind)).toEqual(['cpu', 'ram']);
     expect(items[1]).toMatchObject({ kind: 'ram', enabled: true, graph: true });
+  });
+
+  it('keeps the rest of a table the site stops writing', () => {
+    const doc = parseToml(
+      [
+        '[disk]',
+        'value = "used"',
+        'drives = ["C"]',
+        '[display.load_colors]',
+        'high = "#ABCDEF"',
+      ].join('\n'),
+    );
+    const { profile } = profileFromToml(doc, 'x');
+    profile.disk.value = 'activity';
+    profile.load.colors.high = null;
+    const out = parseToml(profileToToml(profile, 'windows', false));
+    expect(out.disk).toEqual({ drives: ['C'] });
+    expect((out.display as Record<string, unknown>).load_colors).toBeUndefined();
   });
 
   it('adds no items to an imported file without any', () => {
@@ -223,6 +245,7 @@ describe('mergeProfile', () => {
     saved.font.family = 'Evil"; } body { x';
     saved.load.colors.low = 'red';
     saved.position = 'top';
+    saved.disk = { value: 'free' };
     saved.network = {
       show: 'sideways',
       splitTiles: 'yes',
@@ -249,6 +272,7 @@ describe('mergeProfile', () => {
     expect(p.load.colors.low).toBeNull();
     expect(p.load.colors.high).toBe('#ABCDEF');
     expect(p.position).toBe('right');
+    expect(p.disk.value).toBe('activity');
     expect(p.items.ram).toMatchObject({
       color: null,
       label: 'Memoryall of',

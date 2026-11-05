@@ -20,6 +20,7 @@
   import CheckField from '../fields/CheckField.svelte';
   import ChoiceField from '../fields/ChoiceField.svelte';
   import OwnColorField from '../fields/OwnColorField.svelte';
+  import SegField from '../fields/SegField.svelte';
   import SizedField from '../fields/SizedField.svelte';
   import ItemPicker from './ItemPicker.svelte';
 
@@ -86,6 +87,18 @@
   <p class="note">On the taskbar only, up to {MAX_LABEL_CHARS} characters. Empty keeps Pulsar's.</p>
 </section>
 <section>
+  {#if app.selected === 'disk'}
+    <SegField
+      name="Each drive shows"
+      value={app.profile.disk.value}
+      options={[
+        ['activity', 'Activity'],
+        ['used', 'Space used'],
+      ]}
+      onchange={(v) => (app.profile.disk.value = v)}
+    />
+    <p class="note">For drives with cells of their own, chosen in Pulsar's settings.</p>
+  {/if}
   <CheckField name="Show a graph" bind:checked={item.graph} />
   <ChoiceField
     name="Graph style"

@@ -176,6 +176,7 @@ export interface Profile {
     minDownBps: number;
     minUpBps: number;
   };
+  disk: { value: 'activity' | 'used' };
   load: {
     thresholds: Record<LoadUnit, number[]>;
     colors: Record<LoadLevel, string | null>;
@@ -213,6 +214,7 @@ export const fontName = (s: unknown) =>
   typeof s === 'string' ? s.replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 64) : '';
 
 const POSITIONS = ['left', 'right', 'floating'] as const;
+const DISK_VALUES = ['activity', 'used'] as const;
 
 export const MAX_LABEL_CHARS = 12;
 
@@ -304,6 +306,7 @@ export function defaultProfile(): Profile {
       minDownBps: 0,
       minUpBps: 0,
     },
+    disk: { value: 'activity' },
     load: {
       thresholds: { percent: [50, 75, 90], celsius: [70, 80, 90], millis: [50, 100, 200] },
       colors: { low: null, moderate: null, high: null, critical: null },
@@ -371,6 +374,7 @@ export function mergeProfile(input: unknown): Profile {
         ]),
       ) as Profile['load']['colors'],
     },
+    disk: { value: pick(saved.disk?.value, DISK_VALUES, base.disk.value) },
     popup: { ...base.popup, ...saved.popup },
     widget: { ...widget, background: hexOrNull(widget.background) },
     fit: { ...base.fit, ...saved.fit },
@@ -466,6 +470,7 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
   if (n.popupShow !== 'both') kv('popup_show', n.popupShow);
   if (n.minDownBps) kv('min_down_bps', n.minDownBps);
   if (n.minUpBps) kv('min_up_bps', n.minUpBps);
+  if (p.disk.value !== 'activity') lines.push('', '[disk]', `value = ${q(p.disk.value)}`);
   lines.push('', '[popup]');
   kv('detail', p.popupDetail);
   kv('background', p.popup.background);
@@ -575,6 +580,7 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
   p.network.popupShow = pick(n.popup_show, NETWORK_SHOWS, p.network.popupShow);
   p.network.minDownBps = sized(n.min_down_bps, 0, MAX_BPS) ?? 0;
   p.network.minUpBps = sized(n.min_up_bps, 0, MAX_BPS) ?? 0;
+  p.disk.value = pick(table(doc.disk).value, DISK_VALUES, p.disk.value);
   const pop = table(doc.popup);
   p.popupDetail = pick(pop.detail, ids(DETAILS), p.popupDetail);
   p.popup.background = pick(pop.background, ['translucent', 'solid'], p.popup.background);
@@ -645,8 +651,14 @@ function applyChanges(doc: TomlTable, before: TomlTable, after: TomlTable): Toml
         a,
       );
       if (items.length || doc.items !== undefined) out.items = items;
-    } else if (isTable(a)) {
-      out[k] = applyChanges(isTable(doc[k]) ? doc[k] : {}, isTable(b) ? b : {}, a);
+    } else if (isTable(a) || (a === undefined && isTable(b))) {
+      const merged = applyChanges(
+        isTable(doc[k]) ? doc[k] : {},
+        isTable(b) ? b : {},
+        isTable(a) ? a : {},
+      );
+      if (isTable(a) || Object.keys(merged).length) out[k] = merged;
+      else delete out[k];
     } else if (same(a, b)) {
       continue;
     } else if (a === undefined) {
