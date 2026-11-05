@@ -1499,6 +1499,9 @@ select:disabled {
   gap: 6px;
   font-size: 13px;
 }
+.thresholds.floors {
+  grid-template-columns: minmax(0, 1fr) 72px 72px 34px;
+}
 .thresholds .text-input {
   min-height: 34px;
   padding: 0 8px;
@@ -2758,4 +2761,12 @@ body.day .dialog::backdrop {
     transition: none !important;
     animation: none !important;
   }
+}
+.conn-dot {
+  display: inline-block;
+  width: 0.45em;
+  height: 0.45em;
+  margin-right: 0.3em;
+  border-radius: 50%;
+  vertical-align: 0.1em;
 }

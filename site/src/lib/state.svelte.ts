@@ -2,7 +2,7 @@ import type { Catalog, CatalogEntry } from './community.ts';
 import type { OrbitSettings } from './generate.ts';
 import { extractPalette, loadImage } from './palette.ts';
 import { defaultProfile, mergeProfile, type Profile } from './profile.ts';
-import { createSim, setUnits, type Sim } from './sim.ts';
+import { createSim, floored, setUnits, type Sim } from './sim.ts';
 import {
   cloneTheme,
   isItemKey,
@@ -110,6 +110,12 @@ export function readings(): Sim {
   void app.tick;
   setUnits({ ...app.profile.units });
   return sim;
+}
+
+export function drawn(): Sim {
+  const s = readings();
+  const n = app.profile.network;
+  return floored(s, n.minDownBps, n.minUpBps);
 }
 
 export function step() {

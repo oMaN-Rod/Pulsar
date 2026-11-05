@@ -432,3 +432,31 @@ export function graph(values: number[], w: number, h: number, top = 0.4) {
   );
   return { line: pts.join(' '), area: `M0,${h} L${pts.join(' L')} L${w},${h} Z` };
 }
+
+/** `sim` as the taskbar and widget draw it, with rates under the floors at 0. */
+export function floored(sim: Sim, minDown: number, minUp: number): Sim {
+  if (!minDown && !minUp) return sim;
+  const max = SPECS.network.max;
+  const cut = (list: number[], min: number) => list.map((v) => (v * max < min ? 0 : v));
+  const downLow = () => sim.raw('network') < minDown;
+  const upLow = () => (sim.upHistory().at(-1) ?? 0) * max < minUp;
+  const history = (k: ItemKey) => (k === 'network' ? cut(sim.history(k), minDown) : sim.history(k));
+  return {
+    ...sim,
+    history,
+    rawHistory: (k) =>
+      k === 'network' ? sim.rawHistory(k).map((v) => (v < minDown ? 0 : v)) : sim.rawHistory(k),
+    upHistory: () => cut(sim.upHistory(), minUp),
+    raw: (k) => (k === 'network' && downLow() ? 0 : sim.raw(k)),
+    level(k) {
+      if (k !== 'network') return sim.level(k);
+      const h = history(k);
+      return { now: h.at(-1) ?? 0, low: Math.min(...h), high: Math.max(...h) };
+    },
+    text: (k) => (k === 'network' && downLow() ? rate(0) : sim.text(k)),
+    net() {
+      const t = sim.net();
+      return { down: downLow() ? rate(0) : t.down, up: upLow() ? rate(0) : t.up };
+    },
+  };
+}

@@ -20,7 +20,17 @@ function custom(): Profile {
   p.position = 'left';
   p.font = { family: 'Cascadia Code', size: 10.5, bold: true };
   p.units = { temperature: 'fahrenheit', network: 'bits', memory: 'bytes' };
-  p.network = { show: 'download', uploadOnTop: true };
+  p.network = {
+    show: 'download',
+    uploadOnTop: true,
+    splitTiles: true,
+    connectionDot: true,
+    downLabel: 'In',
+    upLabel: 'Out',
+    popupShow: 'upload',
+    minDownBps: 10240,
+    minUpBps: 1000,
+  };
   p.fit = { enabled: false, removeFrom: 'left', noRoom: 'tray', otherSide: false };
   p.load.thresholds.celsius = [60, 75, 95];
   p.load.colors.high = '#ABCDEF';
@@ -167,6 +177,11 @@ describe('profile files', () => {
     expect(back.profile.position).toBe('floating');
   });
 
+  it('writes network settings only when they differ from Pulsar', () => {
+    const text = profileToToml(defaultProfile(), 'windows', false);
+    expect(parseToml(text).network).toEqual({ show: 'both' });
+  });
+
   it('leaves the theme out for Windows default', () => {
     const text = profileToToml(defaultProfile(), 'windows', false);
     expect(text).not.toContain('theme =');
@@ -208,6 +223,15 @@ describe('mergeProfile', () => {
     saved.font.family = 'Evil"; } body { x';
     saved.load.colors.low = 'red';
     saved.position = 'top';
+    saved.network = {
+      show: 'sideways',
+      splitTiles: 'yes',
+      downLabel: 7,
+      upLabel: ' Up ',
+      popupShow: 'download',
+      minDownBps: -5,
+      minUpBps: 2.5,
+    };
     saved.items.ram = {
       ...saved.items.ram,
       color: 'red',
@@ -233,6 +257,11 @@ describe('mergeProfile', () => {
       popupGraphHeight: null,
     });
     expect(p.items.cpu.color).toBe('#12AB34');
+    expect(p.network).toEqual({
+      ...defaultProfile().network,
+      upLabel: 'Up',
+      popupShow: 'download',
+    });
   });
 
   it('returns the defaults for nothing usable', () => {

@@ -2,7 +2,7 @@
   import { rgba } from '../color.ts';
   import type { Detail, ItemSettings, Profile, WidgetStyle } from '../profile.ts';
   import { graph, type Row, type Sim } from '../sim.ts';
-  import { readings } from '../state.svelte.ts';
+  import { drawn } from '../state.svelte.ts';
   import { META, type ItemKey, type Resolved } from '../theme.ts';
 
   let {
@@ -47,7 +47,7 @@
   }
 
   const model = $derived.by(() => {
-    const sim = readings();
+    const sim = drawn();
     const groups: { style: WidgetStyle; cards: Card[] }[] = [];
     for (const k of items) {
       const style = settings[k].widgetStyle ?? widget.style;

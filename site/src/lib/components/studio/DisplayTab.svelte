@@ -1,8 +1,11 @@
 <script lang="ts">
   import {
+    cleanLabel,
     fontName,
     FONTS,
     LOAD_UNITS,
+    MAX_BPS,
+    typedLabel,
     thresholdsFor,
     type LoadUnit,
     type Profile,
@@ -41,6 +44,16 @@
     list[index] = n;
     p.load.thresholds[unit] = thresholdsFor(unit, list) ?? p.load.thresholds[unit];
     input.value = String(p.load.thresholds[unit][index]);
+  }
+
+  const rateUnit = $derived(
+    p.units.network === 'bits' ? { name: 'kb/s', bytes: 125 } : { name: 'KB/s', bytes: 1024 },
+  );
+
+  function setFloor(dir: 'minDownBps' | 'minUpBps', input: HTMLInputElement) {
+    const n = Math.max(0, Math.round(Number(input.value)) || 0);
+    p.network[dir] = Math.min(MAX_BPS, n * rateUnit.bytes);
+    input.value = String(Math.round(p.network[dir] / rateUnit.bytes));
   }
 
   function setLabels(value: Profile['labels']) {
@@ -217,6 +230,59 @@
     onchange={(v) => (p.network.show = v)}
   />
   <CheckField name="Upload above download" bind:checked={p.network.uploadOnTop} />
+  <CheckField
+    name="A graph tile for each direction"
+    bind:checked={p.network.splitTiles}
+    disabled={p.mode !== 'graph' || p.network.show !== 'both'}
+  />
+  <CheckField name="A dot in the color of the connection" bind:checked={p.network.connectionDot} />
+  <p class="note">
+    Green with internet access, orange with the local network only, red with neither.
+  </p>
+  {#each [['downLabel', 'Download label', '↓'], ['upLabel', 'Upload label', '↑']] as const as [key, name, arrow] (key)}
+    <label class="field">
+      <span class="field-name">{name}</span>
+      <input
+        type="text"
+        class="text-input"
+        spellcheck="false"
+        placeholder={arrow}
+        {@attach keep(p.network[key] ?? '')}
+        oninput={(e) => (p.network[key] = typedLabel(e.currentTarget.value) || null)}
+        onchange={(e) => (p.network[key] = cleanLabel(e.currentTarget.value))}
+      />
+    </label>
+  {/each}
+  <SegField
+    name="The popup shows"
+    value={p.network.popupShow}
+    options={[
+      ['both', 'Both'],
+      ['download', 'Download'],
+      ['upload', 'Upload'],
+    ]}
+    onchange={(v) => (p.network.popupShow = v)}
+  />
+  <div class="thresholds floors">
+    <span>Show as 0 below</span>
+    {#each [['minDownBps', 'Download'], ['minUpBps', 'Upload']] as const as [key, name] (key)}
+      <label>
+        <span class="sr-only">{name} shown as 0 below</span>
+        <input
+          type="number"
+          class="text-input"
+          min="0"
+          title={name}
+          {@attach keep(Math.round(p.network[key] / rateUnit.bytes))}
+          onchange={(e) => setFloor(key, e.currentTarget)}
+        />
+      </label>
+    {/each}
+    <small>{rateUnit.name}</small>
+  </div>
+  <p class="note">
+    Download, then upload, on the taskbar and widget. Popups show the rate as measured.
+  </p>
 </section>
 <section>
   <h2 class="eyebrow">Load thresholds</h2>

@@ -47,6 +47,8 @@ export interface Run {
   text?: string;
   icon?: ItemKey;
   color?: string;
+  /** The connection dot, or room for it when it has no color. */
+  dot?: boolean;
 }
 
 export interface Shape {
@@ -146,11 +148,36 @@ function trendOf(hist: number[]) {
   return change > 0.05 ? 'up' : change < -0.05 ? 'down' : 'flat';
 }
 
-export function networkRows(sim: Sim, p: Profile, c: string, up: string): Run[][] {
+export function dotOn(p: Profile): 'down' | 'up' | null {
+  const n = p.network;
+  if (!n.connectionDot) return null;
+  return n.show === 'upload' || (n.show === 'both' && p.network.uploadOnTop) ? 'up' : 'down';
+}
+
+export const arrowText = (p: Profile, dir: 'down' | 'up') =>
+  (dir === 'down' ? cleanLabel(p.network.downLabel) : cleanLabel(p.network.upLabel)) ??
+  (dir === 'down' ? '↓' : '↑');
+
+/** The preview is always online; Pulsar turns it high, then critical, as access drops. */
+const connectionColor = (light: boolean, p: Profile) => loadColorBand(0, light, p.load);
+
+export function networkRows(
+  sim: Sim,
+  p: Profile,
+  c: string,
+  up: string,
+  light = false,
+  dot = dotOn(p),
+): Run[][] {
   const t = sim.net();
+  const row = (dir: 'down' | 'up', color: string, value: string): Run[] => [
+    ...(dot ? [{ dot: true, color: dot === dir ? connectionColor(light, p) : undefined }] : []),
+    { text: arrowText(p, dir), color },
+    { text: ` ${value}` },
+  ];
   const rows: Run[][] = [];
-  if (p.network.show !== 'upload') rows.push([{ text: '↓', color: c }, { text: ` ${t.down}` }]);
-  if (p.network.show !== 'download') rows.push([{ text: '↑', color: up }, { text: ` ${t.up}` }]);
+  if (p.network.show !== 'upload') rows.push(row('down', c, t.down));
+  if (p.network.show !== 'download') rows.push(row('up', up, t.up));
   return p.network.uploadOnTop ? rows.reverse() : rows;
 }
 
@@ -181,19 +208,33 @@ export interface TileContext {
   fixedWidth?: number;
 }
 
-export function renderTile(k: ItemKey, ctx: TileContext): Tile {
+export const splitsNetwork = (p: Profile) =>
+  p.network.splitTiles && p.mode === 'graph' && p.network.show === 'both';
+
+export function renderTiles(k: ItemKey, ctx: TileContext): Tile[] {
+  if (k !== 'network' || !splitsNetwork(ctx.p)) return [renderTile(k, ctx)];
+  const dot = dotOn(ctx.p);
+  const one = (show: 'download' | 'upload') =>
+    renderTile(k, { ...ctx, p: { ...ctx.p, network: { ...ctx.p.network, show } } }, dot);
+  const tiles = [one('download'), one('upload')];
+  return ctx.p.network.uploadOnTop ? tiles.reverse() : tiles;
+}
+
+export function renderTile(k: ItemKey, ctx: TileContext, connDot = dotOn(ctx.p)): Tile {
   const { v, sim, p, item, light } = ctx;
   const style = item.graph ? item.style : 'none';
   const family = fontCss(p.font);
   const weight = p.font.bold ? 700 : 400;
-  const c = graphColor(k, v, sim, p, item, light);
-  const up = item.colorMode === 'item' && (!p.accentGraphs || item.color) ? v.up : c;
+  const net = k === 'network';
+  const upOnly = net && p.network.show === 'upload';
+  const base = graphColor(k, v, sim, p, item, light);
+  const up = item.colorMode === 'item' && (!p.accentGraphs || item.color) ? v.up : base;
+  const c = upOnly ? up : base;
   const L = v.colorLabels ? v.items[k] : v.label;
   const T = v.text;
-  const net = k === 'network';
   const text = net ? '' : sim.text(k);
   const lvl = sim.level(k);
-  const hist = sim.history(k);
+  const hist = upOnly ? sim.upHistory() : sim.history(k);
   const narrow = !!ctx.fixedWidth;
   const H =
     narrow && (k === 'network' || UNDER.includes(style))
@@ -228,7 +269,10 @@ export function renderTile(k: ItemKey, ctx: TileContext): Tile {
       value,
       lw,
       text: net
-        ? tw('↓') + gap + value
+        ? Math.max(tw(arrowText(p, 'down')), tw(arrowText(p, 'up'))) +
+          (connDot ? Math.max(3, Math.round(size * 0.45)) + gap : 0) +
+          gap +
+          value
         : vertical
           ? value
           : inline
@@ -268,7 +312,7 @@ export function renderTile(k: ItemKey, ctx: TileContext): Tile {
 
   const stacked = (x0 = 4) => {
     if (net) {
-      const rows = networkRows(sim, p, c, up);
+      const rows = networkRows(sim, p, c, up, light, connDot);
       if (rows.length === 1 || H < 30) spans.push(span(x0, (H - px) / 2 - 2, rows[0], T));
       else spans.push(span(x0, top, rows[0], T), span(x0, bottom, rows[1], T));
     } else if (vertical) {
@@ -596,7 +640,7 @@ export function renderTile(k: ItemKey, ctx: TileContext): Tile {
     default: {
       const y = H - 13;
       if (net) {
-        const rows = networkRows(sim, p, c, up);
+        const rows = networkRows(sim, p, c, up, light, connDot);
         const series = { down: [sim.history(k), c], up: [sim.upHistory(), up] } as const;
         let order: ('down' | 'up')[] =
           p.network.show === 'both'
@@ -710,7 +754,7 @@ export function textColumns(keys: ItemKey[], ctx: Omit<TileContext, 'item'>): Te
     if (k === 'network') {
       flush();
       const c = graphColor(k, v, sim, p, p.items[k], light);
-      columns.push({ kind: 'network', rows: networkRows(sim, p, c, v.up) });
+      columns.push({ kind: 'network', rows: networkRows(sim, p, c, v.up, light) });
       continue;
     }
     pending.push(k);

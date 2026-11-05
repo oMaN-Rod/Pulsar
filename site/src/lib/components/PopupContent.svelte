@@ -1,6 +1,6 @@
 <script lang="ts">
   import { rgba } from '../color.ts';
-  import type { Detail, Profile } from '../profile.ts';
+  import type { Detail, NetworkShow, Profile } from '../profile.ts';
   import { graph, type Row } from '../sim.ts';
   import { readings } from '../state.svelte.ts';
   import { META, type ItemKey, type Resolved } from '../theme.ts';
@@ -10,7 +10,16 @@
     detail,
     v,
     settings,
-  }: { item: ItemKey; detail: Detail; v: Resolved; settings: Profile['popup'] } = $props();
+    show = 'both',
+  }: {
+    item: ItemKey;
+    detail: Detail;
+    v: Resolved;
+    settings: Profile['popup'];
+    show?: NetworkShow;
+  } = $props();
+
+  const upOnly = $derived(item === 'network' && show === 'upload');
 
   const m = $derived.by(() => {
     const sim = readings();
@@ -20,13 +29,13 @@
       gh,
       text: sim.text(item),
       net: sim.net(),
-      g: graph(sim.history(item), 276, gh, 0.08),
-      up: item === 'network' ? graph(sim.upHistory(), 276, gh, 0.08).line : null,
+      g: graph(upOnly ? sim.upHistory() : sim.history(item), 276, gh, 0.08),
+      up: item === 'network' && show === 'both' ? graph(sim.upHistory(), 276, gh, 0.08).line : null,
       d,
       cores: d?.cores ? [...sim.cores()] : [],
     };
   });
-  const c = $derived(v.items[item]);
+  const c = $derived(upOnly ? v.up : v.items[item]);
 </script>
 
 {#snippet rows(list: Row[])}
@@ -42,8 +51,12 @@
   <span class="pp-title">{META[item].name}</span>
   <span class="pp-value">
     {#if item === 'network'}
-      <span style:color={c}>↓ {m.net.down}</span>
-      <span style:color={v.up}>↑ {m.net.up}</span>
+      {#if show !== 'upload'}
+        <span style:color={v.items.network}>↓ {m.net.down}</span>
+      {/if}
+      {#if show !== 'download'}
+        <span style:color={v.up}>↑ {m.net.up}</span>
+      {/if}
     {:else}
       <span style:color={c}>{m.text}</span>
     {/if}

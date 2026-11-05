@@ -6,13 +6,13 @@
   import type { Sim } from '../sim.ts';
   import {
     app,
-    readings,
+    drawn,
     resetWallpaper,
     useWallpaper,
     type Fit,
     type TaskbarSettings,
   } from '../state.svelte.ts';
-  import { fontCss, fontPx, renderTile, textColumns, withItemColors } from '../styles.ts';
+  import { fontCss, fontPx, renderTiles, textColumns, withItemColors } from '../styles.ts';
   import { META, resolve, type ItemKey, type Resolved } from '../theme.ts';
   import DeskIcon, { type DeskIconName } from './DeskIcon.svelte';
   import Notes from './Notes.svelte';
@@ -478,8 +478,8 @@
       return len;
     }
     const fixedWidth = upright ? SIDE - 6 : 0;
-    const sizes = rung.keys.map((k) =>
-      renderTile(k, { v, sim, p: rung.p, item: rung.p.items[k], light, fixedWidth }),
+    const sizes = rung.keys.flatMap((k) =>
+      renderTiles(k, { v, sim, p: rung.p, item: rung.p.items[k], light, fixedWidth }),
     );
     return (
       sizes.reduce((s, d) => s + (upright ? d.h : d.w), 0) + GAP * Math.max(0, sizes.length - 1) + 4
@@ -555,7 +555,7 @@
   }
 
   $effect(() => {
-    const sim = readings();
+    const sim = drawn();
     const p = $state.snapshot(app.profile) as Profile;
     const tb = $state.snapshot(app.taskbar) as TaskbarSettings;
     const v = colors;
@@ -575,30 +575,29 @@
   });
 
   const tiles = $derived.by(() => {
-    const sim = readings();
+    const sim = drawn();
     if (lay.p.mode === 'text') return [];
-    return lay.keys.map((k) => ({
-      key: k,
-      tile: renderTile(k, {
+    return lay.keys.flatMap((k) =>
+      renderTiles(k, {
         v: colors,
         sim,
         p: lay.p,
         item: lay.p.items[k],
         light: app.light,
         fixedWidth: lay.fixedWidth,
-      }),
-    }));
+      }).map((tile, i) => ({ key: k, id: `${k}-${i}`, tile })),
+    );
   });
 
   const columns = $derived.by(() => {
-    const sim = readings();
+    const sim = drawn();
     return lay.p.mode === 'text'
       ? textColumns(lay.keys, { v: colors, sim, p: lay.p, light: app.light })
       : [];
   });
 
   const trayText = $derived.by(() => {
-    const sim = readings();
+    const sim = drawn();
     return lay.trayKey ? sim.text(lay.trayKey) : '';
   });
 
@@ -743,7 +742,7 @@
         onkeydown={overlayKey}
       />
     {:else}
-      {#each tiles as t (t.key)}
+      {#each tiles as t (t.id)}
         <button
           type="button"
           class={[
@@ -934,6 +933,7 @@
         item={hovered}
         detail={app.profile.items[hovered].popup ?? app.profile.popupDetail}
         v={colors}
+        show={app.profile.network.popupShow}
         settings={{
           ...app.profile.popup,
           graphHeight: app.profile.items[hovered].popupGraphHeight ?? app.profile.popup.graphHeight,

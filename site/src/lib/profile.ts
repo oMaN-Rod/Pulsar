@@ -108,6 +108,10 @@ export const LOAD_UNITS: (Choice<LoadUnit> & { suffix: string; max: number })[] 
   { id: 'millis', name: 'Ping', suffix: 'ms', max: 5000 },
 ];
 
+export type NetworkShow = 'both' | 'download' | 'upload';
+const NETWORK_SHOWS: NetworkShow[] = ['both', 'download', 'upload'];
+export const MAX_BPS = 1e12;
+
 export type LoadLevel = 'low' | 'moderate' | 'high' | 'critical';
 
 export interface ItemSettings {
@@ -161,7 +165,17 @@ export interface Profile {
     network: 'bytes' | 'bits';
     memory: 'percent' | 'bytes';
   };
-  network: { show: 'both' | 'download' | 'upload'; uploadOnTop: boolean };
+  network: {
+    show: NetworkShow;
+    uploadOnTop: boolean;
+    splitTiles: boolean;
+    connectionDot: boolean;
+    downLabel: string | null;
+    upLabel: string | null;
+    popupShow: NetworkShow;
+    minDownBps: number;
+    minUpBps: number;
+  };
   load: {
     thresholds: Record<LoadUnit, number[]>;
     colors: Record<LoadLevel, string | null>;
@@ -279,7 +293,17 @@ export function defaultProfile(): Profile {
     position: 'right',
     font: { family: '', size: 9, bold: false },
     units: { temperature: 'celsius', network: 'bytes', memory: 'percent' },
-    network: { show: 'both', uploadOnTop: false },
+    network: {
+      show: 'both',
+      uploadOnTop: false,
+      splitTiles: false,
+      connectionDot: false,
+      downLabel: null,
+      upLabel: null,
+      popupShow: 'both',
+      minDownBps: 0,
+      minUpBps: 0,
+    },
     load: {
       thresholds: { percent: [50, 75, 90], celsius: [70, 80, 90], millis: [50, 100, 200] },
       colors: { low: null, moderate: null, high: null, critical: null },
@@ -309,6 +333,7 @@ export function mergeProfile(input: unknown): Profile {
   const savedItems = saved.items as Partial<Record<ItemKey, Partial<ItemSettings>>>;
   const font = { ...base.font, ...saved.font };
   const widget = { ...base.widget, ...saved.widget };
+  const net = { ...base.network, ...saved.network };
   const source = saved.source as ProfileSource | null | undefined;
   return {
     ...base,
@@ -321,7 +346,17 @@ export function mergeProfile(input: unknown): Profile {
       size: Number.isFinite(font.size) ? Math.max(7, Math.min(14, font.size)) : base.font.size,
     },
     units: { ...base.units, ...saved.units },
-    network: { ...base.network, ...saved.network },
+    network: {
+      show: pick(net.show, NETWORK_SHOWS, base.network.show),
+      uploadOnTop: net.uploadOnTop === true,
+      splitTiles: net.splitTiles === true,
+      connectionDot: net.connectionDot === true,
+      downLabel: cleanLabel(net.downLabel),
+      upLabel: cleanLabel(net.upLabel),
+      popupShow: pick(net.popupShow, NETWORK_SHOWS, base.network.popupShow),
+      minDownBps: sized(net.minDownBps, 0, MAX_BPS) ?? 0,
+      minUpBps: sized(net.minUpBps, 0, MAX_BPS) ?? 0,
+    },
     load: {
       thresholds: Object.fromEntries(
         LOAD_UNITS.map((u) => [
@@ -420,7 +455,17 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
   lines.push('', '[units]');
   for (const [k, v] of Object.entries(p.units)) kv(k, v);
   lines.push('', '[network]');
-  kv('show', p.network.show);
+  const n = p.network;
+  kv('show', n.show);
+  if (n.splitTiles) kv('split_tiles', true);
+  if (n.connectionDot) kv('connection_dot', true);
+  const down = cleanLabel(n.downLabel);
+  const up = cleanLabel(n.upLabel);
+  if (down) kv('down_label', down);
+  if (up) kv('up_label', up);
+  if (n.popupShow !== 'both') kv('popup_show', n.popupShow);
+  if (n.minDownBps) kv('min_down_bps', n.minDownBps);
+  if (n.minUpBps) kv('min_up_bps', n.minUpBps);
   lines.push('', '[popup]');
   kv('detail', p.popupDetail);
   kv('background', p.popup.background);
@@ -521,7 +566,15 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
   p.units.temperature = pick(u.temperature, ['celsius', 'fahrenheit'], p.units.temperature);
   p.units.network = pick(u.network, ['bytes', 'bits'], p.units.network);
   p.units.memory = pick(u.memory, ['percent', 'bytes'], p.units.memory);
-  p.network.show = pick(table(doc.network).show, ['both', 'download', 'upload'], p.network.show);
+  const n = table(doc.network);
+  p.network.show = pick(n.show, NETWORK_SHOWS, p.network.show);
+  p.network.splitTiles = n.split_tiles === true;
+  p.network.connectionDot = n.connection_dot === true;
+  p.network.downLabel = cleanLabel(n.down_label);
+  p.network.upLabel = cleanLabel(n.up_label);
+  p.network.popupShow = pick(n.popup_show, NETWORK_SHOWS, p.network.popupShow);
+  p.network.minDownBps = sized(n.min_down_bps, 0, MAX_BPS) ?? 0;
+  p.network.minUpBps = sized(n.min_up_bps, 0, MAX_BPS) ?? 0;
   const pop = table(doc.popup);
   p.popupDetail = pick(pop.detail, ids(DETAILS), p.popupDetail);
   p.popup.background = pick(pop.background, ['translucent', 'solid'], p.popup.background);
