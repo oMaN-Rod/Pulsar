@@ -12,7 +12,7 @@
     type Fit,
     type TaskbarSettings,
   } from '../state.svelte.ts';
-  import { fontCss, fontPx, renderTile, textColumns } from '../styles.ts';
+  import { fontCss, fontPx, renderTile, textColumns, withItemColors } from '../styles.ts';
   import { META, resolve, type ItemKey, type Resolved } from '../theme.ts';
   import DeskIcon, { type DeskIconName } from './DeskIcon.svelte';
   import Notes from './Notes.svelte';
@@ -100,7 +100,7 @@
   let picker = $state<HTMLInputElement>();
   let notes = $state<Notes>();
 
-  const colors: Resolved = $derived(resolve(app.theme, app.light));
+  const colors: Resolved = $derived(withItemColors(resolve(app.theme, app.light), app.profile));
   const vertical = $derived(app.taskbar.edge !== 'bottom');
 
   const initial = untrack(() => $state.snapshot(app.profile) as Profile);
@@ -614,6 +614,8 @@
     void app.tick;
     void lay;
     const k = hovered;
+    void (k && app.profile.items[k].popupWidth);
+    void (k && app.profile.items[k].popupGraphHeight);
     const settings = app.profile.popup;
     void settings.width;
     void settings.graphHeight;
@@ -920,7 +922,7 @@
     bind:this={popEl}
     style:background={rgba(colors.panel, app.profile.popup.background === 'solid' ? 1 : 0.88)}
     style:color={colors.text}
-    style:width="{app.profile.popup.width}px"
+    style:width="{(hovered && app.profile.items[hovered].popupWidth) || app.profile.popup.width}px"
     style:font-family={fontCss(app.profile.font)}
     style:left={popPos.left}
     style:right={popPos.right}
@@ -932,7 +934,10 @@
         item={hovered}
         detail={app.profile.items[hovered].popup ?? app.profile.popupDetail}
         v={colors}
-        settings={app.profile.popup}
+        settings={{
+          ...app.profile.popup,
+          graphHeight: app.profile.items[hovered].popupGraphHeight ?? app.profile.popup.graphHeight,
+        }}
       />
     {/if}
   </div>

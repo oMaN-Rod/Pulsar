@@ -2,7 +2,12 @@
   import {
     COLOR_MODES,
     DETAILS,
+    MAX_LABEL_CHARS,
+    POPUP_GRAPH_HEIGHTS,
+    POPUP_WIDTHS,
+    cleanLabel,
     stylesFor,
+    typedLabel,
     WIDGET_STYLES,
     type ColorMode,
     type Detail,
@@ -11,8 +16,10 @@
   } from '../../profile.ts';
   import { app, toast } from '../../state.svelte.ts';
   import { ITEM_KEYS, META, resolve } from '../../theme.ts';
+  import { keep } from '../../ui.ts';
   import CheckField from '../fields/CheckField.svelte';
   import ChoiceField from '../fields/ChoiceField.svelte';
+  import OwnColorField from '../fields/OwnColorField.svelte';
   import SizedField from '../fields/SizedField.svelte';
   import ItemPicker from './ItemPicker.svelte';
 
@@ -40,7 +47,7 @@
   <div class="show-one">
     <div class="show-row">
       <span class="show-name">
-        <span class="dot" style:background={dark.items[app.selected]}></span>
+        <span class="dot" style:background={item.color ?? dark.items[app.selected]}></span>
         {meta.name}
       </span>
       {#each ['taskbar', 'widget'] as const as where (where)}
@@ -61,6 +68,24 @@
   </p>
 </section>
 <section>
+  <h2 class="eyebrow">Label</h2>
+  {#each [['label', 'Label', meta.short], ['shortLabel', 'One-letter label', meta.letter]] as const as [key, name, fallback] (key)}
+    <label class="field">
+      <span class="field-name">{name}</span>
+      <input
+        type="text"
+        class="text-input"
+        spellcheck="false"
+        placeholder={fallback}
+        {@attach keep(item[key] ?? '')}
+        oninput={(e) => (item[key] = typedLabel(e.currentTarget.value) || null)}
+        onchange={(e) => (item[key] = cleanLabel(e.currentTarget.value))}
+      />
+    </label>
+  {/each}
+  <p class="note">On the taskbar only, up to {MAX_LABEL_CHARS} characters. Empty keeps Pulsar's.</p>
+</section>
+<section>
   <CheckField name="Show a graph" bind:checked={item.graph} />
   <ChoiceField
     name="Graph style"
@@ -75,6 +100,13 @@
     value={item.colorMode}
     options={COLOR_MODES.map((m) => [m.id, m.name])}
     onchange={(v) => (item.colorMode = v as ColorMode)}
+  />
+  <OwnColorField
+    name="Item color"
+    themeName="The theme's color"
+    hint="On the taskbar, widget and popup"
+    bind:value={item.color}
+    fallback={dark.items[app.selected]}
   />
   <CheckField name="Trend arrow against the recent average" bind:checked={item.trend} />
   <SizedField
@@ -98,6 +130,22 @@
     value={item.popup ?? ''}
     options={[['', 'As set for all popups'], ...DETAIL_OPTIONS]}
     onchange={(v) => (item.popup = (v || null) as Detail | null)}
+  />
+  <SizedField
+    name="Popup width"
+    autoName="As set for all popups"
+    bind:value={item.popupWidth}
+    min={POPUP_WIDTHS[0]}
+    max={POPUP_WIDTHS[1]}
+    fallback={app.profile.popup.width}
+  />
+  <SizedField
+    name="Popup graph height"
+    autoName="As set for all popups"
+    bind:value={item.popupGraphHeight}
+    min={POPUP_GRAPH_HEIGHTS[0]}
+    max={POPUP_GRAPH_HEIGHTS[1]}
+    fallback={app.profile.popup.graphHeight}
   />
   <ChoiceField
     name="Widget style"

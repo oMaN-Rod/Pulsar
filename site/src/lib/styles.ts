@@ -1,5 +1,11 @@
 import { rgba } from './color.ts';
-import type { ItemSettings, LoadLevel, LoadUnit, Profile } from './profile.ts';
+import {
+  cleanLabel,
+  type ItemSettings,
+  type LoadLevel,
+  type LoadUnit,
+  type Profile,
+} from './profile.ts';
 import { graph, type Sim } from './sim.ts';
 import { META, type ItemKey, type Resolved } from './theme.ts';
 
@@ -90,9 +96,22 @@ export function graphColor(
   light: boolean,
 ): string {
   if (item.colorMode === 'load') return loadOf(k, sim.raw(k), p, light) ?? v.items[k];
-  if (item.colorMode === 'accent' || p.accentGraphs) return light ? ACCENT.light : ACCENT.dark;
+  if (item.colorMode === 'accent' || (p.accentGraphs && !item.color))
+    return light ? ACCENT.light : ACCENT.dark;
   return v.items[k];
 }
+
+export function withItemColors(v: Resolved, p: Profile): Resolved {
+  const items = { ...v.items };
+  for (const [k, it] of Object.entries(p.items) as [ItemKey, ItemSettings][])
+    if (it.color) items[k] = it.color;
+  return { ...v, items, up: p.items.network.color ?? v.up };
+}
+
+export const labelFor = (k: ItemKey, p: Profile) =>
+  p.labels === 'short'
+    ? (cleanLabel(p.items[k].shortLabel) ?? META[k].letter)
+    : (cleanLabel(p.items[k].label) ?? META[k].short);
 
 export function fontCss(font: Profile['font']): string {
   const family = font.family ? `'${font.family.replace(/'/g, '')}', ` : '';
@@ -138,7 +157,7 @@ export function networkRows(sim: Sim, p: Profile, c: string, up: string): Run[][
 export function labelRuns(k: ItemKey, p: Profile, color: string): Run[] {
   const icon = p.icons || p.labels === 'none';
   if (p.labels === 'none') return [{ icon: k, color }];
-  const text = p.labels === 'short' ? META[k].letter : META[k].short;
+  const text = labelFor(k, p);
   return icon
     ? [
         { icon: k, color },
@@ -168,7 +187,7 @@ export function renderTile(k: ItemKey, ctx: TileContext): Tile {
   const family = fontCss(p.font);
   const weight = p.font.bold ? 700 : 400;
   const c = graphColor(k, v, sim, p, item, light);
-  const up = item.colorMode === 'item' && !p.accentGraphs ? v.up : c;
+  const up = item.colorMode === 'item' && (!p.accentGraphs || item.color) ? v.up : c;
   const L = v.colorLabels ? v.items[k] : v.label;
   const T = v.text;
   const net = k === 'network';
@@ -197,7 +216,7 @@ export function renderTile(k: ItemKey, ctx: TileContext): Tile {
   const widestText = (
     p.units.memory === 'bytes' && WIDEST_BYTES[k] ? (WIDEST_BYTES[k] as string) : WIDEST[k]
   ).replace('199°C', p.units.temperature === 'fahrenheit' ? '390°F' : '199°C');
-  const labelText = p.labels === 'short' ? META[k].letter : META[k].short;
+  const labelText = labelFor(k, p);
   const vertical = p.verticalLabels && !net;
   const sizes = (size: number) => {
     const tw = (s: string) => textWidth(s, size, family, weight);
@@ -253,7 +272,7 @@ export function renderTile(k: ItemKey, ctx: TileContext): Tile {
       if (rows.length === 1 || H < 30) spans.push(span(x0, (H - px) / 2 - 2, rows[0], T));
       else spans.push(span(x0, top, rows[0], T), span(x0, bottom, rows[1], T));
     } else if (vertical) {
-      const letters = [...(p.labels === 'short' ? META[k].letter : META[k].short)].slice(0, 4);
+      const letters = [...labelText].slice(0, 4);
       const lh = Math.min(px * 0.85, (H - 4) / letters.length);
       for (const [i, ch] of letters.entries()) {
         spans.push({

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  cleanLabel,
   defaultProfile,
   mergeProfile,
   moveKey,
@@ -43,6 +44,11 @@ function custom(): Profile {
     tileHeight: 30,
     widgetStyle: 'core_wall',
     widgetDetail: 'detailed',
+    color: '#12AB34',
+    label: 'Proc',
+    shortLabel: 'P',
+    popupWidth: 420,
+    popupGraphHeight: 120,
   };
   p.items.ping.taskbar = true;
   p.items.ping.style = 'uptime';
@@ -104,6 +110,8 @@ describe('profile files', () => {
         'kind = "cpu"',
         'enabled = true',
         'color = "#FF0000"',
+        'label = "Processor 12345"',
+        'popup_width = 9000',
         '[[items]]',
         'kind = "warp"',
         'enabled = true',
@@ -121,6 +129,8 @@ describe('profile files', () => {
     const items = out.items as Record<string, unknown>[];
     const cpu = items.find((t) => t.kind === 'cpu');
     expect(cpu?.color).toBe('#FF0000');
+    expect(profile.items.cpu.label).toBe('Processor 12');
+    expect(profile.items.cpu.popupWidth).toBe(800);
     expect(cpu?.trend).toBe(true);
     expect(items.some((t) => t.kind === 'warp')).toBe(true);
   });
@@ -177,6 +187,18 @@ describe('profile files', () => {
   });
 });
 
+describe('cleanLabel', () => {
+  it('cleans a label as Pulsar does', () => {
+    expect(cleanLabel(' CPU ')).toBe('CPU');
+    expect(cleanLabel('a	b⁦c')).toBe('abc');
+    expect(cleanLabel('Processor 12345')).toBe('Processor 12');
+    expect(cleanLabel('Processor   x')).toBe('Processor');
+    expect(cleanLabel('👨‍👩‍👧'.repeat(13))).toBe('👨‍👩‍👧'.repeat(12));
+    expect(cleanLabel('')).toBeNull();
+    expect(cleanLabel(3)).toBeNull();
+  });
+});
+
 describe('mergeProfile', () => {
   it('fills what an older saved profile lacks', () => {
     const saved = JSON.parse(JSON.stringify(custom()));
@@ -186,6 +208,14 @@ describe('mergeProfile', () => {
     saved.font.family = 'Evil"; } body { x';
     saved.load.colors.low = 'red';
     saved.position = 'top';
+    saved.items.ram = {
+      ...saved.items.ram,
+      color: 'red',
+      label: '  Memory‮all of it  ',
+      shortLabel: '   ',
+      popupWidth: 5000,
+      popupGraphHeight: 1.5,
+    };
     const p = mergeProfile(saved);
     expect(p.fit).toEqual(defaultProfile().fit);
     expect(p.items.fps).toEqual(defaultProfile().items.fps);
@@ -195,6 +225,14 @@ describe('mergeProfile', () => {
     expect(p.load.colors.low).toBeNull();
     expect(p.load.colors.high).toBe('#ABCDEF');
     expect(p.position).toBe('right');
+    expect(p.items.ram).toMatchObject({
+      color: null,
+      label: 'Memoryall of',
+      shortLabel: null,
+      popupWidth: 800,
+      popupGraphHeight: null,
+    });
+    expect(p.items.cpu.color).toBe('#12AB34');
   });
 
   it('returns the defaults for nothing usable', () => {

@@ -120,6 +120,11 @@ export interface ItemSettings {
   popup: Detail | null;
   tileWidth: number | null;
   tileHeight: number | null;
+  color: string | null;
+  label: string | null;
+  shortLabel: string | null;
+  popupWidth: number | null;
+  popupGraphHeight: number | null;
   widgetStyle: WidgetStyle | null;
   widgetDetail: Detail | null;
 }
@@ -195,6 +200,42 @@ export const fontName = (s: unknown) =>
 
 const POSITIONS = ['left', 'right', 'floating'] as const;
 
+export const MAX_LABEL_CHARS = 12;
+
+const graphemes = (s: string) =>
+  [...new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(s)].map((g) => g.segment);
+
+const labelChars = (s: string) => s.replace(/[\p{Cc}\u2028-\u202E\u2066-\u2069]/gu, '');
+
+/** A label while it is typed, as Pulsar keeps it: spaces stay so the next word can follow. */
+export const typedLabel = (s: string) =>
+  graphemes(labelChars(s)).slice(0, MAX_LABEL_CHARS).join('');
+
+/** A label as Pulsar stores it; `null` when nothing is left, which means the default. */
+export function cleanLabel(s: unknown): string | null {
+  if (typeof s !== 'string') return null;
+  const label = graphemes(labelChars(s).trim()).slice(0, MAX_LABEL_CHARS).join('').trimEnd();
+  return label || null;
+}
+
+const sized = (v: unknown, min: number, max: number) =>
+  typeof v === 'number' && Number.isInteger(v) ? Math.max(min, Math.min(max, v)) : null;
+
+export const POPUP_WIDTHS = [220, 800] as const;
+export const POPUP_GRAPH_HEIGHTS = [24, 400] as const;
+
+function cleanItem(k: ItemKey, saved: Partial<ItemSettings> | undefined): ItemSettings {
+  const it = { ...defaultItem(k), ...saved };
+  return {
+    ...it,
+    color: hexOrNull(it.color),
+    label: cleanLabel(it.label),
+    shortLabel: cleanLabel(it.shortLabel),
+    popupWidth: sized(it.popupWidth, ...POPUP_WIDTHS),
+    popupGraphHeight: sized(it.popupGraphHeight, ...POPUP_GRAPH_HEIGHTS),
+  };
+}
+
 const ON_TASKBAR: ItemKey[] = ['cpu', 'ram', 'gpu', 'disk', 'network'];
 
 export function defaultItem(k: ItemKey): ItemSettings {
@@ -208,6 +249,11 @@ export function defaultItem(k: ItemKey): ItemSettings {
     popup: null,
     tileWidth: null,
     tileHeight: null,
+    color: null,
+    label: null,
+    shortLabel: null,
+    popupWidth: null,
+    popupGraphHeight: null,
     widgetStyle: null,
     widgetDetail: null,
   };
@@ -298,9 +344,10 @@ export function mergeProfile(input: unknown): Profile {
       Array.isArray(saved.widgetOrder) && saved.widgetOrder.length
         ? complete(saved.widgetOrder)
         : [],
-    items: Object.fromEntries(
-      ITEM_KEYS.map((k) => [k, { ...defaultItem(k), ...savedItems[k] }]),
-    ) as Record<ItemKey, ItemSettings>,
+    items: Object.fromEntries(ITEM_KEYS.map((k) => [k, cleanItem(k, savedItems[k])])) as Record<
+      ItemKey,
+      ItemSettings
+    >,
   };
 }
 
@@ -403,6 +450,13 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
     if (it.popup) kv('popup', it.popup);
     if (it.tileWidth) kv('tile_width', it.tileWidth);
     if (it.tileHeight) kv('tile_height', it.tileHeight);
+    if (it.color) kv('color', it.color);
+    const label = cleanLabel(it.label);
+    const shortLabel = cleanLabel(it.shortLabel);
+    if (label) kv('label', label);
+    if (shortLabel) kv('short_label', shortLabel);
+    if (it.popupWidth) kv('popup_width', it.popupWidth);
+    if (it.popupGraphHeight) kv('popup_graph_height', it.popupGraphHeight);
     if (it.widgetStyle) kv('widget_style', it.widgetStyle);
     if (it.widgetDetail) kv('widget_detail', it.widgetDetail);
   }
@@ -496,14 +550,13 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
       item.colorMode = pick(it.color_mode, ids(COLOR_MODES), 'item');
       item.trend = it.trend === true;
       item.popup = pick(it.popup, ids(DETAILS), null);
-      item.tileWidth =
-        typeof it.tile_width === 'number' && Number.isInteger(it.tile_width)
-          ? Math.max(16, Math.min(400, it.tile_width))
-          : null;
-      item.tileHeight =
-        typeof it.tile_height === 'number' && Number.isInteger(it.tile_height)
-          ? Math.max(16, Math.min(200, it.tile_height))
-          : null;
+      item.tileWidth = sized(it.tile_width, 16, 400);
+      item.tileHeight = sized(it.tile_height, 16, 200);
+      item.color = hexOrNull(it.color);
+      item.label = cleanLabel(it.label);
+      item.shortLabel = cleanLabel(it.short_label);
+      item.popupWidth = sized(it.popup_width, ...POPUP_WIDTHS);
+      item.popupGraphHeight = sized(it.popup_graph_height, ...POPUP_GRAPH_HEIGHTS);
       item.widgetStyle = pick(it.widget_style, ids(WIDGET_STYLES), null);
       item.widgetDetail = pick(it.widget_detail, ids(DETAILS), null);
     }
