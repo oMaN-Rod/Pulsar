@@ -10,6 +10,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::ffi::c_void;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use windows::Win32::Foundation::{FreeLibrary, HMODULE};
@@ -88,6 +89,10 @@ struct Nvml {
 
 // The library's handles may be used from any thread.
 unsafe impl Send for Nvml {}
+
+/// Outlives each source, since shutting the library down wakes a sleeping
+/// card; it is only shut down while every card is awake.
+static NVML: Mutex<Option<Nvml>> = Mutex::new(None);
 
 impl Nvml {
     fn load() -> Option<Self> {
@@ -181,19 +186,20 @@ pub struct GpuPowerSource {
     cards: Vec<Card>,
     listed: Option<Instant>,
     relist_soon: bool,
-    nvml: Option<Nvml>,
+    /// The library must start again: a card appeared, or its handles went stale.
+    restart: bool,
     failed: Option<Instant>,
     no_sensor: HashSet<(u32, u32)>,
 }
 
 impl GpuPowerSource {
-    fn nvml(&mut self, now: Instant) -> Option<&mut Nvml> {
+    fn load(&mut self, nvml: &mut Option<Nvml>, now: Instant) -> bool {
         let wait_over = self.failed.is_none_or(|t| now.duration_since(t) >= RELOAD);
-        if self.nvml.is_none() && wait_over {
-            self.nvml = Nvml::load();
-            self.failed = self.nvml.is_none().then_some(now);
+        if nvml.is_none() && wait_over {
+            *nvml = Nvml::load();
+            self.failed = nvml.is_none().then_some(now);
         }
-        self.nvml.as_mut()
+        nvml.is_some()
     }
 }
 
@@ -211,23 +217,32 @@ impl Source for GpuPowerSource {
                 // Another card may now sit at a sensorless card's address.
                 self.no_sensor.clear();
             }
-            if added_card(&self.cards, &cards) {
+            if self.listed.is_some() && added_card(&self.cards, &cards) {
                 // The library finds the cards once, when it starts.
-                self.nvml = None;
+                self.restart = true;
             }
             self.cards = cards;
             self.listed = Some(now);
         }
+        let mut nvml = NVML.lock().unwrap_or_else(|e| e.into_inner());
         if self.cards.is_empty() {
-            self.nvml = None;
+            *nvml = None;
             return Err(SourceError::Unavailable(
                 crate::tr!("GPU power needs an NVIDIA GPU").into(),
             ));
         }
+        let states: Vec<Option<bool>> = self
+            .cards
+            .iter()
+            .map(|c| pci::powered_down(c.node))
+            .collect();
+        if self.restart && all_awake(&states) {
+            *nvml = None;
+            self.restart = false;
+        }
         let mut readings = Vec::with_capacity(self.cards.len());
         let mut awake = Vec::new();
-        for card in self.cards.clone() {
-            let state = pci::powered_down(card.node);
+        for (card, state) in self.cards.clone().into_iter().zip(states) {
             match state {
                 _ if self.no_sensor.contains(&(card.bus, card.device)) => {
                     readings.push(CardPower::Unknown);
@@ -242,11 +257,14 @@ impl Source for GpuPowerSource {
             }
         }
         if !awake.is_empty() {
-            let nvml = self.nvml(now).ok_or_else(unavailable)?;
-            let read: Option<Vec<Read>> = awake.iter().map(|&c| nvml.watts(c)).collect();
+            if !self.load(&mut nvml, now) {
+                return Err(unavailable());
+            }
+            let library = nvml.as_mut().expect("loaded");
+            let read: Option<Vec<Read>> = awake.iter().map(|&c| library.watts(c)).collect();
             let Some(read) = read else {
                 // A driver update or a reset leaves the handles stale.
-                self.nvml = None;
+                self.restart = true;
                 self.failed = Some(now);
                 return Err(unavailable());
             };
@@ -274,6 +292,10 @@ fn relist_due(listed: Option<Instant>, soon: bool, now: Instant) -> bool {
     listed.is_none_or(|t| now.duration_since(t) >= wait)
 }
 
+fn all_awake(states: &[Option<bool>]) -> bool {
+    states.iter().all(|&s| s == Some(false))
+}
+
 fn added_card(before: &[Card], now: &[Card]) -> bool {
     now.iter().any(|c| {
         !before
@@ -299,6 +321,13 @@ mod tests {
         assert_eq!(total_watts(&[Unknown, Watts(12.0)]), Some(12.0));
         assert_eq!(total_watts(&[Unknown]), None);
         assert_eq!(total_watts(&[]), None);
+    }
+
+    #[test]
+    fn the_library_restarts_only_while_every_card_is_known_to_be_awake() {
+        assert!(all_awake(&[Some(false), Some(false)]));
+        assert!(!all_awake(&[Some(false), Some(true)]));
+        assert!(!all_awake(&[Some(false), None]));
     }
 
     #[test]
