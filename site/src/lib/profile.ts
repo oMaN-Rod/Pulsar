@@ -149,7 +149,7 @@ export interface Profile {
   inline: boolean;
   verticalLabels: boolean;
   accentGraphs: boolean;
-  position: 'left' | 'right';
+  position: 'left' | 'right' | 'floating';
   font: { family: string; size: number; bold: boolean };
   units: {
     temperature: 'celsius' | 'fahrenheit';
@@ -192,6 +192,8 @@ const hexOrNull = (c: unknown) => (typeof c === 'string' && HEX.test(c) ? c.toUp
 /** Font names go into CSS, so only the characters font names use pass. */
 export const fontName = (s: unknown) =>
   typeof s === 'string' ? s.replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 64) : '';
+
+const POSITIONS = ['left', 'right', 'floating'] as const;
 
 const ON_TASKBAR: ItemKey[] = ['cpu', 'ram', 'gpu', 'disk', 'network'];
 
@@ -266,6 +268,7 @@ export function mergeProfile(input: unknown): Profile {
     ...base,
     ...(saved as Partial<Profile>),
     source: typeof source?.file === 'string' && typeof source.written === 'string' ? source : null,
+    position: pick(saved.position, POSITIONS, base.position),
     font: {
       ...font,
       family: fontName(font.family),
@@ -433,7 +436,7 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
   const d = table(doc.display);
   p.name = typeof doc.name === 'string' && doc.name.trim() ? doc.name.trim() : fallbackName;
   p.mode = pick(d.mode, ['graph', 'text'], p.mode);
-  p.position = pick(d.position, ['left', 'right'], p.position);
+  p.position = pick(d.position, POSITIONS, p.position);
   p.labels = pick(d.labels, ['full', 'short', 'none'], p.labels);
   p.icons = d.icons === true;
   p.inline = d.graph_inline === true;

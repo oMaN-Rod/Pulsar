@@ -150,6 +150,13 @@ describe('profile files', () => {
     expect((out.display as Record<string, unknown>).theme).toBeUndefined();
   });
 
+  it('reads and writes a floating overlay', () => {
+    const p = defaultProfile();
+    p.position = 'floating';
+    const back = profileFromToml(parseToml(profileToToml(p, 'windows', false)), 'x');
+    expect(back.profile.position).toBe('floating');
+  });
+
   it('leaves the theme out for Windows default', () => {
     const text = profileToToml(defaultProfile(), 'windows', false);
     expect(text).not.toContain('theme =');
@@ -178,6 +185,7 @@ describe('mergeProfile', () => {
     saved.order = ['ram', 'bogus', 'ram'];
     saved.font.family = 'Evil"; } body { x';
     saved.load.colors.low = 'red';
+    saved.position = 'top';
     const p = mergeProfile(saved);
     expect(p.fit).toEqual(defaultProfile().fit);
     expect(p.items.fps).toEqual(defaultProfile().items.fps);
@@ -186,6 +194,7 @@ describe('mergeProfile', () => {
     expect(p.font.family).toBe('Evil  body  x');
     expect(p.load.colors.low).toBeNull();
     expect(p.load.colors.high).toBe('#ABCDEF');
+    expect(p.position).toBe('right');
   });
 
   it('returns the defaults for nothing usable', () => {

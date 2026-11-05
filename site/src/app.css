@@ -2377,20 +2377,16 @@ body.day .picker-pop {
   display: grid;
 }
 
-/* Fit: the overlay floating above the taskbar, or one item in the tray */
+/* The overlay floating centred above the taskbar, or one item in the tray */
 .float-box {
   position: absolute;
   z-index: 9;
-  right: calc(var(--inset-r) + 12px);
+  left: calc((100% + var(--inset-l) - var(--inset-r)) / 2);
   bottom: calc(var(--inset-b) + 10px);
+  transform: translateX(-50%);
   padding: 4px;
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-}
-.desk[data-edge='left'] .float-box {
-  right: auto;
-  left: calc(var(--side) + 10px);
-  bottom: 12px;
 }
 .tray-metric {
   display: flex;

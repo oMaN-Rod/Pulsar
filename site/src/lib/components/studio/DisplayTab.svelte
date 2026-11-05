@@ -87,10 +87,26 @@
     name="On a centered taskbar, try the other side first"
     bind:checked={p.fit.otherSide}
   />
-  <p class="fit-state note" aria-live="polite">{p.fit.enabled ? FIT_STATE[app.fit] : ''}</p>
+  <p class="fit-state note" aria-live="polite">
+    {p.position === 'floating'
+      ? 'A floating overlay keeps its full size.'
+      : p.fit.enabled
+        ? FIT_STATE[app.fit]
+        : ''}
+  </p>
 </section>
 <section>
   <h2 class="eyebrow">Taskbar</h2>
+  <SegField
+    name="Pulsar sits"
+    value={p.position}
+    options={[
+      ['left', 'After the apps'],
+      ['right', 'By the tray'],
+      ['floating', 'Floating'],
+    ]}
+    onchange={(v) => (p.position = v)}
+  />
   <CheckField name="Transparent taskbar" bind:checked={app.taskbar.transparent} />
   <button
     type="button"

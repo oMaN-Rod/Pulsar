@@ -71,6 +71,7 @@
       options: [
         ['left', 'After the app buttons'],
         ['right', 'Next to the tray'],
+        ['floating', 'Floating above it'],
       ],
     },
   ];
@@ -106,7 +107,7 @@
   let lay = $state.raw<Layout>({
     p: initial,
     keys: taskbarKeys(initial),
-    where: initial.position,
+    where: initial.position === 'floating' ? 'float' : initial.position,
     fixedWidth: 0,
     trayKey: null,
   });
@@ -517,6 +518,8 @@
   ): { layout: Layout; fit: Fit } {
     const upright = tb.edge !== 'bottom';
     const keys = taskbarKeys(p);
+    if (p.position === 'floating')
+      return { fit: 'full', layout: { p, keys, where: 'float', fixedWidth: 0, trayKey: null } };
     const side = p.position;
     const space = room(tb);
     const size = (r: Rung) => measure(r, upright, v, sim, light);
