@@ -2077,6 +2077,14 @@ msgid "Open"
 msgstr "열기"
 
 #: ui/settings.slint
+msgid "More themes"
+msgstr "더 많은 테마"
+
+#: ui/settings.slint
+msgid "Find community themes, or design and share your own, on the Pulsar Themes site."
+msgstr "Pulsar Themes 사이트에서 커뮤니티 테마를 찾거나 나만의 테마를 만들어 공유하세요."
+
+#: ui/settings.slint
 msgid "Custom colors"
 msgstr "사용자 지정 색"
 

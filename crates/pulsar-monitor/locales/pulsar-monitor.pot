@@ -2075,6 +2075,14 @@ msgid "Open"
 msgstr ""
 
 #: ui/settings.slint
+msgid "More themes"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Find community themes, or design and share your own, on the Pulsar Themes site."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Custom colors"
 msgstr ""
 

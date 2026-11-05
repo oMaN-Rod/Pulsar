@@ -2170,6 +2170,15 @@ export component SettingsWindow inherits Window {
                             clicked => { root.open-themes-folder(); }
                         }
                     }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("More themes");
+                        description: @tr("Find community themes, or design and share your own, on the Pulsar Themes site.");
+                        Button {
+                            text: @tr("Open");
+                            clicked => { root.open-link("https://oman-rod.github.io/Pulsar/"); }
+                        }
+                    }
                 }
                 SectionTitle { text: @tr("Custom colors"); }
                 Card {
