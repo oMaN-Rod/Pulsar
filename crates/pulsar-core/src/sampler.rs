@@ -148,15 +148,11 @@ impl Sampler {
             .iter()
             .flat_map(|&kind| item_sources(kind, config))
             .collect();
-        // The CPU and GPU popups show the service's readings when it is
-        // there, but only the sensor items need it.
-        let sensors_required = [ItemKind::CpuTemp, ItemKind::CpuPower, ItemKind::ChipsetTemp]
-            .into_iter()
-            .any(|kind| config.is_sampled(kind));
+        let (sensors_required, overlay_temperature) = sensor_demand(config);
         let sensors_shown = POPUP_SENSOR_ITEMS
             .into_iter()
             .any(|kind| config.is_sampled(kind));
-        let sensors = sensors_required || temperature_on_overlay(config);
+        let sensors = sensors_required || overlay_temperature;
         if sensors {
             sources.push(Box::new(SensorServiceSource::new(sensors_required)));
             sources.extend(sensor_fallbacks());
@@ -389,6 +385,16 @@ pub const POPUP_SENSOR_ITEMS: [ItemKind; 4] = [
     ItemKind::Gpu,
     ItemKind::GpuTemp,
 ];
+
+/// Whether the sensor service is read every tick: required by a sensor item,
+/// and wanted for a temperature drawn on the overlay. The CPU and GPU popups
+/// show its readings too, but only while one is open.
+pub fn sensor_demand(config: &Config) -> (bool, bool) {
+    let required = [ItemKind::CpuTemp, ItemKind::CpuPower, ItemKind::ChipsetTemp]
+        .into_iter()
+        .any(|kind| config.is_sampled(kind));
+    (required, temperature_on_overlay(config))
+}
 
 /// Whether a CPU or GPU tile draws its temperature, as a ring or a dot,
 /// which needs the readings every tick rather than only in a popup.

@@ -1204,6 +1204,7 @@ pub fn sampling_changed(old: &Config, new: &Config) -> bool {
         || old.general.sample_interval_ms != new.general.sample_interval_ms
         || old.network.adapters != new.network.adapters
         || old.frames != new.frames
+        || crate::sampler::sensor_demand(old) != crate::sampler::sensor_demand(new)
         || (pinging
             && (old.ping.host != new.ping.host || old.ping.interval_ms != new.ping.interval_ms))
 }
@@ -1804,6 +1805,26 @@ panel_opacity = 60
             sampling_changed(&ping_on, &host),
             "ping target changed while pinging"
         );
+    }
+
+    #[test]
+    fn a_temperature_drawn_on_the_overlay_rebuilds_the_sampler() {
+        let base = Config::default();
+        assert!(base.is_sampled(ItemKind::Cpu));
+        let mut ring = base.clone();
+        ring.items
+            .iter_mut()
+            .filter(|i| i.kind == ItemKind::Cpu)
+            .for_each(|i| i.style = GraphStyle::Ring);
+        assert!(sampling_changed(&base, &ring));
+        assert!(sampling_changed(&ring, &base));
+
+        let mut line = base.clone();
+        line.items
+            .iter_mut()
+            .filter(|i| i.kind == ItemKind::Cpu)
+            .for_each(|i| i.style = GraphStyle::Line);
+        assert!(!sampling_changed(&base, &line));
     }
 
     #[test]
