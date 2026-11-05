@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@12.6.0",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "node scripts/build-catalog.mjs && vite dev",
     "build": "node scripts/build-catalog.mjs && vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --fail-on-warnings",
