@@ -2,6 +2,7 @@ import {
   ITEM_KEYS,
   isItemKey,
   META,
+  parseToml,
   type ItemKey,
   type TomlTable,
   type TomlValue,
@@ -123,8 +124,16 @@ export interface ItemSettings {
   widgetDetail: Detail | null;
 }
 
+/** An imported profile file and the site's own writing of it at the time, as TOML. */
+export interface ProfileSource {
+  file: string;
+  written: string;
+}
+
 export interface Profile {
   name: string;
+  /** Exports keep the file's settings the site does not show or change. */
+  source: ProfileSource | null;
   items: Record<ItemKey, ItemSettings>;
   order: ItemKey[];
   widgetOrder: ItemKey[];
@@ -205,6 +214,7 @@ export function defaultItem(k: ItemKey): ItemSettings {
 export function defaultProfile(): Profile {
   return {
     name: 'My setup',
+    source: null,
     items: Object.fromEntries(ITEM_KEYS.map((k) => [k, defaultItem(k)])) as Record<
       ItemKey,
       ItemSettings
@@ -251,9 +261,11 @@ export function mergeProfile(input: unknown): Profile {
   const savedItems = saved.items as Partial<Record<ItemKey, Partial<ItemSettings>>>;
   const font = { ...base.font, ...saved.font };
   const widget = { ...base.widget, ...saved.widget };
+  const source = saved.source as ProfileSource | null | undefined;
   return {
     ...base,
     ...(saved as Partial<Profile>),
+    source: typeof source?.file === 'string' && typeof source.written === 'string' ? source : null,
     font: {
       ...font,
       family: fontName(font.family),
@@ -318,6 +330,13 @@ export function moveKey(p: Profile, where: 'taskbar' | 'widget', key: ItemKey, i
 }
 
 export function profileToToml(p: Profile, themeId: string, colorLabels: boolean): string {
+  const text = siteToml(p, themeId, colorLabels);
+  if (!p.source) return text;
+  const { file, written } = p.source;
+  return tomlToString(applyChanges(parseToml(file), parseToml(written), parseToml(text)));
+}
+
+function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
   const q = (s: string) => JSON.stringify(s);
   const lines = [`name = ${q(p.name)}`, '', '[display]'];
   const kv = (k: string, v: string | number | boolean | number[]) =>
@@ -492,9 +511,85 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
       : ITEM_KEYS.filter((k) => p.items[k].taskbar);
   for (const k of ITEM_KEYS) p.items[k].widget = onWidget.includes(k);
   if (Array.isArray(w.order) && w.order.length) p.widgetOrder = complete(w.order);
-  return {
-    profile: p,
-    themeId: typeof d.theme === 'string' ? d.theme : 'windows',
-    colorLabels: d.color_labels === true,
+  const themeId = typeof d.theme === 'string' ? d.theme : 'windows';
+  const colorLabels = d.color_labels === true;
+  p.source = { file: tomlToString(doc), written: siteToml(p, themeId, colorLabels) };
+  return { profile: p, themeId, colorLabels };
+}
+
+const isTable = (v: unknown): v is TomlTable =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+const isTableArray = (v: unknown): v is TomlTable[] =>
+  Array.isArray(v) && v.length > 0 && v.every(isTable);
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/** `doc` with whatever differs between `before` and `after` applied to it. */
+function applyChanges(doc: TomlTable, before: TomlTable, after: TomlTable): TomlTable {
+  const out: TomlTable = { ...doc };
+  for (const k of new Set([...Object.keys(before), ...Object.keys(after)])) {
+    const b = before[k];
+    const a = after[k];
+    if (k === 'items' && isTableArray(a)) {
+      out.items = mergeItems(isTableArray(doc.items) ? doc.items : [], isTableArray(b) ? b : [], a);
+    } else if (isTable(a)) {
+      out[k] = applyChanges(isTable(doc[k]) ? doc[k] : {}, isTable(b) ? b : {}, a);
+    } else if (same(a, b)) {
+      continue;
+    } else if (a === undefined) {
+      delete out[k];
+    } else {
+      out[k] = a;
+    }
+  }
+  return out;
+}
+
+/** Items matched by kind; the file's order stays unless the site's changed. */
+function mergeItems(doc: TomlTable[], before: TomlTable[], after: TomlTable[]): TomlTable[] {
+  const kindIn = (list: TomlTable[], kind: TomlValue | undefined) =>
+    list.find((t) => t.kind === kind);
+  const merged = after.map((a) =>
+    applyChanges(kindIn(doc, a.kind) ?? {}, kindIn(before, a.kind) ?? {}, a),
+  );
+  const added = merged.filter((m) => !kindIn(doc, m.kind));
+  if (
+    same(
+      after.map((t) => t.kind),
+      before.map((t) => t.kind),
+    )
+  )
+    return [...doc.map((t) => kindIn(merged, t.kind) ?? t), ...added];
+  return [...merged, ...doc.filter((t) => !kindIn(after, t.kind))];
+}
+
+function tomlToString(doc: TomlTable): string {
+  const key = (k: string) => (/^[A-Za-z0-9_-]+$/.test(k) ? k : JSON.stringify(k));
+  const value = (v: TomlValue): string => {
+    if (typeof v === 'string') return JSON.stringify(v);
+    if (Array.isArray(v)) return `[${v.map(value).join(', ')}]`;
+    if (isTable(v))
+      return `{ ${Object.entries(v)
+        .filter((e): e is [string, TomlValue] => e[1] !== undefined)
+        .map(([k, x]) => `${key(k)} = ${value(x)}`)
+        .join(', ')} }`;
+    return String(v);
   };
+  const lines: string[] = [];
+  const write = (t: TomlTable, path: string[]) => {
+    const nested: [string, TomlTable | TomlTable[]][] = [];
+    for (const [k, v] of Object.entries(t)) {
+      if (v === undefined) continue;
+      if (isTable(v) || isTableArray(v)) nested.push([k, v]);
+      else lines.push(`${key(k)} = ${value(v)}`);
+    }
+    for (const [k, v] of nested) {
+      const name = [...path, k].map(key).join('.');
+      for (const table of isTableArray(v) ? v : [v]) {
+        lines.push('', isTableArray(v) ? `[[${name}]]` : `[${name}]`);
+        write(table, [...path, k]);
+      }
+    }
+  };
+  write(doc, []);
+  return `${lines.join('\n').replace(/^\n+/, '')}\n`;
 }

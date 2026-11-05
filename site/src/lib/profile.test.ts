@@ -82,8 +82,54 @@ describe('profile files', () => {
     const back = profileFromToml(parseToml(text), 'fallback');
     expect(back.themeId).toBe('nord');
     expect(back.colorLabels).toBe(true);
-    expect(back.profile).toEqual(p);
-    expect(profileToToml(back.profile, 'nord', true)).toBe(text);
+    expect({ ...back.profile, source: null }).toEqual(p);
+    expect(parseToml(profileToToml(back.profile, 'nord', true))).toEqual(parseToml(text));
+  });
+
+  it("keeps an imported file's settings the site leaves alone", () => {
+    const doc = parseToml(
+      [
+        'name = "Desk"',
+        '[display]',
+        'position = "floating"',
+        'theme = "nord"',
+        'mode = "graph"',
+        '[ping]',
+        'host = "9.9.9.9"',
+        'interval_ms = 2000',
+        '[network]',
+        'show = "both"',
+        'adapters = ["Ethernet"]',
+        '[[items]]',
+        'kind = "cpu"',
+        'enabled = true',
+        'color = "#FF0000"',
+        '[[items]]',
+        'kind = "warp"',
+        'enabled = true',
+      ].join('\n'),
+    );
+    const { profile } = profileFromToml(doc, 'x');
+    profile.mode = 'text';
+    profile.items.cpu.trend = true;
+    const out = parseToml(profileToToml(profile, 'nord', false));
+    const display = out.display as Record<string, unknown>;
+    expect(display.position).toBe('floating');
+    expect(display.mode).toBe('text');
+    expect(out.ping).toEqual({ host: '9.9.9.9', interval_ms: 2000 });
+    expect((out.network as Record<string, unknown>).adapters).toEqual(['Ethernet']);
+    const items = out.items as Record<string, unknown>[];
+    const cpu = items.find((t) => t.kind === 'cpu');
+    expect(cpu?.color).toBe('#FF0000');
+    expect(cpu?.trend).toBe(true);
+    expect(items.some((t) => t.kind === 'warp')).toBe(true);
+  });
+
+  it('applies a theme change to an imported file', () => {
+    const doc = parseToml('[display]\ntheme = "nord"');
+    const { profile } = profileFromToml(doc, 'x');
+    const out = parseToml(profileToToml(profile, 'windows', false));
+    expect((out.display as Record<string, unknown>).theme).toBeUndefined();
   });
 
   it('leaves the theme out for Windows default', () => {
