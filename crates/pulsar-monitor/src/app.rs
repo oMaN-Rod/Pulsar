@@ -1782,6 +1782,10 @@ impl App {
             self.popup_lists_processes(kind) || self.details.is_some(),
             Ordering::Relaxed,
         );
+        self.sampler.popup_sensors.store(
+            pulsar_core::sampler::POPUP_SENSOR_ITEMS.contains(&kind),
+            Ordering::Relaxed,
+        );
         self.popup_owner = Some(overlay);
         self.show_popup(kind, anchor);
     }
@@ -1822,6 +1826,7 @@ impl App {
     fn close_popup(&mut self) {
         self.popup.hide();
         self.popup_owner = None;
+        self.sampler.popup_sensors.store(false, Ordering::Relaxed);
         self.sampler
             .processes
             .store(self.details.is_some(), Ordering::Relaxed);

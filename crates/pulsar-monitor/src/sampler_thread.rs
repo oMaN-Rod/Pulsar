@@ -22,6 +22,8 @@ pub struct SamplerThread {
     /// Set while the details window is open: everything is sampled, not
     /// just what the overlay shows.
     pub extras: Arc<AtomicBool>,
+    /// Set while a popup that shows the sensor service's readings is open.
+    pub popup_sensors: Arc<AtomicBool>,
     pace: Arc<Pace>,
     /// A message wakes the thread to read `pace`; dropping it stops the thread.
     stop: Option<Sender<()>>,
@@ -59,7 +61,8 @@ impl SamplerThread {
     ) -> Self {
         let processes = Arc::<AtomicBool>::default();
         let extras = Arc::<AtomicBool>::default();
-        let flags = (processes.clone(), extras.clone());
+        let popup_sensors = Arc::<AtomicBool>::default();
+        let flags = (processes.clone(), extras.clone(), popup_sensors.clone());
         let pace = Arc::new(Pace {
             paused: AtomicBool::new(false),
             interval_ms: AtomicU32::new(interval.as_millis() as u32),
@@ -71,7 +74,7 @@ impl SamplerThread {
         let handle = thread::Builder::new()
             .name("pulsar-sampler".into())
             .spawn(move || {
-                let mut sampler = build().with_flags(flags.0, flags.1);
+                let mut sampler = build().with_flags(flags.0, flags.1, flags.2);
                 let mut next = Instant::now();
                 loop {
                     if tx.send(sampler.sample()).is_err() {
@@ -120,6 +123,7 @@ impl SamplerThread {
             snapshots,
             processes,
             extras,
+            popup_sensors,
             pace,
             stop: Some(stop),
             handle: Some(handle),

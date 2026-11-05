@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
-use crate::config::Config;
+use crate::config::{Config, GraphStyle};
 use crate::gpu_slots::{GpuAdapter, GpuSlots};
 use crate::hardware::DriveTempSource;
 use crate::metric::{ItemKind, Snapshot, Source, SourceError, SourceId};
@@ -84,6 +84,10 @@ pub struct Sampler {
     extras: Option<Vec<Box<dyn Source>>>,
     extras_factory: Option<ExtrasFactory>,
     want_extras: Arc<AtomicBool>,
+    /// The sensor service and its fallbacks when only popups show them.
+    popup_sensors: Option<Vec<Box<dyn Source>>>,
+    popup_sensors_lazy: bool,
+    want_popup_sensors: Arc<AtomicBool>,
     gpus: GpuTracker,
 }
 
@@ -100,6 +104,9 @@ impl Sampler {
             extras: None,
             extras_factory: None,
             want_extras: Arc::new(AtomicBool::new(false)),
+            popup_sensors: None,
+            popup_sensors_lazy: false,
+            want_popup_sensors: Arc::new(AtomicBool::new(false)),
             gpus: GpuTracker::new(Box::new(crate::hardware::gpu::adapters)),
         }
     }
@@ -146,19 +153,15 @@ impl Sampler {
         let sensors_required = [ItemKind::CpuTemp, ItemKind::CpuPower, ItemKind::ChipsetTemp]
             .into_iter()
             .any(|kind| config.is_sampled(kind));
-        let sensors_shown = [
-            ItemKind::Cpu,
-            ItemKind::CpuClock,
-            ItemKind::Gpu,
-            ItemKind::GpuTemp,
-        ]
-        .into_iter()
-        .any(|kind| config.is_sampled(kind));
-        let sensors = sensors_required || sensors_shown;
+        let sensors_shown = POPUP_SENSOR_ITEMS
+            .into_iter()
+            .any(|kind| config.is_sampled(kind));
+        let sensors = sensors_required || temperature_on_overlay(config);
         if sensors {
             sources.push(Box::new(SensorServiceSource::new(sensors_required)));
             sources.extend(sensor_fallbacks());
         }
+        let popup_sensors_lazy = sensors_shown && !sensors;
         // The GPU popup shows the sensors too, so either item needs them.
         let gpu_sensors = config.is_sampled(ItemKind::Gpu) || config.is_sampled(ItemKind::GpuTemp);
         if gpu_sensors {
@@ -186,12 +189,31 @@ impl Sampler {
             }
             extras
         }))
+        .with_popup_sensors(popup_sensors_lazy)
     }
 
-    pub fn with_flags(self, processes: Arc<AtomicBool>, extras: Arc<AtomicBool>) -> Self {
+    fn with_popup_sensors(self, lazy: bool) -> Self {
+        Self {
+            popup_sensors_lazy: lazy,
+            ..self
+        }
+    }
+
+    /// Shared flag the UI sets while a popup that shows the sensors is open.
+    pub fn popup_sensors_flag(&self) -> Arc<AtomicBool> {
+        self.want_popup_sensors.clone()
+    }
+
+    pub fn with_flags(
+        self,
+        processes: Arc<AtomicBool>,
+        extras: Arc<AtomicBool>,
+        popup_sensors: Arc<AtomicBool>,
+    ) -> Self {
         Self {
             want_processes: processes,
             want_extras: extras,
+            want_popup_sensors: popup_sensors,
             ..self
         }
     }
@@ -266,7 +288,16 @@ impl Sampler {
         for source in &mut self.sources {
             run(source.as_mut(), &mut snapshot);
         }
-        if self.want_extras.load(Ordering::Relaxed) {
+        let extras = self.want_extras.load(Ordering::Relaxed);
+        // The details window's extras already read them.
+        if self.popup_sensors_lazy && self.want_popup_sensors.load(Ordering::Relaxed) && !extras {
+            for source in self.popup_sensors.get_or_insert_with(popup_sensor_sources) {
+                run(source.as_mut(), &mut snapshot);
+            }
+        } else {
+            self.popup_sensors = None;
+        }
+        if extras {
             if self.extras.is_none()
                 && let Some(factory) = &self.extras_factory
             {
@@ -350,6 +381,31 @@ fn sources_of(kind: ItemKind) -> ItemKind {
         ItemKind::GpuMemory => ItemKind::Gpu,
         kind => kind,
     }
+}
+
+pub const POPUP_SENSOR_ITEMS: [ItemKind; 4] = [
+    ItemKind::Cpu,
+    ItemKind::CpuClock,
+    ItemKind::Gpu,
+    ItemKind::GpuTemp,
+];
+
+/// Whether a CPU or GPU tile draws its temperature, as a ring or a dot,
+/// which needs the readings every tick rather than only in a popup.
+fn temperature_on_overlay(config: &Config) -> bool {
+    [ItemKind::Cpu, ItemKind::Gpu].into_iter().any(|kind| {
+        config.is_sampled(kind)
+            && (config.widget_items().contains(&kind)
+                || config.item(kind).is_some_and(|item| {
+                    matches!(item.style, GraphStyle::Ring | GraphStyle::Combined)
+                }))
+    })
+}
+
+fn popup_sensor_sources() -> Vec<Box<dyn Source>> {
+    let mut sources: Vec<Box<dyn Source>> = vec![Box::new(SensorServiceSource::new(false))];
+    sources.extend(sensor_fallbacks());
+    sources
 }
 
 /// Whether the details window samples `kind` while its item is off. Pinging
@@ -468,6 +524,40 @@ mod tests {
             }];
             Ok(())
         }
+    }
+
+    #[test]
+    fn the_sensor_service_waits_for_a_popup_unless_a_tile_or_item_needs_it() {
+        let mut config = Config::default();
+        config.widget.enabled = false;
+        for item in &mut config.items {
+            item.enabled = item.kind == ItemKind::Cpu;
+            item.style = GraphStyle::Area;
+        }
+        let service = |config: &Config| {
+            let sampler = Sampler::from_config(config);
+            let eager = sampler
+                .sources
+                .iter()
+                .any(|s| s.id() == SourceId::SensorService);
+            (eager, sampler.popup_sensors_lazy)
+        };
+        assert_eq!(
+            service(&config),
+            (false, true),
+            "only the CPU popup shows it"
+        );
+
+        config.item_mut(ItemKind::Cpu).unwrap().style = GraphStyle::Ring;
+        assert_eq!(
+            service(&config),
+            (true, false),
+            "the ring shows the temperature"
+        );
+
+        config.item_mut(ItemKind::Cpu).unwrap().style = GraphStyle::Area;
+        config.item_mut(ItemKind::CpuTemp).unwrap().enabled = true;
+        assert_eq!(service(&config), (true, false), "the item shows it");
     }
 
     #[test]
