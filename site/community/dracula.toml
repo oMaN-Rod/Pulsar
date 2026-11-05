@@ -1,0 +1,27 @@
+name = "Dracula"
+author = "Pulsar"
+based_on = "Dracula by Zeno Rocha"
+
+[dark]
+text = "#F8F8F2"
+label = "#9BA3C7"
+panel = "#282A36"
+panel_opacity = 85
+
+[dark.items]
+cpu = "#8BE9FD"
+cpu_temp = "#FF5555"
+cpu_power = "#F1FA8C"
+cpu_clock = "#BD93F9"
+ram = "#BD93F9"
+chipset_temp = "#FFB86C"
+gpu = "#50FA7B"
+gpu_temp = "#FF79C6"
+gpu_memory = "#FF79C6"
+gpu_power = "#F1FA8C"
+disk = "#8BE9FD"
+disk_temp = "#FFB86C"
+network = "#F1FA8C"
+ping = "#50FA7B"
+battery = "#50FA7B"
+fps = "#FF79C6"

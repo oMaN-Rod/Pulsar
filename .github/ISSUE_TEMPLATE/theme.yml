@@ -1,0 +1,36 @@
+name: Share a theme
+description: Submit a theme for the community gallery in Pulsar Themes
+title: "Theme: "
+labels: [theme-submission]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Shape a theme in [Pulsar Themes](https://oman-rod.github.io/Pulsar/), then use the **Share** icon on its desktop to fill this in. You can also paste a file from Pulsar's themes folder.
+  - type: input
+    id: theme-name
+    attributes:
+      label: Theme name
+      description: Shown in the gallery and in Pulsar's theme list.
+    validations:
+      required: true
+  - type: input
+    id: credit
+    attributes:
+      label: Credit as
+      description: Leave empty to be credited by your GitHub username.
+  - type: textarea
+    id: toml
+    attributes:
+      label: Theme file
+      description: The theme's .toml file.
+      render: toml
+    validations:
+      required: true
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Sharing
+      options:
+        - label: I made this theme and agree to share it under the project's license (GPL-3.0).
+          required: true

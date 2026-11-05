@@ -1,0 +1,48 @@
+name: Theme submission
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+
+permissions: {}
+
+jobs:
+  check:
+    if: github.event.action != 'labeled' && contains(github.event.issue.labels.*.name, 'theme-submission')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node site/scripts/theme-submission.mjs check > comment.md
+      - name: Comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: gh issue comment "$ISSUE" --body-file comment.md --edit-last || gh issue comment "$ISSUE" --body-file comment.md
+
+  publish:
+    if: github.event.action == 'labeled' && github.event.label.name == 'theme-approved'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: add
+        run: node site/scripts/theme-submission.mjs add
+      - run: node site/scripts/build-catalog.mjs
+      - uses: peter-evans/create-pull-request@v7
+        with:
+          branch: theme/issue-${{ github.event.issue.number }}
+          add-paths: site/community
+          commit-message: Add community theme ${{ steps.add.outputs.id }}
+          title: Add community theme ${{ steps.add.outputs.id }}
+          body: Closes #${{ github.event.issue.number }}

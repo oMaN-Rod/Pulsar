@@ -1,0 +1,27 @@
+name = "Tokyo Night"
+author = "Pulsar"
+based_on = "Tokyo Night by enkia"
+
+[dark]
+text = "#C0CAF5"
+label = "#9AA5CE"
+panel = "#1A1B26"
+panel_opacity = 85
+
+[dark.items]
+cpu = "#7AA2F7"
+cpu_temp = "#F7768E"
+cpu_power = "#E0AF68"
+cpu_clock = "#BB9AF7"
+ram = "#BB9AF7"
+chipset_temp = "#FF9E64"
+gpu = "#9ECE6A"
+gpu_temp = "#F7768E"
+gpu_memory = "#73DACA"
+gpu_power = "#E0AF68"
+disk = "#7DCFFF"
+disk_temp = "#FF9E64"
+network = "#E0AF68"
+ping = "#2AC3DE"
+battery = "#9ECE6A"
+fps = "#73DACA"

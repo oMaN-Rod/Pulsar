@@ -1,0 +1,27 @@
+name = "Nord"
+author = "Pulsar"
+based_on = "Nord by Arctic Ice Studio"
+
+[dark]
+text = "#ECEFF4"
+label = "#A5B1C2"
+panel = "#2E3440"
+panel_opacity = 85
+
+[dark.items]
+cpu = "#88C0D0"
+cpu_temp = "#BF616A"
+cpu_power = "#EBCB8B"
+cpu_clock = "#B48EAD"
+ram = "#B48EAD"
+chipset_temp = "#D08770"
+gpu = "#A3BE8C"
+gpu_temp = "#BF616A"
+gpu_memory = "#8FBCBB"
+gpu_power = "#EBCB8B"
+disk = "#81A1C1"
+disk_temp = "#D08770"
+network = "#EBCB8B"
+ping = "#8FBCBB"
+battery = "#A3BE8C"
+fps = "#88C0D0"

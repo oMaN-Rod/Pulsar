@@ -1,0 +1,27 @@
+name = "Gruvbox Dark"
+author = "Pulsar"
+based_on = "Gruvbox by Pavel Pertsev"
+
+[dark]
+text = "#EBDBB2"
+label = "#A89984"
+panel = "#282828"
+panel_opacity = 85
+
+[dark.items]
+cpu = "#83A598"
+cpu_temp = "#FB4934"
+cpu_power = "#FABD2F"
+cpu_clock = "#D3869B"
+ram = "#D3869B"
+chipset_temp = "#FE8019"
+gpu = "#B8BB26"
+gpu_temp = "#FB4934"
+gpu_memory = "#8EC07C"
+gpu_power = "#FABD2F"
+disk = "#83A598"
+disk_temp = "#FE8019"
+network = "#FABD2F"
+ping = "#8EC07C"
+battery = "#B8BB26"
+fps = "#8EC07C"

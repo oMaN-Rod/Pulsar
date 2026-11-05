@@ -1,0 +1,4 @@
+.svelte-kit
+build
+pnpm-lock.yaml
+static/catalog.json

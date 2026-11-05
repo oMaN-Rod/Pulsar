@@ -4,3 +4,7 @@
 /.remember/
 /dist/
 *.pdb
+/site/static/catalog.json
+/site/node_modules/
+/site/.svelte-kit/
+/site/build/

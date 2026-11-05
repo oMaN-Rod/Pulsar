@@ -1,0 +1,27 @@
+name = "Monokai"
+author = "Pulsar"
+based_on = "Monokai by Wimer Hazenberg"
+
+[dark]
+text = "#F8F8F2"
+label = "#A59F85"
+panel = "#272822"
+panel_opacity = 85
+
+[dark.items]
+cpu = "#66D9EF"
+cpu_temp = "#F92672"
+cpu_power = "#E6DB74"
+cpu_clock = "#FD971F"
+ram = "#AE81FF"
+chipset_temp = "#FD971F"
+gpu = "#A6E22E"
+gpu_temp = "#F92672"
+gpu_memory = "#AE81FF"
+gpu_power = "#E6DB74"
+disk = "#66D9EF"
+disk_temp = "#FD971F"
+network = "#E6DB74"
+ping = "#A6E22E"
+battery = "#A6E22E"
+fps = "#66D9EF"
