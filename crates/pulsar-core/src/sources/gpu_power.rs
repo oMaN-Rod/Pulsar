@@ -42,7 +42,8 @@ pub enum CardPower {
     Unknown,
 }
 
-/// The cards' total; `None` when none is asleep or reports its power.
+/// The total of the cards that report their power, with sleeping ones at
+/// zero; `None` when none is asleep or reports it.
 pub fn total_watts(cards: &[CardPower]) -> Option<f64> {
     cards.iter().fold(None, |total, card| match card {
         CardPower::Asleep => Some(total.unwrap_or(0.0)),
@@ -210,6 +211,10 @@ impl Source for GpuPowerSource {
                 // Another card may now sit at a sensorless card's address.
                 self.no_sensor.clear();
             }
+            if added_card(&self.cards, &cards) {
+                // The library finds the cards once, when it starts.
+                self.nvml = None;
+            }
             self.cards = cards;
             self.listed = Some(now);
         }
@@ -269,6 +274,14 @@ fn relist_due(listed: Option<Instant>, soon: bool, now: Instant) -> bool {
     listed.is_none_or(|t| now.duration_since(t) >= wait)
 }
 
+fn added_card(before: &[Card], now: &[Card]) -> bool {
+    now.iter().any(|c| {
+        !before
+            .iter()
+            .any(|b| (b.bus, b.device) == (c.bus, c.device))
+    })
+}
+
 fn unavailable() -> SourceError {
     SourceError::Unavailable(crate::tr!("GPU power unavailable").into())
 }
@@ -286,6 +299,19 @@ mod tests {
         assert_eq!(total_watts(&[Unknown, Watts(12.0)]), Some(12.0));
         assert_eq!(total_watts(&[Unknown]), None);
         assert_eq!(total_watts(&[]), None);
+    }
+
+    #[test]
+    fn only_a_card_at_a_new_address_counts_as_added() {
+        let card = |bus, node| Card {
+            bus,
+            device: 0,
+            node,
+        };
+        assert!(added_card(&[], &[card(1, 7)]));
+        assert!(added_card(&[card(1, 7)], &[card(1, 7), card(2, 8)]));
+        assert!(!added_card(&[card(1, 7)], &[card(1, 9)]));
+        assert!(!added_card(&[card(1, 7), card(2, 8)], &[card(1, 7)]));
     }
 
     #[test]

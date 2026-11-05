@@ -121,7 +121,7 @@ Each item draws an area graph, a line, bars, a dot matrix, a level meter, a segm
 
 CPU, CPU temperature, CPU power, CPU clock, memory, chipset temperature, GPU, GPU temperature, GPU memory, GPU power, disk, drive temperature, network, ping, battery and frame rate. Show any of them, in any order: drag an item along the taskbar to move it, or drag its handle in *Settings → Items*.
 
-GPU power is in watts, for NVIDIA cards, read through the management library their driver installs; no sensor service is needed. A laptop GPU that Windows has powered down counts as 0 W and is not woken to ask.
+GPU power is in watts, for NVIDIA cards, read through the management library their driver installs; no sensor service is needed. With several cards it adds up those that report their power. A laptop GPU that Windows has powered down counts as 0 W and is not woken to ask.
 
 ![Every item at once](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-all.png)
 
