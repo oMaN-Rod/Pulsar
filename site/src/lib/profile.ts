@@ -530,7 +530,12 @@ function applyChanges(doc: TomlTable, before: TomlTable, after: TomlTable): Toml
     const b = before[k];
     const a = after[k];
     if (k === 'items' && isTableArray(a)) {
-      out.items = mergeItems(isTableArray(doc.items) ? doc.items : [], isTableArray(b) ? b : [], a);
+      const items = mergeItems(
+        isTableArray(doc.items) ? doc.items : [],
+        isTableArray(b) ? b : [],
+        a,
+      );
+      if (items.length || doc.items !== undefined) out.items = items;
     } else if (isTable(a)) {
       out[k] = applyChanges(isTable(doc[k]) ? doc[k] : {}, isTable(b) ? b : {}, a);
     } else if (same(a, b)) {
@@ -544,13 +549,19 @@ function applyChanges(doc: TomlTable, before: TomlTable, after: TomlTable): Toml
   return out;
 }
 
-/** Items matched by kind; the file's order stays unless the site's changed. */
+/**
+ * Items matched by kind; the file's order stays unless the site's changed.
+ * Items the file lacks stay out unless changed, and then go in whole.
+ */
 function mergeItems(doc: TomlTable[], before: TomlTable[], after: TomlTable[]): TomlTable[] {
   const kindIn = (list: TomlTable[], kind: TomlValue | undefined) =>
     list.find((t) => t.kind === kind);
-  const merged = after.map((a) =>
-    applyChanges(kindIn(doc, a.kind) ?? {}, kindIn(before, a.kind) ?? {}, a),
-  );
+  const merged = after.flatMap((a) => {
+    const own = kindIn(doc, a.kind);
+    const was = kindIn(before, a.kind);
+    if (own) return [applyChanges(own, was ?? {}, a)];
+    return was && same(a, was) ? [] : [a];
+  });
   const added = merged.filter((m) => !kindIn(doc, m.kind));
   if (
     same(

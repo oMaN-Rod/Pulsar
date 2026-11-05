@@ -125,6 +125,24 @@ describe('profile files', () => {
     expect(items.some((t) => t.kind === 'warp')).toBe(true);
   });
 
+  it('writes whole items for kinds an imported file lacks', () => {
+    const doc = parseToml('[[items]]\nkind = "cpu"\nenabled = true');
+    const { profile } = profileFromToml(doc, 'x');
+    expect(parseToml(profileToToml(profile, 'windows', false)).items).toEqual(doc.items);
+    profile.items.ram.taskbar = true;
+    const items = parseToml(profileToToml(profile, 'windows', false)).items as Record<
+      string,
+      unknown
+    >[];
+    expect(items.map((t) => t.kind)).toEqual(['cpu', 'ram']);
+    expect(items[1]).toMatchObject({ kind: 'ram', enabled: true, graph: true });
+  });
+
+  it('adds no items to an imported file without any', () => {
+    const { profile } = profileFromToml(parseToml('[display]\ntheme = "nord"'), 'x');
+    expect(parseToml(profileToToml(profile, 'nord', false)).items).toBeUndefined();
+  });
+
   it('applies a theme change to an imported file', () => {
     const doc = parseToml('[display]\ntheme = "nord"');
     const { profile } = profileFromToml(doc, 'x');
