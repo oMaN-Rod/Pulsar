@@ -2799,3 +2799,11 @@ msgstr "ログフォルダーの pulsar.log と、あればクラッシュレポ
 #: ui/settings.slint
 msgid "Report an issue"
 msgstr "Issue を作成"
+
+#: ui/settings.slint
+msgid "Support Pulsar"
+msgstr "Pulsar を支援"
+
+#: ui/settings.slint
+msgid "Pulsar is free. If it helps you, you can buy me a coffee."
+msgstr "Pulsar は無料です。役に立ったら、コーヒーをおごっていただけると嬉しいです。"

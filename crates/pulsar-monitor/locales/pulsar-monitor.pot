@@ -2797,3 +2797,11 @@ msgstr ""
 #: ui/settings.slint
 msgid "Report an issue"
 msgstr ""
+
+#: ui/settings.slint
+msgid "Support Pulsar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Pulsar is free. If it helps you, you can buy me a coffee."
+msgstr ""

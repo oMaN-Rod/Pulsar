@@ -1165,6 +1165,8 @@ export component SettingsWindow inherits Window {
     in property <string> logs-path;
     in property <string> repo-url;
     in property <string> issues-url;
+    in property <string> buy-me-a-coffee-url;
+    in property <string> ko-fi-url;
     in-out property <int> labels;
     in-out property <bool> icons;
     in-out property <bool> hide-in-fullscreen;
@@ -3320,6 +3322,19 @@ export component SettingsWindow inherits Window {
                         Button {
                             text: @tr("Report an issue");
                             clicked => { root.open-link(root.issues-url); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Support Pulsar");
+                        description: @tr("Pulsar is free. If it helps you, you can buy me a coffee.");
+                        Button {
+                            text: "Buy Me a Coffee";
+                            clicked => { root.open-link(root.buy-me-a-coffee-url); }
+                        }
+                        Button {
+                            text: "Ko-fi";
+                            clicked => { root.open-link(root.ko-fi-url); }
                         }
                     }
                 }

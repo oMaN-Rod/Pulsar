@@ -2799,3 +2799,11 @@ msgstr "로그 폴더의 pulsar.log와 오류 보고서(있는 경우)를 첨부
 #: ui/settings.slint
 msgid "Report an issue"
 msgstr "이슈 보고"
+
+#: ui/settings.slint
+msgid "Support Pulsar"
+msgstr "Pulsar 후원"
+
+#: ui/settings.slint
+msgid "Pulsar is free. If it helps you, you can buy me a coffee."
+msgstr "Pulsar는 무료입니다. 도움이 되었다면 커피 한 잔 사 주세요."

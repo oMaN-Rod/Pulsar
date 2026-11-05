@@ -37,9 +37,9 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 - **A system details window**: processor, memory modules, graphics, drives, network, motherboard and every live sensor.
 - **GPU monitoring for any vendor**, read the way Task Manager does, with no drivers or vendor SDKs.
 - **CPU temperature and power, if you opt in**, through an optional [sensor service](#sensor-service).
-- **A desktop widget** with sparklines, tiles, meters or dials, and **themes** you can save and share.
+- **A desktop widget** with sparklines, tiles, meters or dials, and **themes** you can save and share, or design on [Pulsar Themes](https://oman-rod.github.io/Pulsar/).
 - **Frame rates and game sessions**: the frame rate of the app in front, a strip on the game's monitor while you play, and a summary when the game closes.
-- **Light**: about 10 MB of memory and well under 1% CPU, and it [pauses while nobody can see it](#staying-out-of-the-way). No admin rights, no drivers and no background services unless you add the sensor service.
+- **Light**: about 20 MB of memory and well under 1% CPU, and it [pauses while nobody can see it](#staying-out-of-the-way). No admin rights, no drivers and no background services unless you add the sensor service.
 - **No telemetry.** See [Privacy](#privacy).
 
 ## Install
@@ -145,8 +145,6 @@ A panel on the desktop with a section per item, like a popup that stays open. It
 | **Dials** | **Core wall** | **Detailed** |
 | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-dials.png" width="220" alt="Widget with dials"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-core-wall.png" width="220" alt="Widget with the CPU core wall"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-detailed.png" width="220" alt="Widget at Detailed"> |
 
-<img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-background.png" width="220" alt="Widget with a custom background color">
-
 ### In games
 
 Two options in *Settings → Sensors*, both off until you turn them on:
@@ -188,6 +186,13 @@ Save the current setup as a named profile in *Settings → Profiles*, such as on
 ### Themes
 
 Eight built-in themes set the item, label, value, tile and panel colors, each with a variant for light taskbars. Click one in *Settings → Theme* to apply it, change any color on top, and save the result as your own theme: a small file in `%APPDATA%\Pulsar\themes` you can share.
+
+For more, open [Pulsar Themes](https://oman-rod.github.io/Pulsar/), or *More themes* in *Settings → Theme*. It shows Pulsar's overlay, popups and widget on an emulated Windows 11 desktop, so you can:
+
+- try the built-in and community themes, and change every color and setting live, in night and day
+- generate a theme from a color or from your wallpaper
+- export the theme, and a profile with your items, styles and layout, ready for Pulsar's themes and profiles folders
+- share your theme with the community gallery through a GitHub issue
 
 <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-theme.png" width="600" alt="Settings, Theme">
 
@@ -504,7 +509,16 @@ cargo test --workspace
 | `scripts\package.ps1` | builds the installer, the portable zip and the winget manifests into `dist\`; needs [Inno Setup](https://jrsoftware.org/isinfo.php) 7, which ships the Simplified Chinese messages |
 | `scripts\screenshots.ps1` | captures the overlay in every layout and style, popups, menus, the widget, the game strip, Settings and the details window to `target\screenshots\`; `-Publish` refreshes the images in `docs\images` |
 
+The theme site lives in `site/`; see [site/README.md](site/README.md) to run it locally.
+
 Also see the [manual testing checklist](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/testing.md) and the [release guide](https://github.com/oMaN-Rod/Pulsar/blob/main/docs/releasing.md).
+
+## Support
+
+Pulsar is free. If it helps you, you can buy me a coffee.
+
+<a href="https://buymeacoffee.com/i_am_o"><img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" height="41" alt="Buy Me a Coffee"></a>
+<a href="https://ko-fi.com/i_am_o"><img src="https://storage.ko-fi.com/cdn/kofi2.png?v=3" height="41" alt="Support me on Ko-fi"></a>
 
 ## License
 

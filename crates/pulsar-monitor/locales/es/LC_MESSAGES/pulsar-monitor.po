@@ -2799,3 +2799,11 @@ msgstr "Adjunta pulsar.log, y cualquier informe de error, de la carpeta de regis
 #: ui/settings.slint
 msgid "Report an issue"
 msgstr "Informar de un problema"
+
+#: ui/settings.slint
+msgid "Support Pulsar"
+msgstr "Apoyar a Pulsar"
+
+#: ui/settings.slint
+msgid "Pulsar is free. If it helps you, you can buy me a coffee."
+msgstr "Pulsar es gratuito. Si te resulta útil, puedes invitarme a un café."

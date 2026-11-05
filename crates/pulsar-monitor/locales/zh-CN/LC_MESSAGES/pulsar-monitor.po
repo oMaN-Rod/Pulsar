@@ -2800,3 +2800,11 @@ msgstr "请附上日志文件夹中的 pulsar.log 以及崩溃报告（如有）
 #: ui/settings.slint
 msgid "Report an issue"
 msgstr "提交问题"
+
+#: ui/settings.slint
+msgid "Support Pulsar"
+msgstr "支持 Pulsar"
+
+#: ui/settings.slint
+msgid "Pulsar is free. If it helps you, you can buy me a coffee."
+msgstr "Pulsar 免费提供。如果它对你有帮助，可以请我喝杯咖啡。"

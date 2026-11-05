@@ -1162,6 +1162,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     );
     ui.set_repo_url(project::REPO_URL.into());
     ui.set_issues_url(project::ISSUES_URL.into());
+    ui.set_buy_me_a_coffee_url(project::BUY_ME_A_COFFEE_URL.into());
+    ui.set_ko_fi_url(project::KO_FI_URL.into());
     ui.on_open_logs_folder(move || {
         if let Some(dir) = &logs {
             let _ = std::fs::create_dir_all(dir);

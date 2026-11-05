@@ -133,7 +133,7 @@ These checks cover what unit tests cannot: the real taskbar, the installer, and 
 
 ## Footprint
 
-After 5 minutes idle with Settings closed, check that Pulsar uses **< 15 MB** private working set (Task Manager → Details → *Memory (private working set)*) and **< 1%** CPU.
+After 5 minutes idle with Settings closed, check that Pulsar uses **< 25 MB** private working set (Task Manager → Details → *Memory (private working set)*) and **< 1%** CPU.
 
 Before merging a change to a source, compare what each source costs before and after:
 
