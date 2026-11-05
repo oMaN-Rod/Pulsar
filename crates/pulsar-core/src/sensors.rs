@@ -27,7 +27,7 @@ const MAPPING_NAME: &str = r"Global\Pulsar.Sensors";
 const FRAMES_EVENT_NAME: &str = r"Global\Pulsar.FramesWanted";
 const READINGS_EVENT_NAME: &str = r"Global\Pulsar.ReadingsWanted";
 const MAGIC: u32 = 0x534E_5350;
-const VERSION: u32 = 7;
+const VERSION: u32 = 8;
 /// A reading older than this means the service has stopped.
 const STALE_MS: u64 = 5000;
 /// The service and administrators own the section; everyone else reads it.
@@ -216,6 +216,8 @@ struct Shared {
     status: AtomicU32,
     /// `GetTickCount64` at the last update.
     tick_ms: AtomicU64,
+    /// Like `tick_ms`, for the frame rates, which go on while readings pause.
+    frames_tick_ms: AtomicU64,
     values: [AtomicI64; SLOTS],
     frames: [FrameSlot; FRAME_SLOTS],
     displays: [DisplaySlot; DISPLAY_SLOTS],
@@ -376,7 +378,7 @@ pub fn read_frames() -> Result<FrameRates, Unavailable> {
         s.magic.load(Ordering::Relaxed),
         s.version.load(Ordering::Relaxed),
         Status::Ok as u32,
-        s.tick_ms.load(Ordering::Relaxed),
+        s.frames_tick_ms.load(Ordering::Relaxed),
         unsafe { GetTickCount64() },
     )?;
     Ok(FrameRates {
@@ -570,6 +572,8 @@ impl Publisher {
         for (i, slot) in s.displays.iter().enumerate() {
             write_display(slot, rates.displays.get(i));
         }
+        s.frames_tick_ms
+            .store(unsafe { GetTickCount64() }, Ordering::Relaxed);
     }
 }
 
