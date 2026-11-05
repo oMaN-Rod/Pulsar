@@ -8,6 +8,7 @@
     min,
     max,
     fallback,
+    unit = ' px',
   }: {
     name: string;
     autoName: string;
@@ -15,6 +16,7 @@
     min: number;
     max: number;
     fallback: number;
+    unit?: string;
   } = $props();
 </script>
 
@@ -32,7 +34,7 @@
     value={value ?? fallback}
     {min}
     {max}
-    output={value === null ? 'auto' : `${value} px`}
+    output={value === null ? 'auto' : `${value}${unit}`}
     disabled={value === null}
     oninput={(v) => (value = v)}
   />

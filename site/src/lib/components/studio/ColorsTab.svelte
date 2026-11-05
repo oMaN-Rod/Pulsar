@@ -6,7 +6,9 @@
   import { META, resolve } from '../../theme.ts';
   import { keep } from '../../ui.ts';
   import CheckField from '../fields/CheckField.svelte';
+  import OwnColorField from '../fields/OwnColorField.svelte';
   import RangeField from '../fields/RangeField.svelte';
+  import SizedField from '../fields/SizedField.svelte';
   import ItemPicker from './ItemPicker.svelte';
 
   const SURFACES = [
@@ -25,6 +27,8 @@
 
   const dark = $derived(resolve(app.theme, false));
   const shown = $derived(resolve(app.theme, app.light));
+  const lightTheme = $derived(resolve(app.theme, true));
+  const o = $derived(app.profile.overrides);
   const color = $derived(app.theme.dark.items[app.selected] ?? dark.items[app.selected]);
   const hsl = $derived(toHsl(color));
   const rails = $derived([
@@ -157,6 +161,53 @@
   <CheckField
     name="Draw graphs in the Windows accent color"
     bind:checked={app.profile.accentGraphs}
+  />
+</section>
+<section>
+  <h2 class="eyebrow">This profile's overlay</h2>
+  <p class="note">
+    In place of the theme's colors on the taskbar overlay only. The widget and popups keep the
+    theme's.
+  </p>
+  <OwnColorField name="Values" themeName="The theme's" bind:value={o.value} fallback={dark.text} />
+  <OwnColorField
+    name="Labels"
+    themeName="The theme's"
+    hint={dark.colorLabels ? 'Labels are colored by item' : undefined}
+    bind:value={o.label}
+    fallback={dark.label}
+  />
+  <OwnColorField
+    name="Values on a light taskbar"
+    themeName="As above"
+    bind:value={o.valueLight}
+    fallback={o.value ?? lightTheme.text}
+  />
+  <OwnColorField
+    name="Labels on a light taskbar"
+    themeName="As above"
+    bind:value={o.labelLight}
+    fallback={o.label ?? lightTheme.label}
+  />
+  <OwnColorField name="Tile" themeName="The theme's" bind:value={o.tile} fallback={shown.tile} />
+  <SizedField
+    name="Tile opacity"
+    autoName="The theme's opacity"
+    bind:value={o.tileOpacity}
+    min={0}
+    max={100}
+    fallback={shown.tileOpacity}
+    unit="%"
+  />
+  <OwnColorField name="Panel" themeName="The theme's" bind:value={o.panel} fallback={shown.panel} />
+  <SizedField
+    name="Panel opacity"
+    autoName="The theme's opacity"
+    bind:value={o.panelOpacity}
+    min={0}
+    max={100}
+    fallback={shown.panelOpacity}
+    unit="%"
   />
 </section>
 <section>

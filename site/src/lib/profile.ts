@@ -112,6 +112,34 @@ export type NetworkShow = 'both' | 'download' | 'upload';
 const NETWORK_SHOWS: NetworkShow[] = ['both', 'download', 'upload'];
 export const MAX_BPS = 1e12;
 
+export interface Overrides {
+  tile: string | null;
+  tileOpacity: number | null;
+  panel: string | null;
+  panelOpacity: number | null;
+  label: string | null;
+  value: string | null;
+  labelLight: string | null;
+  valueLight: string | null;
+}
+
+const OVERRIDE_KEYS: [keyof Overrides, string][] = [
+  ['tile', 'tile_color'],
+  ['tileOpacity', 'tile_opacity'],
+  ['panel', 'panel_color'],
+  ['panelOpacity', 'panel_opacity'],
+  ['label', 'label_color'],
+  ['value', 'value_color'],
+  ['labelLight', 'label_color_light'],
+  ['valueLight', 'value_color_light'],
+];
+
+const isOpacity = (k: keyof Overrides) => k.endsWith('Opacity');
+
+function cleanOverride(k: keyof Overrides, v: unknown) {
+  return isOpacity(k) ? sized(v, 0, 100) : hexOrNull(v);
+}
+
 export type LoadLevel = 'low' | 'moderate' | 'high' | 'critical';
 
 export interface ItemSettings {
@@ -161,6 +189,8 @@ export interface Profile {
   position: 'left' | 'right' | 'floating';
   font: { family: string; size: number; bold: boolean };
   textGaps: { item: number; label: number; row: number };
+  /** In place of the theme's colors on the overlay; `null` keeps the theme's. */
+  overrides: Overrides;
   units: {
     temperature: 'celsius' | 'fahrenheit';
     network: 'bytes' | 'bits';
@@ -297,6 +327,16 @@ export function defaultProfile(): Profile {
     position: 'right',
     font: { family: '', size: 9, bold: false },
     textGaps: { item: 10, label: 4, row: 0 },
+    overrides: {
+      tile: null,
+      tileOpacity: null,
+      panel: null,
+      panelOpacity: null,
+      label: null,
+      value: null,
+      labelLight: null,
+      valueLight: null,
+    },
     units: { temperature: 'celsius', network: 'bytes', memory: 'percent' },
     network: {
       show: 'both',
@@ -356,6 +396,9 @@ export function mergeProfile(input: unknown): Profile {
       label: sized(saved.textGaps?.label, ...TEXT_GAPS.label) ?? base.textGaps.label,
       row: sized(saved.textGaps?.row, ...TEXT_GAPS.row) ?? base.textGaps.row,
     },
+    overrides: Object.fromEntries(
+      OVERRIDE_KEYS.map(([k]) => [k, cleanOverride(k, saved.overrides?.[k])]),
+    ) as unknown as Overrides,
     units: { ...base.units, ...saved.units },
     network: {
       show: pick(net.show, NETWORK_SHOWS, base.network.show),
@@ -457,6 +500,10 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
   if (p.font.family && p.font.family !== FONTS[0]) kv('font_family', p.font.family);
   kv('font_bold', p.font.bold);
   lines.push(`font_size_pt = ${Number(p.font.size).toFixed(1)}`);
+  for (const [k, key] of OVERRIDE_KEYS) {
+    const v = p.overrides[k];
+    if (v !== null) kv(key, v);
+  }
   const gaps = defaultProfile().textGaps;
   for (const k of ['item', 'label', 'row'] as const)
     if (p.textGaps[k] !== gaps[k]) kv(`text_${k}_gap`, p.textGaps[k]);
@@ -567,6 +614,9 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
   p.font.bold = d.font_bold === true;
   if (typeof d.font_size_pt === 'number')
     p.font.size = Math.max(7, Math.min(14, Math.round(d.font_size_pt * 2) / 2));
+  p.overrides = Object.fromEntries(
+    OVERRIDE_KEYS.map(([k, key]) => [k, cleanOverride(k, d[key])]),
+  ) as unknown as Overrides;
   for (const k of ['item', 'label', 'row'] as const) {
     const [min, max] = TEXT_GAPS[k];
     p.textGaps[k] = sized(d[`text_${k}_gap`], min, max) ?? p.textGaps[k];

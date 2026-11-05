@@ -20,6 +20,16 @@ function custom(): Profile {
   p.position = 'left';
   p.font = { family: 'Cascadia Code', size: 10.5, bold: true };
   p.textGaps = { item: 20, label: 0, row: 3 };
+  p.overrides = {
+    tile: '#102030',
+    tileOpacity: 0,
+    panel: '#405060',
+    panelOpacity: 80,
+    label: '#AAAAAA',
+    value: '#FFFFFF',
+    labelLight: '#333333',
+    valueLight: null,
+  };
   p.units = { temperature: 'fahrenheit', network: 'bits', memory: 'bytes' };
   p.network = {
     show: 'download',
@@ -248,6 +258,7 @@ describe('mergeProfile', () => {
     saved.position = 'top';
     saved.disk = { value: 'free' };
     saved.textGaps = { item: 99, label: 'wide' };
+    saved.overrides = { tile: 'blue', tileOpacity: 150, panelOpacity: 2.5, value: '#abcdef' };
     saved.network = {
       show: 'sideways',
       splitTiles: 'yes',
@@ -276,6 +287,11 @@ describe('mergeProfile', () => {
     expect(p.position).toBe('right');
     expect(p.disk.value).toBe('activity');
     expect(p.textGaps).toEqual({ item: 40, label: 4, row: 0 });
+    expect(p.overrides).toEqual({
+      ...defaultProfile().overrides,
+      tileOpacity: 100,
+      value: '#ABCDEF',
+    });
     expect(p.items.ram).toMatchObject({
       color: null,
       label: 'Memoryall of',

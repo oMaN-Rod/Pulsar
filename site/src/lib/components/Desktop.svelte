@@ -12,7 +12,14 @@
     type Fit,
     type TaskbarSettings,
   } from '../state.svelte.ts';
-  import { fontCss, fontPx, renderTiles, textColumns, withItemColors } from '../styles.ts';
+  import {
+    fontCss,
+    fontPx,
+    overlayColors,
+    renderTiles,
+    textColumns,
+    withItemColors,
+  } from '../styles.ts';
   import { META, resolve, type ItemKey, type Resolved } from '../theme.ts';
   import DeskIcon, { type DeskIconName } from './DeskIcon.svelte';
   import Notes from './Notes.svelte';
@@ -100,7 +107,8 @@
   let picker = $state<HTMLInputElement>();
   let notes = $state<Notes>();
 
-  const colors: Resolved = $derived(withItemColors(resolve(app.theme, app.light), app.profile));
+  const themed: Resolved = $derived(withItemColors(resolve(app.theme, app.light), app.profile));
+  const colors: Resolved = $derived(overlayColors(themed, app.profile, app.light));
   const vertical = $derived(app.taskbar.edge !== 'bottom');
 
   const initial = untrack(() => $state.snapshot(app.profile) as Profile);
@@ -888,10 +896,10 @@
     bind:this={widgetEl}
     style:width="{app.profile.widget.width}px"
     style:background={rgba(
-      app.profile.widget.background ?? colors.panel,
+      app.profile.widget.background ?? themed.panel,
       app.profile.widget.opacity / 100,
     )}
-    style:color={colors.text}
+    style:color={themed.text}
     style:font-family={fontCss(app.profile.font)}
     onpointerdown={widgetDown}
     onpointermove={widgetMove}
@@ -905,7 +913,7 @@
           items={widgetKeys(app.profile)}
           widget={app.profile.widget}
           settings={app.profile.items}
-          v={colors}
+          v={themed}
           held={widgetDrag?.key ?? null}
         />
       {/if}
@@ -921,8 +929,8 @@
     role="tooltip"
     hidden={!popShown || !hovered}
     bind:this={popEl}
-    style:background={rgba(colors.panel, app.profile.popup.background === 'solid' ? 1 : 0.88)}
-    style:color={colors.text}
+    style:background={rgba(themed.panel, app.profile.popup.background === 'solid' ? 1 : 0.88)}
+    style:color={themed.text}
     style:width="{(hovered && app.profile.items[hovered].popupWidth) || app.profile.popup.width}px"
     style:font-family={fontCss(app.profile.font)}
     style:left={popPos.left}
@@ -934,7 +942,7 @@
       <PopupContent
         item={hovered}
         detail={app.profile.items[hovered].popup ?? app.profile.popupDetail}
-        v={colors}
+        v={themed}
         show={app.profile.network.popupShow}
         settings={{
           ...app.profile.popup,

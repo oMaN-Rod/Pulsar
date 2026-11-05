@@ -103,6 +103,20 @@ export function graphColor(
   return v.items[k];
 }
 
+/** The widget and popups keep the theme's text and panel; only the overlay takes these. */
+export function overlayColors(v: Resolved, p: Profile, light: boolean): Resolved {
+  const o = p.overrides;
+  return {
+    ...v,
+    text: (light && o.valueLight) || o.value || v.text,
+    label: (light && o.labelLight) || o.label || v.label,
+    tile: o.tile ?? v.tile,
+    tileOpacity: o.tileOpacity ?? v.tileOpacity,
+    panel: o.panel ?? v.panel,
+    panelOpacity: o.panelOpacity ?? v.panelOpacity,
+  };
+}
+
 export function withItemColors(v: Resolved, p: Profile): Resolved {
   const items = { ...v.items };
   for (const [k, it] of Object.entries(p.items) as [ItemKey, ItemSettings][])
