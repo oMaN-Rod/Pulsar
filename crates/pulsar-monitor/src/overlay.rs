@@ -13,11 +13,12 @@ use windows::Win32::Graphics::Dwm::{DWMWA_TRANSITIONS_FORCEDISABLED, DwmSetWindo
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DestroyWindow, GW_HWNDPREV, GWL_EXSTYLE, GWL_STYLE, GWLP_USERDATA, GetParent,
-    GetWindow, GetWindowLongW, GetWindowThreadProcessId, HWND_TOP, HWND_TOPMOST, IDC_ARROW,
-    LoadCursorW, RegisterClassW, SW_HIDE, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    WINDOW_STYLE, WNDCLASSW, WNDPROC, WS_CHILD, WS_EX_LAYERED, WS_EX_LAYOUTRTL, WS_EX_NOACTIVATE,
-    WS_EX_NOPARENTNOTIFY, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    GetWindow, GetWindowLongPtrW, GetWindowLongW, GetWindowThreadProcessId, HWND_TOP, HWND_TOPMOST,
+    IDC_ARROW, LoadCursorW, RegisterClassW, SW_HIDE, SW_SHOWNOACTIVATE, SWP_FRAMECHANGED,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SetParent, SetWindowLongPtrW,
+    SetWindowPos, ShowWindow, WINDOW_STYLE, WNDCLASSW, WNDPROC, WS_CHILD, WS_EX_LAYERED,
+    WS_EX_LAYOUTRTL, WS_EX_NOACTIVATE, WS_EX_NOPARENTNOTIFY, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    WS_POPUP,
 };
 use windows::core::{BOOL, Result, w};
 
@@ -240,6 +241,7 @@ impl Overlay {
         if !self.alive() {
             return;
         }
+        self.renew_layered();
         unsafe {
             let _ = SetWindowPos(
                 self.hwnd,
@@ -259,6 +261,16 @@ impl Overlay {
         }
         unsafe {
             SetWindowLongPtrW(self.hwnd, GWL_STYLE, style.0 as isize);
+        }
+    }
+
+    /// A window presented before it changes parent keeps showing its old,
+    /// empty image under the new one; dropping the layered style discards it.
+    fn renew_layered(&self) {
+        unsafe {
+            let ex = GetWindowLongPtrW(self.hwnd, GWL_EXSTYLE);
+            SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE, ex & !(WS_EX_LAYERED.0 as isize));
+            SetWindowLongPtrW(self.hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED.0 as isize);
         }
     }
 
