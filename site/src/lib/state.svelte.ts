@@ -6,6 +6,7 @@ import { createSim, setUnits, type Sim } from './sim.ts';
 import {
   cloneTheme,
   isItemKey,
+  MAX_CREDIT,
   themeFromToml,
   themeToToml,
   windowsTheme,
@@ -124,7 +125,8 @@ export function editTheme(change: (t: Theme) => void) {
   const theme = cloneTheme($state.snapshot(app.theme));
   change(theme);
   if (app.source.kind !== 'custom') {
-    theme.basedOn ??= theme.author ? `${theme.name} by ${theme.author}` : theme.name;
+    const credit = theme.author ? `${theme.name} by ${theme.author}` : theme.name;
+    theme.basedOn ??= (credit.length > MAX_CREDIT ? theme.name : credit).slice(0, MAX_CREDIT);
     theme.author = null;
     theme.name = `${theme.name} (modified)`;
   }
