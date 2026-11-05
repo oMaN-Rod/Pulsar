@@ -53,8 +53,9 @@
   <section>
     <h3 class="eyebrow">Profile</h3>
     <p class="note">
-      Everything else: items, styles, colors by load, units, popups, widget and text, pointing at
-      this theme. Save it to %APPDATA%\Pulsar\profiles, then switch to it from Pulsar's tray menu.
+      Everything else: items with their labels and colors, styles, where the overlay sits and its
+      colors, network, colors by load, units, popups, widget and text, pointing at this theme. Save
+      it to %APPDATA%\Pulsar\profiles, then switch to it from Pulsar's tray menu.
     </p>
     <label class="field">
       <span class="field-name">Profile name</span>
