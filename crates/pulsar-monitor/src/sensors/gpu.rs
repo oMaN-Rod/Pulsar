@@ -1,6 +1,8 @@
 //! NVIDIA temperatures the display driver does not report: the hot spot and
 //! the memory chips.
 
+use std::time::{Duration, Instant};
+
 use pulsar_core::hardware::pci::powered_down;
 use pulsar_core::sensors::Sensor;
 use windows::Win32::Devices::DeviceAndDriverInstallation::{
@@ -120,7 +122,10 @@ pub struct Gpu {
     node: u32,
     has_hot_spot: bool,
     has_memory_temp: bool,
+    searched: Option<Instant>,
 }
+
+const SEARCH_AGAIN: Duration = Duration::from_secs(30);
 
 impl Gpu {
     /// `None` without an NVIDIA card.
@@ -134,7 +139,28 @@ impl Gpu {
             node,
             has_hot_spot: true,
             has_memory_temp: true,
+            searched: None,
         })
+    }
+
+    /// Windows hands out a new device node when it lists the card again.
+    fn find_again(&mut self) {
+        let now = Instant::now();
+        if self
+            .searched
+            .is_some_and(|t| now.duration_since(t) < SEARCH_AGAIN)
+        {
+            return;
+        }
+        self.searched = Some(now);
+        if let Some((location, node)) = find_nvidia() {
+            if location != self.location {
+                self.has_hot_spot = true;
+                self.has_memory_temp = true;
+            }
+            self.location = location;
+            self.node = node;
+        }
     }
 
     /// A reading the card refuses once is not asked for again. A laptop's
@@ -142,7 +168,12 @@ impl Gpu {
     /// reading its registers would wake it.
     pub fn sample(&mut self) -> Vec<(Sensor, f64)> {
         let mut values = Vec::new();
-        if powered_down(self.node) != Some(false) {
+        let mut state = powered_down(self.node);
+        if state.is_none() {
+            self.find_again();
+            state = powered_down(self.node);
+        }
+        if state != Some(false) {
             return values;
         }
         if self.has_hot_spot {
