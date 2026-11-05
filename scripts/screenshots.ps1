@@ -19,7 +19,10 @@ capture, so existing images stay until named in -Replace.
 .PARAMETER Replace
 With -Publish, the captures to copy over existing images because their UI changed. Wildcards work.
 .PARAMETER Parts
-Which captures to take: overlay, popups, menus, widget, game, settings, details.
+Which captures to take: overlay, popups, menus, widget, game, settings, details, and motion: an
+animated GIF of the overlay going through its styles, which needs ffmpeg and is taken only when named.
+.PARAMETER Ffmpeg
+The ffmpeg executable for the motion capture.
 #>
 param(
     [string[]]$Parts = @('overlay', 'popups', 'menus', 'widget', 'game', 'settings', 'details'),
@@ -27,7 +30,8 @@ param(
     [switch]$Light,
     [switch]$Publish,
     [string[]]$Replace = @(),
-    [int]$Warmup = 45
+    [int]$Warmup = 45,
+    [string]$Ffmpeg = 'ffmpeg'
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -492,7 +496,7 @@ try {
     $env:APPDATA = Join-Path $work 'Roaming'
     $env:LOCALAPPDATA = Join-Path $work 'Local'
     New-Item -ItemType Directory -Force $out | Out-Null
-    $prefixes = @{ overlay = 'overlay-'; popups = 'popup-'; menus = 'menu'; widget = 'widget-'; game = 'game-'; settings = 'settings-'; details = 'details-' }
+    $prefixes = @{ overlay = 'overlay-'; popups = 'popup-'; menus = 'menu'; widget = 'widget-'; game = 'game-'; settings = 'settings-'; details = 'details-'; motion = 'overlay-motion' }
     Get-ChildItem $out -Filter *.png |
         Where-Object { $name = $_.Name; $Parts | Where-Object { $name.StartsWith($prefixes[$_]) } } |
         Remove-Item
@@ -561,6 +565,96 @@ try {
         Send-ConfigChanged
         Park-Mouse
         Save-Around (Find-Window 'PulsarOverlay') 'overlay-floating' 16
+    }
+
+    if ('motion' -in $Parts) {
+        Write-Host 'Motion'
+        $notLoaded = @{ disk = 'area'; network = 'area' }
+        $scenes = @(
+            @{ Caption = 'Area graphs'; Options = @{} }
+            @{ Caption = 'Icons'; Options = @{ Icons = $true } }
+            @{ Caption = 'One-letter labels'; Options = @{ Labels = 'short' } }
+            @{ Caption = 'Single-line graphs'; Options = @{ Inline = $true; Icons = $true } }
+            @{ Caption = 'Vertical labels'; Options = @{ VerticalLabels = $true } }
+            @{ Caption = 'Line'; Options = @{ Style = 'line' } }
+            @{ Caption = 'Bars'; Options = @{ Style = 'bars' } }
+            @{ Caption = 'Level meter'; Options = @{ Style = 'meter' } }
+            @{ Caption = 'Segment meter'; Options = @{ Style = 'segments' } }
+            @{ Caption = 'Spark underline'; Options = @{ Style = 'spark' } }
+            @{ Caption = 'Ring'; Options = @{ Style = 'ring' } }
+            @{ Caption = 'Dot matrix'; Options = @{ Style = 'dot_matrix' } }
+            @{ Caption = 'Heat strip'; Options = @{ Style = 'heat_strip' } }
+            @{ Caption = 'Bullet meter'; Options = @{ Style = 'bullet' } }
+            @{ Caption = 'Range rail'; Options = @{ Style = 'range_rail' } }
+            @{ Caption = 'Status tint'; Options = @{ Style = 'tint'; Styles = $notLoaded } }
+            @{ Caption = 'Status bubble'; Options = @{ Style = 'bubble'; Styles = $notLoaded } }
+            @{ Caption = 'Load with temperature'; Options = @{ Styles = @{ cpu = 'combined'; gpu = 'combined' } } }
+            @{ Caption = 'Core bars and mirrored network'; Options = @{ Styles = @{ cpu = 'cores'; network = 'mirror_bars' } } }
+            @{ Caption = 'Heat cells'; Options = @{ Styles = @{ cpu = 'heat' } } }
+            @{ Caption = 'Mixed styles with trend arrows'; Options = @{ Styles = @{ cpu_temp = 'line'; ram = 'meter'; gpu = 'bars' }; TextOnly = 'disk'; Trend = $Showcase } }
+            @{ Caption = 'Color by load'; Options = @{ Color = 'load' } }
+            @{ Caption = 'Your own load colors'; Options = @{ Color = 'load'; LoadColors = @{ low = '#4CC2FF'; moderate = '#B18CFF'; high = '#FF8CC6'; critical = '#FF4D6A' } } }
+            @{ Caption = 'Text'; Options = @{ Mode = 'text' } }
+            @{ Caption = 'Text colored by load'; Options = @{ Mode = 'text'; Color = 'load' } }
+        )
+        $fps = 12
+        $hold = 2.4
+        $frames = Join-Path $out 'overlay-motion'
+        Remove-Item -Recurse -Force $frames -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory $frames | Out-Null
+
+        Write-Config
+        Send-ConfigChanged
+        Park-Mouse
+        $overlay = Find-Window 'PulsarOverlay'
+        $scale = [Native]::GetDpiForWindow($overlay) / 96.0
+        $pad = [int](12 * $scale)
+        $tb = Get-Rect (Find-Window 'Shell_TrayWnd')
+        $right = (Get-Rect $overlay).Right + $pad
+        # Wide enough for any style; cropped to the widest one seen.
+        $left = [Math]::Max($tb.Left, $right - [int](900 * $scale))
+        $minLeft = $right
+        $bmp = New-Object System.Drawing.Bitmap ($right - $left), ($tb.Bottom - $tb.Top)
+        $g = [System.Drawing.Graphics]::FromImage($bmp)
+        $msg = [Native]::RegisterWindowMessage('Pulsar.ConfigChanged')
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        $n = 0
+        for ($s = 0; $s -lt $scenes.Count; $s++) {
+            if ($s) {
+                $options = $scenes[$s].Options
+                Write-Config @options
+                [void][Native]::PostMessage([Native]::FindWindow('PulsarHost', [NullString]::Value), $msg, [IntPtr]::Zero, [IntPtr]::Zero)
+            }
+            while ($n / $fps -lt ($s + 1) * $hold) {
+                $wait = [int]($n / $fps * 1000 - $clock.ElapsedMilliseconds)
+                if ($wait -gt 0) { Start-Sleep -Milliseconds $wait }
+                $g.CopyFromScreen($left, $tb.Top, 0, 0, $bmp.Size)
+                $bmp.Save((Join-Path $frames ('{0:d4}.png' -f $n)), [System.Drawing.Imaging.ImageFormat]::Png)
+                $bar = [Native]::FindWindow('Shell_TrayWnd', [NullString]::Value)
+                $h = [Native]::FindWindowEx($bar, [IntPtr]::Zero, 'PulsarOverlay', [NullString]::Value)
+                if ($h -ne [IntPtr]::Zero) { $minLeft = [Math]::Min($minLeft, (Get-Rect $h).Left) }
+                $n++
+            }
+        }
+        $g.Dispose(); $bmp.Dispose()
+
+        $x = [Math]::Max(0, $minLeft - $pad - $left)
+        $strip = [int](30 * $scale)
+        $font = 'C\:/Windows/Fonts/seguisb.ttf'
+        $filters = @("crop=iw-$($x):ih:$($x):0", "pad=iw:ih+$($strip):0:0:color=0x1b1b1d")
+        for ($s = 0; $s -lt $scenes.Count; $s++) {
+            $filters += "drawtext=fontfile='$font':text='$($scenes[$s].Caption)':fontcolor=0xe6e6e6:fontsize=$([int](14 * $scale)):x=(w-text_w)/2:y=h-$strip+($strip-text_h)/2:enable='between(t,$($s * $hold),$(($s + 1) * $hold))'"
+        }
+        $graph = ($filters -join ',') + ',split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle'
+        $script = Join-Path $frames 'filter.txt'
+        Set-Content $script $graph -Encoding utf8NoBOM
+        if (Get-Command $Ffmpeg -ErrorAction SilentlyContinue) {
+            & $Ffmpeg -y -loglevel error -framerate $fps -i (Join-Path $frames '%04d.png') -filter_complex_script $script (Join-Path $out 'overlay-motion.gif')
+            if ($LASTEXITCODE) { throw 'ffmpeg failed' }
+            Write-Host '  overlay-motion.gif'
+        } else {
+            Write-Warning "no $Ffmpeg, so the frames in $frames were not made into a GIF"
+        }
     }
 
     if ($Light -or ($Parts | Where-Object { $_ -in 'popups', 'menus' })) {
@@ -723,7 +817,7 @@ try {
 
 if ($Publish) {
     $readme = Get-Content (Join-Path $root 'README.md') -Raw
-    Get-ChildItem $out -Filter *.png | ForEach-Object {
+    Get-ChildItem $out -File | Where-Object Extension -in '.png', '.gif' | ForEach-Object {
         $target = Join-Path $root "docs\images\$($_.Name)"
         $name = $_.BaseName
         $new = -not (Test-Path $target) -and $readme.Contains("docs/images/$($_.Name)")
