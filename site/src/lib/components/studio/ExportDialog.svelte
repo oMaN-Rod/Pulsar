@@ -1,13 +1,18 @@
 <script lang="ts">
   import { profileToToml } from '../../profile.ts';
   import { app, copyTheme, toast } from '../../state.svelte.ts';
-  import { slug, themeToToml } from '../../theme.ts';
+  import { fileId, slug, themeToToml } from '../../theme.ts';
   import { download, keep } from '../../ui.ts';
   import Dialog from './Dialog.svelte';
   import DialogHead from './DialogHead.svelte';
 
   const themeId = $derived(
-    app.source.kind === 'builtin' && app.source.id ? app.source.id : slug(app.theme.name),
+    app.source.kind === 'builtin' && app.source.id
+      ? app.source.id
+      : fileId(
+          app.theme.name,
+          app.catalog.builtin.map((e) => e.id),
+        ),
   );
 
   function saveProfile() {
@@ -38,8 +43,7 @@
       <button
         type="button"
         class="primary"
-        onclick={() =>
-          download(`${slug(app.theme.name)}.toml`, themeToToml($state.snapshot(app.theme)))}
+        onclick={() => download(`${themeId}.toml`, themeToToml($state.snapshot(app.theme)))}
       >
         Save theme
       </button>

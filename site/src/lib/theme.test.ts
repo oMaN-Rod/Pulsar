@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseToml, slug, themeFromToml, themeToToml, validId } from './theme.ts';
+import { fileId, parseToml, slug, themeFromToml, themeToToml, validId } from './theme.ts';
 
 const NORD = `name = "Nord"
 author = "Pulsar"
@@ -134,5 +134,11 @@ describe('ids', () => {
     expect(validId('tokyo-night')).toBe(true);
     expect(validId('Tokyo')).toBe(false);
     expect(validId('')).toBe(false);
+  });
+
+  it('keeps own themes off built-in ids', () => {
+    expect(fileId('Aurora', ['aurora'])).toBe('aurora-custom');
+    expect(fileId('Windows', [])).toBe('windows-custom');
+    expect(fileId('Aurora Night', ['aurora'])).toBe('aurora-night');
   });
 });

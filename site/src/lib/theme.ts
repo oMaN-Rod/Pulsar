@@ -201,6 +201,12 @@ export function slug(name: string, fallback = 'theme'): string {
   return out || fallback;
 }
 
+/** Pulsar loads a built-in theme before a file with the same id. */
+export function fileId(name: string, builtinIds: string[]): string {
+  const id = slug(name);
+  return id === 'windows' || builtinIds.includes(id) ? `${id}-custom` : id;
+}
+
 export function validId(id: unknown): boolean {
   return /^[a-z0-9-]{1,64}$/.test(String(id));
 }

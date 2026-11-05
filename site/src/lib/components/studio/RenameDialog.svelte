@@ -1,13 +1,19 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { app } from '../../state.svelte.ts';
-  import { cloneTheme, MAX_CREDIT, slug } from '../../theme.ts';
+  import { cloneTheme, fileId, MAX_CREDIT } from '../../theme.ts';
   import Dialog from './Dialog.svelte';
   import DialogHead from './DialogHead.svelte';
 
   let name = $state('');
   let author = $state('');
   let nameInput: HTMLInputElement;
+  const exportId = $derived(
+    fileId(
+      name.trim(),
+      app.catalog.builtin.map((e) => e.id),
+    ),
+  );
 
   function submit(e: SubmitEvent) {
     e.preventDefault();
@@ -47,7 +53,7 @@
       />
     </label>
     <!-- prettier-ignore -->
-    <p class="note">Exports as <code>{slug(name.trim() || 'theme')}.toml</code>.</p>
+    <p class="note">Exports as <code>{exportId}.toml</code>.</p>
     <label class="field">
       <span class="field-name">Author</span>
       <input
