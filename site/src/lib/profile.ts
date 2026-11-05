@@ -160,6 +160,7 @@ export interface Profile {
   accentGraphs: boolean;
   position: 'left' | 'right' | 'floating';
   font: { family: string; size: number; bold: boolean };
+  textGaps: { item: number; label: number; row: number };
   units: {
     temperature: 'celsius' | 'fahrenheit';
     network: 'bytes' | 'bits';
@@ -238,6 +239,7 @@ const sized = (v: unknown, min: number, max: number) =>
   typeof v === 'number' && Number.isInteger(v) ? Math.max(min, Math.min(max, v)) : null;
 
 export const POPUP_WIDTHS = [220, 800] as const;
+export const TEXT_GAPS = { item: [0, 40], label: [0, 16], row: [0, 16] } as const;
 export const POPUP_GRAPH_HEIGHTS = [24, 400] as const;
 
 function cleanItem(k: ItemKey, saved: Partial<ItemSettings> | undefined): ItemSettings {
@@ -294,6 +296,7 @@ export function defaultProfile(): Profile {
     accentGraphs: false,
     position: 'right',
     font: { family: '', size: 9, bold: false },
+    textGaps: { item: 10, label: 4, row: 0 },
     units: { temperature: 'celsius', network: 'bytes', memory: 'percent' },
     network: {
       show: 'both',
@@ -347,6 +350,11 @@ export function mergeProfile(input: unknown): Profile {
       ...font,
       family: fontName(font.family),
       size: Number.isFinite(font.size) ? Math.max(7, Math.min(14, font.size)) : base.font.size,
+    },
+    textGaps: {
+      item: sized(saved.textGaps?.item, ...TEXT_GAPS.item) ?? base.textGaps.item,
+      label: sized(saved.textGaps?.label, ...TEXT_GAPS.label) ?? base.textGaps.label,
+      row: sized(saved.textGaps?.row, ...TEXT_GAPS.row) ?? base.textGaps.row,
     },
     units: { ...base.units, ...saved.units },
     network: {
@@ -449,6 +457,9 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
   if (p.font.family && p.font.family !== FONTS[0]) kv('font_family', p.font.family);
   kv('font_bold', p.font.bold);
   lines.push(`font_size_pt = ${Number(p.font.size).toFixed(1)}`);
+  const gaps = defaultProfile().textGaps;
+  for (const k of ['item', 'label', 'row'] as const)
+    if (p.textGaps[k] !== gaps[k]) kv(`text_${k}_gap`, p.textGaps[k]);
   lines.push('', '[display.load_thresholds]');
   for (const u of LOAD_UNITS) kv(u.id, p.load.thresholds[u.id]);
   const colors = Object.entries(p.load.colors).filter(([, c]) => c) as [string, string][];
@@ -556,6 +567,10 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
   p.font.bold = d.font_bold === true;
   if (typeof d.font_size_pt === 'number')
     p.font.size = Math.max(7, Math.min(14, Math.round(d.font_size_pt * 2) / 2));
+  for (const k of ['item', 'label', 'row'] as const) {
+    const [min, max] = TEXT_GAPS[k];
+    p.textGaps[k] = sized(d[`text_${k}_gap`], min, max) ?? p.textGaps[k];
+  }
   const thresholds = table(d.load_thresholds);
   for (const u of LOAD_UNITS) {
     const t = thresholds[u.id];

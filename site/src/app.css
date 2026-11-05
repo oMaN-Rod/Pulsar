@@ -1520,7 +1520,7 @@ select:disabled {
 }
 .text-overlay {
   display: flex;
-  gap: 10px;
+  gap: var(--tx-item);
   padding: 0 4px;
   height: 40px;
   align-items: center;
@@ -1529,12 +1529,12 @@ select:disabled {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0;
+  gap: var(--tx-row);
 }
 .tx {
   display: flex;
   justify-content: space-between;
-  gap: 6px;
+  gap: var(--tx-label);
   padding: 0 2px;
   border: none;
   border-radius: 3px;
@@ -1552,13 +1552,13 @@ select:disabled {
 .tx-net {
   flex-direction: column;
   align-items: flex-start;
-  gap: 0;
+  gap: var(--tx-row);
 }
 .desk:not([data-edge='bottom']) .text-overlay {
   flex-direction: column;
   height: auto;
   align-items: stretch;
-  gap: 6px;
+  gap: calc(var(--tx-item) * 0.6);
 }
 .pop.solid {
   -webkit-backdrop-filter: none;
@@ -2422,6 +2422,7 @@ body.day .picker-pop {
 .probe.upright .text-overlay {
   flex-direction: column;
   height: auto;
+  gap: calc(var(--tx-item) * 0.6);
 }
 
 /* Transparent taskbar */

@@ -7,6 +7,7 @@
     columns,
     weight,
     color,
+    gaps,
     drag = null,
     onclick,
     onkeydown,
@@ -14,6 +15,7 @@
     columns: TextColumn[];
     weight: number;
     color: string;
+    gaps: { item: number; label: number; row: number };
     drag?: { key: ItemKey; active: boolean; transform: string | null } | null;
     onclick?: (e: MouseEvent) => void;
     onkeydown?: (e: KeyboardEvent) => void;
@@ -22,7 +24,14 @@
   const held = (k: ItemKey) => drag?.key === k;
 </script>
 
-<div class="text-overlay" style:font-weight={weight} style:color>
+<div
+  class="text-overlay"
+  style:font-weight={weight}
+  style:color
+  style:--tx-item="{gaps.item}px"
+  style:--tx-label="{gaps.label}px"
+  style:--tx-row="{gaps.row}px"
+>
   {#each columns as col, i (i)}
     <div class="tx-col">
       {#if col.kind === 'network'}

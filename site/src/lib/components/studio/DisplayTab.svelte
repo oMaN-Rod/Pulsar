@@ -5,6 +5,7 @@
     FONTS,
     LOAD_UNITS,
     MAX_BPS,
+    TEXT_GAPS,
     typedLabel,
     thresholdsFor,
     type LoadUnit,
@@ -186,6 +187,22 @@
   />
   <CheckField name="Bold" bind:checked={p.font.bold} />
   <p class="note">Fonts show as they would in Pulsar when they're installed on this computer.</p>
+</section>
+<section>
+  <h2 class="eyebrow">Text spacing</h2>
+  {#each [['item', 'Between items', TEXT_GAPS.item], ['label', 'Label to value', TEXT_GAPS.label], ['row', 'Between rows', TEXT_GAPS.row]] as const as [k, name, [min, max]] (k)}
+    <RangeField
+      {name}
+      {min}
+      {max}
+      value={p.textGaps[k]}
+      output="{p.textGaps[k]} px"
+      oninput={(v) => (p.textGaps[k] = v)}
+    />
+  {/each}
+  <p class="note">
+    For the Text overlay. On a vertical taskbar, items are three fifths as far apart.
+  </p>
 </section>
 <section>
   <h2 class="eyebrow">Units</h2>

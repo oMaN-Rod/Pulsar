@@ -19,6 +19,7 @@ function custom(): Profile {
   p.labels = 'short';
   p.position = 'left';
   p.font = { family: 'Cascadia Code', size: 10.5, bold: true };
+  p.textGaps = { item: 20, label: 0, row: 3 };
   p.units = { temperature: 'fahrenheit', network: 'bits', memory: 'bytes' };
   p.network = {
     show: 'download',
@@ -246,6 +247,7 @@ describe('mergeProfile', () => {
     saved.load.colors.low = 'red';
     saved.position = 'top';
     saved.disk = { value: 'free' };
+    saved.textGaps = { item: 99, label: 'wide' };
     saved.network = {
       show: 'sideways',
       splitTiles: 'yes',
@@ -273,6 +275,7 @@ describe('mergeProfile', () => {
     expect(p.load.colors.high).toBe('#ABCDEF');
     expect(p.position).toBe('right');
     expect(p.disk.value).toBe('activity');
+    expect(p.textGaps).toEqual({ item: 40, label: 4, row: 0 });
     expect(p.items.ram).toMatchObject({
       color: null,
       label: 'Memoryall of',

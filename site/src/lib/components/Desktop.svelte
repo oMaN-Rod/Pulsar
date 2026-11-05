@@ -470,6 +470,7 @@
           columns: textColumns(rung.keys, { v, sim, p: rung.p, light }),
           weight: rung.p.font.bold ? 700 : 400,
           color: v.text,
+          gaps: rung.p.textGaps,
         },
       });
       const len = upright ? probe.offsetHeight : probe.offsetWidth;
@@ -737,6 +738,7 @@
         {columns}
         weight={lay.p.font.bold ? 700 : 400}
         color={colors.text}
+        gaps={lay.p.textGaps}
         drag={drag ? { key: drag.key, active: drag.active, transform: dragStyle } : null}
         onclick={overlayClick}
         onkeydown={overlayKey}
