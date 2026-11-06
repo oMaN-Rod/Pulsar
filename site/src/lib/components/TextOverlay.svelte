@@ -50,11 +50,13 @@
           {onkeydown}
         >
           {#each col.rows as row, j (j)}
+            {#if j}<span class="tx-gap"></span>{/if}
             <span><Runs runs={row} /></span>
           {/each}
         </button>
       {:else}
-        {#each col.cells as cell (cell.key)}
+        {#each col.cells as cell, j (cell.key)}
+          {#if j}<span class="tx-gap"></span>{/if}
           <button
             type="button"
             class={['tx', held(cell.key) && 'held', held(cell.key) && drag?.active && 'lifted']}

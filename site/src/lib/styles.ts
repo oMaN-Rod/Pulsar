@@ -247,8 +247,10 @@ export function renderTile(k: ItemKey, ctx: TileContext, connDot = dotOn(ctx.p))
   const L = v.colorLabels ? v.items[k] : v.label;
   const T = v.text;
   const text = net ? '' : sim.text(k);
-  const lvl = sim.level(k);
   const hist = upOnly ? sim.upHistory() : sim.history(k);
+  const lvl = upOnly
+    ? { now: hist.at(-1) ?? 0, low: Math.min(...hist), high: Math.max(...hist) }
+    : sim.level(k);
   const narrow = !!ctx.fixedWidth;
   const H =
     narrow && (k === 'network' || UNDER.includes(style))

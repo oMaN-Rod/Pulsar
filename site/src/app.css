@@ -1407,7 +1407,7 @@ body.panel-closed .widget {
 .desk:not([data-edge='bottom']) .tb-btn {
   width: 40px;
 }
-.desk:not([data-edge='bottom']) .overlay {
+.desk:not([data-edge='bottom']) .taskbar .overlay {
   padding: 2px 0;
   gap: 3px;
 }
@@ -1422,13 +1422,13 @@ body.panel-closed .widget {
 .desk:not([data-edge='bottom']) .tb-peek {
   width: 40px;
 }
-.desk:not([data-edge='bottom']) .tx {
+.desk:not([data-edge='bottom']) .taskbar .tx {
   flex-direction: column;
   align-items: flex-start;
   gap: 0;
   font-size: 0.85em;
 }
-.desk:not([data-edge='bottom']) .text-overlay {
+.desk:not([data-edge='bottom']) .taskbar .text-overlay {
   padding: 0 2px;
 }
 
@@ -1440,7 +1440,7 @@ body.panel-closed .widget {
   border-radius: 6px;
   width: max-content;
 }
-.desk:not([data-edge='bottom']) .overlay {
+.desk:not([data-edge='bottom']) .taskbar .overlay {
   flex-direction: column;
 }
 .tile {
@@ -1529,7 +1529,22 @@ select:disabled {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: var(--tx-row);
+  max-height: 100%;
+}
+.tx-col > .tx {
+  flex: none;
+}
+.tx-col > .tx-net {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.tx-gap {
+  flex: 0 1 var(--tx-row);
+  min-height: 0;
+}
+.float-box .text-overlay {
+  height: auto;
+  min-height: 40px;
 }
 .tx {
   display: flex;
@@ -1552,9 +1567,8 @@ select:disabled {
 .tx-net {
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--tx-row);
 }
-.desk:not([data-edge='bottom']) .text-overlay {
+.desk:not([data-edge='bottom']) .taskbar .text-overlay {
   flex-direction: column;
   height: auto;
   align-items: stretch;
