@@ -352,12 +352,14 @@ pub(crate) mod tests {
         assert_eq!(usage.per_kind[&GpuEngineKind::Copy], 0.0);
     }
 
-    /// Registered but instance-less, like GPU counters on a VM or RDP session.
-    pub(crate) const EMPTY_OBJECT: &str = r"\Hyper-V Dynamic Memory VM(*)\Guest Available Memory";
+    /// A registered counter whose wildcard matches nothing, as GPU counters
+    /// read on a VM or RDP session. An object that merely tends to be empty,
+    /// such as Hyper-V's, gains instances on some machines.
+    pub(crate) const NO_INSTANCES: &str = r"\Process(pulsar-no-such-process*)\% Processor Time";
 
     #[test]
     fn object_without_instances_is_reported_as_unavailable() {
-        let result = GpuSource::with_paths(EMPTY_OBJECT, EMPTY_OBJECT, EMPTY_OBJECT)
+        let result = GpuSource::with_paths(NO_INSTANCES, NO_INSTANCES, NO_INSTANCES)
             .and_then(|mut gpu| gpu.sample(&mut Snapshot::default()));
         match result {
             Err(SourceError::Unavailable(msg)) => assert_eq!(msg, "GPU counters unavailable"),

@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn missing_gpu_instances_do_not_break_process_lists() {
         let mut source =
-            ProcessesSource::with_gpu_counter(crate::sources::gpu::tests::EMPTY_OBJECT).unwrap();
+            ProcessesSource::with_gpu_counter(crate::sources::gpu::tests::NO_INSTANCES).unwrap();
         source.sample(&mut Snapshot::default()).ok();
         std::thread::sleep(std::time::Duration::from_millis(500));
         let mut snap = Snapshot::default();
