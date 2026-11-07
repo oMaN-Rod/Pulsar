@@ -8,6 +8,7 @@
 
 mod chipset;
 mod cores;
+mod events;
 mod frames;
 mod gpu;
 mod memory;

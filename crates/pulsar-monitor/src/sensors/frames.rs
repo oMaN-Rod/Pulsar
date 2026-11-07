@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+use crate::events::{self, Event};
 use pulsar_core::sensors::{DISPLAY_SLOTS, DisplayRate, FRAME_SLOTS, FrameRate, FrameRates};
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Diagnostics::Etw::{
@@ -199,6 +200,7 @@ struct Log {
     /// By adapter address and output.
     displays: HashMap<(u64, u32), Display>,
     luids: HashMap<u64, u64>,
+    newest: Option<Instant>,
 }
 
 /// The rate over the second before the newest present, and the lows over
@@ -302,17 +304,18 @@ unsafe extern "system" fn on_event(record: *mut EVENT_RECORD) {
         }
     };
     let id = header.EventDescriptor.Id;
-    let log = unsafe { &*record.UserContext.cast::<Mutex<Log>>() };
+    let Ok(mut log) = (unsafe { &*record.UserContext.cast::<Mutex<Log>>() }).lock() else {
+        return;
+    };
+    log.newest = Some(Instant::now());
     if header.ProviderId == DXGKRNL {
         if let Some(r) = refresh(id, data) {
-            if let Ok(mut log) = log.lock() {
-                let display = log.displays.entry((r.adapter, r.source)).or_default();
-                display.record(r.scan, r.shown, header.TimeStamp);
-            }
+            let display = log.displays.entry((r.adapter, r.source)).or_default();
+            display.record(r.scan, r.shown, header.TimeStamp);
             return;
         }
         if id == ADAPTER_REPORT {
-            if let (Some((adapter, luid)), Ok(mut log)) = (adapter_report(data), log.lock()) {
+            if let Some((adapter, luid)) = adapter_report(data) {
                 log.luids.insert(adapter, luid);
             }
             return;
@@ -323,9 +326,6 @@ unsafe extern "system" fn on_event(record: *mut EVENT_RECORD) {
         .then(|| dxgi_flags(data, wide))
         .flatten();
     let Some(source) = classify(header.ProviderId, id, flags) else {
-        return;
-    };
-    let Ok(mut log) = log.lock() else {
         return;
     };
     let presents = log.apps.entry(header.ProcessId).or_default();
@@ -414,13 +414,59 @@ pub fn clear_leftover() {
 }
 
 const RESTART_AFTER: Duration = Duration::from_secs(10);
+/// Displays refresh many times a second, so a trace that delivers nothing
+/// for this long has most likely lost its reader.
+const SILENCE: Duration = Duration::from_secs(10);
+const LONGEST_QUIET_WAIT: Duration = Duration::from_secs(60);
+
+fn silent(started: Instant, newest: Option<Instant>, now: Instant) -> bool {
+    now.saturating_duration_since(newest.map_or(started, |n| n.max(started))) >= SILENCE
+}
+
+/// Readers that may run at once, a new trace's included. Each holds a
+/// thread and its log, so readers that never return cannot pile them up.
+const MAX_READERS: usize = 2;
+
+struct Closing {
+    /// Gives when it returned.
+    reader: JoinHandle<Instant>,
+    /// When it was closed for its silence, if it was.
+    silenced: Option<Instant>,
+}
+
+fn prune(closing: &mut Vec<Closing>) -> Vec<Duration> {
+    let (returned, running): (Vec<_>, Vec<_>) =
+        closing.drain(..).partition(|c| c.reader.is_finished());
+    *closing = running;
+    returned
+        .into_iter()
+        .filter_map(|c| {
+            let silenced = c.silenced?;
+            let ended = c.reader.join().ok()?;
+            Some(ended.saturating_duration_since(silenced))
+        })
+        .collect()
+}
+
+fn quiet_wait(quiet: u32) -> Duration {
+    match quiet {
+        0 => Duration::ZERO,
+        n => RESTART_AFTER
+            .saturating_mul(1 << (n - 1).min(16))
+            .min(LONGEST_QUIET_WAIT),
+    }
+}
 
 /// A running trace session and the thread reading it.
 struct Trace {
     name: &'static str,
     consumer: PROCESSTRACE_HANDLE,
-    reader: Option<JoinHandle<()>>,
+    reader: Option<JoinHandle<Instant>>,
     log: Arc<Mutex<Log>>,
+    started: Instant,
+    /// Only the kernel's refresh events arrive while nothing draws, so
+    /// silence means a lost reader only when they were turned on.
+    refreshes: bool,
 }
 
 impl Trace {
@@ -454,9 +500,24 @@ impl Trace {
             stop_session(session_name);
             return None;
         }
-        let reader = std::thread::spawn(move || unsafe {
-            let _ = ProcessTrace(&[consumer], None, None);
-        });
+        // The callback borrows the log until the reader returns.
+        let borrowed = Arc::clone(&log);
+        let spawned = std::thread::Builder::new()
+            .name("frame trace".into())
+            .spawn(move || {
+                unsafe {
+                    let _ = ProcessTrace(&[consumer], None, None);
+                }
+                drop(borrowed);
+                Instant::now()
+            });
+        let Ok(reader) = spawned else {
+            unsafe {
+                let _ = CloseTrace(consumer);
+            }
+            stop_session(session_name);
+            return None;
+        };
         if kernel {
             capture_state(session, DXGKRNL, KERNEL_PRESENT_KEYWORD);
         }
@@ -465,11 +526,28 @@ impl Trace {
             consumer,
             reader: Some(reader),
             log,
+            started: Instant::now(),
+            refreshes: kernel,
         })
     }
 
     fn ended(&self) -> bool {
         self.reader.as_ref().is_none_or(JoinHandle::is_finished)
+    }
+
+    /// A log the callback holds is busy with an event, so not silent.
+    fn stalled(&self) -> bool {
+        self.refreshes
+            && self
+                .log
+                .try_lock()
+                .is_ok_and(|log| silent(self.started, log.newest, Instant::now()))
+    }
+
+    /// Stops the session and hands back its reader, which owns its log and
+    /// is never waited on, as it may not return.
+    fn close(mut self) -> Option<JoinHandle<Instant>> {
+        self.reader.take()
     }
 
     fn rates(&self) -> FrameRates {
@@ -490,10 +568,6 @@ impl Drop for Trace {
         unsafe {
             let _ = CloseTrace(self.consumer);
         }
-        // The callback borrows the log until the reader returns.
-        if let Some(reader) = self.reader.take() {
-            let _ = reader.join();
-        }
     }
 }
 
@@ -503,6 +577,10 @@ pub struct Frames {
     trace: Option<Trace>,
     asked_at: Option<Instant>,
     restart_at: Option<Instant>,
+    /// Silent traces replaced in a row without one measuring anything.
+    quiet: u32,
+    closing: Vec<Closing>,
+    full_reported: bool,
 }
 
 impl Default for Frames {
@@ -512,6 +590,9 @@ impl Default for Frames {
             trace: None,
             asked_at: None,
             restart_at: None,
+            quiet: 0,
+            closing: Vec::new(),
+            full_reported: false,
         }
     }
 }
@@ -523,27 +604,89 @@ impl Frames {
         self.trace.is_some() || self.asked_at.is_some_and(|at| at.elapsed() < LINGER)
     }
 
+    fn retire(&mut self, silenced: bool) {
+        if let Some(reader) = self.trace.take().and_then(Trace::close) {
+            self.closing.push(Closing {
+                reader,
+                silenced: silenced.then(Instant::now),
+            });
+        }
+    }
+
+    fn prune(&mut self) {
+        for waited in prune(&mut self.closing) {
+            events::report(
+                Event::SilentReaderReturned,
+                format!(
+                    "A silent frame trace's reader returned {:.1} s after the trace was closed.",
+                    waited.as_secs_f64()
+                ),
+            );
+        }
+    }
+
+    fn may_start(&mut self) -> bool {
+        let room = self.closing.len() < MAX_READERS;
+        if !room && !self.full_reported {
+            events::report(
+                Event::ReadersFull,
+                format!(
+                    "{} closed frame traces' readers have not returned, so no new trace starts until one does. Frame rates stay unavailable meanwhile.",
+                    self.closing.len()
+                ),
+            );
+        }
+        self.full_reported = !room;
+        room
+    }
+
     pub fn update(&mut self, asked: bool) -> FrameRates {
         if asked {
+            if !self.asked_at.is_some_and(|at| at.elapsed() < LINGER) {
+                self.quiet = 0;
+                self.restart_at = None;
+            }
             self.asked_at = Some(Instant::now());
         }
+        self.prune();
         if self.trace.as_ref().is_some_and(Trace::ended) {
-            self.trace = None;
+            self.retire(false);
             self.restart_at = Some(Instant::now() + RESTART_AFTER);
         }
+        if self.trace.as_ref().is_some_and(Trace::stalled) {
+            events::report(
+                Event::TraceSilent,
+                format!(
+                    "The frame trace delivered no events for {} s, so it was replaced (silent traces in a row: {}).",
+                    SILENCE.as_secs(),
+                    self.quiet + 1
+                ),
+            );
+            self.retire(true);
+            self.restart_at = Some(Instant::now() + quiet_wait(self.quiet));
+            self.quiet = self.quiet.saturating_add(1);
+        }
         if self.asked_at.is_some_and(|at| at.elapsed() < LINGER) {
-            if self.trace.is_none() && self.restart_at.is_none_or(|t| Instant::now() >= t) {
+            if self.trace.is_none()
+                && self.restart_at.is_none_or(|t| Instant::now() >= t)
+                && self.may_start()
+            {
                 self.trace = Trace::start(self.session);
                 if self.trace.is_none() {
                     self.restart_at = Some(Instant::now() + RESTART_AFTER);
                 }
             }
         } else {
-            self.trace = None;
+            self.retire(false);
         }
-        self.trace
+        let rates = self
+            .trace
             .as_ref()
-            .map_or_else(FrameRates::default, Trace::rates)
+            .map_or_else(FrameRates::default, Trace::rates);
+        if !rates.apps.is_empty() || !rates.displays.is_empty() {
+            self.quiet = 0;
+        }
+        rates
     }
 }
 
@@ -587,6 +730,57 @@ mod tests {
     fn steady(fps: i64, seconds: i64, end: i64) -> Vec<i64> {
         let n = fps * seconds;
         (0..=n).map(|i| end - (n - i) * SECOND / fps).collect()
+    }
+
+    #[test]
+    fn a_trace_is_silent_ten_seconds_after_its_start_or_last_event() {
+        let start = Instant::now();
+        let s = Duration::from_secs;
+        assert!(!silent(start, None, start + s(9)), "just started");
+        assert!(silent(start, None, start + s(10)), "never heard from");
+        let last = start + s(5);
+        assert!(!silent(start, Some(last), last + s(9)));
+        assert!(silent(start, Some(last), last + s(10)));
+    }
+
+    #[test]
+    fn readers_are_bounded_until_they_return() {
+        let (release, wait) = std::sync::mpsc::channel::<()>();
+        let wait = Arc::new(Mutex::new(wait));
+        let start = Instant::now();
+        let ended = start + Duration::from_secs(3);
+        let stuck = || {
+            let wait = Arc::clone(&wait);
+            std::thread::spawn(move || {
+                let _ = wait.lock().unwrap().recv();
+                ended
+            })
+        };
+        let mut closing = vec![
+            Closing {
+                reader: stuck(),
+                silenced: Some(start),
+            },
+            Closing {
+                reader: stuck(),
+                silenced: None,
+            },
+        ];
+        assert!(prune(&mut closing).is_empty(), "both still running");
+        assert_eq!(closing.len(), MAX_READERS);
+        drop(release);
+        while closing.iter().any(|c| !c.reader.is_finished()) {
+            std::thread::yield_now();
+        }
+        assert_eq!(prune(&mut closing), [Duration::from_secs(3)]);
+        assert!(closing.is_empty());
+    }
+
+    #[test]
+    fn quiet_traces_are_replaced_less_and_less_often() {
+        let secs = |n| quiet_wait(n).as_secs();
+        assert_eq!([0, 1, 2, 3, 4, 5, 6].map(secs), [0, 10, 20, 40, 60, 60, 60]);
+        assert_eq!(secs(u32::MAX), 60);
     }
 
     #[test]

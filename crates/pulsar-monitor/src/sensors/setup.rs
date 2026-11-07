@@ -110,6 +110,7 @@ pub fn install() -> io::Result<()> {
     if !registered {
         return Err(io::Error::other("could not register the service"));
     }
+    crate::events::register();
     sc(&[
         "description",
         SERVICE_NAME,
@@ -125,6 +126,7 @@ pub fn install() -> io::Result<()> {
 pub fn uninstall() -> io::Result<()> {
     sc(&["stop", SERVICE_NAME]);
     sc(&["delete", SERVICE_NAME]);
+    crate::events::unregister();
     let dir = service_dir()?;
     let target = dir.join(EXE);
     if target.exists() && env::current_exe()? != target {
