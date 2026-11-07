@@ -2,12 +2,13 @@ use std::borrow::Cow;
 
 use pulsar_core::colors::{Load, battery_load};
 use pulsar_core::config::{DisplayMode, GraphStyle};
+use pulsar_core::format::{right_aligned, widest_value};
 use pulsar_core::hardware::cpu::cached_topology;
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{
     Cell, CellPart, Layout, Rect, StackedLabel, TextMeasure, TileGraphic, TileLook, TileText,
     cell_icon, cell_label, dot_size, heat_rows, icon_gap, inline_slots, label_width, network_pair,
-    stacked_label, tile_regions,
+    stacked_label, tile_regions, value_metric,
 };
 use pulsar_core::metric::{ItemKind, MetricKey, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
@@ -175,6 +176,17 @@ impl Frame<'_> {
 
 /// The load colors for the connection: low with internet access, high with
 /// the local network only, critical with neither; faint until Windows says.
+/// Where a value starts when it begins at `x`: rates end where their widest
+/// reading would.
+fn value_left(text: &Text, kind: ItemKind, part: CellPart, value: &str, x: f32, px: f32) -> f32 {
+    let unit = value_metric(kind, part).unit();
+    if right_aligned(unit) {
+        x + (text.width(widest_value(unit), px) - text.width(value, px)).max(0.0)
+    } else {
+        x
+    }
+}
+
 fn connection_color(frame: &Frame) -> Color {
     let palette = frame.palette;
     match frame.snapshot.get(MetricKey::NetConnectivity) {
@@ -483,7 +495,8 @@ impl Renderer {
             }
             let value = frame.value_text(cell.kind, cell.part);
             let color = frame.value_color(cell.kind, cell.part, false);
-            self.text_at(text, &format, &value, cell.value_x, cell.value_y, color)?;
+            let x = value_left(text, cell.kind, cell.part, &value, cell.value_x, font_px);
+            self.text_at(text, &format, &value, x, cell.value_y, color)?;
         }
         Ok(())
     }
@@ -600,7 +613,14 @@ impl Renderer {
                     let label_x = x + slot.label_x;
                     self.draw_label(text, frame, small_px, cell.kind, slot.part, label_x, y)?;
                     let value = frame.value_text(cell.kind, slot.part);
-                    let value_x = x + slot.value_x;
+                    let value_x = value_left(
+                        text,
+                        cell.kind,
+                        slot.part,
+                        &value,
+                        x + slot.value_x,
+                        small_px,
+                    );
                     self.text_at(text, &small, &value, value_x, y, color(slot.part))?;
                 }
             } else if let Some([first, second]) =
@@ -618,6 +638,7 @@ impl Renderer {
                         label_width(cell.kind, part, labels, icons, names, small_px, text);
                     let value = frame.value_text(cell.kind, part);
                     let value_x = x + label_w + icon_gap(small_px);
+                    let value_x = value_left(text, cell.kind, part, &value, value_x, small_px);
                     self.text_at(text, &small, &value, value_x, y, color(part))?;
                 }
             } else if let Some(strip) = regions.strip.filter(|_| regions.strip_below) {
@@ -635,10 +656,12 @@ impl Renderer {
             } else if frame.text.vertical_labels {
                 let y = cell.rect.y + (cell.rect.h - text.line_height(small_px)) / 2.0;
                 let value = frame.value_text(cell.kind, cell.part);
+                let x = value_left(text, cell.kind, cell.part, &value, x, small_px);
                 self.text_at(text, &small, &value, x, y, color(cell.part))?;
             } else {
                 self.draw_label(text, frame, small_px, cell.kind, cell.part, x, top)?;
                 let value = frame.value_text(cell.kind, cell.part);
+                let x = value_left(text, cell.kind, cell.part, &value, x, small_px);
                 self.text_at(text, &small, &value, x, bottom, color(cell.part))?;
             }
         }

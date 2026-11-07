@@ -766,9 +766,9 @@ mod tests {
     fn a_rate_below_the_floor_shows_as_zero() {
         let floor = floor(10 * 1024, 0);
         for (rate, shown) in [
-            (300.0, "0 B/s"),
-            (4.0 * 1024.0, "0 B/s"),
-            (25.0 * 1024.0, "25.0 KB/s"),
+            (300.0, "0.0 KB/s"),
+            (4.0 * 1024.0, "0.0 KB/s"),
+            (25.0 * 1024.0, "25 KB/s"),
         ] {
             let mut s = Snapshot::default();
             s.set(MetricKey::NetDownBps, rate);
@@ -803,9 +803,9 @@ mod tests {
         s.set(MetricKey::NetAdapterDownBps(1), 6_000.0);
         s.set(MetricKey::NetDownBps, 12_000.0);
         let shown = |part| floored_cell_value(ItemKind::Network, part, &s, floor);
-        assert_eq!(shown(CellPart::AdapterDown(0)), "0 B/s");
-        assert_eq!(shown(CellPart::AdapterDown(1)), "0 B/s");
-        assert_eq!(shown(CellPart::Down), "11.7 KB/s");
+        assert_eq!(shown(CellPart::AdapterDown(0)), "0.0 KB/s");
+        assert_eq!(shown(CellPart::AdapterDown(1)), "0.0 KB/s");
+        assert_eq!(shown(CellPart::Down), "12 KB/s");
     }
 
     #[test]

@@ -63,11 +63,16 @@ pub fn format_in(value: f64, unit: Unit, units: Units) -> String {
         Unit::Percent => format!("{:.0}%", value.clamp(0.0, 100.0)),
         Unit::Bytes => scaled(value.max(0.0), &["B", "KB", "MB", "GB", "TB"]),
         Unit::BytesPerSec => scaled(value.max(0.0), &["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]),
-        Unit::NetworkRate if units.network == RateUnit::Bits => decimal(
-            value.max(0.0) * 8.0,
-            &["bps", "Kbps", "Mbps", "Gbps", "Tbps"],
+        Unit::NetworkRate if units.network == RateUnit::Bits => rate(
+            value.max(0.0) * 8.0 / 1000.0,
+            1000.0,
+            &["Kbps", "Mbps", "Gbps", "Tbps"],
         ),
-        Unit::NetworkRate => scaled(value.max(0.0), &["B/s", "KB/s", "MB/s", "GB/s", "TB/s"]),
+        Unit::NetworkRate => rate(
+            value.max(0.0) / 1024.0,
+            1024.0,
+            &["KB/s", "MB/s", "GB/s", "TB/s"],
+        ),
         Unit::Millis if value < 9.95 => format!("{:.1} ms", value.max(0.0)),
         Unit::Millis => format!("{:.0} ms", value.clamp(0.0, 999.0)),
         Unit::MHz => format!("{:.2} GHz", value.max(0.0) / 1000.0),
@@ -114,7 +119,9 @@ pub fn widest_in(unit: Unit, units: Units) -> &'static str {
     match unit {
         Unit::Percent => "100%",
         Unit::Bytes => "99.9 GB",
-        Unit::BytesPerSec | Unit::NetworkRate => "99.9 MB/s",
+        Unit::BytesPerSec => "99.9 MB/s",
+        Unit::NetworkRate if units.network == RateUnit::Bits => "999 Mbps",
+        Unit::NetworkRate => "999 MB/s",
         Unit::Millis => "999 ms",
         Unit::MHz => "9.99 GHz",
         Unit::Celsius if units.temperature == TemperatureUnit::Fahrenheit => "390°F",
@@ -146,18 +153,24 @@ fn scaled(mut value: f64, units: &[&str]) -> String {
     }
 }
 
-/// Decimal (1000) scaling, otherwise as `scaled`.
-fn decimal(mut value: f64, units: &[&str]) -> String {
+/// Network rates start at kilo, so idle and busy readings keep similar
+/// widths: one decimal below 10, whole numbers from there.
+fn rate(mut value: f64, step: f64, units: &[&str]) -> String {
     let mut index = 0;
     while value >= 999.5 && index + 1 < units.len() {
-        value /= 1000.0;
+        value /= step;
         index += 1;
     }
-    if index == 0 || value >= 99.95 {
-        format!("{:.0} {}", value, units[index])
-    } else {
+    if value < 9.95 {
         format!("{:.1} {}", value, units[index])
+    } else {
+        format!("{:.0} {}", value, units[index])
     }
+}
+
+/// Rates are drawn right-aligned in their slot so the unit holds still.
+pub fn right_aligned(unit: Unit) -> bool {
+    matches!(unit, Unit::NetworkRate | Unit::BytesPerSec)
 }
 
 #[cfg(test)]
@@ -212,6 +225,16 @@ mod tests {
             format_in(1_000_000.0, Unit::NetworkRate, metric),
             "977 KB/s"
         );
+        assert_eq!(format_in(0.0, Unit::NetworkRate, metric), "0.0 KB/s");
+        assert_eq!(format_in(512.0, Unit::NetworkRate, metric), "0.5 KB/s");
+        assert_eq!(
+            format_in(20.0 * 1024.0, Unit::NetworkRate, metric),
+            "20 KB/s"
+        );
+        assert_eq!(
+            format_in(1_030_000.0, Unit::NetworkRate, metric),
+            "1.0 MB/s"
+        );
         assert_eq!(format_in(45.0, Unit::Celsius, metric), "45°C");
         let other = Units {
             temperature: TemperatureUnit::Fahrenheit,
@@ -221,8 +244,13 @@ mod tests {
         assert_eq!(format_in(45.0, Unit::Celsius, other), "113°F");
         assert_eq!(format_in(-40.0, Unit::Celsius, other), "-40°F");
         assert_eq!(format_in(1_000_000.0, Unit::NetworkRate, other), "8.0 Mbps");
-        assert_eq!(format_in(100.0, Unit::NetworkRate, other), "800 bps");
+        assert_eq!(format_in(0.0, Unit::NetworkRate, other), "0.0 Kbps");
+        assert_eq!(format_in(62.5, Unit::NetworkRate, other), "0.5 Kbps");
+        assert_eq!(format_in(100.0, Unit::NetworkRate, other), "0.8 Kbps");
+        assert_eq!(format_in(2_500.0, Unit::NetworkRate, other), "20 Kbps");
+        assert_eq!(format_in(37_500.0, Unit::NetworkRate, other), "300 Kbps");
         assert_eq!(format_in(125_000.0, Unit::NetworkRate, other), "1.0 Mbps");
+        assert_eq!(format_in(2_500_000.0, Unit::NetworkRate, other), "20 Mbps");
         assert_eq!(
             format_in(1_000_000.0, Unit::BytesPerSec, other),
             "977 KB/s",

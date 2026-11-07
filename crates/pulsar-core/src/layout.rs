@@ -1215,10 +1215,10 @@ mod tests {
         assert_eq!(l.width, 48.0);
         assert!(
             l.font_px < 12.0,
-            "99.9 MB/s must shrink to fit: {}",
+            "999 MB/s must shrink to fit: {}",
             l.font_px
         );
-        assert!(Fixed.width("99.9 MB/s", l.font_px) <= 44.0 + 0.01);
+        assert!(Fixed.width("999 MB/s", l.font_px) <= 44.0 + 0.01);
         assert_no_overlap(&l);
         assert_inside(&l);
         for c in &l.cells {
@@ -1264,7 +1264,7 @@ mod tests {
             .collect();
         assert_eq!(net, [CellPart::Down, CellPart::Up]);
         assert!(l.cells.iter().all(|c| c.rect.w == 44.0));
-        assert!(Fixed.width("99.9 MB/s", l.font_px * GRAPH_FONT_SCALE) <= 39.0 + 0.01);
+        assert!(Fixed.width("999 MB/s", l.font_px * GRAPH_FONT_SCALE) <= 39.0 + 0.01);
     }
 
     #[test]
@@ -2631,8 +2631,8 @@ mod tests {
             .iter()
             .find(|c| c.kind == ItemKind::Network)
             .unwrap();
-        // "↓" (6px) + icon gap (4px) + "99.9 MB/s" (54px) + 2 × 4px padding.
-        assert_eq!(net.rect.w, 6.0 + 4.0 + 54.0 + 8.0);
+        // "↓" (6px) + icon gap (4px) + "999 MB/s" (48px) + 2 × 4px padding.
+        assert_eq!(net.rect.w, 6.0 + 4.0 + 48.0 + 8.0);
         let cpu = l.cells.iter().find(|c| c.kind == ItemKind::Cpu).unwrap();
         assert_eq!(cpu.rect.w, 44.0, "short text keeps the minimum tile width");
     }
@@ -2672,9 +2672,9 @@ mod tests {
         let (net, net_w) = slots(ItemKind::Network, CellPart::Main);
         let parts: Vec<CellPart> = net.iter().map(|s| s.part).collect();
         assert_eq!(parts, [CellPart::Down, CellPart::Up]);
-        // "99.9 MB/s" is 45px wide; the second part starts 8px after it.
-        assert_eq!(net[1].label_x, net[0].value_x + 45.0 + 8.0);
-        assert_eq!(net_w, net[1].value_x + 45.0);
+        // "999 MB/s" is 40px wide; the second part starts 8px after it.
+        assert_eq!(net[1].label_x, net[0].value_x + 40.0 + 8.0);
+        assert_eq!(net_w, net[1].value_x + 40.0);
 
         let up_first = TileText {
             upload_on_top: true,
@@ -2920,11 +2920,11 @@ mod tests {
             }];
             compute_layout(&items, i, &Fixed).cells[0].rect.w
         };
-        // "99.9 MB/s" (54px) + 2 × 4px padding; a pair adds "↓" and a gap.
-        assert_eq!(width(CellPart::Up), 54.0 + 8.0);
-        assert_eq!(width(CellPart::AdapterDown(0)), 54.0 + 8.0);
-        assert_eq!(width(CellPart::Main), 6.0 + 4.0 + 54.0 + 8.0);
-        assert_eq!(width(CellPart::AdapterPair(0)), 12.0 + 4.0 + 54.0 + 8.0);
+        // "999 MB/s" (48px) + 2 × 4px padding; a pair adds "↓" and a gap.
+        assert_eq!(width(CellPart::Up), 48.0 + 8.0);
+        assert_eq!(width(CellPart::AdapterDown(0)), 48.0 + 8.0);
+        assert_eq!(width(CellPart::Main), 6.0 + 4.0 + 48.0 + 8.0);
+        assert_eq!(width(CellPart::AdapterPair(0)), 12.0 + 4.0 + 48.0 + 8.0);
     }
 
     #[test]
@@ -3007,10 +3007,10 @@ mod tests {
                     [4.0, 24.0, 46.0, 15.0, 26.0, 24.0],
                     [60.0, 9.0, 46.0, 15.0, 82.0, 9.0],
                     [60.0, 24.0, 46.0, 15.0, 82.0, 24.0],
-                    [116.0, 9.0, 64.0, 15.0, 126.0, 9.0],
-                    [116.0, 24.0, 64.0, 15.0, 126.0, 24.0],
+                    [116.0, 9.0, 58.0, 15.0, 126.0, 9.0],
+                    [116.0, 24.0, 58.0, 15.0, 126.0, 24.0],
                 ],
-                184.0,
+                178.0,
                 48.0
             )
         );
@@ -3040,9 +3040,9 @@ mod tests {
                     [52.0, 4.0, 44.0, 40.0, 56.0, 4.0],
                     [100.0, 4.0, 44.0, 40.0, 104.0, 4.0],
                     [148.0, 4.0, 44.0, 40.0, 152.0, 4.0],
-                    [196.0, 4.0, 72.0, 40.0, 200.0, 4.0],
+                    [196.0, 4.0, 66.0, 40.0, 200.0, 4.0],
                 ],
-                272.0,
+                266.0,
                 48.0
             )
         );

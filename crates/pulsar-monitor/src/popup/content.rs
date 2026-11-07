@@ -1265,11 +1265,11 @@ mod tests {
             up_bps: 512.0,
         }];
         let c = build(ItemKind::Network, &s, &HistoryStore::new(60), "", &[]);
-        assert_eq!(c.value, "↓ 2.0 KB/s  ↑ 512 B/s");
+        assert_eq!(c.value, "↓ 2.0 KB/s  ↑ 0.5 KB/s");
         assert_eq!(c.series, vec![CellPart::Down, CellPart::Up]);
         assert_eq!(
             rows(&c.blocks[0])[0],
-            ("Realtek".into(), "↓ 2.0 KB/s  ↑ 512 B/s".into())
+            ("Realtek".into(), "↓ 2.0 KB/s  ↑ 0.5 KB/s".into())
         );
 
         let idle = build(
@@ -1297,10 +1297,10 @@ mod tests {
             ..options(PopupDetail::Standard, 0)
         };
         let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
-        assert_eq!(c.value, "↓ 0 B/s  ↑ 512 B/s");
+        assert_eq!(c.value, "↓ 0.0 KB/s  ↑ 0.5 KB/s");
         assert_eq!(
             rows_under(&c, "Adapters")[0],
-            ("Realtek".into(), "↓ 2.0 KB/s  ↑ 512 B/s".into())
+            ("Realtek".into(), "↓ 2.0 KB/s  ↑ 0.5 KB/s".into())
         );
     }
 
@@ -1317,7 +1317,7 @@ mod tests {
             ..options(PopupDetail::Standard, 0)
         };
         let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
-        assert_eq!(c.value, "↓ 12.0 KB/s  ↑ —");
+        assert_eq!(c.value, "↓ 12 KB/s  ↑ —");
         assert_eq!(rows_under(&c, "Adapters")[0].1, "↓ 6.0 KB/s  ↑ —");
     }
 
@@ -1334,7 +1334,7 @@ mod tests {
             build_with(kind, &s, &history, &options)
         };
         assert_eq!(popup(ItemKind::Cpu).title, "CPU");
-        assert_eq!(popup(ItemKind::Network).value, "↓ 12.0 KB/s  ↑ —");
+        assert_eq!(popup(ItemKind::Network).value, "↓ 12 KB/s  ↑ —");
     }
 
     #[test]
@@ -1357,7 +1357,7 @@ mod tests {
         };
         let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
         let r = rows_under(&c, "Adapters");
-        assert_eq!(r[0], ("1 · Intel".into(), "↓ 2.0 KB/s  ↑ 512 B/s".into()));
+        assert_eq!(r[0], ("1 · Intel".into(), "↓ 2.0 KB/s  ↑ 0.5 KB/s".into()));
         assert_eq!(
             r[1],
             ("2 · Marvell".into(), "↓ —  ↑ —".into()),
@@ -1387,7 +1387,7 @@ mod tests {
                 CellPart::Down,
                 "Received",
             ),
-            (NetworkShow::Upload, "↑ 512 B/s", CellPart::Up, "Sent"),
+            (NetworkShow::Upload, "↑ 0.5 KB/s", CellPart::Up, "Sent"),
         ];
         for (show, value, series, total) in cases {
             let o = Options {
@@ -1724,7 +1724,7 @@ mod tests {
         let mut o = options(PopupDetail::Standard, 5);
         o.upload_on_top = true;
         let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
-        assert_eq!(c.value, "↑ 512 B/s  ↓ 2.0 KB/s");
+        assert_eq!(c.value, "↑ 0.5 KB/s  ↓ 2.0 KB/s");
         assert_eq!(c.series, [CellPart::Up, CellPart::Down]);
     }
 
