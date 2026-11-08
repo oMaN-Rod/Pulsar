@@ -273,6 +273,7 @@ mod tests {
             parts: vec![CellPart::Main],
             tile: Default::default(),
             graphic: Default::default(),
+            label_above: false,
         })
         .to_vec()
     }

@@ -18,6 +18,7 @@ export struct ItemRow {
     style: int,
     style-set: int,
     trend: bool,
+    label-above: bool,
     color-mode: int,
     popup: int,
     // 0 follows the Popups page.
@@ -1582,6 +1583,17 @@ export component SettingsWindow inherits Window {
                                 Switch {
                                     checked: row.trend;
                                     toggled => { root.item-choice(i, 7, self.checked ? 1 : 0); }
+                                }
+                            }
+                            OptionalRow {
+                                title: @tr("Label above value");
+                                description: @tr("Puts the label on one row and the value on the next, in a column of its own, so the item takes less width. Needs at least two rows of text.");
+                                search-key: row.id + "/Label above value";
+                                shown: root.mode == 1 && !root.vertical-labels;
+                                row-padding: 4px;
+                                Switch {
+                                    checked: row.label-above;
+                                    toggled => { root.item-choice(i, 8, self.checked ? 1 : 0); }
                                 }
                             }
                             OptionalRow {

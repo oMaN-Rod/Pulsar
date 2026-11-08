@@ -169,6 +169,8 @@ pub struct ItemSpec {
     /// Applies to each of the item's tiles.
     pub tile: TileSize,
     pub graphic: TileGraphic,
+    /// Text mode: the label above the value, in a column of its own.
+    pub label_above: bool,
 }
 
 const PADDING_DIP: f32 = 4.0;
@@ -452,6 +454,7 @@ fn with_pairs_split(items: &[ItemSpec], upload_on_top: bool) -> Vec<ItemSpec> {
                 .collect(),
             tile: spec.tile,
             graphic: spec.graphic,
+            label_above: spec.label_above,
         })
         .collect()
 }
@@ -504,6 +507,7 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
                 TileGraphic::of(i.style, cores, hybrid)
             })
     };
+    let label_above = |kind| config.item(kind).is_some_and(|i| i.label_above);
     let mut specs = Vec::with_capacity(kinds.len());
     for &kind in &kinds {
         if !(paired && is_gpu(&kind)) {
@@ -512,6 +516,7 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
                 parts: item_parts(kind, config, gpus),
                 tile: tile(kind),
                 graphic: graphic(kind),
+                label_above: label_above(kind),
             });
         } else if !specs.iter().any(|s| is_gpu(&s.kind)) {
             let order: Vec<ItemKind> = kinds.iter().copied().filter(is_gpu).collect();
@@ -521,6 +526,7 @@ fn specs_with(config: &Config, gpus: &[u8]) -> Vec<ItemSpec> {
                     parts: vec![CellPart::Gpu(i)],
                     tile: tile(kind),
                     graphic: graphic(kind),
+                    label_above: label_above(kind),
                 }));
             }
         }
@@ -697,12 +703,30 @@ fn text_rows(height: f32, grow: bool, gap: f32, padding: f32, line_h: f32) -> Te
     TextRows { height, count, gap }
 }
 
+/// A text column's cells; a split column holds one, its label above its value.
+struct Column {
+    cells: Vec<(ItemKind, CellPart)>,
+    split: bool,
+}
+
 /// Packs items into columns of `rows` cells, column-major. An item's parts
 /// are kept together when they fit in a column; with several adapters, each
-/// adapter's pair is, and so is each GPU's load and temperature.
-fn columns(items: &[ItemSpec], rows: usize, upload_on_top: bool) -> Vec<Vec<(ItemKind, CellPart)>> {
-    let mut groups: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
+/// adapter's pair is, and so is each GPU's load and temperature. Each part of
+/// an item with its label above its value takes a column of its own.
+fn columns(items: &[ItemSpec], rows: usize, upload_on_top: bool) -> Vec<Column> {
+    let mut groups: Vec<Column> = Vec::new();
     for spec in items {
+        if spec.label_above && rows > 1 {
+            groups.extend(spec.parts.iter().flat_map(|&p| {
+                single_parts(spec.kind, p, upload_on_top)
+                    .into_iter()
+                    .map(|p| Column {
+                        cells: vec![(spec.kind, p)],
+                        split: true,
+                    })
+            }));
+            continue;
+        }
         let paired = spec
             .parts
             .iter()
@@ -715,29 +739,45 @@ fn columns(items: &[ItemSpec], rows: usize, upload_on_top: bool) -> Vec<Vec<(Ite
                 .map(|p| (spec.kind, p))
                 .collect();
             match groups.last_mut() {
-                Some(last) if gpu_pair(last, &group) => last.extend(group),
-                _ => groups.push(group),
+                Some(last) if !last.split && gpu_pair(&last.cells, &group) => {
+                    last.cells.extend(group)
+                }
+                _ => groups.push(Column {
+                    cells: group,
+                    split: false,
+                }),
             }
         }
     }
-    let mut columns: Vec<Vec<(ItemKind, CellPart)>> = Vec::new();
+    let mut columns: Vec<Column> = Vec::new();
     for group in groups {
-        let free = columns.last().map_or(0, |c| rows - c.len());
-        if free == 0 || (group.len() > free && group.len() <= rows) {
-            columns.push(Vec::with_capacity(rows));
+        if group.split {
+            columns.push(group);
+            continue;
         }
-        for cell in group {
-            if columns.last().is_some_and(|c| c.len() == rows) {
-                columns.push(Vec::with_capacity(rows));
+        let free = columns
+            .last()
+            .filter(|c| !c.split)
+            .map_or(0, |c| rows - c.cells.len());
+        let fresh = || Column {
+            cells: Vec::with_capacity(rows),
+            split: false,
+        };
+        if free == 0 || (group.cells.len() > free && group.cells.len() <= rows) {
+            columns.push(fresh());
+        }
+        for cell in group.cells {
+            if columns.last().is_some_and(|c| c.cells.len() == rows) {
+                columns.push(fresh());
             }
-            columns.last_mut().unwrap().push(cell);
+            columns.last_mut().unwrap().cells.push(cell);
         }
     }
     columns
 }
 
 fn text_layout(
-    columns: Vec<Vec<(ItemKind, CellPart)>>,
+    columns: Vec<Column>,
     rows: TextRows,
     scale: f32,
     font_px: f32,
@@ -758,7 +798,11 @@ fn text_layout(
 
     let mut cells = Vec::new();
     let mut x = padding;
-    for column in columns {
+    for Column {
+        cells: column,
+        split,
+    } in columns
+    {
         let label_w = column
             .iter()
             .map(|&(k, p)| {
@@ -775,6 +819,27 @@ fn text_layout(
             .iter()
             .map(|&(k, p)| m.width(widest_value(value_metric(k, p).unit()), font_px))
             .fold(0.0, f32::max);
+        if let [(kind, part)] = column[..]
+            && split
+            && label_w > 0.0
+        {
+            let col_w = label_w.max(value_w);
+            cells.push(Cell {
+                kind,
+                part,
+                rect: Rect {
+                    x,
+                    y: top,
+                    w: col_w,
+                    h: 2.0 * line_h + gap,
+                },
+                value_x: x,
+                value_y: top + line_h + gap,
+                text_px: font_px,
+            });
+            x += col_w + item_gap;
+            continue;
+        }
         let col_w = label_w + label_gap + value_w;
         for (row, &(kind, part)) in column.iter().enumerate() {
             let y = top + row as f32 * (line_h + gap);
@@ -878,7 +943,7 @@ fn stacked_text(
                 let label = stack(spec.kind, part, font_px);
                 let h = (label.lines() as f32 * label.step).max(line_h);
                 (padding + label_w + gap, y + (h - line_h) / 2.0, h)
-            } else if beside {
+            } else if beside && !spec.label_above {
                 (padding + label_w + gap, y, line_h)
             } else {
                 (padding, y + line_h, 2.0 * line_h)
@@ -1666,6 +1731,7 @@ mod tests {
                 parts: vec![CellPart::Main],
                 tile: TileSize::default(),
                 graphic: TileGraphic::default(),
+                label_above: false,
             })
             .collect()
     }
@@ -1684,6 +1750,7 @@ mod tests {
                     trend: false,
                 },
                 graphic: TileGraphic::default(),
+                label_above: false,
             })
             .collect()
     }
@@ -1701,6 +1768,7 @@ mod tests {
             parts: vec![CellPart::Main],
             tile: TileSize::default(),
             graphic,
+            label_above: false,
         }
     }
 
@@ -2587,6 +2655,69 @@ mod tests {
         assert_eq!(l.cells[0].rect.x, l.cells[1].rect.x, "same column");
     }
 
+    fn above(kinds: &[ItemKind], split: &[ItemKind]) -> Vec<ItemSpec> {
+        let mut items = specs(kinds);
+        for spec in &mut items {
+            spec.label_above = split.contains(&spec.kind);
+        }
+        items
+    }
+
+    #[test]
+    fn items_can_put_their_labels_above_their_values() {
+        use ItemKind::{Cpu, Disk, Fps, Gpu, Ram};
+        let i = input(DisplayMode::Text, 48.0, 96);
+        let all = compute_layout(&above(&[Cpu, Gpu, Ram], &[Cpu, Gpu, Ram]), i, &Fixed);
+        assert_eq!(all.cells.len(), 3);
+        let first = &all.cells[0];
+        for c in &all.cells {
+            assert_eq!((c.rect.y, c.value_y), (first.rect.y, first.value_y));
+            assert_eq!(c.value_x, c.rect.x, "the value starts under the label");
+            // The wider of "CPU" and "100%".
+            assert_eq!(c.rect.w, 24.0);
+        }
+        assert!(
+            first.value_y >= first.rect.y + 15.0,
+            "a row below the label"
+        );
+        let xs: Vec<f32> = all.cells.iter().map(|c| c.rect.x).collect();
+        assert!(xs.windows(2).all(|w| w[0] < w[1]), "a column each: {xs:?}");
+
+        let mixed = compute_layout(&above(&[Cpu, Ram, Disk, Fps], &[Cpu, Ram]), i, &Fixed);
+        let (cpu, ram, disk, fps) = (
+            &mixed.cells[0],
+            &mixed.cells[1],
+            &mixed.cells[2],
+            &mixed.cells[3],
+        );
+        assert!(cpu.rect.x < ram.rect.x && ram.rect.x < disk.rect.x);
+        assert_eq!(disk.rect.x, fps.rect.x, "the others still share a column");
+        assert!(disk.rect.y < fps.rect.y);
+        assert!(disk.value_x > disk.rect.x, "beside their labels");
+        assert_no_overlap(&mixed);
+
+        let side_by_side = compute_layout(&specs(&[Cpu, Gpu, Ram]), i, &Fixed);
+        assert_eq!(side_by_side.cells[0].rect.x, side_by_side.cells[1].rect.x);
+    }
+
+    #[test]
+    fn a_single_row_keeps_the_label_beside_the_value() {
+        let i = input(DisplayMode::Text, 20.0, 96);
+        let items = above(&[ItemKind::Cpu], &[ItemKind::Cpu]);
+        let l = compute_layout(&items, i, &Fixed);
+        assert!(l.cells[0].value_x > l.cells[0].rect.x);
+    }
+
+    #[test]
+    fn a_vertical_bar_can_put_one_label_above_its_value() {
+        let items = above(&[ItemKind::Cpu, ItemKind::Ram], &[ItemKind::Ram]);
+        let l = compute_layout(&items, vertical(DisplayMode::Text, 200.0), &Fixed);
+        let (cpu, ram) = (&l.cells[0], &l.cells[1]);
+        assert!(cpu.value_x > cpu.rect.x);
+        assert_eq!(ram.value_x, ram.rect.x);
+        assert!(ram.value_y > ram.rect.y);
+    }
+
     #[test]
     fn text_mode_labels_align_within_a_column() {
         // "PING" is wider than "CPU"; both values start at the same x.
@@ -2917,6 +3048,7 @@ mod tests {
                 parts: vec![part],
                 tile: TileSize::default(),
                 graphic: TileGraphic::default(),
+                label_above: false,
             }];
             compute_layout(&items, i, &Fixed).cells[0].rect.w
         };
@@ -3133,6 +3265,7 @@ mod tests {
             parts: vec![CellPart::DriveActive(b'C'), CellPart::DriveActive(b'D')],
             tile: TileSize::default(),
             graphic: TileGraphic::default(),
+            label_above: false,
         }];
         let l = compute_layout(&items, input(DisplayMode::Graph, 48.0, 96), &Fixed);
         assert_eq!(l.cells.len(), 2);
@@ -3386,6 +3519,7 @@ mod tests {
                 parts: item_parts(ItemKind::Network, &c, &[]),
                 tile: TileSize::default(),
                 graphic: TileGraphic::default(),
+                label_above: false,
             }];
             compute_layout(&items, i, &Fixed)
                 .cells
@@ -3433,6 +3567,7 @@ mod tests {
             parts: (0..n).map(CellPart::AdapterPair).collect(),
             tile: TileSize::default(),
             graphic: TileGraphic::default(),
+            label_above: false,
         }]
     }
 

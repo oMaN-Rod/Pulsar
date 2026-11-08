@@ -600,6 +600,9 @@ pub struct ItemConfig {
     /// Graph mode: an arrow for the latest reading against the recent average.
     #[serde(default)]
     pub trend: bool,
+    /// Text mode: the label above the value, in a column of its own.
+    #[serde(default)]
+    pub label_above: bool,
     #[serde(default)]
     pub color_mode: ColorMode,
     /// `None` uses `PopupConfig::detail`.
@@ -640,6 +643,7 @@ impl ItemConfig {
             graph: true,
             style: GraphStyle::Area,
             trend: false,
+            label_above: false,
             color_mode: ColorMode::Item,
             popup: None,
             popup_width: None,

@@ -32,6 +32,7 @@ pub struct ItemRow {
     /// 0 follows the popup setting.
     pub popup_graph_height: i32,
     pub trend: bool,
+    pub label_above: bool,
     /// 0 is automatic.
     pub tile_width: i32,
     /// 0 is automatic.
@@ -369,6 +370,7 @@ pub fn to_form(c: &Config) -> Form {
                 popup_width: i.popup_width.map_or(0, i32::from),
                 popup_graph_height: i.popup_graph_height.map_or(0, i32::from),
                 trend: i.trend,
+                label_above: i.label_above,
                 tile_width: i.tile_width.map_or(0, i32::from),
                 tile_height: i.tile_height.map_or(0, i32::from),
                 label: i.label.clone().unwrap_or_default(),
@@ -656,6 +658,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
                 popup_graph_height: (r.popup_graph_height > 0)
                     .then(|| clamp_u16(r.popup_graph_height)),
                 trend: r.trend,
+                label_above: r.label_above,
                 tile_width: (r.tile_width > 0).then(|| clamp_u16(r.tile_width)),
                 tile_height: (r.tile_height > 0).then(|| clamp_u16(r.tile_height)),
                 label: sanitize_label(&r.label),

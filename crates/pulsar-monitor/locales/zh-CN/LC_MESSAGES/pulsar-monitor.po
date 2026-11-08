@@ -1698,6 +1698,14 @@ msgid "Shows whether the latest reading is above or below the recent average."
 msgstr "显示最新读数高于还是低于近期平均值。"
 
 #: ui/settings.slint
+msgid "Label above value"
+msgstr "标签位于数值上方"
+
+#: ui/settings.slint
+msgid "Puts the label on one row and the value on the next, in a column of its own, so the item takes less width. Needs at least two rows of text."
+msgstr "将标签放在一行、数值放在下一行，并单独占一列，使该项目占用更少宽度。需要至少两行文字。"
+
+#: ui/settings.slint
 msgid "Tile width"
 msgstr "磁贴宽度"
 

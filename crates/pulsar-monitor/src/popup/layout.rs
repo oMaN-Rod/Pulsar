@@ -336,6 +336,7 @@ mod tests {
                 parts: vec![CellPart::Main],
                 tile: Default::default(),
                 graphic: Default::default(),
+                label_above: false,
             })
             .collect();
         let l = compute_layout(&specs, input, &Fixed);

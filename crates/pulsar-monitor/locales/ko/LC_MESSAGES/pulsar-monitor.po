@@ -1697,6 +1697,14 @@ msgid "Shows whether the latest reading is above or below the recent average."
 msgstr "최근 측정값이 최근 평균보다 높은지 낮은지 표시합니다."
 
 #: ui/settings.slint
+msgid "Label above value"
+msgstr "값 위에 레이블"
+
+#: ui/settings.slint
+msgid "Puts the label on one row and the value on the next, in a column of its own, so the item takes less width. Needs at least two rows of text."
+msgstr "레이블을 한 줄에, 값을 다음 줄에 두고 별도 열에 표시하여 항목의 너비를 줄입니다. 텍스트가 두 줄 이상이어야 합니다."
+
+#: ui/settings.slint
 msgid "Tile width"
 msgstr "타일 너비"
 

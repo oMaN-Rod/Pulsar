@@ -490,6 +490,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 style: r.style,
                 style_set: names::style_set(r.kind) as i32,
                 trend: r.trend,
+                label_above: r.label_above,
                 color_mode: r.color_mode,
                 popup: r.popup,
                 popup_width: r.popup_width,
@@ -610,6 +611,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 popup_width: r.popup_width,
                 popup_graph_height: r.popup_graph_height,
                 trend: r.trend,
+                label_above: r.label_above,
                 tile_width: r.tile_width,
                 tile_height: r.tile_height,
                 label: r.label.to_string(),
@@ -1287,6 +1289,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     5 => r.tile_width = value,
                     6 => r.tile_height = value,
                     7 => r.trend = value != 0,
+                    8 => r.label_above = value != 0,
                     _ => r.popup = value,
                 });
                 ui.invoke_changed();

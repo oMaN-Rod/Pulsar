@@ -150,6 +150,7 @@ mod tests {
             parts: parts.to_vec(),
             tile: Default::default(),
             graphic: Default::default(),
+            label_above: false,
         }
     }
 

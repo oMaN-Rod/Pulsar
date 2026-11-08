@@ -1695,6 +1695,14 @@ msgid "Shows whether the latest reading is above or below the recent average."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Label above value"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Puts the label on one row and the value on the next, in a column of its own, so the item takes less width. Needs at least two rows of text."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Tile width"
 msgstr ""
 
