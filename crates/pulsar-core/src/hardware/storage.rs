@@ -23,6 +23,11 @@ const IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS: u32 = 0x0056_0000;
 const DEVICE_PROPERTY: u32 = 0;
 const SEEK_PENALTY_PROPERTY: u32 = 7;
 const TEMPERATURE_PROPERTY: u32 = 52;
+const ADAPTER_PROTOCOL_PROPERTY: u32 = 49;
+const DEVICE_PROTOCOL_PROPERTY: u32 = 50;
+const PROTOCOL_NVME: u32 = 3;
+const PROTOCOL_REQUEST_AT: usize = 8;
+const PROTOCOL_REQUEST_LEN: usize = 40;
 /// More physical drives than any desktop has.
 const MAX_DRIVES: u32 = 32;
 
@@ -106,6 +111,76 @@ fn property(device: &Handle, id: u32, output_len: usize) -> Option<Vec<u8>> {
     let mut query = [0u8; 12];
     query[..4].copy_from_slice(&id.to_le_bytes());
     control(device, IOCTL_STORAGE_QUERY_PROPERTY, &query, output_len)
+}
+
+struct NvmeRequest {
+    property: u32,
+    data_type: u32,
+    value: u32,
+    len: usize,
+}
+
+/// Per namespace, so asked of the device; Identify Controller is asked of the adapter.
+const HEALTH_LOG: NvmeRequest = NvmeRequest {
+    property: DEVICE_PROTOCOL_PROPERTY,
+    data_type: 2,
+    value: 2,
+    len: 512,
+};
+
+const IDENTIFY_CONTROLLER: NvmeRequest = NvmeRequest {
+    property: ADAPTER_PROTOCOL_PROPERTY,
+    data_type: 1,
+    value: 1,
+    len: 4096,
+};
+
+fn nvme(device: &Handle, request: &NvmeRequest) -> Option<Vec<u8>> {
+    let mut query = vec![0u8; PROTOCOL_REQUEST_AT + PROTOCOL_REQUEST_LEN + request.len];
+    let mut put = |offset: usize, v: u32| {
+        query[offset..offset + 4].copy_from_slice(&v.to_le_bytes());
+    };
+    put(0, request.property);
+    let at = PROTOCOL_REQUEST_AT;
+    put(at, PROTOCOL_NVME);
+    put(at + 4, request.data_type);
+    put(at + 8, request.value);
+    put(at + 16, PROTOCOL_REQUEST_LEN as u32);
+    put(at + 20, request.len as u32);
+    let out = control(device, IOCTL_STORAGE_QUERY_PROPERTY, &query, query.len())?;
+    protocol_data(&out, request).map(<[u8]>::to_vec)
+}
+
+fn protocol_data<'a>(bytes: &'a [u8], request: &NvmeRequest) -> Option<&'a [u8]> {
+    let at = PROTOCOL_REQUEST_AT;
+    let header = (at + PROTOCOL_REQUEST_LEN) as u32;
+    let answers = u32_at(bytes, 4)? >= header
+        && u32_at(bytes, at)? == PROTOCOL_NVME
+        && u32_at(bytes, at + 4)? == request.data_type;
+    let offset = u32_at(bytes, at + 16)? as usize;
+    let len = u32_at(bytes, at + 20)? as usize;
+    if !answers || offset < PROTOCOL_REQUEST_LEN || len < request.len {
+        return None;
+    }
+    let start = at.checked_add(offset)?;
+    bytes.get(start..start.checked_add(request.len)?)
+}
+
+/// NVMe reports temperatures in kelvin, and zero when it has none.
+fn kelvin_at(bytes: &[u8], offset: usize) -> Option<i16> {
+    let kelvin = u16::from_le_bytes(bytes.get(offset..offset + 2)?.try_into().ok()?);
+    if kelvin == 0 {
+        return None;
+    }
+    i16::try_from(i32::from(kelvin) - 273).ok()
+}
+
+fn health_temperature(log: &[u8]) -> Option<i16> {
+    kelvin_at(log, 1)
+}
+
+fn nvme_limits(identify: &[u8]) -> (Option<i16>, Option<i16>) {
+    (kelvin_at(identify, 266), kelvin_at(identify, 268))
 }
 
 fn u32_at(bytes: &[u8], offset: usize) -> Option<u32> {
@@ -235,9 +310,72 @@ impl Described {
     }
 }
 
+trait TemperatureQueries {
+    fn property(&self) -> Option<Temperatures>;
+    fn health_log(&self) -> Option<i16>;
+    fn nvme_limits(&self) -> (Option<i16>, Option<i16>);
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum TemperatureBackend {
+    #[default]
+    Property,
+    HealthLog {
+        warning: Option<i16>,
+        critical: Option<i16>,
+    },
+}
+
+/// Some NVMe drives fail the temperature property, or report no current
+/// temperature in it, but still fill in their health log.
+fn read_temperature(
+    backend: &mut TemperatureBackend,
+    nvme: bool,
+    queries: &impl TemperatureQueries,
+) -> Option<Temperatures> {
+    let health_log = || queries.health_log().filter(|&t| t > 0);
+    if let TemperatureBackend::HealthLog { warning, critical } = *backend {
+        return Some((health_log()?, warning, critical));
+    }
+    let property = queries.property();
+    if !nvme || property.is_some_and(|t| t.0 > 0) {
+        return property;
+    }
+    let Some(temp) = health_log() else {
+        return property;
+    };
+    let (warning, critical) = queries.nvme_limits();
+    let warning = warning.or(property.and_then(|t| t.1));
+    let critical = critical.or(property.and_then(|t| t.2));
+    *backend = TemperatureBackend::HealthLog { warning, critical };
+    Some((temp, warning, critical))
+}
+
+struct OpenDrive {
+    handle: Handle,
+    nvme: bool,
+    backend: TemperatureBackend,
+}
+
+impl TemperatureQueries for Handle {
+    fn property(&self) -> Option<Temperatures> {
+        property(self, TEMPERATURE_PROPERTY, 256)
+            .as_deref()
+            .and_then(temperatures)
+    }
+
+    fn health_log(&self) -> Option<i16> {
+        health_temperature(&nvme(self, &HEALTH_LOG)?)
+    }
+
+    fn nvme_limits(&self) -> (Option<i16>, Option<i16>) {
+        nvme(self, &IDENTIFY_CONTROLLER).map_or((None, None), |identify| nvme_limits(&identify))
+    }
+}
+
 #[derive(Default)]
 struct SystemDrives {
-    handles: HashMap<u32, Handle>,
+    drives: HashMap<u32, OpenDrive>,
 }
 
 // The handles are only used from the thread that owns the value.
@@ -260,33 +398,41 @@ impl DriveCalls for SystemDrives {
             solid_state: property(&drive, SEEK_PENALTY_PROPERTY, 12)
                 .and_then(|b| b.get(8).map(|&seek| seek == 0)),
         };
-        self.handles.insert(number, drive);
+        self.drives.insert(
+            number,
+            OpenDrive {
+                handle: drive,
+                nvme: described.bus == Some("NVMe"),
+                backend: TemperatureBackend::default(),
+            },
+        );
         Some(described)
     }
 
     fn size_bytes(&mut self, number: u32) -> u64 {
-        self.handles
+        self.drives
             .get(&number)
-            .and_then(|drive| control(drive, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, &[], 256))
+            .and_then(|drive| control(&drive.handle, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, &[], 256))
             .and_then(|g| Some(u64::from_le_bytes(g.get(24..32)?.try_into().ok()?)))
             .unwrap_or(0)
     }
 
     fn powered_on(&mut self, number: u32) -> Option<bool> {
-        let drive = self.handles.get(&number)?;
+        let drive = self.drives.get(&number)?;
         let mut on = BOOL(0);
-        unsafe { GetDevicePowerState(drive.0, &mut on) }.ok().ok()?;
+        unsafe { GetDevicePowerState(drive.handle.0, &mut on) }
+            .ok()
+            .ok()?;
         Some(on.as_bool())
     }
 
     fn temperature(&mut self, number: u32) -> Option<Temperatures> {
-        property(self.handles.get(&number)?, TEMPERATURE_PROPERTY, 256)
-            .as_deref()
-            .and_then(temperatures)
+        let drive = self.drives.get_mut(&number)?;
+        read_temperature(&mut drive.backend, drive.nvme, &drive.handle)
     }
 
     fn forget(&mut self, number: u32) {
-        self.handles.remove(&number);
+        self.drives.remove(&number);
     }
 
     fn yields_rotational_reads(&self) -> bool {
@@ -718,6 +864,254 @@ mod tests {
     }
 
     #[test]
+    fn nvme_temperatures_are_in_kelvin() {
+        let mut log = vec![0u8; 512];
+        assert_eq!(health_temperature(&log), None);
+        log[1..3].copy_from_slice(&317u16.to_le_bytes());
+        assert_eq!(health_temperature(&log), Some(44));
+        let mut identify = vec![0u8; 4096];
+        identify[266..268].copy_from_slice(&355u16.to_le_bytes());
+        assert_eq!(nvme_limits(&identify), (Some(82), None));
+        identify[268..270].copy_from_slice(&358u16.to_le_bytes());
+        assert_eq!(nvme_limits(&identify), (Some(82), Some(85)));
+        log[1..3].copy_from_slice(&u16::MAX.to_le_bytes());
+        assert_eq!(health_temperature(&log), None, "out of range");
+        log[1..3].copy_from_slice(&200u16.to_le_bytes());
+        assert_eq!(health_temperature(&log), Some(-73));
+    }
+
+    const TEST_REQUEST: NvmeRequest = NvmeRequest {
+        property: DEVICE_PROTOCOL_PROPERTY,
+        data_type: 2,
+        value: 2,
+        len: 4,
+    };
+
+    fn protocol_reply() -> Vec<u8> {
+        let mut b = vec![0u8; 8 + 40 + 4];
+        let mut put = |at: usize, v: u32| b[at..at + 4].copy_from_slice(&v.to_le_bytes());
+        put(0, 48);
+        put(4, 48);
+        put(8, PROTOCOL_NVME);
+        put(12, 2);
+        put(24, 40);
+        put(28, 4);
+        b[48..52].copy_from_slice(&[1, 2, 3, 4]);
+        b
+    }
+
+    #[test]
+    fn protocol_data_follows_the_descriptor_offset() {
+        let b = protocol_reply();
+        assert_eq!(protocol_data(&b, &TEST_REQUEST), Some(&[1, 2, 3, 4][..]));
+
+        let mut moved = protocol_reply();
+        moved[24..28].copy_from_slice(&42u32.to_le_bytes());
+        moved.splice(48..48, [9, 9]);
+        assert_eq!(
+            protocol_data(&moved, &TEST_REQUEST),
+            Some(&[1, 2, 3, 4][..])
+        );
+
+        let mut longer = protocol_reply();
+        longer[28..32].copy_from_slice(&6u32.to_le_bytes());
+        longer.extend_from_slice(&[5, 6]);
+        assert_eq!(
+            protocol_data(&longer, &TEST_REQUEST),
+            Some(&[1, 2, 3, 4][..]),
+            "only the requested length"
+        );
+    }
+
+    #[test]
+    fn a_malformed_protocol_reply_is_refused() {
+        let broken = |at: usize, v: u32| {
+            let mut b = protocol_reply();
+            b[at..at + 4].copy_from_slice(&v.to_le_bytes());
+            protocol_data(&b, &TEST_REQUEST).map(<[u8]>::to_vec)
+        };
+        assert_eq!(broken(4, 47), None, "descriptor too small");
+        assert_eq!(broken(8, 1), None, "another protocol");
+        assert_eq!(broken(12, 1), None, "another data type");
+        assert_eq!(broken(24, 39), None, "offset into the header");
+        assert_eq!(broken(24, 41), None, "past the end");
+        assert_eq!(broken(24, u32::MAX), None, "overflowing offset");
+        assert_eq!(broken(28, 3), None, "short payload");
+        assert_eq!(protocol_data(&protocol_reply()[..51], &TEST_REQUEST), None);
+    }
+
+    #[derive(Default)]
+    struct FakeQueries {
+        property: Option<Temperatures>,
+        health: Option<i16>,
+        limits: (Option<i16>, Option<i16>),
+        calls: std::cell::RefCell<Vec<&'static str>>,
+    }
+
+    impl TemperatureQueries for FakeQueries {
+        fn property(&self) -> Option<Temperatures> {
+            self.calls.borrow_mut().push("property");
+            self.property
+        }
+
+        fn health_log(&self) -> Option<i16> {
+            self.calls.borrow_mut().push("health");
+            self.health
+        }
+
+        fn nvme_limits(&self) -> (Option<i16>, Option<i16>) {
+            self.calls.borrow_mut().push("identify");
+            self.limits
+        }
+    }
+
+    impl FakeQueries {
+        fn take_calls(&self) -> Vec<&'static str> {
+            self.calls.take()
+        }
+    }
+
+    #[test]
+    fn a_working_temperature_property_is_the_only_query() {
+        let q = FakeQueries {
+            property: Some((41, Some(82), Some(85))),
+            health: Some(40),
+            ..FakeQueries::default()
+        };
+        let mut backend = TemperatureBackend::default();
+        for _ in 0..3 {
+            assert_eq!(
+                read_temperature(&mut backend, true, &q),
+                Some((41, Some(82), Some(85)))
+            );
+        }
+        assert_eq!(q.take_calls(), ["property"; 3]);
+        assert_eq!(backend, TemperatureBackend::Property);
+    }
+
+    #[test]
+    fn an_nvme_drive_falls_back_to_its_health_log_once_and_stays_there() {
+        let q = FakeQueries {
+            health: Some(44),
+            limits: (Some(80), Some(85)),
+            ..FakeQueries::default()
+        };
+        let mut backend = TemperatureBackend::default();
+        assert_eq!(
+            read_temperature(&mut backend, true, &q),
+            Some((44, Some(80), Some(85)))
+        );
+        assert_eq!(q.take_calls(), ["property", "health", "identify"]);
+        assert_eq!(
+            read_temperature(&mut backend, true, &q),
+            Some((44, Some(80), Some(85)))
+        );
+        assert_eq!(q.take_calls(), ["health"]);
+    }
+
+    #[test]
+    fn a_property_without_a_current_temperature_falls_back_too() {
+        let q = FakeQueries {
+            property: Some((0, Some(70), None)),
+            health: Some(44),
+            ..FakeQueries::default()
+        };
+        let mut backend = TemperatureBackend::default();
+        assert_eq!(
+            read_temperature(&mut backend, true, &q),
+            Some((44, Some(70), None))
+        );
+        let q = FakeQueries {
+            property: Some((0, Some(70), None)),
+            ..FakeQueries::default()
+        };
+        let mut backend = TemperatureBackend::default();
+        assert_eq!(
+            read_temperature(&mut backend, true, &q),
+            Some((0, Some(70), None)),
+            "the property's answer stands when the log has none"
+        );
+        assert_eq!(backend, TemperatureBackend::Property);
+    }
+
+    #[test]
+    fn missing_limits_do_not_cost_the_temperature() {
+        let q = FakeQueries {
+            health: Some(44),
+            ..FakeQueries::default()
+        };
+        let mut backend = TemperatureBackend::default();
+        assert_eq!(
+            read_temperature(&mut backend, true, &q),
+            Some((44, None, None))
+        );
+    }
+
+    #[test]
+    fn identify_limits_take_the_place_of_property_limits_only_where_present() {
+        let q = FakeQueries {
+            property: Some((0, Some(70), Some(75))),
+            health: Some(44),
+            limits: (Some(80), None),
+            ..FakeQueries::default()
+        };
+        let mut backend = TemperatureBackend::default();
+        assert_eq!(
+            read_temperature(&mut backend, true, &q),
+            Some((44, Some(80), Some(75)))
+        );
+    }
+
+    #[test]
+    fn an_unusable_health_reading_is_not_chosen_or_kept() {
+        for unusable in [0, -5] {
+            let q = FakeQueries {
+                property: Some((0, Some(70), None)),
+                health: Some(unusable),
+                ..FakeQueries::default()
+            };
+            let mut backend = TemperatureBackend::default();
+            assert_eq!(
+                read_temperature(&mut backend, true, &q),
+                Some((0, Some(70), None))
+            );
+            assert_eq!(backend, TemperatureBackend::Property);
+
+            let mut backend = TemperatureBackend::HealthLog {
+                warning: None,
+                critical: None,
+            };
+            assert_eq!(
+                read_temperature(&mut backend, true, &q),
+                None,
+                "so the drive is suspect and reopened"
+            );
+        }
+    }
+
+    #[test]
+    fn other_buses_never_ask_for_nvme_data() {
+        let q = FakeQueries {
+            health: Some(44),
+            ..FakeQueries::default()
+        };
+        let mut backend = TemperatureBackend::default();
+        assert_eq!(read_temperature(&mut backend, false, &q), None);
+        assert_eq!(q.take_calls(), ["property"]);
+    }
+
+    #[test]
+    fn a_failing_health_log_reads_nothing_and_asks_nothing_else() {
+        let q = FakeQueries::default();
+        let mut backend = TemperatureBackend::HealthLog {
+            warning: None,
+            critical: None,
+        };
+        assert_eq!(read_temperature(&mut backend, true, &q), None);
+        assert_eq!(q.take_calls(), ["health"]);
+    }
+
+    #[test]
     fn kinds_follow_bus_and_seek_penalty() {
         let disk = |bus, solid_state| DiskInfo {
             bus,
@@ -753,15 +1147,45 @@ mod tests {
         let mut calls = SystemDrives::default();
         for number in 0..MAX_DRIVES {
             if let Some(facts) = calls.describe(number) {
+                let drive = &calls.drives[&number];
+                let health = drive
+                    .nvme
+                    .then(|| (drive.handle.health_log(), drive.handle.nvme_limits()));
                 println!(
-                    "{number}: {:?} serial known {} solid {:?} power {:?} temperature {:?}",
+                    "{number}: {:?} serial known {} solid {:?} power {:?} temperature {:?} health log {:?}",
                     facts.model,
                     facts.serial.is_some(),
                     facts.solid_state,
                     calls.powered_on(number),
                     calls.temperature(number),
+                    health,
                 );
             }
+        }
+    }
+
+    /// Times each way of reading an NVMe drive; run with `--ignored --nocapture`.
+    #[test]
+    #[ignore = "queries real drives"]
+    fn nvme_query_cost_on_this_machine() {
+        let mut calls = SystemDrives::default();
+        const ROUNDS: u32 = 200;
+        let time = |f: &dyn Fn() -> bool| {
+            let start = Instant::now();
+            let ok = (0..ROUNDS).filter(|_| f()).count();
+            (start.elapsed() / ROUNDS, ok)
+        };
+        for number in 0..MAX_DRIVES {
+            if calls.describe(number).is_none() || !calls.drives[&number].nvme {
+                continue;
+            }
+            let handle = &calls.drives[&number].handle;
+            println!(
+                "{number}: property {:?} health log {:?} identify {:?}",
+                time(&|| handle.property().is_some()),
+                time(&|| handle.health_log().is_some()),
+                time(&|| nvme(handle, &IDENTIFY_CONTROLLER).is_some()),
+            );
         }
     }
 
