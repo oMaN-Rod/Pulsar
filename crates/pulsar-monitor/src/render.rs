@@ -1382,6 +1382,32 @@ impl Renderer {
         Ok(())
     }
 
+    /// Outlines `r` with a `width` line drawn just inside it.
+    pub(crate) fn stroke_rounded(
+        &self,
+        r: Rect,
+        radius: f32,
+        width: f32,
+        color: Color,
+    ) -> Result<()> {
+        let half = width / 2.0;
+        let rounded = D2D1_ROUNDED_RECT {
+            rect: rect_f(Rect {
+                x: r.x + half,
+                y: r.y + half,
+                w: r.w - width,
+                h: r.h - width,
+            }),
+            radiusX: (radius - half).max(0.0),
+            radiusY: (radius - half).max(0.0),
+        };
+        unsafe {
+            self.target
+                .DrawRoundedRectangle(&rounded, self.brush(color), width, None);
+        }
+        Ok(())
+    }
+
     pub(crate) fn text_at(
         &self,
         text: &Text,

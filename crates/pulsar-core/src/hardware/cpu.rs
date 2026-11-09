@@ -100,6 +100,15 @@ pub fn read() -> CpuInfo {
     }
 }
 
+pub fn cached_brand() -> &'static str {
+    static BRAND: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    BRAND.get_or_init(|| {
+        registry::string(PROCESSOR_KEY, "ProcessorNameString")
+            .map(|b| clean_brand(&b))
+            .unwrap_or_default()
+    })
+}
+
 /// The clock Windows measured at boot, close to the base clock that the
 /// CPU's fixed-rate counters tick at.
 pub fn base_mhz() -> Option<u32> {

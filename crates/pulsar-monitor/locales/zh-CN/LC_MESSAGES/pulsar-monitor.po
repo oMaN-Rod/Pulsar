@@ -1150,6 +1150,10 @@ msgid "Dial"
 msgstr "表盘"
 
 #: src/names.rs
+msgid "Device card"
+msgstr "设备卡片"
+
+#: src/names.rs
 msgid "Core wall"
 msgstr "核心墙"
 
@@ -2262,8 +2266,8 @@ msgid "Style"
 msgstr "样式"
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings."
-msgstr "迷你图：每个项目一行并带小图。磁贴：小图网格。电平表：显示当前值的条形。表盘：环形网格。"
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr "迷你图：每个项目一行并带小图。磁贴：小图网格。电平表：显示当前值的条形。表盘：环形网格。设备卡片：设备名称，大号数值及其图表，然后是详细信息。"
 
 #: ui/settings.slint
 msgid "Sparklines"
@@ -2280,6 +2284,42 @@ msgstr "仪表"
 #: ui/settings.slint
 msgid "Dials"
 msgstr "表盘"
+
+#: ui/settings.slint
+msgid "Device cards"
+msgstr "设备卡片"
+
+#: ui/settings.slint
+msgid "Material"
+msgstr "材质"
+
+#: ui/settings.slint
+msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
+msgstr "玻璃和亚克力会模糊小组件后方的内容。透明从不模糊，适合在游戏上方使用。"
+
+#: ui/settings.slint
+msgid "Solid"
+msgstr "实心"
+
+#: ui/settings.slint
+msgid "Glass"
+msgstr "玻璃"
+
+#: ui/settings.slint
+msgid "Acrylic"
+msgstr "亚克力"
+
+#: ui/settings.slint
+msgid "Clear"
+msgstr "透明"
+
+#: ui/settings.slint
+msgid "Separate cards"
+msgstr "分离卡片"
+
+#: ui/settings.slint
+msgid "Each item on a panel of its own, with a gap between."
+msgstr "每个项目使用单独的面板，彼此之间留有间隙。"
 
 #: ui/settings.slint
 msgid "Tiles show the value and graph only."

@@ -367,6 +367,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_widget_detail(f.widget_detail);
     ui.set_widget_width(f.widget_width);
     ui.set_widget_opacity(f.widget_opacity as f32);
+    ui.set_widget_material(f.widget_material);
+    ui.set_widget_separate(f.widget_separate);
     ui.set_widget_hide_in_fullscreen(f.widget_hide_in_fullscreen);
     ui.set_widget_own_items(f.widget_own_items);
     ui.set_widget_background(f.widget_background.as_str().into());
@@ -711,6 +713,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         widget_detail: ui.get_widget_detail(),
         widget_width: ui.get_widget_width(),
         widget_opacity: ui.get_widget_opacity().round() as i32,
+        widget_material: ui.get_widget_material(),
+        widget_separate: ui.get_widget_separate(),
         widget_hide_in_fullscreen: ui.get_widget_hide_in_fullscreen(),
         widget_own_items: ui.get_widget_own_items(),
         widget_items: kinds

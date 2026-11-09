@@ -240,8 +240,8 @@ const ITEM_LATER: usize = 33;
 const ITEM_HIDE: usize = 34;
 const ITEM_WIDGET_STYLE_DEFAULT: usize = 35;
 const ITEM_WIDGET_STYLE: usize = 36;
-const ITEM_WIDGET_DETAIL_DEFAULT: usize = 41;
-const ITEM_WIDGET_DETAIL: usize = 42;
+const ITEM_WIDGET_DETAIL_DEFAULT: usize = 42;
+const ITEM_WIDGET_DETAIL: usize = 43;
 
 const PROCESS_COUNTS: [u8; 6] = [0, 3, 5, 8, 10, 15];
 const INTERVALS_MS: [u32; 4] = [500, 1000, 2000, 5000];

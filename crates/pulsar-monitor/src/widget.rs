@@ -3,14 +3,15 @@
 
 use std::borrow::Cow;
 
-use pulsar_core::config::{WidgetLayer, WidgetStyle};
+use pulsar_core::config::{WidgetLayer, WidgetMaterial, WidgetStyle};
 use pulsar_core::display::{
     CoreLoad, NetworkFloor, area_points, core_loads, graph_max, meter_fraction, metric_for,
 };
-use pulsar_core::hardware::cpu::cached_topology;
+use pulsar_core::format::format_value;
+use pulsar_core::hardware::cpu::{cached_brand, cached_topology};
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{CellPart, Rect, TextMeasure};
-use pulsar_core::metric::{ItemKind, Snapshot, Unit};
+use pulsar_core::metric::{ItemKind, MetricKey, Snapshot, Unit};
 use pulsar_core::tr;
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM};
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
@@ -24,6 +25,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 use windows::core::{BOOL, Result, w};
 
+use crate::glass::{Backdrop, Shape};
 use crate::popup::content::{Block, PopupContent};
 use crate::popup::layout::ellipsize;
 use crate::render::Reorder;
@@ -54,7 +56,11 @@ pub fn register_class(instance: HINSTANCE, wndproc: WNDPROC) {
 /// the desktop icons, and comes forward while the desktop is shown.
 pub struct Widget {
     pub hwnd: HWND,
+    instance: HINSTANCE,
     surface: Option<Surface>,
+    backdrop: Option<Backdrop>,
+    no_backdrop: bool,
+    shapes: Vec<Shape>,
     pub shown_at: Option<(i32, i32)>,
     layer: Option<WidgetLayer>,
     click_through: bool,
@@ -85,7 +91,11 @@ impl Widget {
         crate::overlay::disable_transitions(hwnd);
         Ok(Self {
             hwnd,
+            instance,
             surface: None,
+            backdrop: None,
+            no_backdrop: false,
+            shapes: Vec::new(),
             shown_at: None,
             layer: None,
             click_through: false,
@@ -126,7 +136,11 @@ impl Widget {
             .iter()
             .map(|(c, style)| Section::new(c, *style, snapshot, history))
             .collect();
-        let plan = Plan::new(&mut sections, &d, look.max_h, text);
+        let plan = Plan::new(&mut sections, &d, look.max_h, look.separate, text);
+        let blur = look.material.blurs() && look.transparency && self.ensure_backdrop();
+        let skin = Skin::new(look, palette, blur);
+        let radius = skin.radius * d.scale;
+        self.shapes = plan.panels.iter().map(|&r| (r, radius)).collect();
         self.hits = plan
             .placed
             .iter()
@@ -147,34 +161,13 @@ impl Widget {
             history,
             network_floor: look.network_floor,
             d: &d,
+            bare_tiles: look.separate,
         };
         renderer.paint(surface, Color::rgb(0, 0, 0).with_alpha(0.0), |r| {
-            let (wf, hf) = (w as f32, h as f32);
-            let full = Rect {
-                x: 0.0,
-                y: 0.0,
-                w: wf,
-                h: hf,
-            };
             let p = palette;
-            let border = p
-                .popup_border
-                .with_alpha(p.popup_border.a * look.opacity.max(0.3));
-            r.fill_rounded(full, 8.0 * d.scale, border)?;
-            let inner = Rect {
-                x: 1.0,
-                y: 1.0,
-                w: wf - 2.0,
-                h: hf - 2.0,
-            };
-            // Never fully clear, so the whole panel takes the mouse.
-            r.fill_rounded(
-                inner,
-                7.0 * d.scale,
-                look.background
-                    .unwrap_or(p.popup)
-                    .with_alpha(look.opacity.max(1.0 / 255.0)),
-            )?;
+            for &panel in &plan.panels {
+                skin.panel(r, panel, radius, d.scale)?;
+            }
             for placed in &plan.placed {
                 ctx.section(r, &sections[placed.index], placed.rect, placed.value_w)?;
                 if placed.divider {
@@ -204,7 +197,42 @@ impl Widget {
             }
         }
         self.shown_at = Some((x, y));
+        if blur {
+            self.place_backdrop();
+        } else if let Some(backdrop) = &mut self.backdrop {
+            backdrop.hide();
+        }
         Ok(())
+    }
+
+    fn ensure_backdrop(&mut self) -> bool {
+        if self.backdrop.is_none() && !self.no_backdrop {
+            match Backdrop::create(self.instance) {
+                Ok(backdrop) => self.backdrop = Some(backdrop),
+                Err(e) => {
+                    log::info!("no blur behind the widget: {e}");
+                    self.no_backdrop = true;
+                }
+            }
+        }
+        self.backdrop.is_some()
+    }
+
+    fn place_backdrop(&mut self) {
+        let (Some(backdrop), Some((x, y))) = (&mut self.backdrop, self.shown_at) else {
+            return;
+        };
+        let (w, h) = self
+            .surface
+            .as_ref()
+            .map_or((0, 0), |s| (s.width, s.height));
+        if let Err(e) = backdrop.set_shapes(&self.shapes) {
+            log::warn!("could not shape the widget's blur: {e}");
+            self.backdrop = None;
+            self.no_backdrop = true;
+            return;
+        }
+        backdrop.place(self.hwnd, x, y, w, h);
     }
 
     pub fn cells(&self) -> &[(Rect, ItemKind)] {
@@ -225,6 +253,9 @@ impl Widget {
         if let Some(surface) = &self.surface {
             renderer.present(self.hwnd, surface, x, y)?;
             self.shown_at = Some((x, y));
+            if self.backdrop.as_ref().is_some_and(Backdrop::shown) {
+                self.place_backdrop();
+            }
         }
         Ok(())
     }
@@ -234,6 +265,9 @@ impl Widget {
             unsafe {
                 let _ = ShowWindow(self.hwnd, SW_HIDE);
             }
+        }
+        if let Some(backdrop) = &mut self.backdrop {
+            backdrop.hide();
         }
         self.surface = None;
         self.over_desktop = None;
@@ -268,6 +302,9 @@ impl Widget {
                 unsafe {
                     let _ = SetWindowPos(self.hwnd, Some(HWND_TOPMOST), 0, 0, 0, 0, flags);
                 }
+                if self.backdrop.as_ref().is_some_and(Backdrop::shown) {
+                    self.place_backdrop();
+                }
             }
             return;
         }
@@ -295,6 +332,9 @@ impl Widget {
         };
         unsafe {
             let _ = SetWindowPos(self.hwnd, Some(after), 0, 0, 0, 0, flags);
+        }
+        if self.backdrop.as_ref().is_some_and(Backdrop::shown) {
+            self.place_backdrop();
         }
     }
 
@@ -326,6 +366,80 @@ pub struct Look {
     pub reorder: Option<Reorder>,
     pub scale: f32,
     pub network_floor: NetworkFloor,
+    pub material: WidgetMaterial,
+    pub separate: bool,
+    /// Windows' "Transparency effects" setting.
+    pub transparency: bool,
+}
+
+struct Skin {
+    fill: Color,
+    border: Color,
+    rim: Option<Color>,
+    /// In DIPs.
+    radius: f32,
+}
+
+impl Skin {
+    fn new(look: &Look, p: &Palette, blur: bool) -> Self {
+        let base = look.background.unwrap_or(p.popup);
+        let light = p.light();
+        let edge = |dark: f32, bright: f32| {
+            if light {
+                Color::rgb(0, 0, 0).with_alpha(bright)
+            } else {
+                Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(dark)
+            }
+        };
+        let solid = |radius| Self {
+            // Never fully clear, so the whole panel takes the mouse.
+            fill: base.with_alpha(look.opacity.max(1.0 / 255.0)),
+            border: p
+                .popup_border
+                .with_alpha(p.popup_border.a * look.opacity.max(0.3)),
+            rim: None,
+            radius,
+        };
+        match look.material {
+            WidgetMaterial::Solid => solid(8.0),
+            WidgetMaterial::Glass if blur => Self {
+                fill: base.with_alpha(0.45 * look.opacity),
+                border: edge(0.16, 0.08),
+                rim: Some(Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(if light { 0.7 } else { 0.22 })),
+                radius: 16.0,
+            },
+            WidgetMaterial::Acrylic if blur => Self {
+                fill: base.with_alpha(0.8 * look.opacity),
+                border: edge(0.09, 0.06),
+                rim: None,
+                radius: 8.0,
+            },
+            WidgetMaterial::Glass => solid(16.0),
+            WidgetMaterial::Acrylic => solid(8.0),
+            WidgetMaterial::Clear => Self {
+                fill: base.with_alpha((0.28 * look.opacity).max(1.0 / 255.0)),
+                border: edge(0.10, 0.08),
+                rim: None,
+                radius: 12.0,
+            },
+        }
+    }
+
+    fn panel(&self, r: &Renderer, at: Rect, radius: f32, scale: f32) -> Result<()> {
+        r.fill_rounded(at, radius, self.fill)?;
+        let line = scale.max(1.0);
+        r.stroke_rounded(at, radius, line, self.border)?;
+        if let Some(rim) = self.rim {
+            let top = Rect {
+                x: at.x + radius,
+                y: at.y + line,
+                w: (at.w - 2.0 * radius).max(0.0),
+                h: line,
+            };
+            r.fill_rounded(top, 0.0, rim)?;
+        }
+        Ok(())
+    }
 }
 
 const DIALS_PER_ROW: usize = 3;
@@ -335,6 +449,9 @@ struct Dims {
     scale: f32,
     pad: f32,
     gap: f32,
+    panel_gap: f32,
+    big_px: f32,
+    big_h: f32,
     /// Space between sections, with a divider in its middle.
     between: f32,
     font_px: f32,
@@ -354,12 +471,17 @@ impl Dims {
     fn new(text: &Text, look: &Look) -> Self {
         let s = look.scale;
         let small_px = look.font_px * 0.88;
-        let inner = look.column_w - 2.0 * 10.0 * s;
+        let pad = if look.separate { 12.0 } else { 10.0 } * s;
+        let inner = look.column_w - 2.0 * pad;
         let dial_cell = (inner - 2.0 * 8.0 * s) / DIALS_PER_ROW as f32;
+        let big_px = look.font_px * 2.2;
         Self {
             scale: s,
-            pad: 10.0 * s,
+            pad,
             gap: 8.0 * s,
+            panel_gap: 8.0 * s,
+            big_px,
+            big_h: text.line_height(big_px),
             between: 9.0 * s,
             font_px: look.font_px,
             line_h: text.line_height(look.font_px),
@@ -400,6 +522,9 @@ struct Section<'a> {
     /// Indexes into `pairs` by line: two side by side, or one that needs
     /// the whole width. Set by `lay_out_pairs`.
     rows: Vec<(usize, Option<usize>)>,
+    model: Option<String>,
+    side: Option<String>,
+    latest: Option<f64>,
 }
 
 impl<'a> Section<'a> {
@@ -441,6 +566,11 @@ impl<'a> Section<'a> {
                 .map(|v| (v / 100.0).clamp(0.0, 1.0) as f32),
             _ => None,
         };
+        let (model, side) = if style == WidgetStyle::Cards {
+            card_head(content.kind, snapshot)
+        } else {
+            (None, None)
+        };
         Self {
             content,
             style,
@@ -450,6 +580,9 @@ impl<'a> Section<'a> {
             meter,
             wall,
             rows: Vec::new(),
+            model,
+            side,
+            latest: snapshot.get(key).filter(|v| v.is_finite()),
         }
     }
 
@@ -470,7 +603,11 @@ impl<'a> Section<'a> {
 
     /// Height in the line styles.
     fn height(&self, d: &Dims) -> f32 {
-        let mut h = d.line_h;
+        let mut h = if self.style == WidgetStyle::Cards {
+            d.line_h + d.gap / 2.0 + d.big_h
+        } else {
+            d.line_h
+        };
         if self.style == WidgetStyle::CoreWall {
             h += d.gap / 2.0 + d.wall_h;
             if self.split().is_some() {
@@ -529,10 +666,17 @@ struct Plan {
     width: f32,
     height: f32,
     placed: Vec<Placed>,
+    panels: Vec<Rect>,
 }
 
 impl Plan {
-    fn new(sections: &mut [Section], d: &Dims, max_h: f32, text: &dyn TextMeasure) -> Self {
+    fn new(
+        sections: &mut [Section],
+        d: &Dims,
+        max_h: f32,
+        separate: bool,
+        text: &dyn TextMeasure,
+    ) -> Self {
         let inner = d.column_w - 2.0 * d.pad;
         for s in sections.iter_mut() {
             s.lay_out_pairs(d, inner, text);
@@ -548,11 +692,17 @@ impl Plan {
                 _ => sections[u[0]].height(d),
             })
             .collect();
-        let columns = columns(&heights, d.between, max_h - 2.0 * d.pad);
+        let (between, cell_gap, column_gap) = if separate {
+            let apart = d.panel_gap + 2.0 * d.pad;
+            (apart, apart, d.panel_gap)
+        } else {
+            (d.between, d.gap, 0.0)
+        };
+        let columns = columns(&heights, between, max_h - 2.0 * d.pad);
         let mut placed = Vec::new();
         let mut tallest: f32 = 0.0;
         for (c, column) in columns.iter().enumerate() {
-            let x = d.pad + c as f32 * (inner + 2.0 * d.pad);
+            let x = d.pad + c as f32 * (d.column_w + column_gap);
             let value_w = column
                 .iter()
                 .flat_map(|&u| &units[u])
@@ -568,13 +718,13 @@ impl Plan {
                     .get(n + 1)
                     .is_some_and(|&next| per_row(styles[units[next][0]]) == 1);
                 let across = per_row(styles[units[u][0]]) as f32;
-                let cell_w = (inner - (across - 1.0) * d.gap) / across;
+                let cell_w = (inner - (across - 1.0) * cell_gap) / across;
                 for (k, &index) in units[u].iter().enumerate() {
                     let rect = if is_line || wide[index] {
                         Rect { x, y, w: inner, h }
                     } else {
                         Rect {
-                            x: x + k as f32 * (cell_w + d.gap),
+                            x: x + k as f32 * (cell_w + cell_gap),
                             y,
                             w: cell_w,
                             h,
@@ -584,22 +734,74 @@ impl Plan {
                         index,
                         rect,
                         value_w,
-                        divider: is_line && next_is_line,
+                        divider: !separate && is_line && next_is_line,
                     });
                 }
                 y += h;
                 if n + 1 < column.len() {
-                    y += d.between;
+                    y += between;
                 }
             }
             tallest = tallest.max(y - d.pad);
         }
         let n = columns.len().max(1) as f32;
+        let width = n * d.column_w + (n - 1.0) * column_gap;
+        let height = tallest + 2.0 * d.pad;
+        let panels = if separate {
+            placed
+                .iter()
+                .map(|p| Rect {
+                    x: p.rect.x - d.pad,
+                    y: p.rect.y - d.pad,
+                    w: p.rect.w + 2.0 * d.pad,
+                    h: p.rect.h + 2.0 * d.pad,
+                })
+                .collect()
+        } else {
+            vec![Rect {
+                x: 0.0,
+                y: 0.0,
+                w: width,
+                h: height,
+            }]
+        };
         Self {
-            width: n * d.column_w,
-            height: tallest + 2.0 * d.pad,
+            width,
+            height,
             placed,
+            panels,
         }
+    }
+}
+
+fn card_head(kind: ItemKind, snapshot: &Snapshot) -> (Option<String>, Option<String>) {
+    let temperature = |key| {
+        snapshot
+            .get(key)
+            .filter(|v| v.is_finite())
+            .map(|v| format_value(v, Unit::Celsius))
+    };
+    match kind {
+        ItemKind::Cpu => (
+            Some(cached_brand().to_string()).filter(|b| !b.is_empty()),
+            temperature(MetricKey::CpuTempC),
+        ),
+        ItemKind::Gpu => (
+            snapshot.gpus.present().next().map(|(_, g)| g.name.clone()),
+            temperature(MetricKey::GpuTempC),
+        ),
+        _ => (None, None),
+    }
+}
+
+fn split_unit(value: &str) -> (&str, &str) {
+    let starts_with_number = value.chars().next().is_some_and(|c| c.is_ascii_digit());
+    match value.rfind(|c: char| c.is_ascii_digit()) {
+        Some(end) if starts_with_number => {
+            let (number, unit) = value.split_at(end + 1);
+            (number, unit.trim_start())
+        }
+        _ => (value, ""),
     }
 }
 
@@ -613,7 +815,10 @@ fn per_row(style: WidgetStyle) -> usize {
     match style {
         WidgetStyle::Tiles => 2,
         WidgetStyle::Dials => DIALS_PER_ROW,
-        WidgetStyle::Sparklines | WidgetStyle::Meters | WidgetStyle::CoreWall => 1,
+        WidgetStyle::Sparklines
+        | WidgetStyle::Meters
+        | WidgetStyle::CoreWall
+        | WidgetStyle::Cards => 1,
     }
 }
 
@@ -662,6 +867,7 @@ struct Ctx<'a> {
     history: &'a HistoryStore,
     network_floor: NetworkFloor,
     d: &'a Dims,
+    bare_tiles: bool,
 }
 
 impl Ctx<'_> {
@@ -669,8 +875,65 @@ impl Ctx<'_> {
         match s.style {
             WidgetStyle::Tiles => self.tile(r, s, at),
             WidgetStyle::Dials => self.dial(r, s, at),
+            WidgetStyle::Cards => self.card(r, s, at),
             _ => self.lines(r, s, at, value_w),
         }
+    }
+
+    fn card(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
+        let (d, p, t) = (self.d, self.palette, self.text);
+        let c = s.content;
+        let body = t.format(d.font_px)?;
+        let small = t.format(d.small_px)?;
+        let mut right = at.right();
+        if let Some(side) = &s.side {
+            let side = ellipsize(side, at.w * 0.4, d.small_px, t);
+            right -= t.width(&side, d.small_px);
+            let y = at.y + (d.line_h - d.small_h);
+            r.text_at(t, &small, &side, right, y, p.popup_text)?;
+            right -= d.gap;
+        }
+        let title = ellipsize(c.title, right - at.x, d.font_px, t);
+        r.text_at(t, &body, &title, at.x, at.y, p.popup_text)?;
+        if let Some(model) = &s.model {
+            let x = at.x + t.width(&title, d.font_px) + d.gap;
+            let model = ellipsize(model, right - x, d.small_px, t);
+            let y = at.y + (d.line_h - d.small_h);
+            r.text_at(t, &small, &model, x, y, p.popup_label)?;
+        }
+
+        let y = at.y + d.line_h + d.gap / 2.0;
+        let (number, unit) = split_unit(&c.value);
+        let room = at.w * 0.55;
+        let unit_w = t.width(unit, d.font_px);
+        let big_px = [d.big_px, d.big_px * 0.75, d.font_px * 1.25]
+            .into_iter()
+            .find(|&px| t.width(number, px) + unit_w <= room)
+            .unwrap_or(d.font_px * 1.25);
+        let number = ellipsize(number, room - unit_w, big_px, t);
+        let base = p.graph(c.kind, c.series[0]);
+        let loaded = p.graph_at(c.kind, c.series[0], s.latest);
+        let color = if loaded == base { p.popup_text } else { loaded };
+        let baseline = y + d.big_h;
+        let number_y = baseline - t.line_height(big_px);
+        r.text_at(t, &t.format(big_px)?, &number, at.x, number_y, color)?;
+        let mut x = at.x + t.width(&number, big_px);
+        if !unit.is_empty() {
+            x += d.scale * 2.0;
+            let unit_y = baseline - d.line_h - d.big_h * 0.06;
+            r.text_at(t, &body, unit, x, unit_y, p.popup_label)?;
+            x += unit_w;
+        }
+        let graph = Rect {
+            x: x + 1.5 * d.gap,
+            y: y + d.big_h * 0.1,
+            w: at.right() - (x + 1.5 * d.gap),
+            h: d.big_h * 0.85,
+        };
+        if c.graph && graph.w >= 24.0 * d.scale {
+            self.graph(r, s, graph, 1.4)?;
+        }
+        self.details(r, s, at, baseline)
     }
 
     fn accent(&self, s: &Section) -> Color {
@@ -756,6 +1019,14 @@ impl Ctx<'_> {
                 y += d.small_h;
             }
         }
+        self.details(r, s, at, y)
+    }
+
+    fn details(&self, r: &Renderer, s: &Section, at: Rect, mut y: f32) -> Result<()> {
+        let (d, p, t) = (self.d, self.palette, self.text);
+        let c = s.content;
+        let small = t.format(d.small_px)?;
+        let accent = self.accent(s);
         if !s.cores.is_empty() {
             y += d.gap / 2.0;
             let n = s.cores.len() as f32;
@@ -832,7 +1103,9 @@ impl Ctx<'_> {
     fn tile(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
         let (d, p, t) = (self.d, self.palette, self.text);
         let c = s.content;
-        r.fill_rounded(at, 6.0 * d.scale, p.popup_border)?;
+        if !self.bare_tiles {
+            r.fill_rounded(at, 6.0 * d.scale, p.popup_border)?;
+        }
         let body = t.format(d.font_px)?;
         let small = t.format(d.small_px)?;
         let inner_x = at.x + d.tile_pad;
@@ -1116,20 +1389,11 @@ mod tests {
         (last, history)
     }
 
-    #[test]
-    fn dials_and_the_core_wall_draw_inside_the_panel() {
+    fn draw_checked(kinds: &[(ItemKind, WidgetStyle)], separate: bool) -> Plan {
         use pulsar_core::config::Config;
         let text = Text::new(None, false).unwrap();
         let config = Config::default();
         let (snapshot, history) = sample();
-        let kinds = [
-            (ItemKind::Cpu, WidgetStyle::CoreWall),
-            (ItemKind::Cpu, WidgetStyle::Dials),
-            (ItemKind::CpuTemp, WidgetStyle::Dials),
-            (ItemKind::Ram, WidgetStyle::Dials),
-            (ItemKind::Gpu, WidgetStyle::Dials),
-            (ItemKind::Network, WidgetStyle::Dials),
-        ];
         let contents: Vec<(PopupContent, WidgetStyle)> = kinds
             .iter()
             .map(|&(kind, style)| {
@@ -1148,26 +1412,28 @@ mod tests {
             reorder: None,
             scale: 1.0,
             network_floor: NetworkFloor::default(),
+            material: WidgetMaterial::Glass,
+            separate,
+            transparency: true,
         };
         let d = Dims::new(&text, &look);
         let mut sections: Vec<Section> = contents
             .iter()
             .map(|(c, style)| Section::new(c, *style, &snapshot, &history))
             .collect();
-        let plan = Plan::new(&mut sections, &d, look.max_h, &text);
+        let plan = Plan::new(&mut sections, &d, look.max_h, separate, &text);
         for placed in &plan.placed {
             let r = placed.rect;
             assert!(r.x >= 0.0 && r.right() <= plan.width, "{:?}", r);
             assert!(r.y >= 0.0 && r.y + r.h <= plan.height, "{:?}", r);
+            assert!(
+                plan.panels.iter().any(|p| p.x <= r.x
+                    && p.y <= r.y
+                    && r.right() <= p.right()
+                    && r.y + r.h <= p.y + p.h),
+                "{r:?} is on a panel"
+            );
         }
-        assert_eq!(
-            plan.placed[1].rect.y, plan.placed[3].rect.y,
-            "dials share a row"
-        );
-        assert!(
-            plan.placed[5].rect.w > plan.placed[1].rect.w,
-            "network is wide"
-        );
         let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
         let ctx = Ctx {
             text: &text,
@@ -1175,6 +1441,7 @@ mod tests {
             history: &history,
             network_floor: look.network_floor,
             d: &d,
+            bare_tiles: separate,
         };
         let surface = Surface::new(plan.width as i32, plan.height.ceil() as i32).unwrap();
         let mut renderer = Renderer::new().unwrap();
@@ -1186,6 +1453,69 @@ mod tests {
                 Ok(())
             })
             .unwrap();
+        plan
+    }
+
+    #[test]
+    fn dials_and_the_core_wall_draw_inside_the_panel() {
+        let plan = draw_checked(
+            &[
+                (ItemKind::Cpu, WidgetStyle::CoreWall),
+                (ItemKind::Cpu, WidgetStyle::Dials),
+                (ItemKind::CpuTemp, WidgetStyle::Dials),
+                (ItemKind::Ram, WidgetStyle::Dials),
+                (ItemKind::Gpu, WidgetStyle::Dials),
+                (ItemKind::Network, WidgetStyle::Dials),
+            ],
+            false,
+        );
+        assert_eq!(
+            plan.placed[1].rect.y, plan.placed[3].rect.y,
+            "dials share a row"
+        );
+        assert!(
+            plan.placed[5].rect.w > plan.placed[1].rect.w,
+            "network is wide"
+        );
+        assert_eq!(plan.panels.len(), 1);
+    }
+
+    #[test]
+    fn separate_cards_each_get_a_panel_apart_from_the_others() {
+        let plan = draw_checked(
+            &[
+                (ItemKind::Cpu, WidgetStyle::Cards),
+                (ItemKind::Gpu, WidgetStyle::Cards),
+                (ItemKind::Ram, WidgetStyle::Tiles),
+                (ItemKind::Disk, WidgetStyle::Tiles),
+                (ItemKind::Network, WidgetStyle::Cards),
+            ],
+            true,
+        );
+        assert_eq!(plan.panels.len(), plan.placed.len());
+        for (i, a) in plan.panels.iter().enumerate() {
+            for b in &plan.panels[i + 1..] {
+                let apart =
+                    a.right() < b.x || b.right() < a.x || a.y + a.h < b.y || b.y + b.h < a.y;
+                assert!(apart, "{a:?} and {b:?} overlap");
+            }
+        }
+        assert_eq!(plan.panels[0].x, 0.0);
+        assert_eq!(plan.panels[0].y, 0.0);
+        assert_eq!(
+            plan.placed[2].rect.y, plan.placed[3].rect.y,
+            "tiles still share a row"
+        );
+    }
+
+    #[test]
+    fn a_card_splits_its_value_from_the_unit() {
+        assert_eq!(split_unit("41%"), ("41", "%"));
+        assert_eq!(split_unit("2.7 MB/s"), ("2.7", "MB/s"));
+        assert_eq!(split_unit("1,234 MHz"), ("1,234", "MHz"));
+        assert_eq!(split_unit("58 °C"), ("58", "°C"));
+        assert_eq!(split_unit("↓ 2 KB/s ↑ 1 KB/s"), ("↓ 2 KB/s ↑ 1 KB/s", ""));
+        assert_eq!(split_unit("Offline"), ("Offline", ""));
     }
 
     #[test]

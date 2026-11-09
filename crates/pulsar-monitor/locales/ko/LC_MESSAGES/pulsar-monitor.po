@@ -1149,6 +1149,10 @@ msgid "Dial"
 msgstr "다이얼"
 
 #: src/names.rs
+msgid "Device card"
+msgstr ""
+
+#: src/names.rs
 msgid "Core wall"
 msgstr "코어 월"
 
@@ -2261,8 +2265,8 @@ msgid "Style"
 msgstr "스타일"
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings."
-msgstr "스파크라인: 항목마다 작은 그래프가 있는 한 줄. 타일: 작은 그래프 격자. 미터: 현재 값을 나타내는 막대. 다이얼: 링 격자."
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr ""
 
 #: ui/settings.slint
 msgid "Sparklines"
@@ -2279,6 +2283,42 @@ msgstr "미터"
 #: ui/settings.slint
 msgid "Dials"
 msgstr "다이얼"
+
+#: ui/settings.slint
+msgid "Device cards"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Material"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Solid"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Acrylic"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Clear"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Separate cards"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Each item on a panel of its own, with a gap between."
+msgstr ""
 
 #: ui/settings.slint
 msgid "Tiles show the value and graph only."

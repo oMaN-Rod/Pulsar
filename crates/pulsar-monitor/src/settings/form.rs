@@ -6,13 +6,21 @@ use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadColors, LoadThresholds,
     MemoryUnit, NetworkShow, NoRoom, PopupBackground, Position, RateUnit, RemoveFrom,
-    TemperatureUnit, WidgetLayer, WidgetStyle, sanitize_label,
+    TemperatureUnit, WidgetLayer, WidgetMaterial, WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
 use pulsar_core::theme::{Colors, Theme};
 
 use crate::names::{COLOR_MODES, DETAILS, styles_for, widget_styles_for};
+
+/// Matches the order of the Material list in settings.slint.
+const WIDGET_MATERIALS: [WidgetMaterial; 4] = [
+    WidgetMaterial::Solid,
+    WidgetMaterial::Glass,
+    WidgetMaterial::Acrylic,
+    WidgetMaterial::Clear,
+];
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ItemRow {
@@ -183,6 +191,9 @@ pub struct Form {
     pub widget_detail: i32,
     pub widget_width: i32,
     pub widget_opacity: i32,
+    /// An index into `WIDGET_MATERIALS`.
+    pub widget_material: i32,
+    pub widget_separate: bool,
     pub widget_hide_in_fullscreen: bool,
     /// Off shows the taskbar's items.
     pub widget_own_items: bool,
@@ -442,6 +453,7 @@ pub fn to_form(c: &Config) -> Form {
             WidgetStyle::Tiles => 1,
             WidgetStyle::Meters => 2,
             WidgetStyle::Dials => 3,
+            WidgetStyle::Cards => 4,
             WidgetStyle::CoreWall => 0,
         },
         widget_lock: c.widget.lock_position,
@@ -449,6 +461,8 @@ pub fn to_form(c: &Config) -> Form {
         widget_detail: index_of(&DETAILS, &c.widget.detail),
         widget_width: i32::from(c.widget.width),
         widget_opacity: i32::from(c.widget.opacity),
+        widget_material: index_of(&WIDGET_MATERIALS, &c.widget.material),
+        widget_separate: c.widget.separate,
         widget_hide_in_fullscreen: c.widget.hide_in_fullscreen,
         widget_own_items: !c.widget.items.is_empty(),
         widget_order: c.widget.order.clone(),
@@ -735,6 +749,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         1 => WidgetStyle::Tiles,
         2 => WidgetStyle::Meters,
         3 => WidgetStyle::Dials,
+        4 => WidgetStyle::Cards,
         _ => WidgetStyle::Sparklines,
     };
     w.lock_position = f.widget_lock;
@@ -742,6 +757,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     w.detail = at(&DETAILS, f.widget_detail).unwrap_or_default();
     w.width = f.widget_width.clamp(0, i32::from(u16::MAX)) as u16;
     w.opacity = clamp_u8(f.widget_opacity);
+    w.material = at(&WIDGET_MATERIALS, f.widget_material).unwrap_or_default();
+    w.separate = f.widget_separate;
     w.hide_in_fullscreen = f.widget_hide_in_fullscreen;
     w.items = if f.widget_own_items {
         f.widget_items.clone()
@@ -1110,14 +1127,16 @@ mod tests {
         use pulsar_core::config::WidgetStyle;
         let c = Config::default();
         let mut f = to_form(&c);
-        f.items[0].widget_style = 5;
-        f.items[1].widget_style = 4;
+        f.items[0].widget_style = 6;
+        f.items[1].widget_style = 5;
         let out = to_config(&f, &c);
         assert_eq!(out.items[0].widget_style, Some(WidgetStyle::CoreWall));
-        assert_eq!(out.items[1].widget_style, Some(WidgetStyle::Dials));
+        assert_eq!(out.items[1].widget_style, Some(WidgetStyle::Cards));
         let back = to_form(&out);
-        assert_eq!(back.items[0].widget_style, 5);
-        assert_eq!(back.items[1].widget_style, 4);
+        assert_eq!(back.items[0].widget_style, 6);
+        assert_eq!(back.items[1].widget_style, 5);
+        f.items[1].widget_style = 6;
+        assert_eq!(to_config(&f, &c).items[1].widget_style, None);
     }
 
     #[test]

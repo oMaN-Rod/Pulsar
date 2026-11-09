@@ -1149,6 +1149,10 @@ msgid "Dial"
 msgstr "ダイヤル"
 
 #: src/names.rs
+msgid "Device card"
+msgstr ""
+
+#: src/names.rs
 msgid "Core wall"
 msgstr "コア別の縦棒グラフ"
 
@@ -2261,8 +2265,8 @@ msgid "Style"
 msgstr "スタイル"
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings."
-msgstr "ミニ折れ線グラフ: 項目ごとに小さなグラフ付きの1行表示。タイル: 小さなグラフの一覧。メーター: 現在値のバー。ダイヤル: リングの一覧。"
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr ""
 
 #: ui/settings.slint
 msgid "Sparklines"
@@ -2279,6 +2283,42 @@ msgstr "メーター"
 #: ui/settings.slint
 msgid "Dials"
 msgstr "ダイヤル"
+
+#: ui/settings.slint
+msgid "Device cards"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Material"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Solid"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Acrylic"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Clear"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Separate cards"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Each item on a panel of its own, with a gap between."
+msgstr ""
 
 #: ui/settings.slint
 msgid "Tiles show the value and graph only."

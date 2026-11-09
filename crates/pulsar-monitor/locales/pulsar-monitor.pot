@@ -1147,6 +1147,10 @@ msgid "Dial"
 msgstr ""
 
 #: src/names.rs
+msgid "Device card"
+msgstr ""
+
+#: src/names.rs
 msgid "Core wall"
 msgstr ""
 
@@ -2259,7 +2263,7 @@ msgid "Style"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings."
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
 msgstr ""
 
 #: ui/settings.slint
@@ -2276,6 +2280,42 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Dials"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Device cards"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Material"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Solid"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Acrylic"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Clear"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Separate cards"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Each item on a panel of its own, with a gap between."
 msgstr ""
 
 #: ui/settings.slint

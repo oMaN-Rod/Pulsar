@@ -1243,6 +1243,9 @@ impl App {
                 .and_then(|d| d.reorder(self.widget.hwnd)),
             scale,
             network_floor: NetworkFloor::new(&self.config.network),
+            material: w.material,
+            separate: w.separate,
+            transparency: pulsar_core::system_theme::transparency_enabled(),
         };
         let contents: Vec<_> = items
             .into_iter()

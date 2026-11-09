@@ -1242,6 +1242,8 @@ export component SettingsWindow inherits Window {
     in-out property <int> widget-detail;
     in-out property <int> widget-width;
     in-out property <float> widget-opacity;
+    in-out property <int> widget-material;
+    in-out property <bool> widget-separate;
     in-out property <bool> widget-hide-in-fullscreen;
     in-out property <bool> widget-own-items;
     in-out property <[WidgetItemRow]> widget-items;
@@ -2457,12 +2459,32 @@ export component SettingsWindow inherits Window {
                 Card {
                     SettingRow {
                         title: @tr("Style");
-                        description: @tr("Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings.");
+                        description: @tr("Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details.");
                         ComboBox {
                             width: 200px;
-                            model: [@tr("Sparklines"), @tr("Tiles"), @tr("Meters"), @tr("Dials")];
+                            model: [@tr("Sparklines"), @tr("Tiles"), @tr("Meters"), @tr("Dials"), @tr("Device cards")];
                             current-index <=> root.widget-style;
                             selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Material");
+                        description: @tr("Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Solid"), @tr("Glass"), @tr("Acrylic"), @tr("Clear")];
+                            current-index <=> root.widget-material;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Separate cards");
+                        description: @tr("Each item on a panel of its own, with a gap between.");
+                        Switch {
+                            checked <=> root.widget-separate;
+                            toggled => { root.changed(); }
                         }
                     }
                     Divider { }

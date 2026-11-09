@@ -179,6 +179,23 @@ pub enum WidgetStyle {
     Dials,
     /// A tall bar per logical processor; CPU only.
     CoreWall,
+    Cards,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WidgetMaterial {
+    #[default]
+    Solid,
+    Glass,
+    Acrylic,
+    Clear,
+}
+
+impl WidgetMaterial {
+    pub fn blurs(self) -> bool {
+        matches!(self, Self::Glass | Self::Acrylic)
+    }
 }
 
 /// A panel on the desktop with a section per item, like an always-open popup.
@@ -188,6 +205,8 @@ pub struct WidgetConfig {
     pub enabled: bool,
     pub layer: WidgetLayer,
     pub style: WidgetStyle,
+    pub material: WidgetMaterial,
+    pub separate: bool,
     pub lock_position: bool,
     /// While locked, clicks go to whatever is underneath.
     pub click_through: bool,
@@ -216,6 +235,8 @@ impl Default for WidgetConfig {
             enabled: false,
             layer: WidgetLayer::default(),
             style: WidgetStyle::default(),
+            material: WidgetMaterial::default(),
+            separate: false,
             lock_position: false,
             click_through: false,
             items: Vec::new(),

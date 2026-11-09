@@ -6,6 +6,7 @@ mod details;
 mod drag;
 mod fade;
 mod game;
+mod glass;
 mod hover;
 mod language;
 mod launcher;

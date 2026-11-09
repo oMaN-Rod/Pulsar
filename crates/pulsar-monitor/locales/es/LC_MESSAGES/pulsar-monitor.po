@@ -1149,6 +1149,10 @@ msgid "Dial"
 msgstr "Dial"
 
 #: src/names.rs
+msgid "Device card"
+msgstr "Tarjeta de dispositivo"
+
+#: src/names.rs
 msgid "Core wall"
 msgstr "Muro de núcleos"
 
@@ -2261,8 +2265,8 @@ msgid "Style"
 msgstr "Estilo"
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings."
-msgstr "Minigráficos: una línea por elemento con un gráfico pequeño. Mosaicos: una cuadrícula de gráficos pequeños. Medidores: una barra con el valor actual. Diales: una cuadrícula de anillos."
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr "Minigráficos: una línea por elemento con un gráfico pequeño. Mosaicos: una cuadrícula de gráficos pequeños. Medidores: una barra con el valor actual. Diales: una cuadrícula de anillos. Tarjetas de dispositivo: el dispositivo, un valor grande junto a su gráfico y luego los detalles."
 
 #: ui/settings.slint
 msgid "Sparklines"
@@ -2279,6 +2283,42 @@ msgstr "Medidores"
 #: ui/settings.slint
 msgid "Dials"
 msgstr "Diales"
+
+#: ui/settings.slint
+msgid "Device cards"
+msgstr "Tarjetas de dispositivo"
+
+#: ui/settings.slint
+msgid "Material"
+msgstr "Material"
+
+#: ui/settings.slint
+msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
+msgstr "Vidrio y Acrílico desenfocan lo que hay detrás del widget. Transparente nunca desenfoca, para usar sobre juegos."
+
+#: ui/settings.slint
+msgid "Solid"
+msgstr "Sólido"
+
+#: ui/settings.slint
+msgid "Glass"
+msgstr "Vidrio"
+
+#: ui/settings.slint
+msgid "Acrylic"
+msgstr "Acrílico"
+
+#: ui/settings.slint
+msgid "Clear"
+msgstr "Transparente"
+
+#: ui/settings.slint
+msgid "Separate cards"
+msgstr "Tarjetas separadas"
+
+#: ui/settings.slint
+msgid "Each item on a panel of its own, with a gap between."
+msgstr "Cada elemento en su propio panel, con un espacio entre ellos."
 
 #: ui/settings.slint
 msgid "Tiles show the value and graph only."

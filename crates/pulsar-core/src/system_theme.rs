@@ -31,6 +31,15 @@ pub fn taskbar_is_light() -> bool {
     .is_some_and(|v| v != 0)
 }
 
+/// The "Transparency effects" setting; without it Windows draws no blur.
+pub fn transparency_enabled() -> bool {
+    read_dword(
+        w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+        w!("EnableTransparency"),
+    )
+    .is_none_or(|v| v != 0)
+}
+
 /// DWM's accent color as `0xAABBGGRR`.
 pub fn accent_abgr() -> Option<u32> {
     read_dword(w!(r"Software\Microsoft\Windows\DWM"), w!("AccentColor"))
@@ -43,6 +52,7 @@ mod tests {
     #[test]
     fn reads_theme_from_registry_without_panicking() {
         let _ = taskbar_is_light();
+        let _ = transparency_enabled();
         let _ = accent_abgr();
     }
 }
