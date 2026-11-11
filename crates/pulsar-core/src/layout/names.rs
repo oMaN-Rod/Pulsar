@@ -93,7 +93,7 @@ impl ItemNames {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{DisplayMode, LabelStyle, NetworkShow, RemoveFrom};
+    use crate::config::{DisplayMode, LabelStyle, NetworkShow, RemoveFrom, StripShape};
     use crate::layout::fit::{self, Tier};
     use crate::layout::{
         CellPart, ItemSpec, LayoutInput, TextMeasure, TextSpacing, TileText, cell_label,
@@ -128,6 +128,8 @@ mod tests {
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
             names,
+            shape: StripShape::Rectangle,
+            shape_radius: None,
         }
     }
 

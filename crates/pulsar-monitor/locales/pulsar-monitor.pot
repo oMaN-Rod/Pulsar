@@ -1843,6 +1843,46 @@ msgid "Put the icon, label and value on one line, for short taskbars."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Shape"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Square corners, one rounded pill around every item, or a rounded chip for each graph."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Rectangle"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Pill"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Chips"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Custom corner radius"
+msgstr ""
+
+#: ui/settings.slint
+msgid "{} px"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Fully rounded ends."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Blur when floating"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Blur what is behind the pill or chips while the overlay floats. Needs Windows transparency effects."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Stack each label one letter per line, with the value beside it."
 msgstr ""
 

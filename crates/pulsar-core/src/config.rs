@@ -558,6 +558,10 @@ pub struct Display {
     pub panel_color: Option<String>,
     /// 0–100; `None` uses the theme, 0 draws no panel.
     pub panel_opacity: Option<u8>,
+    pub shape: StripShape,
+    /// DIPs at the corners of a pill or chip; `None` rounds the ends fully.
+    pub shape_radius: Option<u8>,
+    pub float_blur: bool,
     pub labels: LabelStyle,
     /// An icon before each label; with `LabelStyle::None` it is the only label.
     pub icons: bool,
@@ -608,6 +612,17 @@ pub enum NoRoom {
     Tray,
     #[default]
     Float,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StripShape {
+    #[default]
+    Rectangle,
+    /// One capsule around all the items.
+    Pill,
+    /// A capsule per graph tile.
+    Chips,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -867,6 +882,9 @@ impl Default for Display {
             tile_opacity: None,
             panel_color: None,
             panel_opacity: None,
+            shape: StripShape::Rectangle,
+            shape_radius: None,
+            float_blur: true,
             labels: LabelStyle::Full,
             icons: false,
             label_color: None,

@@ -1846,6 +1846,46 @@ msgid "Put the icon, label and value on one line, for short taskbars."
 msgstr "图标、标签和数值放在同一行，适合较矮的任务栏。"
 
 #: ui/settings.slint
+msgid "Shape"
+msgstr "形状"
+
+#: ui/settings.slint
+msgid "Square corners, one rounded pill around every item, or a rounded chip for each graph."
+msgstr "直角，所有项目外包一个圆角胶囊，或每个图表各一个圆角标签。"
+
+#: ui/settings.slint
+msgid "Rectangle"
+msgstr "矩形"
+
+#: ui/settings.slint
+msgid "Pill"
+msgstr "胶囊"
+
+#: ui/settings.slint
+msgid "Chips"
+msgstr "标签"
+
+#: ui/settings.slint
+msgid "Custom corner radius"
+msgstr "自定义圆角半径"
+
+#: ui/settings.slint
+msgid "{} px"
+msgstr "{} px"
+
+#: ui/settings.slint
+msgid "Fully rounded ends."
+msgstr "两端完全圆润。"
+
+#: ui/settings.slint
+msgid "Blur when floating"
+msgstr "浮动时模糊"
+
+#: ui/settings.slint
+msgid "Blur what is behind the pill or chips while the overlay floats. Needs Windows transparency effects."
+msgstr "叠加层浮动时，模糊胶囊或标签后面的内容。需要开启 Windows 透明效果。"
+
+#: ui/settings.slint
 msgid "Stack each label one letter per line, with the value beside it."
 msgstr "将标签逐字竖排，数值显示在旁边。"
 

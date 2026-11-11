@@ -2,7 +2,8 @@
 //! rectangles. All values are physical pixels.
 
 use crate::config::{
-    Config, Display, DisplayMode, DriveValue, LabelStyle, MemoryUnit, NetworkShow, Units,
+    Config, Display, DisplayMode, DriveValue, LabelStyle, MemoryUnit, NetworkShow, StripShape,
+    Units,
 };
 use crate::format::widest_value;
 use crate::gpu_slots::GpuSlots;
@@ -97,15 +98,94 @@ pub struct Layout {
     pub font_px: f32,
     pub cells: Vec<Cell>,
     pub vertical: bool,
+    /// Text draws chips as a pill, so this is never `Chips` there.
+    pub shape: StripShape,
+    /// `None` rounds the ends fully.
+    pub radius: Option<f32>,
 }
 
 impl Layout {
     /// The item under a point, for hover and click handling.
     pub fn hit_test(&self, x: f32, y: f32) -> Option<ItemKind> {
+        let inside = |r: Rect| r.contains(x, y);
+        let cell = match self.shape {
+            StripShape::Rectangle => self.cells.iter().find(|c| inside(c.rect)),
+            StripShape::Chips => self.cells.iter().find(|c| inside(self.chip(c))),
+            StripShape::Pill => self
+                .cells
+                .iter()
+                .find(|c| inside(c.rect))
+                .or_else(|| self.pill().filter(|&p| inside(p)).and(self.nearest(x, y))),
+        };
+        cell.map(|c| c.kind)
+    }
+
+    fn nearest(&self, x: f32, y: f32) -> Option<&Cell> {
+        let at = if self.vertical { y } else { x };
+        let distance = |c: &&Cell| {
+            let (start, len) = self.along(&c.rect);
+            (start - at).max(at - start - len).max(0.0)
+        };
         self.cells
             .iter()
-            .find(|c| c.rect.contains(x, y))
-            .map(|c| c.kind)
+            .min_by(|a, b| distance(a).total_cmp(&distance(b)))
+    }
+
+    fn along(&self, r: &Rect) -> (f32, f32) {
+        if self.vertical {
+            (r.y, r.h)
+        } else {
+            (r.x, r.w)
+        }
+    }
+
+    fn across(&self, r: &Rect) -> f32 {
+        if self.vertical { r.w } else { r.h }
+    }
+
+    /// `r` lengthened by `by` at both ends.
+    fn lengthen(&self, r: Rect, by: f32) -> Rect {
+        if self.vertical {
+            Rect {
+                y: r.y - by,
+                h: r.h + 2.0 * by,
+                ..r
+            }
+        } else {
+            Rect {
+                x: r.x - by,
+                w: r.w + 2.0 * by,
+                ..r
+            }
+        }
+    }
+
+    /// The capsule behind a cell of a `Chips` strip.
+    pub fn chip(&self, cell: &Cell) -> Rect {
+        self.lengthen(cell.rect, self.corner(self.across(&cell.rect)))
+    }
+
+    /// The capsule around every cell of a `Pill` strip.
+    pub fn pill(&self) -> Option<Rect> {
+        let first = self.cells.first()?;
+        let bounds = self.cells.iter().fold(first.rect, |b, c| {
+            let x = b.x.min(c.rect.x);
+            let y = b.y.min(c.rect.y);
+            Rect {
+                x,
+                y,
+                w: b.right().max(c.rect.right()) - x,
+                h: (b.y + b.h).max(c.rect.y + c.rect.h) - y,
+            }
+        });
+        Some(self.lengthen(bounds, self.corner(self.across(&bounds))))
+    }
+
+    /// The corner radius of a pill or chip `thickness` across. Tiles keep this
+    /// much room at a rounded end, so the curve never reaches their content.
+    pub fn corner(&self, thickness: f32) -> f32 {
+        let full = (thickness / 2.0).floor();
+        self.radius.map_or(full, |r| r.min(full))
     }
 }
 
@@ -126,6 +206,9 @@ pub struct LayoutInput<'a> {
     pub vertical_bar_px: Option<f32>,
     pub text_spacing: TextSpacing,
     pub names: &'a ItemNames,
+    pub shape: StripShape,
+    /// DIPs; `None` rounds the ends fully.
+    pub shape_radius: Option<f32>,
 }
 
 /// Text mode gaps, in DIPs.
@@ -176,6 +259,8 @@ pub struct ItemSpec {
 const PADDING_DIP: f32 = 4.0;
 const INLINE_GAP_DIP: f32 = 4.0;
 const TILE_GAP_DIP: f32 = 4.0;
+/// Between the tiles of a pill, just enough to tell them apart.
+const PILL_GAP_DIP: f32 = 1.0;
 const MIN_TILE_DIP: f32 = 44.0;
 const MAX_TEXT_ROWS: usize = 3;
 const STACKED_PADDING_DIP: f32 = 2.0;
@@ -629,6 +714,8 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput<'_>, m: &dyn TextMe
             font_px,
             cells: Vec::new(),
             vertical: false,
+            shape: StripShape::Rectangle,
+            radius: None,
         };
     }
     let labels = Labels {
@@ -637,22 +724,115 @@ pub fn compute_layout(items: &[ItemSpec], input: LayoutInput<'_>, m: &dyn TextMe
         vertical: input.vertical_labels,
         names: input.names,
     };
-    if let Some(bar_w) = input.vertical_bar_px {
+    let layout = if let Some(bar_w) = input.vertical_bar_px {
         let items = with_pairs_split(items, input.upload_on_top);
-        return match input.mode {
+        match input.mode {
             DisplayMode::Text => {
                 stacked_text(&items, bar_w, scale, font_px, labels, input.text_spacing, m)
             }
             DisplayMode::Graph => stacked_tiles(&items, bar_w, scale, font_px, labels, m),
-        };
-    }
-    match input.mode {
-        DisplayMode::Text => {
-            let columns = columns(items, rows.count, input.upload_on_top);
-            text_layout(columns, rows, scale, font_px, labels, input.text_spacing, m)
         }
-        DisplayMode::Graph => graph_layout(items, height, scale, font_px, labels, input, m),
+    } else {
+        match input.mode {
+            DisplayMode::Text => {
+                let columns = columns(items, rows.count, input.upload_on_top);
+                text_layout(columns, rows, scale, font_px, labels, input.text_spacing, m)
+            }
+            DisplayMode::Graph => graph_layout(items, height, scale, font_px, labels, input, m),
+        }
+    };
+    let radius = input.shape_radius.map(|r| (r * scale).round());
+    shaped(layout, input.mode, input.shape, radius, scale)
+}
+
+/// Spaces the cells for the shape: room for a capsule's curve at the ends of
+/// the strip, or for chips, at both ends of every tile.
+fn shaped(
+    mut layout: Layout,
+    mode: DisplayMode,
+    shape: StripShape,
+    radius: Option<f32>,
+    scale: f32,
+) -> Layout {
+    let shape = match (mode, shape) {
+        (DisplayMode::Text, StripShape::Chips) => StripShape::Pill,
+        (_, shape) => shape,
+    };
+    layout.shape = shape;
+    layout.radius = radius;
+    let (Some(first), Some(last)) = (layout.cells.first(), layout.cells.last()) else {
+        return layout;
+    };
+    if shape == StripShape::Rectangle {
+        return layout;
     }
+    let vertical = layout.vertical;
+    let (first_start, _) = layout.along(&first.rect);
+    let (last_start, last_len) = layout.along(&last.rect);
+    let length = if vertical {
+        layout.height
+    } else {
+        layout.width
+    };
+    let trailing = length - last_start - last_len;
+    let shift = |c: &mut Cell, by: f32| {
+        if vertical {
+            c.rect.y += by;
+            c.value_y += by;
+        } else {
+            c.rect.x += by;
+            c.value_x += by;
+        }
+    };
+    let end = if mode == DisplayMode::Text {
+        // Text rows sit inside the taskbar padding, clear of most of the curve.
+        let cap = (layout.corner(if vertical {
+            layout.width
+        } else {
+            layout.height
+        }) / 2.0)
+            .round();
+        layout.cells.iter_mut().for_each(|c| shift(c, cap));
+        last_start + last_len + 2.0 * cap
+    } else {
+        let mut cells = std::mem::take(&mut layout.cells);
+        let tile_gap = if vertical {
+            STACKED_TILE_GAP_DIP
+        } else {
+            TILE_GAP_DIP
+        } * scale;
+        let pill = shape == StripShape::Pill;
+        let outer = if pill {
+            layout.corner(
+                cells
+                    .iter()
+                    .map(|c| layout.across(&c.rect))
+                    .fold(0.0, f32::max),
+            )
+        } else {
+            0.0
+        };
+        let gap = if pill { PILL_GAP_DIP * scale } else { tile_gap };
+        let mut next = first_start + outer;
+        for c in &mut cells {
+            let cap = if pill {
+                0.0
+            } else {
+                layout.corner(layout.across(&c.rect))
+            };
+            let (start, len) = layout.along(&c.rect);
+            shift(c, next + cap - start);
+            next += cap + len + cap + gap;
+        }
+        layout.cells = cells;
+        next - gap + outer
+    };
+    if vertical {
+        layout.height = end + trailing;
+    } else {
+        layout.width = end + trailing;
+    }
+    layout
 }
 
 /// The height at which the font fits uncut. Text keeps the rows the taskbar
@@ -871,6 +1051,8 @@ fn text_layout(
         font_px,
         cells,
         vertical: false,
+        shape: StripShape::Rectangle,
+        radius: None,
     }
 }
 
@@ -971,6 +1153,8 @@ fn stacked_text(
         font_px,
         cells,
         vertical: true,
+        shape: StripShape::Rectangle,
+        radius: None,
     }
 }
 
@@ -1048,6 +1232,8 @@ fn stacked_tiles(
         font_px,
         cells,
         vertical: true,
+        shape: StripShape::Rectangle,
+        radius: None,
     }
 }
 
@@ -1218,6 +1404,8 @@ fn graph_layout(
         font_px,
         cells,
         vertical: false,
+        shape: StripShape::Rectangle,
+        radius: None,
     }
 }
 
@@ -1263,6 +1451,8 @@ mod tests {
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
             names: names(),
+            shape: StripShape::Rectangle,
+            shape_radius: None,
         }
     }
 
@@ -3763,6 +3953,140 @@ mod tests {
         assert_eq!(
             value_metric_in(ItemKind::Gpu, CellPart::Gpu(1), bytes),
             MetricKey::GpuAdapterUtil(1)
+        );
+    }
+
+    fn shaped_pair(input: LayoutInput<'static>, shape: StripShape) -> (Layout, Layout) {
+        let items = specs(&[ItemKind::Cpu, ItemKind::Ram, ItemKind::Gpu]);
+        let plain = compute_layout(&items, input, &Fixed);
+        let shaped = compute_layout(&items, LayoutInput { shape, ..input }, &Fixed);
+        (plain, shaped)
+    }
+
+    fn along(l: &Layout, r: Rect) -> (f32, f32) {
+        if l.vertical {
+            (r.y, r.y + r.h)
+        } else {
+            (r.x, r.right())
+        }
+    }
+
+    fn length(l: &Layout) -> f32 {
+        if l.vertical { l.height } else { l.width }
+    }
+
+    fn graph_inputs() -> [LayoutInput<'static>; 2] {
+        [
+            input(DisplayMode::Graph, 48.0, 96),
+            vertical(DisplayMode::Graph, 60.0),
+        ]
+    }
+
+    #[test]
+    fn a_pill_joins_the_tiles_and_leaves_room_for_its_round_ends() {
+        for i in graph_inputs() {
+            let (plain, l) = shaped_pair(i, StripShape::Pill);
+            assert_eq!(l.shape, StripShape::Pill);
+            let pill = l.pill().unwrap();
+            let cap = l.corner(if l.vertical { pill.w } else { pill.h });
+            assert!(cap > 0.0);
+            let (start, end) = along(&l, pill);
+            assert!(start >= 0.0 && end <= length(&l), "{pill:?} inside {l:?}");
+            assert_eq!(
+                along(&l, l.cells[0].rect).0,
+                along(&plain, plain.cells[0].rect).0 + cap
+            );
+            for pair in l.cells.windows(2) {
+                let gap = along(&l, pair[1].rect).0 - along(&l, pair[0].rect).1;
+                assert_eq!(gap, PILL_GAP_DIP, "tiles a hairline apart");
+            }
+            for (a, b) in plain.cells.iter().zip(&l.cells) {
+                assert_eq!(
+                    (a.rect.w, a.rect.h),
+                    (b.rect.w, b.rect.h),
+                    "tiles keep their size"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn chips_leave_room_for_round_ends_on_every_tile() {
+        for i in graph_inputs() {
+            let (_, l) = shaped_pair(i, StripShape::Chips);
+            let chips: Vec<Rect> = l.cells.iter().map(|c| l.chip(c)).collect();
+            for (chip, cell) in chips.iter().zip(&l.cells) {
+                let (start, end) = along(&l, *chip);
+                let (cell_start, cell_end) = along(&l, cell.rect);
+                assert!(start < cell_start && end > cell_end);
+            }
+            for pair in chips.windows(2) {
+                let gap = along(&l, pair[1]).0 - along(&l, pair[0]).1;
+                let tile_gap = if l.vertical {
+                    STACKED_TILE_GAP_DIP
+                } else {
+                    TILE_GAP_DIP
+                };
+                assert_eq!(gap, tile_gap, "chips keep the tile gap");
+            }
+            assert!(along(&l, chips[0]).0 >= 0.0);
+            assert!(along(&l, *chips.last().unwrap()).1 <= length(&l));
+        }
+    }
+
+    #[test]
+    fn text_draws_chips_as_one_pill_with_room_at_the_ends() {
+        for i in [
+            input(DisplayMode::Text, 48.0, 96),
+            vertical(DisplayMode::Text, 60.0),
+        ] {
+            let (plain, l) = shaped_pair(i, StripShape::Chips);
+            assert_eq!(l.shape, StripShape::Pill);
+            let cap = (l.corner(if l.vertical { l.width } else { l.height }) / 2.0).round();
+            assert_eq!(length(&l), length(&plain) + 2.0 * cap);
+            for (a, b) in plain.cells.iter().zip(&l.cells) {
+                assert_eq!(along(&l, b.rect).0, along(&plain, a.rect).0 + cap);
+            }
+            assert_inside(&l);
+        }
+    }
+
+    #[test]
+    fn the_round_ends_hover_as_their_tiles() {
+        let (_, pill) = shaped_pair(input(DisplayMode::Graph, 48.0, 96), StripShape::Pill);
+        let p = pill.pill().unwrap();
+        let mid = p.y + p.h / 2.0;
+        assert_eq!(pill.hit_test(p.x + 1.0, mid), Some(ItemKind::Cpu));
+        assert_eq!(pill.hit_test(p.right() - 1.0, mid), Some(ItemKind::Gpu));
+        let (_, chips) = shaped_pair(input(DisplayMode::Graph, 48.0, 96), StripShape::Chips);
+        let ram = chips.chip(&chips.cells[1]);
+        assert_eq!(chips.hit_test(ram.x + 1.0, mid), Some(ItemKind::Ram));
+        let between = chips.chip(&chips.cells[0]).right() + 1.0;
+        assert_eq!(chips.hit_test(between, mid), None);
+    }
+
+    #[test]
+    fn a_custom_radius_sets_the_room_at_the_rounded_ends() {
+        let i = LayoutInput {
+            shape_radius: Some(5.0),
+            ..input(DisplayMode::Graph, 48.0, 144)
+        };
+        let (plain, l) = shaped_pair(i, StripShape::Pill);
+        assert_eq!(l.radius, Some(8.0), "DIPs scale with the DPI");
+        let pill = l.pill().unwrap();
+        assert_eq!(l.corner(pill.h), 8.0);
+        assert_eq!(l.cells[0].rect.x, plain.cells[0].rect.x + 8.0);
+        let (_, chips) = shaped_pair(i, StripShape::Chips);
+        let chip = chips.chip(&chips.cells[0]);
+        assert_eq!(chips.cells[0].rect.x - chip.x, 8.0);
+        let huge = Layout {
+            radius: Some(500.0),
+            ..l.clone()
+        };
+        assert_eq!(
+            huge.corner(pill.h),
+            (pill.h / 2.0).floor(),
+            "never past fully round"
         );
     }
 }

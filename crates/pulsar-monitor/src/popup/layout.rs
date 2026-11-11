@@ -328,6 +328,8 @@ mod tests {
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
             names: &names,
+            shape: pulsar_core::config::StripShape::Rectangle,
+            shape_radius: None,
         };
         let specs: Vec<_> = [ItemKind::Cpu, ItemKind::Network]
             .into_iter()
@@ -392,6 +394,8 @@ mod tests {
                             vertical_bar_px: bar,
                             text_spacing: TextSpacing::default(),
                             names: &names,
+                            shape: c.display.shape,
+                            shape_radius: c.display.shape_radius.map(f32::from),
                         };
                         let l = compute_layout(&item_specs(&c, &Default::default()), input, &Fixed);
                         let net = item_screen_rect(&l, ItemKind::Network, (0, 0)).unwrap();

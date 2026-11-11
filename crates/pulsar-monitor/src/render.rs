@@ -1,7 +1,8 @@
 use std::borrow::Cow;
+use std::mem::ManuallyDrop;
 
 use pulsar_core::colors::{Load, battery_load};
-use pulsar_core::config::{DisplayMode, GraphStyle};
+use pulsar_core::config::{DisplayMode, GraphStyle, StripShape};
 use pulsar_core::format::{right_aligned, widest_value};
 use pulsar_core::hardware::cpu::cached_topology;
 use pulsar_core::history::{History, HistoryStore};
@@ -17,9 +18,10 @@ use windows::Win32::Graphics::Direct2D::Common::{
     D2D1_FIGURE_BEGIN_HOLLOW, D2D1_FIGURE_END_CLOSED, D2D1_FIGURE_END_OPEN, D2D1_PIXEL_FORMAT,
 };
 use windows::Win32::Graphics::Direct2D::{
-    D2D1_ARC_SEGMENT, D2D1_ARC_SIZE_LARGE, D2D1_ARC_SIZE_SMALL, D2D1_CAP_STYLE_FLAT,
-    D2D1_CAP_STYLE_ROUND, D2D1_DASH_STYLE_SOLID, D2D1_DRAW_TEXT_OPTIONS_NONE, D2D1_ELLIPSE,
-    D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL_DEFAULT, D2D1_LINE_JOIN_ROUND,
+    D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1_ARC_SEGMENT, D2D1_ARC_SIZE_LARGE, D2D1_ARC_SIZE_SMALL,
+    D2D1_CAP_STYLE_FLAT, D2D1_CAP_STYLE_ROUND, D2D1_DASH_STYLE_SOLID, D2D1_DRAW_TEXT_OPTIONS_NONE,
+    D2D1_ELLIPSE, D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL_DEFAULT,
+    D2D1_LAYER_OPTIONS_NONE, D2D1_LAYER_PARAMETERS, D2D1_LINE_JOIN_ROUND,
     D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_SOFTWARE, D2D1_RENDER_TARGET_USAGE_NONE,
     D2D1_ROUNDED_RECT, D2D1_STROKE_STYLE_PROPERTIES, D2D1_SWEEP_DIRECTION_CLOCKWISE,
     D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE, D2D1CreateFactory, ID2D1DCRenderTarget, ID2D1Factory,
@@ -34,7 +36,7 @@ use windows::Win32::Graphics::Gdi::{
 };
 use windows::Win32::UI::WindowsAndMessaging::{ULW_ALPHA, UpdateLayeredWindow};
 use windows::core::Result;
-use windows_numerics::Vector2;
+use windows_numerics::{Matrix3x2, Vector2};
 
 use crate::text::Text;
 use crate::theme::{Color, Palette};
@@ -66,6 +68,10 @@ const DOT_PITCH_DIP: f32 = 4.0;
 /// Keeps a full dot matrix to about a hundred cells on a default tile.
 const DOT_MAX_ROWS: usize = 8;
 const TINT_ALPHA: f32 = 0.34;
+const TILE_RADIUS_DIP: f32 = 4.0;
+const GLASS_TINT_ALPHA: f32 = 0.45;
+/// Keeps a text pill off the taskbar's edges.
+const TEXT_PILL_INSET_DIP: f32 = 2.0;
 /// Efficient cores are drawn a little darker than performance cores.
 const EFFICIENT_ALPHA: f32 = 0.72;
 
@@ -144,6 +150,9 @@ pub struct Frame<'a> {
     pub trends: &'a [ItemKind],
     pub reorder: Option<Reorder>,
     pub network_floor: NetworkFloor,
+    /// Blur is behind the capsules, so they take a glass tint to keep the
+    /// text readable over anything.
+    pub glass: bool,
 }
 
 impl Frame<'_> {
@@ -370,16 +379,44 @@ impl Renderer {
     }
 
     fn draw_panel(&self, frame: &Frame, surface: &Surface) -> Result<()> {
-        let Some(panel) = frame.palette.panel else {
-            return Ok(());
-        };
+        let scale = frame.dpi as f32 / 96.0;
         let bounds = Rect {
             x: 0.0,
             y: 0.0,
             w: surface.width as f32,
             h: surface.height as f32,
         };
-        self.fill_rounded(bounds, 6.0 * frame.dpi as f32 / 96.0, panel)
+        let capsule = frame.layout.corner(bounds.w.min(bounds.h));
+        if frame.glass {
+            let palette = frame.palette;
+            let edge = if palette.light() {
+                Color::rgb(0, 0, 0).with_alpha(0.08)
+            } else {
+                Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(0.16)
+            };
+            let size = (surface.width, surface.height);
+            let panel = palette.panel.is_some();
+            for (r, radius) in capsules(frame.layout, frame.mode, panel, frame.dpi, size) {
+                self.fill_rounded(r, radius, palette.popup.with_alpha(GLASS_TINT_ALPHA))?;
+                self.stroke_rounded(r, radius, scale.max(1.0), edge)?;
+            }
+        }
+        match (frame.layout.shape, frame.mode) {
+            (StripShape::Rectangle, _) => match frame.palette.panel {
+                Some(panel) => self.fill_rounded(bounds, 6.0 * scale, panel),
+                None => Ok(()),
+            },
+            // Text has no tiles, so the pill stands in for them.
+            (_, DisplayMode::Text) => {
+                let pill = text_pill(frame.layout, bounds, scale);
+                let color = frame.palette.panel.unwrap_or(frame.palette.tile);
+                self.fill_rounded(pill, frame.layout.corner(pill.w.min(pill.h)), color)
+            }
+            (_, DisplayMode::Graph) => match frame.palette.panel {
+                Some(panel) => self.fill_rounded(bounds, capsule, panel),
+                None => Ok(()),
+            },
+        }
     }
 
     /// A cell's icon (when enabled) followed by its label text.
@@ -503,11 +540,96 @@ impl Renderer {
 
     fn draw_graph_cells(&self, frame: &Frame, text: &Text) -> Result<()> {
         let scale = frame.dpi as f32 / 96.0;
-        for cell in &frame.layout.cells {
+        let layout = frame.layout;
+        let tile = frame.palette.tile;
+        match layout.shape {
+            StripShape::Rectangle => {
+                for cell in &layout.cells {
+                    let back = Back {
+                        rect: cell.rect,
+                        radius: TILE_RADIUS_DIP * scale,
+                    };
+                    self.fill_rounded(back.rect, back.radius, tile)?;
+                    self.draw_tile(frame, text, cell, back, scale)?;
+                }
+                Ok(())
+            }
+            StripShape::Pill => {
+                let Some(pill) = layout.pill() else {
+                    return Ok(());
+                };
+                self.clipped_to_capsule(pill, layout.corner(pill.w.min(pill.h)), || {
+                    let last = layout.cells.len() - 1;
+                    for (i, cell) in layout.cells.iter().enumerate() {
+                        let back = Back {
+                            rect: pill_back(layout, pill, cell.rect, i == 0, i == last),
+                            radius: 0.0,
+                        };
+                        self.fill_rect(back.rect, tile)?;
+                        self.draw_tile(frame, text, cell, back, scale)?;
+                    }
+                    Ok(())
+                })
+            }
+            StripShape::Chips => {
+                for cell in &layout.cells {
+                    let back = Back {
+                        rect: layout.chip(cell),
+                        radius: 0.0,
+                    };
+                    let radius = layout.corner(back.rect.w.min(back.rect.h));
+                    self.clipped_to_capsule(back.rect, radius, || {
+                        self.fill_rect(back.rect, tile)?;
+                        self.draw_tile(frame, text, cell, back, scale)
+                    })?;
+                }
+                Ok(())
+            }
+        }
+    }
+
+    /// Runs `draw` with everything it draws cut to the capsule `r`.
+    fn clipped_to_capsule(
+        &self,
+        r: Rect,
+        radius: f32,
+        draw: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        let rounded = D2D1_ROUNDED_RECT {
+            rect: rect_f(r),
+            radiusX: radius,
+            radiusY: radius,
+        };
+        let geometry = unsafe { self.factory.CreateRoundedRectangleGeometry(&rounded)? };
+        let layer = unsafe { self.target.CreateLayer(None)? };
+        let mut params = D2D1_LAYER_PARAMETERS {
+            contentBounds: rect_f(r),
+            geometricMask: ManuallyDrop::new(Some(geometry.into())),
+            maskAntialiasMode: D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+            maskTransform: Matrix3x2::identity(),
+            opacity: 1.0,
+            opacityBrush: ManuallyDrop::new(None),
+            layerOptions: D2D1_LAYER_OPTIONS_NONE,
+        };
+        unsafe { self.target.PushLayer(&params, &layer) };
+        unsafe { ManuallyDrop::drop(&mut params.geometricMask) };
+        let drawn = draw();
+        unsafe { self.target.PopLayer() };
+        drawn
+    }
+
+    fn draw_tile(
+        &self,
+        frame: &Frame,
+        text: &Text,
+        cell: &Cell,
+        back: Back,
+        scale: f32,
+    ) -> Result<()> {
+        {
             let small_px = cell.text_px;
             let small = text.format(small_px)?;
             let line_h = small_px * 1.3;
-            self.fill_rounded(cell.rect, 4.0 * scale, frame.palette.tile)?;
             let style = frame.style(cell.kind);
             let graphed = style.is_some();
             let look = TileLook {
@@ -518,9 +640,18 @@ impl Renderer {
                 scale,
             };
             let graphic = style.map_or(TileGraphic::Behind, |s| TileGraphic::of(s, 0, false));
-            let regions = tile_regions(
+            let mut regions = tile_regions(
                 cell.rect, cell.kind, cell.part, graphic, look, small_px, text,
             );
+            if frame.layout.shape != StripShape::Rectangle {
+                regions.graph = into_round_ends(
+                    regions.graph,
+                    cell.rect,
+                    back.rect,
+                    look.vertical_bar,
+                    scale,
+                );
+            }
             match (style, regions.ring, regions.cores) {
                 (Some(GraphStyle::Ring), Some(ring), _) => {
                     self.draw_rings(frame, cell, ring, scale)?;
@@ -582,7 +713,7 @@ impl Renderer {
                         self.draw_core_types(frame, text, cell, area, scale)?;
                     }
                 }
-                (Some(GraphStyle::Tint), ..) => self.draw_tint(frame, cell, scale)?,
+                (Some(GraphStyle::Tint), ..) => self.draw_tint(frame, cell, back)?,
                 (Some(GraphStyle::DotMatrix), ..) => {
                     self.draw_dots(frame, cell, regions.graph, scale)?;
                 }
@@ -984,9 +1115,9 @@ impl Renderer {
         self.fill_rounded(area, area.w / 2.0, color)
     }
 
-    fn draw_tint(&self, frame: &Frame, cell: &Cell, scale: f32) -> Result<()> {
+    fn draw_tint(&self, frame: &Frame, cell: &Cell, back: Back) -> Result<()> {
         match Self::cell_level_color(frame, cell) {
-            Some(color) => self.fill_rounded(cell.rect, 4.0 * scale, color.with_alpha(TINT_ALPHA)),
+            Some(color) => self.fill_rounded(back.rect, back.radius, color.with_alpha(TINT_ALPHA)),
             None => Ok(()),
         }
     }
@@ -1450,6 +1581,119 @@ fn create_target(factory: &ID2D1Factory) -> Result<ID2D1DCRenderTarget> {
     unsafe { factory.CreateDCRenderTarget(&props) }
 }
 
+/// A tile's background.
+#[derive(Clone, Copy)]
+struct Back {
+    rect: Rect,
+    radius: f32,
+}
+
+fn text_pill(layout: &Layout, bounds: Rect, scale: f32) -> Rect {
+    let inset = TEXT_PILL_INSET_DIP * scale;
+    if layout.vertical {
+        Rect {
+            x: inset,
+            w: bounds.w - 2.0 * inset,
+            ..bounds
+        }
+    } else {
+        Rect {
+            y: inset,
+            h: bounds.h - 2.0 * inset,
+            ..bounds
+        }
+    }
+}
+
+/// The capsules a pill or chips strip draws its backgrounds in, each with its
+/// corner radius; empty for a rectangle.
+pub fn capsules(
+    layout: &Layout,
+    mode: DisplayMode,
+    panel: bool,
+    dpi: u32,
+    size: (i32, i32),
+) -> Vec<(Rect, f32)> {
+    let bounds = Rect {
+        x: 0.0,
+        y: 0.0,
+        w: size.0 as f32,
+        h: size.1 as f32,
+    };
+    let rounded = |r: Rect| (r, layout.corner(r.w.min(r.h)));
+    match (layout.shape, mode) {
+        (StripShape::Rectangle, _) => Vec::new(),
+        (_, DisplayMode::Text) => vec![rounded(text_pill(layout, bounds, dpi as f32 / 96.0))],
+        _ if panel => vec![rounded(bounds)],
+        (StripShape::Pill, _) => layout.pill().map(rounded).into_iter().collect(),
+        (StripShape::Chips, _) => layout
+            .cells
+            .iter()
+            .map(|c| rounded(layout.chip(c)))
+            .collect(),
+    }
+}
+
+/// Stretches a graph that spans its tile out to the tile's background, so it
+/// fills a capsule's round ends; the capsule clip cuts it to the curve.
+fn into_round_ends(graph: Rect, tile: Rect, back: Rect, vertical: bool, inset: f32) -> Rect {
+    let (g, t, b) = if vertical {
+        let flip = |r: Rect| Rect {
+            x: r.y,
+            y: r.x,
+            w: r.h,
+            h: r.w,
+        };
+        (flip(graph), flip(tile), flip(back))
+    } else {
+        (graph, tile, back)
+    };
+    let mut start = g.x;
+    let mut end = g.right();
+    if (start - (t.x + inset)).abs() < 0.5 && b.x < t.x - 0.5 {
+        start = b.x;
+    }
+    if (end - (t.right() - inset)).abs() < 0.5 && b.right() > t.right() + 0.5 {
+        end = b.right();
+    }
+    if vertical {
+        Rect {
+            y: start,
+            h: end - start,
+            ..graph
+        }
+    } else {
+        Rect {
+            x: start,
+            w: end - start,
+            ..graph
+        }
+    }
+}
+
+/// A pill tile's background: the end tiles reach into the pill's round ends.
+fn pill_back(layout: &Layout, pill: Rect, r: Rect, first: bool, last: bool) -> Rect {
+    let mut back = r;
+    if layout.vertical {
+        if first {
+            back.h += back.y - pill.y;
+            back.y = pill.y;
+        }
+        if last {
+            back.h = pill.y + pill.h - back.y;
+        }
+    } else {
+        if first {
+            back.w += back.x - pill.x;
+            back.x = pill.x;
+        }
+        if last {
+            back.w = pill.right() - back.x;
+        }
+    }
+    back
+}
+
 fn create_brush(target: &ID2D1DCRenderTarget) -> Result<ID2D1SolidColorBrush> {
     unsafe { target.CreateSolidColorBrush(&d2d(Color::rgb(0, 0, 0)), None) }
 }
@@ -1569,6 +1813,8 @@ mod tests {
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
                 names: &names,
+                shape: config.display.shape,
+                shape_radius: config.display.shape_radius.map(f32::from),
             },
             &text,
         );
@@ -1615,6 +1861,7 @@ mod tests {
             trends: &trend_items(config),
             reorder: None,
             network_floor: NetworkFloor::new(&config.network),
+            glass: false,
         };
         renderer.draw(&surface, &frame, &text).unwrap();
         (surface, layout)
@@ -1788,6 +2035,8 @@ mod tests {
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
                 names: &names,
+                shape: config.display.shape,
+                shape_radius: config.display.shape_radius.map(f32::from),
             },
             &text,
         );
@@ -1821,6 +2070,7 @@ mod tests {
             trends: &trend_items(&config),
             reorder: None,
             network_floor: NetworkFloor::new(&config.network),
+            glass: false,
         };
         Renderer::new()
             .unwrap()
@@ -1984,6 +2234,8 @@ mod tests {
                 vertical_bar_px,
                 text_spacing: TextSpacing::default(),
                 names: &names,
+                shape: config.display.shape,
+                shape_radius: config.display.shape_radius.map(f32::from),
             },
             &text,
         );
@@ -2023,6 +2275,7 @@ mod tests {
             trends: &trend_items(&config),
             reorder: None,
             network_floor: NetworkFloor::default(),
+            glass: false,
         };
         Renderer::new()
             .unwrap()
@@ -2618,5 +2871,122 @@ mod tests {
                 .count();
             assert!(ink > 5, "{:?} {:?} has no icon", cell.kind, cell.part);
         }
+    }
+
+    #[test]
+    fn capsules_cut_the_tile_corners_and_keep_their_middles() {
+        for shape in [StripShape::Pill, StripShape::Chips] {
+            let mut config = Config::default();
+            config.display.shape = shape;
+            let (surface, layout) = render_with(DisplayMode::Graph, &[], &config);
+            let ram = layout
+                .cells
+                .iter()
+                .find(|c| c.kind == ItemKind::Ram)
+                .unwrap();
+            let back = match shape {
+                StripShape::Chips => layout.chip(ram),
+                _ => layout.pill().unwrap(),
+            };
+            assert_eq!(
+                alpha_at(&surface, back.x, back.y),
+                1,
+                "{shape:?} corner is cut"
+            );
+            assert!(
+                alpha_at(&surface, back.x + back.h / 2.0, back.y + 1.0) > 10,
+                "{shape:?} top edge is filled"
+            );
+            assert!(
+                pixels(&surface).iter().all(|p| p >> 24 > 0),
+                "{shape:?} hit-testable"
+            );
+        }
+    }
+
+    #[test]
+    fn graphs_reach_into_the_round_ends_of_their_background() {
+        let tile = Rect {
+            x: 10.0,
+            y: 4.0,
+            w: 50.0,
+            h: 30.0,
+        };
+        let graph = Rect {
+            x: 11.0,
+            y: 5.0,
+            w: 48.0,
+            h: 28.0,
+        };
+        let first = Rect {
+            x: 0.0,
+            w: 60.0,
+            ..tile
+        };
+        let g = into_round_ends(graph, tile, first, false, 1.0);
+        assert_eq!((g.x, g.right()), (0.0, 59.0), "only the round end is added");
+        let chip = Rect {
+            x: 0.0,
+            w: 70.0,
+            ..tile
+        };
+        let g = into_round_ends(graph, tile, chip, false, 1.0);
+        assert_eq!((g.x, g.right()), (0.0, 70.0));
+        assert_eq!((g.y, g.h), (graph.y, graph.h), "the height is kept");
+        assert_eq!(into_round_ends(graph, tile, tile, false, 1.0), graph);
+        let beside_label = Rect {
+            x: 30.0,
+            w: 29.0,
+            ..graph
+        };
+        let g = into_round_ends(beside_label, tile, chip, false, 1.0);
+        assert_eq!((g.x, g.right()), (30.0, 70.0), "a label keeps its room");
+        let flip = |r: Rect| Rect {
+            x: r.y,
+            y: r.x,
+            w: r.h,
+            h: r.w,
+        };
+        let g = into_round_ends(flip(graph), flip(tile), flip(chip), true, 1.0);
+        assert_eq!((g.y, g.y + g.h), (0.0, 70.0), "a vertical bar runs down");
+    }
+
+    #[test]
+    fn a_text_pill_fills_behind_the_items_without_a_panel() {
+        let mut config = Config::default();
+        config.display.shape = StripShape::Pill;
+        let (surface, layout) = render_with(DisplayMode::Text, &[], &config);
+        let first = &layout.cells[0];
+        assert!(alpha_at(&surface, first.rect.right() + 2.0, layout.height / 2.0) > 10);
+        assert_eq!(alpha_at(&surface, 0.0, 0.0), 1, "the corner is cut");
+    }
+
+    #[test]
+    fn the_blur_follows_the_capsules() {
+        let shapes = |shape, mode, panel| {
+            let mut config = Config::default();
+            config.display.shape = shape;
+            let (surface, layout) = render_with(mode, &[], &config);
+            let size = (surface.width, surface.height);
+            (capsules(&layout, mode, panel, 96, size), layout, size)
+        };
+        let (none, ..) = shapes(StripShape::Rectangle, DisplayMode::Graph, false);
+        assert!(none.is_empty());
+        let (pill, layout, _) = shapes(StripShape::Pill, DisplayMode::Graph, false);
+        assert_eq!(
+            pill,
+            vec![(
+                layout.pill().unwrap(),
+                layout.corner(layout.pill().unwrap().h)
+            )]
+        );
+        let (chips, layout, _) = shapes(StripShape::Chips, DisplayMode::Graph, false);
+        assert_eq!(chips.len(), layout.cells.len());
+        let (panel, _, (w, h)) = shapes(StripShape::Chips, DisplayMode::Graph, true);
+        assert_eq!(panel[0].0.w, w as f32, "a panel blurs the whole strip");
+        assert_eq!(panel[0].0.h, h as f32);
+        let (text, _, (_, h)) = shapes(StripShape::Chips, DisplayMode::Text, false);
+        assert_eq!(text.len(), 1);
+        assert!(text[0].0.h < h as f32, "kept off the edges like its fill");
     }
 }

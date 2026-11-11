@@ -1168,6 +1168,10 @@ export component SettingsWindow inherits Window {
     in property <string> issues-url;
     in property <string> buy-me-a-coffee-url;
     in property <string> ko-fi-url;
+    in-out property <int> shape;
+    in-out property <bool> shape-radius-custom;
+    in-out property <float> shape-radius;
+    in-out property <bool> float-blur;
     in-out property <int> labels;
     in-out property <bool> icons;
     in-out property <bool> hide-in-fullscreen;
@@ -1894,6 +1898,45 @@ export component SettingsWindow inherits Window {
                         Switch {
                             enabled: !root.vertical-labels;
                             checked <=> root.graph-inline;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Shape");
+                        description: @tr("Square corners, one rounded pill around every item, or a rounded chip for each graph.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Rectangle"), @tr("Pill"), @tr("Chips")];
+                            current-index <=> root.shape;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.shape != 0: Divider { }
+                    OptionalRow {
+                        shown: root.shape != 0;
+                        title: @tr("Custom corner radius");
+                        description: root.shape-radius-custom ? @tr("{} px", Math.round(root.shape-radius)) : @tr("Fully rounded ends.");
+                        Slider {
+                            width: 160px;
+                            enabled: root.shape-radius-custom;
+                            minimum: 0;
+                            maximum: 24;
+                            value <=> root.shape-radius;
+                            changed => { root.changed(); }
+                        }
+                        Switch {
+                            checked <=> root.shape-radius-custom;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    if root.shape != 0: Divider { }
+                    OptionalRow {
+                        shown: root.shape != 0;
+                        title: @tr("Blur when floating");
+                        description: @tr("Blur what is behind the pill or chips while the overlay floats. Needs Windows transparency effects.");
+                        Switch {
+                            checked <=> root.float-blur;
                             toggled => { root.changed(); }
                         }
                     }

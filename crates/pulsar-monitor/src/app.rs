@@ -299,6 +299,20 @@ impl Paint<'_> {
         if !o.alive() {
             return Ok(());
         }
+        let blur = o.float_dpi.is_some()
+            && self.config.display.float_blur
+            && pulsar_core::system_theme::transparency_enabled();
+        let shapes = if blur {
+            crate::render::capsules(
+                &layout,
+                self.config.display.mode,
+                self.palette.panel.is_some(),
+                dpi,
+                o.size(),
+            )
+        } else {
+            Vec::new()
+        };
         let surface = o.surface()?;
         let styles = graph_styles(self.config);
         let trends = trend_items(self.config);
@@ -325,10 +339,12 @@ impl Paint<'_> {
             trends: &trends,
             reorder: self.item_drag.and_then(|d| d.reorder(hwnd)),
             network_floor: NetworkFloor::new(&self.config.network),
+            glass: !shapes.is_empty(),
         };
         self.renderer.draw(surface, &frame, self.text)?;
         self.renderer.present_alpha(hwnd, surface, target, alpha)?;
         o.mark_shown(x, y);
+        o.update_backdrop(&shapes, alpha);
         Ok(())
     }
 }
@@ -939,6 +955,7 @@ impl App {
                     if let Ok(surface) = o.surface() {
                         let _ = self.renderer.present_alpha(hwnd, surface, target, alpha);
                     }
+                    o.fade_backdrop(alpha);
                 }
             }
             running |= o.alpha != o.fade_target;

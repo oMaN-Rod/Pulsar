@@ -218,7 +218,7 @@ mod tests {
     use std::sync::LazyLock;
 
     use super::*;
-    use crate::config::{Config, DisplayMode};
+    use crate::config::{Config, DisplayMode, StripShape};
     use crate::layout::{CellPart, ItemNames, item_specs};
     use crate::metric::ItemKind;
 
@@ -256,6 +256,8 @@ mod tests {
             vertical_bar_px: None,
             text_spacing: TextSpacing::default(),
             names: names(),
+            shape: StripShape::Rectangle,
+            shape_radius: None,
         }
     }
 

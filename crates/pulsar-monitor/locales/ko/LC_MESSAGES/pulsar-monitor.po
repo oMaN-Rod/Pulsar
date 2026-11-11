@@ -1845,6 +1845,46 @@ msgid "Put the icon, label and value on one line, for short taskbars."
 msgstr "낮은 작업 표시줄에 맞게 아이콘, 레이블, 값을 한 줄에 표시합니다."
 
 #: ui/settings.slint
+msgid "Shape"
+msgstr "모양"
+
+#: ui/settings.slint
+msgid "Square corners, one rounded pill around every item, or a rounded chip for each graph."
+msgstr "각진 모서리, 모든 항목을 감싸는 둥근 알약 모양, 또는 그래프마다 둥근 칩."
+
+#: ui/settings.slint
+msgid "Rectangle"
+msgstr "사각형"
+
+#: ui/settings.slint
+msgid "Pill"
+msgstr "알약"
+
+#: ui/settings.slint
+msgid "Chips"
+msgstr "칩"
+
+#: ui/settings.slint
+msgid "Custom corner radius"
+msgstr "사용자 지정 모서리 반경"
+
+#: ui/settings.slint
+msgid "{} px"
+msgstr "{} px"
+
+#: ui/settings.slint
+msgid "Fully rounded ends."
+msgstr "끝을 완전히 둥글게 합니다."
+
+#: ui/settings.slint
+msgid "Blur when floating"
+msgstr "떠 있을 때 흐리게"
+
+#: ui/settings.slint
+msgid "Blur what is behind the pill or chips while the overlay floats. Needs Windows transparency effects."
+msgstr "오버레이가 떠 있는 동안 알약이나 칩 뒤를 흐리게 합니다. Windows 투명 효과가 필요합니다."
+
+#: ui/settings.slint
 msgid "Stack each label one letter per line, with the value beside it."
 msgstr "레이블을 한 줄에 한 글자씩 쌓고 값을 옆에 표시합니다."
 

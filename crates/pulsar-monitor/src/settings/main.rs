@@ -335,6 +335,10 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_lock_position(f.lock_position);
     ui.set_hide_in_fullscreen(f.hide_in_fullscreen);
     ui.set_attach_to_taskbar(f.attach_to_taskbar);
+    ui.set_shape(f.shape);
+    ui.set_shape_radius_custom(f.shape_radius_custom);
+    ui.set_float_blur(f.float_blur);
+    ui.set_shape_radius(f.shape_radius as f32);
     ui.set_labels(f.labels);
     ui.set_icons(f.icons);
     ui.set_label_color(f.label_color.as_str().into());
@@ -585,6 +589,10 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         lock_position: ui.get_lock_position(),
         hide_in_fullscreen: ui.get_hide_in_fullscreen(),
         attach_to_taskbar: ui.get_attach_to_taskbar(),
+        shape: ui.get_shape(),
+        shape_radius_custom: ui.get_shape_radius_custom(),
+        float_blur: ui.get_float_blur(),
+        shape_radius: ui.get_shape_radius().round() as i32,
         labels: ui.get_labels(),
         icons: ui.get_icons(),
         label_color: ui.get_label_color().to_string(),

@@ -6,8 +6,8 @@ use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadColors, LoadThresholds,
     MemoryUnit, NetworkShow, NoRoom, OverFullscreen, PopupBackground, Position, PushStrength,
-    RateUnit, RemoveFrom, ScreenEdge, TemperatureUnit, WidgetLayer, WidgetMaterial, WidgetSizing,
-    WidgetStyle, sanitize_label,
+    RateUnit, RemoveFrom, ScreenEdge, StripShape, TemperatureUnit, WidgetLayer, WidgetMaterial,
+    WidgetSizing, WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -92,6 +92,12 @@ pub struct Form {
     pub lock_position: bool,
     pub hide_in_fullscreen: bool,
     pub attach_to_taskbar: bool,
+    /// 0 rectangle, 1 pill, 2 chips.
+    pub shape: i32,
+    /// Off rounds the ends fully; `shape_radius` is then ignored.
+    pub shape_radius_custom: bool,
+    pub shape_radius: i32,
+    pub float_blur: bool,
     /// 0 full, 1 short, 2 none (icons only).
     pub labels: i32,
     pub icons: bool,
@@ -307,6 +313,8 @@ pub fn theme_from(f: &Form, base: &Theme, name: &str) -> Theme {
     }
 }
 
+const DEFAULT_SHAPE_RADIUS: u8 = 8;
+const MAX_SHAPE_RADIUS: u8 = 24;
 const DEFAULT_BATTERY_INTERVAL_MS: i32 = 2000;
 const NETWORK_SHOW: [NetworkShow; 3] = [
     NetworkShow::Both,
@@ -354,6 +362,14 @@ pub fn to_form(c: &Config) -> Form {
         lock_position: d.lock_position,
         hide_in_fullscreen: d.hide_in_fullscreen,
         attach_to_taskbar: d.attach_to_taskbar,
+        shape: match d.shape {
+            StripShape::Rectangle => 0,
+            StripShape::Pill => 1,
+            StripShape::Chips => 2,
+        },
+        shape_radius_custom: d.shape_radius.is_some(),
+        float_blur: d.float_blur,
+        shape_radius: i32::from(d.shape_radius.unwrap_or(DEFAULT_SHAPE_RADIUS)),
         labels: match d.labels {
             LabelStyle::Full => 0,
             LabelStyle::Short => 1,
@@ -644,6 +660,15 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     d.lock_position = f.lock_position;
     d.hide_in_fullscreen = f.hide_in_fullscreen;
     d.attach_to_taskbar = f.attach_to_taskbar;
+    d.shape = match f.shape {
+        1 => StripShape::Pill,
+        2 => StripShape::Chips,
+        _ => StripShape::Rectangle,
+    };
+    d.float_blur = f.float_blur;
+    d.shape_radius = f
+        .shape_radius_custom
+        .then(|| f.shape_radius.clamp(0, i32::from(MAX_SHAPE_RADIUS)) as u8);
     d.labels = match f.labels {
         1 => LabelStyle::Short,
         2 => LabelStyle::None,

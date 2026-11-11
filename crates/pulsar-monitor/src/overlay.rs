@@ -1,4 +1,5 @@
-use pulsar_core::config::{Config, DisplayMode, LabelStyle, RemoveFrom, Units};
+use crate::glass::{Backdrop, Shape};
+use pulsar_core::config::{Config, DisplayMode, LabelStyle, RemoveFrom, StripShape, Units};
 use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::layout::fit::{self, Fit, GROW_MARGIN_DIP, Room, Rung, TierStyle};
 use pulsar_core::layout::{
@@ -62,6 +63,8 @@ struct LayoutKey {
     vertical_labels: bool,
     upload_on_top: bool,
     text_spacing: TextSpacing,
+    shape: StripShape,
+    shape_radius: Option<u8>,
     /// Temperatures change width with their unit.
     units: Units,
     /// `None` keeps one layout: floating, or fitting turned off.
@@ -100,6 +103,10 @@ pub struct Overlay {
     selected: usize,
     pub slack: Option<i32>,
     pub no_room: bool,
+    instance: HINSTANCE,
+    backdrop: Option<Backdrop>,
+    /// Blur failed once, so it is not tried again.
+    no_backdrop: bool,
 }
 
 /// Call on `WM_NCDESTROY`.
@@ -177,6 +184,9 @@ impl Overlay {
             selected: 0,
             slack: None,
             no_room: false,
+            instance,
+            backdrop: None,
+            no_backdrop: false,
         })
     }
 
@@ -356,6 +366,8 @@ impl Overlay {
             vertical_labels: config.display.vertical_labels,
             upload_on_top: config.display.upload_on_top,
             text_spacing: TextSpacing::from(&config.display),
+            shape: config.display.shape,
+            shape_radius: config.display.shape_radius,
             units: config.units,
             remove_from: (config.display.fit_to_taskbar && self.float_dpi.is_none())
                 .then_some(config.display.fit_remove_from),
@@ -377,6 +389,8 @@ impl Overlay {
             vertical_bar_px: key.vertical.then_some(key.thickness as f32),
             text_spacing: key.text_spacing,
             names: &key.names,
+            shape: key.shape,
+            shape_radius: key.shape_radius.map(f32::from),
         };
         self.ladder = key
             .remove_from
@@ -578,6 +592,47 @@ impl Overlay {
             unsafe {
                 let _ = ShowWindow(self.hwnd, SW_HIDE);
             }
+        }
+        if let Some(backdrop) = &mut self.backdrop {
+            backdrop.hide();
+        }
+    }
+
+    /// Blurs behind `shapes` while the overlay floats; empty hides the blur.
+    pub fn update_backdrop(&mut self, shapes: &[Shape], alpha: u8) {
+        let at = self.shown_at.filter(|_| !self.attached && self.alive());
+        let (Some((x, y)), false) = (at, shapes.is_empty()) else {
+            if let Some(backdrop) = &mut self.backdrop {
+                backdrop.hide();
+            }
+            return;
+        };
+        if self.backdrop.is_none() && !self.no_backdrop {
+            match Backdrop::create(self.instance) {
+                Ok(backdrop) => self.backdrop = Some(backdrop),
+                Err(e) => {
+                    log::info!("no blur behind the floating strip: {e}");
+                    self.no_backdrop = true;
+                }
+            }
+        }
+        let (w, h) = self.size();
+        let Some(backdrop) = &mut self.backdrop else {
+            return;
+        };
+        if let Err(e) = backdrop.set_shapes(shapes) {
+            log::warn!("could not shape the floating strip's blur: {e}");
+            self.backdrop = None;
+            self.no_backdrop = true;
+            return;
+        }
+        backdrop.place(self.hwnd, x, y, w, h);
+        backdrop.set_opacity(f32::from(alpha) / 255.0);
+    }
+
+    pub fn fade_backdrop(&self, alpha: u8) {
+        if let Some(backdrop) = self.backdrop.as_ref().filter(|b| b.shown()) {
+            backdrop.set_opacity(f32::from(alpha) / 255.0);
         }
     }
 }

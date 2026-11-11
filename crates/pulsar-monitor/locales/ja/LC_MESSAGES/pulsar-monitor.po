@@ -1845,6 +1845,46 @@ msgid "Put the icon, label and value on one line, for short taskbars."
 msgstr "高さの低いタスクバー向けに、アイコン、ラベル、値を1行に配置します。"
 
 #: ui/settings.slint
+msgid "Shape"
+msgstr "形状"
+
+#: ui/settings.slint
+msgid "Square corners, one rounded pill around every item, or a rounded chip for each graph."
+msgstr "角のある四角形、すべての項目を囲む丸いピル、またはグラフごとの丸いチップ。"
+
+#: ui/settings.slint
+msgid "Rectangle"
+msgstr "四角形"
+
+#: ui/settings.slint
+msgid "Pill"
+msgstr "ピル"
+
+#: ui/settings.slint
+msgid "Chips"
+msgstr "チップ"
+
+#: ui/settings.slint
+msgid "Custom corner radius"
+msgstr "角の半径をカスタマイズ"
+
+#: ui/settings.slint
+msgid "{} px"
+msgstr "{} px"
+
+#: ui/settings.slint
+msgid "Fully rounded ends."
+msgstr "端を完全に丸くします。"
+
+#: ui/settings.slint
+msgid "Blur when floating"
+msgstr "フローティング時にぼかす"
+
+#: ui/settings.slint
+msgid "Blur what is behind the pill or chips while the overlay floats. Needs Windows transparency effects."
+msgstr "オーバーレイがフローティング表示のとき、ピルやチップの背後をぼかします。Windows の透明効果が必要です。"
+
+#: ui/settings.slint
 msgid "Stack each label one letter per line, with the value beside it."
 msgstr "ラベルを1行1文字で縦に並べ、値を横に表示します。"
 
