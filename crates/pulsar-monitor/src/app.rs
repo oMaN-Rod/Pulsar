@@ -7,7 +7,10 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use pulsar_core::alerts::Alerts;
-use pulsar_core::config::{self, Config, NetworkShow, NoRoom, Position};
+use pulsar_core::config::{
+    self, Config, NetworkShow, NoRoom, OverFullscreen, Position, ScreenEdge, WIDGET_CHOSEN_HEIGHTS,
+    WIDGET_CHOSEN_WIDTHS, WidgetLayer, WidgetSizing,
+};
 use pulsar_core::display::{NetworkFloor, floored_cell_value, floored_value, metric_for};
 use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::hardware::displays;
@@ -27,7 +30,7 @@ use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetAsyncKeyState, MOD_ALT, MOD_CONTROL, MOD_NOREPEAT, MOD_SHIFT, MOD_WIN, RegisterHotKey,
     ReleaseCapture, SetCapture, TME_HOVER, TME_LEAVE, TRACKMOUSEEVENT, TrackMouseEvent,
-    UnregisterHotKey, VK_LBUTTON, VK_RBUTTON,
+    UnregisterHotKey, VK_ESCAPE, VK_LBUTTON, VK_MBUTTON, VK_RBUTTON,
 };
 use windows::Win32::UI::Shell::{
     ABM_NEW, ABM_REMOVE, ABN_FULLSCREENAPP, APPBARDATA, FOLDERID_Documents, KF_FLAG_DEFAULT,
@@ -39,10 +42,10 @@ use windows::Win32::UI::WindowsAndMessaging::{
     LoadCursorW, MA_NOACTIVATE, MSG, PBT_POWERSETTINGCHANGE, PostQuitMessage, RegisterClassW,
     RegisterWindowMessageW, SM_CXDRAG, SM_SWAPBUTTON, SetCoalescableTimer, SetCursor, SetTimer,
     TranslateMessage, WM_APPCOMMAND, WM_CAPTURECHANGED, WM_CHANGEUISTATE, WM_CONTEXTMENU,
-    WM_DESTROY, WM_DISPLAYCHANGE, WM_HOTKEY, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MOUSEACTIVATE,
-    WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POWERBROADCAST, WM_RBUTTONUP,
-    WM_SETCURSOR, WM_SETTINGCHANGE, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSW, WS_EX_TOOLWINDOW,
-    WS_POPUP,
+    WM_DESTROY, WM_DISPLAYCHANGE, WM_HOTKEY, WM_INPUT, WM_LBUTTONDOWN, WM_LBUTTONUP,
+    WM_MOUSEACTIVATE, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_NCDESTROY, WM_POWERBROADCAST,
+    WM_RBUTTONUP, WM_SETCURSOR, WM_SETTINGCHANGE, WM_TIMER, WM_WTSSESSION_CHANGE, WNDCLASSW,
+    WS_EX_TOOLWINDOW, WS_POPUP,
 };
 use windows::core::{HSTRING, PCWSTR, Result, w};
 
@@ -63,6 +66,7 @@ use crate::popup::layout::item_screen_rect;
 use crate::popup::{self, Anchor, Popup, Style as PopupStyle};
 use crate::power::{self, Presence};
 use crate::render::{Frame, Renderer, Reorder, graph_styles, trend_items};
+use crate::reveal::{self, Dock, Lip, Phase, Pointer, Reveal};
 use crate::sampler_thread::SamplerThread;
 use crate::taskbar::hooks::{self, Hooks};
 use crate::taskbar::placement::{
@@ -86,6 +90,9 @@ const TIMER_RETRY: usize = 3;
 const TIMER_FADE: usize = 5;
 const TIMER_PRESENCE: usize = 6;
 const TIMER_ITEM_DRAG: usize = 7;
+const TIMER_REVEAL: usize = 8;
+const REVEAL_FRAME_MS: u32 = 10;
+const REVEAL_POLL_MS: u32 = 50;
 /// Capture alone misses a release off a window that is not in the foreground.
 const ITEM_DRAG_POLL_MS: u32 = 30;
 const REORDER_MARKER_DIP: f32 = 2.0;
@@ -211,6 +218,9 @@ pub struct App {
     widget: Widget,
     /// The widget being moved with the mouse.
     widget_drag: Option<Drag>,
+    widget_resize: Option<Resize>,
+    /// The size being dragged to, in physical pixels.
+    widget_size: Option<(i32, i32)>,
     item_drag: Option<ItemDrag>,
     /// A drag ended before its button came up, so that release is no click.
     ignore_release: bool,
@@ -234,6 +244,13 @@ pub struct App {
     hotkeys_taken: Vec<String>,
     recorder: Option<Recorder>,
     unseen: bool,
+    reveal: Reveal,
+    docked: Option<Docked>,
+    /// The docking monitor's saved path, and its current GDI name.
+    dock_monitor: Option<(String, Option<String>)>,
+    listening: bool,
+    escape_registered: bool,
+    lip: Option<Lip>,
 }
 
 /// What drawing an overlay needs besides the overlay.
@@ -321,6 +338,34 @@ const GAMES_REREAD: Duration = Duration::from_secs(60);
 const SESSIONS_FILE: &str = "sessions.csv";
 /// The shortcuts' IDs, in the order of `HotkeysConfig::all`.
 const HOTKEY_BASE: i32 = 1;
+const HOTKEY_ESCAPE: i32 = 100;
+
+struct Resize {
+    start: (i32, i32),
+    size: (i32, i32),
+    right: bool,
+    bottom: bool,
+}
+
+#[derive(Clone, Copy, Debug)]
+struct Docked {
+    edge: ScreenEdge,
+    monitor: Rect32,
+    work: Rect32,
+    scale: f32,
+}
+
+fn docked_place(d: Docked, size: (i32, i32), shown: f32, slide: bool) -> (i32, i32, u8) {
+    let gap = (widget::EDGE_GAP * d.scale) as i32;
+    let (x, y) = reveal::docked_at(d.edge, d.work, size, gap);
+    let distance = if slide {
+        ((1.0 - shown) * reveal::SLIDE * d.scale).round() as i32
+    } else {
+        0
+    };
+    let (dx, dy) = reveal::slide_offset(d.edge, distance);
+    (x + dx, y + dy, (shown * 255.0).round() as u8)
+}
 
 impl App {
     fn new(instance: HINSTANCE, host: HWND, recovered: bool) -> Result<Self> {
@@ -399,6 +444,8 @@ impl App {
             watchdog: Watchdog::new(host),
             widget: Widget::create(instance)?,
             widget_drag: None,
+            widget_resize: None,
+            widget_size: None,
             item_drag: None,
             ignore_release: false,
             session_items: Vec::new(),
@@ -415,6 +462,12 @@ impl App {
             hotkeys_taken: Vec::new(),
             recorder: None,
             unseen: false,
+            reveal: Reveal::default(),
+            docked: None,
+            dock_monitor: None,
+            listening: false,
+            escape_registered: false,
+            lip: None,
         })
     }
 
@@ -479,7 +532,13 @@ impl App {
                 self.close_popup();
                 self.refresh();
             }
+            1 if self.docked.is_some() => self.toggle_reveal(),
             1 => self.change_config(|c| menu::apply_toggle(c, menu::Toggle::Widget)),
+            n if n + HOTKEY_BASE == HOTKEY_ESCAPE => {
+                let before = self.reveal.phase;
+                self.reveal.close(Instant::now());
+                self.after_reveal(before, true);
+            }
             2 => self.open_details(None),
             3 => self.toggle_recording(),
             4 => self.next_profile(),
@@ -558,7 +617,9 @@ impl App {
         if popup_orphaned(self.popup_owner.map(key), &shown) {
             self.close_popup();
         }
+        self.update_dock();
         self.show_widget();
+        self.update_lip();
         self.sync_space();
         self.show_tray_metric();
     }
@@ -1215,6 +1276,11 @@ impl App {
             self.widget.hide();
             return;
         }
+        let docked = self.docked;
+        if docked.is_some() && !self.reveal.showing() {
+            self.widget.hide();
+            return;
+        }
         let saved = w.position.map(|[x, y]| (x, y));
         let dragging = self.widget_drag.as_ref().is_some_and(Drag::moved);
         let probe = if dragging {
@@ -1223,17 +1289,27 @@ impl App {
             saved.or(self.widget.shown_at)
         }
         .unwrap_or((0, 0));
-        let (monitor, work) = taskbar::monitor_near(probe.0, probe.1);
-        if w.hide_in_fullscreen && self.fullscreen.current().contains(&monitor) {
+        let (monitor, work) = match docked {
+            Some(d) => (d.monitor, d.work),
+            None => taskbar::monitor_near(probe.0, probe.1),
+        };
+        if docked.is_none() && w.hide_in_fullscreen && self.fullscreen.current().contains(&monitor)
+        {
             self.widget.hide();
             return;
         }
+        let shown = self.reveal.shown(Instant::now());
+        let slide = self.reveal.slide;
         let current = self.widget.shown_at;
         let dpi = self.widget.dpi();
         let scale = dpi as f32 / 96.0;
+        let max_h = match docked.map(|d| d.edge) {
+            Some(ScreenEdge::Top | ScreenEdge::Bottom) => 0.0,
+            _ => work.height() as f32 - 2.0 * widget::EDGE_GAP * scale,
+        };
         let look = widget::Look {
             column_w: f32::from(w.width) * scale,
-            max_h: work.height() as f32 - 2.0 * widget::EDGE_GAP * scale,
+            max_h,
             font_px: self.config.display.font_size_pt * dpi as f32 / 72.0,
             opacity: f32::from(w.opacity) / 100.0,
             background: w.background.as_deref().and_then(Color::parse_hex),
@@ -1246,6 +1322,16 @@ impl App {
             material: w.material,
             separate: w.separate,
             transparency: pulsar_core::system_theme::transparency_enabled(),
+            alpha: match docked {
+                Some(_) => (shown * 255.0).round() as u8,
+                None => 255,
+            },
+            size: (w.sizing == WidgetSizing::Chosen).then(|| {
+                self.widget_size.map_or(
+                    (f32::from(w.size[0]) * scale, f32::from(w.size[1]) * scale),
+                    |(x, y)| (x as f32, y as f32),
+                )
+            }),
         };
         let contents: Vec<_> = items
             .into_iter()
@@ -1269,8 +1355,12 @@ impl App {
             &self.palette,
             &self.history,
             &look,
-            |width, height| match current {
-                Some(at) if dragging => at,
+            |width, height| match (current, docked) {
+                (Some(at), _) if dragging => at,
+                (_, Some(d)) => {
+                    let (x, y, _) = docked_place(d, (width, height), shown, slide);
+                    (x, y)
+                }
                 _ => widget::place(saved, (width, height), work, scale),
             },
         );
@@ -1282,13 +1372,265 @@ impl App {
         let w = &self.config.widget;
         self.widget
             .set_click_through(w.lock_position && w.click_through);
-        self.widget
-            .arrange(w.layer, unsafe { GetForegroundWindow() });
+        let layer = self.widget_layer();
+        self.widget.arrange(layer, unsafe { GetForegroundWindow() });
+    }
+
+    fn widget_layer(&self) -> WidgetLayer {
+        if self.docked.is_some() {
+            WidgetLayer::OnTop
+        } else {
+            self.config.widget.layer
+        }
+    }
+
+    fn update_dock(&mut self) {
+        let w = &self.config.widget;
+        let edge = w.dock.edge.filter(|_| w.enabled && !self.hidden);
+        let path = w.dock.monitor.clone();
+        let gdi = match (&path, &self.dock_monitor) {
+            (None, _) => None,
+            (Some(path), Some((known, gdi))) if known == path => gdi.clone(),
+            (Some(path), _) => {
+                let gdi = displays::active()
+                    .into_iter()
+                    .find(|d| &d.path == path)
+                    .map(|d| d.gdi_name);
+                self.dock_monitor = Some((path.clone(), gdi.clone()));
+                gdi
+            }
+        };
+        self.docked = edge.map(|edge| {
+            let (monitor, work) = gdi
+                .as_deref()
+                .and_then(taskbar::monitor_named)
+                .unwrap_or_else(|| taskbar::monitor_near(0, 0));
+            let dpi = taskbar::dpi_near(
+                monitor.left + monitor.width() / 2,
+                monitor.top + monitor.height() / 2,
+            );
+            Docked {
+                edge,
+                monitor,
+                work,
+                scale: dpi as f32 / 96.0,
+            }
+        });
+        let listen = self.docked.is_some();
+        if listen != self.listening {
+            let registered = reveal::listen(self.host, listen);
+            if listen && !registered {
+                log::warn!("could not watch the pointer for the docked widget");
+            }
+            self.listening = registered && listen;
+        }
+        if !listen && self.reveal.showing() {
+            self.reveal = Reveal::default();
+            self.set_escape(false);
+        }
+        self.reveal.slide = reveal::animations_enabled();
+    }
+
+    fn dock(&self) -> Option<Dock> {
+        let d = self.docked?;
+        let settings = &self.config.widget.dock;
+        let over_game = self.fullscreen.current().contains(&d.monitor);
+        Some(Dock {
+            edge: d.edge,
+            monitor: d.monitor,
+            corner: (reveal::CORNER * d.scale) as i32,
+            margin: (reveal::REACH * d.scale) as i32,
+            threshold: reveal::threshold(settings.push),
+            hide_after: Duration::from_millis(u64::from(settings.hide_delay_ms)),
+            allowed: !over_game || settings.over_fullscreen == OverFullscreen::HotkeyAndEdge,
+            panel: self.widget.bounds(),
+        })
+    }
+
+    fn on_raw_input(&mut self, lp: LPARAM) {
+        let Some((dx, dy, absolute, pressed)) = reveal::read_mouse(lp) else {
+            return;
+        };
+        let Some(dock) = self.dock() else {
+            return;
+        };
+        let at = cursor();
+        let (bx, by) = reveal::beyond(dock.edge, at);
+        let pointer = Pointer {
+            at,
+            dx,
+            dy,
+            absolute,
+            pressed,
+            held: buttons_held(),
+            crossing: !self.reveal.showing() && taskbar::on_a_screen(bx, by),
+        };
+        let before = self.reveal.phase;
+        let ticks = self.reveal.on_pointer(&pointer, &dock, Instant::now());
+        self.after_reveal(before, ticks);
+    }
+
+    fn on_reveal_tick(&mut self) {
+        let Some(dock) = self.dock() else {
+            unsafe {
+                let _ = KillTimer(Some(self.host), TIMER_REVEAL);
+            }
+            return;
+        };
+        let before = self.reveal.phase;
+        let ticks = self.reveal.tick(cursor(), &dock, Instant::now());
+        self.after_reveal(before, ticks);
+    }
+
+    fn toggle_reveal(&mut self) {
+        let Some(d) = self.docked else {
+            return;
+        };
+        let before = self.reveal.phase;
+        let now = Instant::now();
+        if matches!(before, Phase::Open | Phase::Opening(_)) {
+            self.reveal.close(now);
+        } else {
+            let over_game = self.fullscreen.current().contains(&d.monitor);
+            if over_game && self.config.widget.dock.over_fullscreen == OverFullscreen::Never {
+                return;
+            }
+            self.reveal.open(now, true);
+        }
+        self.after_reveal(before, true);
+    }
+
+    fn after_reveal(&mut self, before: Phase, ticks: bool) {
+        let after = self.reveal.phase;
+        let was_shown = matches!(before, Phase::Open | Phase::Opening(_));
+        if matches!(after, Phase::Opening(_)) && !was_shown {
+            self.show_widget();
+        } else if after == Phase::Hidden {
+            if before != Phase::Hidden {
+                self.widget.hide();
+            }
+        } else if self.reveal.animating() || after != before {
+            self.reveal_frame();
+        }
+        self.set_escape(self.reveal.showing());
+        self.update_lip();
+        unsafe {
+            if ticks {
+                let every = if self.reveal.animating() {
+                    REVEAL_FRAME_MS
+                } else {
+                    REVEAL_POLL_MS
+                };
+                SetTimer(Some(self.host), TIMER_REVEAL, every, None);
+            } else {
+                let _ = KillTimer(Some(self.host), TIMER_REVEAL);
+            }
+        }
+    }
+
+    fn reveal_frame(&mut self) {
+        let Some(d) = self.docked else {
+            return;
+        };
+        let size = self.widget.size();
+        if size.0 == 0 || self.widget_drag.as_ref().is_some_and(Drag::moved) {
+            return;
+        }
+        let shown = self.reveal.shown(Instant::now());
+        let (x, y, alpha) = docked_place(d, size, shown, self.reveal.slide);
+        if let Err(e) = self.widget.present_frame(&self.renderer, x, y, alpha) {
+            log::warn!("could not move the widget: {e}");
+        }
+    }
+
+    fn update_lip(&mut self) {
+        let wanted = self.docked.filter(|d| {
+            self.config.widget.dock.lip
+                && !self.reveal.showing()
+                && !self.unseen
+                && !self.fullscreen.current().contains(&d.monitor)
+        });
+        let Some(d) = wanted else {
+            if let Some(lip) = &mut self.lip {
+                lip.hide();
+            }
+            return;
+        };
+        if self.lip.is_none() {
+            self.lip = Lip::create(self.instance)
+                .inspect_err(|e| log::warn!("could not show the edge line: {e}"))
+                .ok();
+        }
+        let color = crate::theme::accent_color()
+            .unwrap_or(Color::rgb(0x4C, 0xC2, 0xFF))
+            .with_alpha(0.7);
+        if let Some(lip) = &mut self.lip
+            && let Err(e) = lip.show(
+                &mut self.renderer,
+                reveal::lip_rect(d.edge, d.monitor, d.scale),
+                color,
+            )
+        {
+            log::warn!("could not draw the edge line: {e}");
+        }
+    }
+
+    fn set_escape(&mut self, on: bool) {
+        if on == self.escape_registered {
+            return;
+        }
+        self.escape_registered = on;
+        unsafe {
+            if on {
+                let _ = RegisterHotKey(
+                    Some(self.host),
+                    HOTKEY_ESCAPE,
+                    MOD_NOREPEAT,
+                    u32::from(VK_ESCAPE.0),
+                );
+            } else {
+                let _ = UnregisterHotKey(Some(self.host), HOTKEY_ESCAPE);
+            }
+        }
+    }
+
+    fn widget_grip(&self, at: (i32, i32)) -> Option<(bool, bool)> {
+        let w = &self.config.widget;
+        if w.sizing != WidgetSizing::Chosen || w.lock_position {
+            return None;
+        }
+        let reach = (widget::RESIZE_BAND_DIP * self.widget.dpi() as f32 / 96.0) as i32;
+        widget::grip(at, self.widget.size(), reach)
+    }
+
+    /// Sets the cursor over the widget; false leaves it to Windows.
+    fn set_widget_cursor(&self) -> bool {
+        if self.config.widget.lock_position {
+            return false;
+        }
+        let (Some((left, top)), (x, y)) = (self.widget.shown_at, cursor()) else {
+            return false;
+        };
+        match self.widget_grip((x - left, y - top)) {
+            Some((right, bottom)) => widget::resize_cursor(right, bottom),
+            None => widget::drag_cursor(),
+        }
+        true
     }
 
     fn on_widget_button_down(&mut self, x: i32, y: i32, shift: bool) {
         if self.config.widget.lock_position || shift {
             self.start_item_drag(self.widget.hwnd, x, y);
+            return;
+        }
+        if let Some((right, bottom)) = self.widget_grip((x, y)) {
+            self.widget_resize = Some(Resize {
+                start: cursor(),
+                size: self.widget.size(),
+                right,
+                bottom,
+            });
+            unsafe { SetCapture(self.widget.hwnd) };
             return;
         }
         if let Some(pos) = self.widget.shown_at {
@@ -1299,6 +1641,34 @@ impl App {
 
     fn on_widget_drag_move(&mut self, x: i32, y: i32) {
         if self.on_item_drag_move(self.widget.hwnd, x, y) {
+            return;
+        }
+        if let Some(resize) = &self.widget_resize {
+            let (cx, cy) = cursor();
+            let scale = self.widget.dpi() as f32 / 96.0;
+            let span = |range: &std::ops::RangeInclusive<u16>, start: i32, delta: i32, on: bool| {
+                let low = (f32::from(*range.start()) * scale) as i32;
+                let high = (f32::from(*range.end()) * scale) as i32;
+                (start + if on { delta } else { 0 }).clamp(low, high)
+            };
+            let size = (
+                span(
+                    &WIDGET_CHOSEN_WIDTHS,
+                    resize.size.0,
+                    cx - resize.start.0,
+                    resize.right,
+                ),
+                span(
+                    &WIDGET_CHOSEN_HEIGHTS,
+                    resize.size.1,
+                    cy - resize.start.1,
+                    resize.bottom,
+                ),
+            );
+            if self.widget_size != Some(size) {
+                self.widget_size = Some(size);
+                self.show_widget();
+            }
             return;
         }
         let Some(drag) = self.widget_drag.as_mut() else {
@@ -1318,6 +1688,17 @@ impl App {
         if self.finish_item_drag(self.widget.hwnd) {
             return;
         }
+        if self.widget_resize.take().is_some() {
+            unsafe {
+                let _ = ReleaseCapture();
+            }
+            if let Some((w, h)) = self.widget_size.take() {
+                let scale = self.widget.dpi() as f32 / 96.0;
+                let dip = |v: i32| (v as f32 / scale).round() as u16;
+                self.change_config(|c| c.widget.size = [dip(w), dip(h)]);
+            }
+            return;
+        }
         let Some(drag) = self.widget_drag.take() else {
             return;
         };
@@ -1327,8 +1708,14 @@ impl App {
         if drag.moved()
             && let Some((x, y)) = self.widget.shown_at
         {
+            if self.docked.is_some() {
+                self.reveal = Reveal::default();
+            }
             // Redraws it too, at the new monitor's DPI.
-            self.change_config(|c| c.widget.position = Some([x, y]));
+            self.change_config(|c| {
+                c.widget.position = Some([x, y]);
+                c.widget.dock.edge = None;
+            });
         }
     }
 
@@ -1857,7 +2244,7 @@ impl App {
             }
         }
         self.widget
-            .arrange(self.config.widget.layer, unsafe { GetForegroundWindow() });
+            .arrange(self.widget_layer(), unsafe { GetForegroundWindow() });
         self.watch_games();
     }
 
@@ -1877,6 +2264,7 @@ impl App {
             TIMER_VALIDATE => self.refresh(),
             TIMER_FADE => self.fade_tick(),
             TIMER_ITEM_DRAG => self.on_item_drag_tick(),
+            TIMER_REVEAL => self.on_reveal_tick(),
             TIMER_PRESENCE => {
                 unsafe {
                     let _ = KillTimer(Some(self.host), TIMER_PRESENCE);
@@ -2235,6 +2623,12 @@ fn left_button_down() -> bool {
     unsafe { GetAsyncKeyState(i32::from(key.0)) < 0 }
 }
 
+fn buttons_held() -> bool {
+    [VK_LBUTTON, VK_RBUTTON, VK_MBUTTON]
+        .into_iter()
+        .any(|key| unsafe { GetAsyncKeyState(i32::from(key.0)) } < 0)
+}
+
 fn shift_held(wp: WPARAM) -> bool {
     wp.0 & 0x0004 != 0
 }
@@ -2324,11 +2718,16 @@ unsafe extern "system" fn host_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM
         WM_DISPLAYCHANGE => {
             with_app(|a| {
                 a.chosen_monitor = None;
+                a.dock_monitor = None;
                 a.refresh();
             });
         }
         WM_HOTKEY => {
             with_app(|a| a.on_hotkey(wp.0));
+        }
+        WM_INPUT => {
+            with_app(|a| a.on_raw_input(lp));
+            return unsafe { DefWindowProcW(hwnd, msg, wp, lp) };
         }
         WM_DESTROY => unsafe { PostQuitMessage(0) },
         _ => return unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
@@ -2417,10 +2816,7 @@ unsafe extern "system" fn overlay_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPA
 unsafe extern "system" fn widget_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
-        WM_SETCURSOR if with_app(|a| a.config.widget.lock_position) == Some(false) => {
-            widget::drag_cursor();
-            LRESULT(1)
-        }
+        WM_SETCURSOR if with_app(|a| a.set_widget_cursor()) == Some(true) => LRESULT(1),
         WM_LBUTTONDOWN => {
             let (x, y) = signed_words(lp.0 as usize);
             with_app(|a| a.on_widget_button_down(x, y, shift_held(wp)));
@@ -2438,6 +2834,10 @@ unsafe extern "system" fn widget_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPAR
         WM_CAPTURECHANGED => {
             with_app(|a| {
                 a.widget_drag = None;
+                a.widget_resize = None;
+                if a.widget_size.take().is_some() {
+                    a.show_widget();
+                }
                 a.cancel_item_drag();
             });
             LRESULT(0)

@@ -184,6 +184,75 @@ pub enum WidgetStyle {
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum ScreenEdge {
+    Left,
+    Top,
+    #[default]
+    Right,
+    Bottom,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PushStrength {
+    Light,
+    #[default]
+    Medium,
+    Firm,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OverFullscreen {
+    Never,
+    #[default]
+    Hotkey,
+    HotkeyAndEdge,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DockConfig {
+    /// `None` leaves the widget where it was put.
+    pub edge: Option<ScreenEdge>,
+    /// A `Display::path`; `None` is the primary monitor.
+    pub monitor: Option<String>,
+    pub push: PushStrength,
+    pub hide_delay_ms: u16,
+    pub lip: bool,
+    pub over_fullscreen: OverFullscreen,
+}
+
+pub const HIDE_DELAYS_MS: std::ops::RangeInclusive<u16> = 0..=5000;
+
+impl Default for DockConfig {
+    fn default() -> Self {
+        Self {
+            edge: None,
+            monitor: None,
+            push: PushStrength::default(),
+            hide_delay_ms: 300,
+            lip: false,
+            over_fullscreen: OverFullscreen::default(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WidgetSizing {
+    /// As large as its items need, with the style chosen for each.
+    #[default]
+    Content,
+    /// Sized by dragging its edges; the size picks the layout.
+    Chosen,
+}
+
+pub const WIDGET_CHOSEN_WIDTHS: std::ops::RangeInclusive<u16> = 100..=2400;
+pub const WIDGET_CHOSEN_HEIGHTS: std::ops::RangeInclusive<u16> = 36..=1600;
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum WidgetMaterial {
     #[default]
     Solid,
@@ -207,6 +276,10 @@ pub struct WidgetConfig {
     pub style: WidgetStyle,
     pub material: WidgetMaterial,
     pub separate: bool,
+    pub dock: DockConfig,
+    pub sizing: WidgetSizing,
+    /// Logical pixels, used while sized by dragging.
+    pub size: [u16; 2],
     pub lock_position: bool,
     /// While locked, clicks go to whatever is underneath.
     pub click_through: bool,
@@ -237,6 +310,9 @@ impl Default for WidgetConfig {
             style: WidgetStyle::default(),
             material: WidgetMaterial::default(),
             separate: false,
+            dock: DockConfig::default(),
+            sizing: WidgetSizing::default(),
+            size: [340, 420],
             lock_position: false,
             click_through: false,
             items: Vec::new(),
@@ -926,6 +1002,11 @@ impl Config {
         let w = &mut self.widget;
         w.width = w.width.clamp(*WIDGET_WIDTHS.start(), *WIDGET_WIDTHS.end());
         w.opacity = w.opacity.min(100);
+        w.dock.hide_delay_ms = w.dock.hide_delay_ms.min(*HIDE_DELAYS_MS.end());
+        w.size = [
+            w.size[0].clamp(*WIDGET_CHOSEN_WIDTHS.start(), *WIDGET_CHOSEN_WIDTHS.end()),
+            w.size[1].clamp(*WIDGET_CHOSEN_HEIGHTS.start(), *WIDGET_CHOSEN_HEIGHTS.end()),
+        ];
         if w.background.as_deref().is_some_and(|c| !is_hex_color(c)) {
             w.background = None;
         }
@@ -2138,6 +2219,19 @@ on = true
         c.disk.value = DriveValue::Used;
         c.network.adapters = vec!["Realtek 2.5GbE".into(), "Intel[R] Wi-Fi".into()];
         c.gpu.adapters = vec!["NVIDIA GeForce RTX 4090".into()];
+        c.widget.material = WidgetMaterial::Glass;
+        c.widget.separate = true;
+        c.widget.style = WidgetStyle::Cards;
+        c.widget.sizing = WidgetSizing::Chosen;
+        c.widget.size = [720, 60];
+        c.widget.dock = DockConfig {
+            edge: Some(ScreenEdge::Bottom),
+            monitor: Some(r"\\?\DISPLAY#DEL1234#5&1&UID1".into()),
+            push: PushStrength::Firm,
+            hide_delay_ms: 800,
+            lip: true,
+            over_fullscreen: OverFullscreen::HotkeyAndEdge,
+        };
         save(&path, &c).unwrap();
         assert_eq!(load(&path).config, c);
     }

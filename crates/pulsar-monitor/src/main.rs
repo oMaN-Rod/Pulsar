@@ -17,6 +17,7 @@ mod overlay;
 mod popup;
 mod power;
 mod render;
+mod reveal;
 mod sampler_thread;
 mod taskbar;
 mod text;

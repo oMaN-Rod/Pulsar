@@ -2234,6 +2234,10 @@ msgid "Show the widget"
 msgstr "显示小组件"
 
 #: ui/settings.slint
+msgid "Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut."
+msgstr "隐藏在屏幕边缘，直到你将指针推向该边缘，或按下小组件的快捷键。"
+
+#: ui/settings.slint
 msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
 msgstr "“在桌面上”会位于所有窗口之后，显示桌面时会移到前面。"
 
@@ -2244,6 +2248,90 @@ msgstr "在桌面上"
 #: ui/settings.slint
 msgid "Always on top"
 msgstr "始终置顶"
+
+#: ui/settings.slint
+msgid "Docked to a screen edge"
+msgstr "停靠在屏幕边缘"
+
+#: ui/settings.slint
+msgid "Edge"
+msgstr "边缘"
+
+#: ui/settings.slint
+msgid "Left"
+msgstr "左侧"
+
+#: ui/settings.slint
+msgid "Top"
+msgstr "顶部"
+
+#: ui/settings.slint
+msgid "Right"
+msgstr "右侧"
+
+#: ui/settings.slint
+msgid "Bottom"
+msgstr "底部"
+
+#: ui/settings.slint
+msgid "Monitor"
+msgstr "显示器"
+
+#: ui/settings.slint
+msgid "Where an edge meets another monitor, the pointer crosses over instead."
+msgstr "边缘与另一台显示器相接处，指针会移到那台显示器上。"
+
+#: ui/settings.slint
+msgid "Push to show"
+msgstr "推动以显示"
+
+#: ui/settings.slint
+msgid "How hard to push past the edge. A pen or touch rests on the edge instead."
+msgstr "需要将指针推过边缘多远。使用笔或触摸时，在边缘停留即可。"
+
+#: ui/settings.slint
+msgid "Light"
+msgstr "轻"
+
+#: ui/settings.slint
+msgid "Medium"
+msgstr "中"
+
+#: ui/settings.slint
+msgid "Firm"
+msgstr "重"
+
+#: ui/settings.slint
+msgid "Hide after leaving"
+msgstr "离开后隐藏"
+
+#: ui/settings.slint
+msgid "Milliseconds. A click elsewhere or Esc hides it at once."
+msgstr "毫秒。在别处单击或按 Esc 会立即隐藏。"
+
+#: ui/settings.slint
+msgid "Show an edge line"
+msgstr "显示边缘线"
+
+#: ui/settings.slint
+msgid "A thin line where the widget waits."
+msgstr "在小组件等待的位置显示一条细线。"
+
+#: ui/settings.slint
+msgid "Over fullscreen apps"
+msgstr "在全屏应用上方"
+
+#: ui/settings.slint
+msgid "Never"
+msgstr "从不"
+
+#: ui/settings.slint
+msgid "Shortcut only"
+msgstr "仅快捷键"
+
+#: ui/settings.slint
+msgid "Shortcut and edge"
+msgstr "快捷键和边缘"
 
 #: ui/settings.slint
 msgid "Click-through while locked"
@@ -2260,6 +2348,26 @@ msgstr "当小组件所在的显示器上有全屏应用时。"
 #: ui/settings.slint
 msgid "Look"
 msgstr "外观"
+
+#: ui/settings.slint
+msgid "Size"
+msgstr "大小"
+
+#: ui/settings.slint
+msgid "Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
+msgstr "拖动小组件的右边缘或下边缘。较宽时按列显示卡片，较窄时每个项目一行，接近正方形时显示磁贴，较矮时显示一行数值或环形。"
+
+#: ui/settings.slint
+msgid "As large as its items need, each in the style chosen for it."
+msgstr "按项目所需大小显示，每个项目使用为其选择的样式。"
+
+#: ui/settings.slint
+msgid "Fit the content"
+msgstr "适应内容"
+
+#: ui/settings.slint
+msgid "Drag to size"
+msgstr "拖动调整大小"
 
 #: ui/settings.slint
 msgid "Style"

@@ -2233,6 +2233,10 @@ msgid "Show the widget"
 msgstr "ウィジェットを表示"
 
 #: ui/settings.slint
+msgid "Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut."
+msgstr ""
+
+#: ui/settings.slint
 msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
 msgstr "「デスクトップ上」は他のウィンドウの背面に配置し、デスクトップを表示すると前面に出ます。"
 
@@ -2243,6 +2247,90 @@ msgstr "デスクトップ上"
 #: ui/settings.slint
 msgid "Always on top"
 msgstr "常に手前に表示"
+
+#: ui/settings.slint
+msgid "Docked to a screen edge"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Edge"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Left"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Top"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Right"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Bottom"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Monitor"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Where an edge meets another monitor, the pointer crosses over instead."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Push to show"
+msgstr ""
+
+#: ui/settings.slint
+msgid "How hard to push past the edge. A pen or touch rests on the edge instead."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Light"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Medium"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Firm"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Hide after leaving"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Milliseconds. A click elsewhere or Esc hides it at once."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show an edge line"
+msgstr ""
+
+#: ui/settings.slint
+msgid "A thin line where the widget waits."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Over fullscreen apps"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Never"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Shortcut only"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Shortcut and edge"
+msgstr ""
 
 #: ui/settings.slint
 msgid "Click-through while locked"
@@ -2259,6 +2347,26 @@ msgstr "ウィジェットと同じモニターに全画面アプリがある間
 #: ui/settings.slint
 msgid "Look"
 msgstr "外観"
+
+#: ui/settings.slint
+msgid "Size"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
+msgstr ""
+
+#: ui/settings.slint
+msgid "As large as its items need, each in the style chosen for it."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Fit the content"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Drag to size"
+msgstr ""
 
 #: ui/settings.slint
 msgid "Style"

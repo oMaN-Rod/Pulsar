@@ -5,8 +5,9 @@ use pulsar_core::colors::Rgb;
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadColors, LoadThresholds,
-    MemoryUnit, NetworkShow, NoRoom, PopupBackground, Position, RateUnit, RemoveFrom,
-    TemperatureUnit, WidgetLayer, WidgetMaterial, WidgetStyle, sanitize_label,
+    MemoryUnit, NetworkShow, NoRoom, OverFullscreen, PopupBackground, Position, PushStrength,
+    RateUnit, RemoveFrom, ScreenEdge, TemperatureUnit, WidgetLayer, WidgetMaterial, WidgetSizing,
+    WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -14,7 +15,23 @@ use pulsar_core::theme::{Colors, Theme};
 
 use crate::names::{COLOR_MODES, DETAILS, styles_for, widget_styles_for};
 
-/// Matches the order of the Material list in settings.slint.
+/// These lists match the order of their lists in settings.slint.
+const SCREEN_EDGES: [ScreenEdge; 4] = [
+    ScreenEdge::Left,
+    ScreenEdge::Top,
+    ScreenEdge::Right,
+    ScreenEdge::Bottom,
+];
+const PUSH_STRENGTHS: [PushStrength; 3] = [
+    PushStrength::Light,
+    PushStrength::Medium,
+    PushStrength::Firm,
+];
+const OVER_FULLSCREEN: [OverFullscreen; 3] = [
+    OverFullscreen::Never,
+    OverFullscreen::Hotkey,
+    OverFullscreen::HotkeyAndEdge,
+];
 const WIDGET_MATERIALS: [WidgetMaterial; 4] = [
     WidgetMaterial::Solid,
     WidgetMaterial::Glass,
@@ -183,6 +200,14 @@ pub struct Form {
     pub popup_graph_height: i32,
     pub widget_enabled: bool,
     pub widget_on_top: bool,
+    /// An index into `SCREEN_EDGES` while docked.
+    pub widget_dock_edge: Option<i32>,
+    pub dock_monitor: String,
+    /// Indexes into `PUSH_STRENGTHS` and `OVER_FULLSCREEN`.
+    pub dock_push: i32,
+    pub dock_over_fullscreen: i32,
+    pub dock_hide_ms: i32,
+    pub dock_lip: bool,
     /// 0 sparklines, 1 tiles, 2 meters.
     pub widget_style: i32,
     pub widget_lock: bool,
@@ -194,6 +219,7 @@ pub struct Form {
     /// An index into `WIDGET_MATERIALS`.
     pub widget_material: i32,
     pub widget_separate: bool,
+    pub widget_sized: bool,
     pub widget_hide_in_fullscreen: bool,
     /// Off shows the taskbar's items.
     pub widget_own_items: bool,
@@ -448,6 +474,12 @@ pub fn to_form(c: &Config) -> Form {
         popup_graph_height: i32::from(c.popup.graph_height),
         widget_enabled: c.widget.enabled,
         widget_on_top: c.widget.layer == WidgetLayer::OnTop,
+        widget_dock_edge: c.widget.dock.edge.map(|e| index_of(&SCREEN_EDGES, &e)),
+        dock_monitor: c.widget.dock.monitor.clone().unwrap_or_default(),
+        dock_push: index_of(&PUSH_STRENGTHS, &c.widget.dock.push),
+        dock_over_fullscreen: index_of(&OVER_FULLSCREEN, &c.widget.dock.over_fullscreen),
+        dock_hide_ms: i32::from(c.widget.dock.hide_delay_ms),
+        dock_lip: c.widget.dock.lip,
         widget_style: match c.widget.style {
             WidgetStyle::Sparklines => 0,
             WidgetStyle::Tiles => 1,
@@ -463,6 +495,7 @@ pub fn to_form(c: &Config) -> Form {
         widget_opacity: i32::from(c.widget.opacity),
         widget_material: index_of(&WIDGET_MATERIALS, &c.widget.material),
         widget_separate: c.widget.separate,
+        widget_sized: c.widget.sizing == WidgetSizing::Chosen,
         widget_hide_in_fullscreen: c.widget.hide_in_fullscreen,
         widget_own_items: !c.widget.items.is_empty(),
         widget_order: c.widget.order.clone(),
@@ -758,7 +791,20 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     w.width = f.widget_width.clamp(0, i32::from(u16::MAX)) as u16;
     w.opacity = clamp_u8(f.widget_opacity);
     w.material = at(&WIDGET_MATERIALS, f.widget_material).unwrap_or_default();
+    w.dock.edge = f
+        .widget_dock_edge
+        .map(|i| at(&SCREEN_EDGES, i).unwrap_or_default());
+    w.dock.monitor = non_empty(&f.dock_monitor);
+    w.dock.push = at(&PUSH_STRENGTHS, f.dock_push).unwrap_or_default();
+    w.dock.over_fullscreen = at(&OVER_FULLSCREEN, f.dock_over_fullscreen).unwrap_or_default();
+    w.dock.hide_delay_ms = f.dock_hide_ms.clamp(0, 5000) as u16;
+    w.dock.lip = f.dock_lip;
     w.separate = f.widget_separate;
+    w.sizing = if f.widget_sized {
+        WidgetSizing::Chosen
+    } else {
+        WidgetSizing::Content
+    };
     w.hide_in_fullscreen = f.widget_hide_in_fullscreen;
     w.items = if f.widget_own_items {
         f.widget_items.clone()
@@ -959,6 +1005,37 @@ mod tests {
             item_rgb(ItemKind::Cpu, "#01", &ocean.dark),
             ocean.dark.item(ItemKind::Cpu, CellPart::Main)
         );
+    }
+
+    #[test]
+    fn docking_and_the_widget_look_round_trip() {
+        let c = Config::default();
+        let mut f = to_form(&c);
+        assert_eq!(f.widget_dock_edge, None);
+        f.widget_dock_edge = Some(3);
+        f.dock_monitor = r"\\?\DISPLAY#DEL1234".into();
+        f.dock_push = 2;
+        f.dock_over_fullscreen = 0;
+        f.dock_hide_ms = 9000;
+        f.dock_lip = true;
+        f.widget_material = 1;
+        f.widget_separate = true;
+        f.widget_sized = true;
+        let out = to_config(&f, &c);
+        assert_eq!(out.widget.sizing, WidgetSizing::Chosen);
+        let dock = &out.widget.dock;
+        assert_eq!(dock.edge, Some(ScreenEdge::Bottom));
+        assert_eq!(dock.monitor.as_deref(), Some(r"\\?\DISPLAY#DEL1234"));
+        assert_eq!(dock.push, PushStrength::Firm);
+        assert_eq!(dock.over_fullscreen, OverFullscreen::Never);
+        assert_eq!(dock.hide_delay_ms, 5000, "clamped");
+        assert!(dock.lip);
+        assert_eq!(out.widget.material, WidgetMaterial::Glass);
+        assert!(out.widget.separate);
+        let back = to_form(&out);
+        assert_eq!(back.widget_dock_edge, Some(3));
+        f.widget_dock_edge = None;
+        assert_eq!(to_config(&f, &c).widget.dock.edge, None);
     }
 
     #[test]

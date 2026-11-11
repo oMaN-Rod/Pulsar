@@ -162,6 +162,10 @@ impl Backdrop {
         self.shown = true;
     }
 
+    pub fn set_opacity(&self, opacity: f32) {
+        let _ = self.root.SetOpacity(opacity);
+    }
+
     pub fn shown(&self) -> bool {
         self.shown
     }

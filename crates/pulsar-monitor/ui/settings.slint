@@ -1243,6 +1243,14 @@ export component SettingsWindow inherits Window {
     in-out property <int> widget-width;
     in-out property <float> widget-opacity;
     in-out property <int> widget-material;
+    in-out property <int> widget-sizing;
+    in-out property <int> widget-dock-edge;
+    in property <[string]> dock-monitors;
+    in-out property <int> dock-monitor-index;
+    in-out property <int> widget-dock-push;
+    in-out property <int> widget-dock-hide;
+    in-out property <bool> widget-dock-lip;
+    in-out property <int> widget-dock-fullscreen;
     in-out property <bool> widget-separate;
     in-out property <bool> widget-hide-in-fullscreen;
     in-out property <bool> widget-own-items;
@@ -2419,11 +2427,81 @@ export component SettingsWindow inherits Window {
                     Divider { }
                     SettingRow {
                         title: @tr("Placement");
-                        description: @tr("On the desktop stays behind your windows and comes forward when you show the desktop.");
+                        description: root.widget-layer == 2 ? @tr("Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut.") : @tr("On the desktop stays behind your windows and comes forward when you show the desktop.");
                         ComboBox {
                             width: 200px;
-                            model: [@tr("On the desktop"), @tr("Always on top")];
+                            model: [@tr("On the desktop"), @tr("Always on top"), @tr("Docked to a screen edge")];
                             current-index <=> root.widget-layer;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.widget-layer == 2: Divider { }
+                    OptionalRow {
+                        shown: root.widget-layer == 2;
+                        title: @tr("Edge");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Left"), @tr("Top"), @tr("Right"), @tr("Bottom")];
+                            current-index <=> root.widget-dock-edge;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.widget-layer == 2: Divider { }
+                    OptionalRow {
+                        shown: root.widget-layer == 2;
+                        title: @tr("Monitor");
+                        description: @tr("Where an edge meets another monitor, the pointer crosses over instead.");
+                        ComboBox {
+                            width: 200px;
+                            model: root.dock-monitors;
+                            current-index <=> root.dock-monitor-index;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.widget-layer == 2: Divider { }
+                    OptionalRow {
+                        shown: root.widget-layer == 2;
+                        title: @tr("Push to show");
+                        description: @tr("How hard to push past the edge. A pen or touch rests on the edge instead.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Light"), @tr("Medium"), @tr("Firm")];
+                            current-index <=> root.widget-dock-push;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.widget-layer == 2: Divider { }
+                    OptionalRow {
+                        shown: root.widget-layer == 2;
+                        title: @tr("Hide after leaving");
+                        description: @tr("Milliseconds. A click elsewhere or Esc hides it at once.");
+                        SpinBox {
+                            width: 140px;
+                            minimum: 0;
+                            maximum: 5000;
+                            step-size: 100;
+                            value <=> root.widget-dock-hide;
+                            edited => { root.changed(); }
+                        }
+                    }
+                    if root.widget-layer == 2: Divider { }
+                    OptionalRow {
+                        shown: root.widget-layer == 2;
+                        title: @tr("Show an edge line");
+                        description: @tr("A thin line where the widget waits.");
+                        Switch {
+                            checked <=> root.widget-dock-lip;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    if root.widget-layer == 2: Divider { }
+                    OptionalRow {
+                        shown: root.widget-layer == 2;
+                        title: @tr("Over fullscreen apps");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Never"), @tr("Shortcut only"), @tr("Shortcut and edge")];
+                            current-index <=> root.widget-dock-fullscreen;
                             selected => { root.changed(); }
                         }
                     }
@@ -2458,10 +2536,22 @@ export component SettingsWindow inherits Window {
                 SectionTitle { text: @tr("Look"); }
                 Card {
                     SettingRow {
+                        title: @tr("Size");
+                        description: root.widget-sizing == 1 ? @tr("Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings.") : @tr("As large as its items need, each in the style chosen for it.");
+                        ComboBox {
+                            width: 200px;
+                            model: [@tr("Fit the content"), @tr("Drag to size")];
+                            current-index <=> root.widget-sizing;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
                         title: @tr("Style");
                         description: @tr("Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details.");
                         ComboBox {
                             width: 200px;
+                            enabled: root.widget-sizing == 0;
                             model: [@tr("Sparklines"), @tr("Tiles"), @tr("Meters"), @tr("Dials"), @tr("Device cards")];
                             current-index <=> root.widget-style;
                             selected => { root.changed(); }
@@ -2504,6 +2594,7 @@ export component SettingsWindow inherits Window {
                         description: @tr("Pixels at 100 % scaling.");
                         SpinBox {
                             width: 140px;
+                            enabled: root.widget-sizing == 0;
                             minimum: 220;
                             maximum: 600;
                             step-size: 20;

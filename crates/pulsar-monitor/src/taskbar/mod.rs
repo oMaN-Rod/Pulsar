@@ -4,8 +4,8 @@ pub mod space;
 
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Gdi::{
-    EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTONEAREST, MONITORINFO,
-    MonitorFromPoint, MonitorFromWindow,
+    EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTONEAREST,
+    MONITOR_DEFAULTTONULL, MONITORINFO, MONITORINFOEXW, MonitorFromPoint, MonitorFromWindow,
 };
 use windows::Win32::Security::{GetTokenInformation, TOKEN_ELEVATION, TOKEN_QUERY, TokenElevation};
 use windows::Win32::System::Threading::{
@@ -78,6 +78,39 @@ pub fn monitor_near(x: i32, y: i32) -> (Rect32, Rect32) {
         );
     }
     (rect32(info.rcMonitor), rect32(info.rcWork))
+}
+
+pub fn on_a_screen(x: i32, y: i32) -> bool {
+    !unsafe { MonitorFromPoint(POINT { x, y }, MONITOR_DEFAULTTONULL) }.is_invalid()
+}
+
+pub fn monitor_named(name: &str) -> Option<(Rect32, Rect32)> {
+    unsafe extern "system" fn visit(
+        monitor: HMONITOR,
+        _: HDC,
+        _: *mut RECT,
+        found: LPARAM,
+    ) -> BOOL {
+        let (name, out) = unsafe { &mut *(found.0 as *mut (&str, Option<(Rect32, Rect32)>)) };
+        let mut info = MONITORINFOEXW::default();
+        info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
+        if unsafe { GetMonitorInfoW(monitor, &mut info.monitorInfo) }.as_bool() {
+            let len = info.szDevice.iter().position(|&c| c == 0).unwrap_or(32);
+            if String::from_utf16_lossy(&info.szDevice[..len]) == *name {
+                *out = Some((
+                    rect32(info.monitorInfo.rcMonitor),
+                    rect32(info.monitorInfo.rcWork),
+                ));
+                return false.into();
+            }
+        }
+        true.into()
+    }
+    let mut found: (&str, Option<(Rect32, Rect32)>) = (name, None);
+    unsafe {
+        let _ = EnumDisplayMonitors(None, None, Some(visit), LPARAM(&raw mut found as isize));
+    }
+    found.1
 }
 
 /// The monitor showing most of a window, and its work area.

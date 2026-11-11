@@ -2233,6 +2233,10 @@ msgid "Show the widget"
 msgstr "Mostrar el widget"
 
 #: ui/settings.slint
+msgid "Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut."
+msgstr "Oculto en un borde de la pantalla hasta que empujes el puntero contra él o pulses el atajo del widget."
+
+#: ui/settings.slint
 msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
 msgstr "En el escritorio queda detrás de tus ventanas y pasa al frente al mostrar el escritorio."
 
@@ -2243,6 +2247,90 @@ msgstr "En el escritorio"
 #: ui/settings.slint
 msgid "Always on top"
 msgstr "Siempre visible"
+
+#: ui/settings.slint
+msgid "Docked to a screen edge"
+msgstr "Acoplado a un borde de la pantalla"
+
+#: ui/settings.slint
+msgid "Edge"
+msgstr "Borde"
+
+#: ui/settings.slint
+msgid "Left"
+msgstr "Izquierda"
+
+#: ui/settings.slint
+msgid "Top"
+msgstr "Arriba"
+
+#: ui/settings.slint
+msgid "Right"
+msgstr "Derecha"
+
+#: ui/settings.slint
+msgid "Bottom"
+msgstr "Abajo"
+
+#: ui/settings.slint
+msgid "Monitor"
+msgstr "Monitor"
+
+#: ui/settings.slint
+msgid "Where an edge meets another monitor, the pointer crosses over instead."
+msgstr "Donde un borde se une a otro monitor, el puntero pasa a ese monitor."
+
+#: ui/settings.slint
+msgid "Push to show"
+msgstr "Empujar para mostrar"
+
+#: ui/settings.slint
+msgid "How hard to push past the edge. A pen or touch rests on the edge instead."
+msgstr "Cuánto empujar más allá del borde. Con lápiz o táctil, basta con detenerse en el borde."
+
+#: ui/settings.slint
+msgid "Light"
+msgstr "Suave"
+
+#: ui/settings.slint
+msgid "Medium"
+msgstr "Medio"
+
+#: ui/settings.slint
+msgid "Firm"
+msgstr "Firme"
+
+#: ui/settings.slint
+msgid "Hide after leaving"
+msgstr "Ocultar al salir tras"
+
+#: ui/settings.slint
+msgid "Milliseconds. A click elsewhere or Esc hides it at once."
+msgstr "Milisegundos. Un clic en otro lugar o Esc lo oculta al instante."
+
+#: ui/settings.slint
+msgid "Show an edge line"
+msgstr "Mostrar una línea en el borde"
+
+#: ui/settings.slint
+msgid "A thin line where the widget waits."
+msgstr "Una línea fina donde espera el widget."
+
+#: ui/settings.slint
+msgid "Over fullscreen apps"
+msgstr "Sobre aplicaciones a pantalla completa"
+
+#: ui/settings.slint
+msgid "Never"
+msgstr "Nunca"
+
+#: ui/settings.slint
+msgid "Shortcut only"
+msgstr "Solo el atajo"
+
+#: ui/settings.slint
+msgid "Shortcut and edge"
+msgstr "El atajo y el borde"
 
 #: ui/settings.slint
 msgid "Click-through while locked"
@@ -2259,6 +2347,26 @@ msgstr "Mientras haya una aplicación a pantalla completa en el monitor del widg
 #: ui/settings.slint
 msgid "Look"
 msgstr "Aspecto"
+
+#: ui/settings.slint
+msgid "Size"
+msgstr "Tamaño"
+
+#: ui/settings.slint
+msgid "Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
+msgstr "Arrastra el borde derecho o inferior del widget. Ancho muestra tarjetas en columnas; estrecho, una línea por elemento; cuadrado, mosaicos; y bajo, una sola fila de valores o anillos."
+
+#: ui/settings.slint
+msgid "As large as its items need, each in the style chosen for it."
+msgstr "Tan grande como lo necesiten sus elementos, cada uno con el estilo elegido."
+
+#: ui/settings.slint
+msgid "Fit the content"
+msgstr "Ajustar al contenido"
+
+#: ui/settings.slint
+msgid "Drag to size"
+msgstr "Arrastrar para ajustar"
 
 #: ui/settings.slint
 msgid "Style"

@@ -75,6 +75,7 @@ struct Choices {
     monitor_values: Vec<String>,
     /// Device paths in the order of the taskbar picker.
     taskbar_values: Vec<String>,
+    dock_values: Vec<String>,
     /// Theme ids in the order of the theme picker.
     theme_values: Vec<String>,
     /// The selected theme, for the color fields' fallbacks.
@@ -360,7 +361,16 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_popup_width(f.popup_width);
     ui.set_popup_graph_height(f.popup_graph_height);
     ui.set_widget_enabled(f.widget_enabled);
-    ui.set_widget_layer(i32::from(f.widget_on_top));
+    ui.set_widget_layer(if f.widget_dock_edge.is_some() {
+        2
+    } else {
+        i32::from(f.widget_on_top)
+    });
+    ui.set_widget_dock_edge(f.widget_dock_edge.unwrap_or(2));
+    ui.set_widget_dock_push(f.dock_push);
+    ui.set_widget_dock_hide(f.dock_hide_ms);
+    ui.set_widget_dock_lip(f.dock_lip);
+    ui.set_widget_dock_fullscreen(f.dock_over_fullscreen);
     ui.set_widget_style(f.widget_style);
     ui.set_widget_lock(f.widget_lock);
     ui.set_widget_click_through(f.widget_click_through);
@@ -369,6 +379,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_widget_opacity(f.widget_opacity as f32);
     ui.set_widget_material(f.widget_material);
     ui.set_widget_separate(f.widget_separate);
+    ui.set_widget_sizing(i32::from(f.widget_sized));
     ui.set_widget_hide_in_fullscreen(f.widget_hide_in_fullscreen);
     ui.set_widget_own_items(f.widget_own_items);
     ui.set_widget_background(f.widget_background.as_str().into());
@@ -427,6 +438,11 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_taskbar_monitors(strings(names));
     ui.set_taskbar_monitor_index(index);
     choices.taskbar_values = values;
+    let (names, values, index) =
+        monitor_picker(tr!("Primary monitor"), &choices.monitors, &f.dock_monitor);
+    ui.set_dock_monitors(strings(names));
+    ui.set_dock_monitor_index(index);
+    choices.dock_values = values;
     ui.set_fit_to_taskbar(f.fit_to_taskbar);
     ui.set_fit_remove_from(f.fit_remove_from);
     ui.set_fit_no_room(f.fit_no_room);
@@ -707,6 +723,12 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         popup_graph_height: ui.get_popup_graph_height(),
         widget_enabled: ui.get_widget_enabled(),
         widget_on_top: ui.get_widget_layer() == 1,
+        widget_dock_edge: (ui.get_widget_layer() == 2).then(|| ui.get_widget_dock_edge()),
+        dock_monitor: chosen(&choices.dock_values, ui.get_dock_monitor_index()),
+        dock_push: ui.get_widget_dock_push(),
+        dock_over_fullscreen: ui.get_widget_dock_fullscreen(),
+        dock_hide_ms: ui.get_widget_dock_hide(),
+        dock_lip: ui.get_widget_dock_lip(),
         widget_style: ui.get_widget_style(),
         widget_lock: ui.get_widget_lock(),
         widget_click_through: ui.get_widget_click_through(),
@@ -715,6 +737,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         widget_opacity: ui.get_widget_opacity().round() as i32,
         widget_material: ui.get_widget_material(),
         widget_separate: ui.get_widget_separate(),
+        widget_sized: ui.get_widget_sizing() == 1,
         widget_hide_in_fullscreen: ui.get_widget_hide_in_fullscreen(),
         widget_own_items: ui.get_widget_own_items(),
         widget_items: kinds

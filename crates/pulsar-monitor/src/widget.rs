@@ -18,10 +18,10 @@ use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DestroyWindow, EnumWindows, FindWindowExW, FindWindowW, GW_HWNDPREV,
     GWL_EXSTYLE, GetWindow, GetWindowLongPtrW, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST,
-    IDC_ARROW, IDC_SIZEALL, LoadCursorW, RegisterClassW, SW_HIDE, SW_SHOWNOACTIVATE,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetCursor, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-    WINDOW_EX_STYLE, WNDCLASSW, WNDPROC, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW,
-    WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
+    IDC_ARROW, IDC_SIZEALL, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, LoadCursorW, RegisterClassW,
+    SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetCursor,
+    SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WNDCLASSW, WNDPROC,
+    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
 use windows::core::{BOOL, Result, w};
 
@@ -131,15 +131,59 @@ impl Widget {
         look: &Look,
         at: impl FnOnce(i32, i32) -> (i32, i32),
     ) -> Result<()> {
-        let d = Dims::new(text, look);
+        let arranged = look.size.map(|(w, h)| {
+            (
+                w,
+                h,
+                arrangement(w / look.scale, h / look.scale, contents.len()),
+            )
+        });
+        let panel_gap = PANEL_GAP_DIP * look.scale;
+        let (column_w, max_h, forced) = match arranged {
+            Some((w, h, Arrangement::Dashboard { columns })) => {
+                let n = columns as f32;
+                let gaps = if look.separate {
+                    (n - 1.0) * panel_gap
+                } else {
+                    0.0
+                };
+                ((w - gaps) / n, h, Some(WidgetStyle::Cards))
+            }
+            Some((w, _, Arrangement::Lanes)) => (w, f32::MAX, Some(WidgetStyle::Sparklines)),
+            Some((w, _, Arrangement::Tiles)) => (w, f32::MAX, Some(WidgetStyle::Tiles)),
+            Some((w, _, Arrangement::Strip | Arrangement::Rings)) => (w, f32::MAX, None),
+            None => (look.column_w, look.max_h, None),
+        };
+        let d = Dims::new(text, look, column_w);
         let mut sections: Vec<Section> = contents
             .iter()
-            .map(|(c, style)| Section::new(c, *style, snapshot, history))
+            .map(|(c, style)| Section::new(c, forced.unwrap_or(*style), snapshot, history))
             .collect();
-        let plan = Plan::new(&mut sections, &d, look.max_h, look.separate, text);
+        let row = arranged.and_then(|(w, h, a)| match a {
+            Arrangement::Strip => Some((w, h, false)),
+            Arrangement::Rings => Some((w, h, true)),
+            _ => None,
+        });
+        let separate = look.separate && row.is_none();
+        let mut plan = match row {
+            Some((w, h, rings)) => Plan::row(&sections, &d, w, h, rings, text),
+            None => {
+                let balance = match arranged {
+                    Some((_, _, Arrangement::Dashboard { columns })) => Some(columns),
+                    _ => None,
+                };
+                Plan::new(&mut sections, &d, max_h, separate, balance, text)
+            }
+        };
+        if let Some((w, h, _)) = arranged {
+            plan.fit(w, h, separate);
+        }
         let blur = look.material.blurs() && look.transparency && self.ensure_backdrop();
         let skin = Skin::new(look, palette, blur);
-        let radius = skin.radius * d.scale;
+        let radius = match row {
+            Some((_, h, _)) => h / 2.0,
+            None => skin.radius * d.scale,
+        };
         self.shapes = plan.panels.iter().map(|&r| (r, radius)).collect();
         self.hits = plan
             .placed
@@ -165,11 +209,43 @@ impl Widget {
         };
         renderer.paint(surface, Color::rgb(0, 0, 0).with_alpha(0.0), |r| {
             let p = palette;
+            if arranged.is_some() {
+                // Fully clear pixels let clicks through, which would leave
+                // nothing to grab where the cards stop short of the edges.
+                let band = RESIZE_BAND_DIP * d.scale;
+                let hit = Color::rgb(0, 0, 0).with_alpha(1.0 / 255.0);
+                let (wf, hf) = (w as f32, h as f32);
+                r.fill_rounded(
+                    Rect {
+                        x: wf - band,
+                        y: 0.0,
+                        w: band,
+                        h: hf,
+                    },
+                    0.0,
+                    hit,
+                )?;
+                r.fill_rounded(
+                    Rect {
+                        x: 0.0,
+                        y: hf - band,
+                        w: wf,
+                        h: band,
+                    },
+                    0.0,
+                    hit,
+                )?;
+            }
             for &panel in &plan.panels {
                 skin.panel(r, panel, radius, d.scale)?;
             }
             for placed in &plan.placed {
-                ctx.section(r, &sections[placed.index], placed.rect, placed.value_w)?;
+                let s = &sections[placed.index];
+                match row {
+                    Some((_, _, true)) => ctx.ring_cell(r, s, placed.rect)?,
+                    Some((_, _, false)) => ctx.strip_cell(r, s, placed.rect)?,
+                    None => ctx.section(r, s, placed.rect, placed.value_w)?,
+                }
                 if placed.divider {
                     let line = Rect {
                         x: placed.rect.x,
@@ -190,7 +266,7 @@ impl Widget {
             Ok(())
         })?;
         let (x, y) = at(w, h);
-        renderer.present(self.hwnd, surface, x, y)?;
+        renderer.present_alpha(self.hwnd, surface, Some((x, y)), look.alpha)?;
         if self.shown_at.is_none() {
             unsafe {
                 let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
@@ -199,10 +275,39 @@ impl Widget {
         self.shown_at = Some((x, y));
         if blur {
             self.place_backdrop();
+            if let Some(backdrop) = &self.backdrop {
+                backdrop.set_opacity(f32::from(look.alpha) / 255.0);
+            }
         } else if let Some(backdrop) = &mut self.backdrop {
             backdrop.hide();
         }
         Ok(())
+    }
+
+    pub fn present_frame(&mut self, renderer: &Renderer, x: i32, y: i32, alpha: u8) -> Result<()> {
+        let Some(surface) = &self.surface else {
+            return Ok(());
+        };
+        renderer.present_alpha(self.hwnd, surface, Some((x, y)), alpha)?;
+        self.shown_at = Some((x, y));
+        if self.backdrop.as_ref().is_some_and(Backdrop::shown) {
+            self.place_backdrop();
+            if let Some(backdrop) = &self.backdrop {
+                backdrop.set_opacity(f32::from(alpha) / 255.0);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn bounds(&self) -> Option<Rect32> {
+        let (x, y) = self.shown_at?;
+        let (w, h) = self.size();
+        Some(Rect32 {
+            left: x,
+            top: y,
+            right: x + w,
+            bottom: y + h,
+        })
     }
 
     fn ensure_backdrop(&mut self) -> bool {
@@ -370,6 +475,9 @@ pub struct Look {
     pub separate: bool,
     /// Windows' "Transparency effects" setting.
     pub transparency: bool,
+    pub alpha: u8,
+    /// Set by dragging its edges, in physical pixels; picks the layout.
+    pub size: Option<(f32, f32)>,
 }
 
 struct Skin {
@@ -443,6 +551,45 @@ impl Skin {
 }
 
 const DIALS_PER_ROW: usize = 3;
+const PANEL_GAP_DIP: f32 = 8.0;
+pub const RESIZE_BAND_DIP: f32 = 8.0;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Arrangement {
+    Dashboard {
+        columns: usize,
+    },
+    Lanes,
+    Tiles,
+    Strip,
+    Rings,
+}
+
+const DASHBOARD_COLUMN_DIP: f32 = 300.0;
+const STRIP_CELL_DIP: f32 = 92.0;
+
+/// The layout for a `w` × `h` DIP widget with `items` items.
+pub fn arrangement(w: f32, h: f32, items: usize) -> Arrangement {
+    let items = items.max(1);
+    if h < 72.0 {
+        return if w >= items as f32 * STRIP_CELL_DIP + 24.0 {
+            Arrangement::Strip
+        } else {
+            Arrangement::Rings
+        };
+    }
+    if w >= 600.0 && h >= 200.0 {
+        let fit = ((w + PANEL_GAP_DIP) / (DASHBOARD_COLUMN_DIP + PANEL_GAP_DIP)) as usize;
+        return Arrangement::Dashboard {
+            columns: fit.clamp(1, items),
+        };
+    }
+    if w >= 0.8 * h {
+        Arrangement::Tiles
+    } else {
+        Arrangement::Lanes
+    }
+}
 const MAX_DIAL_DIP: f32 = 76.0;
 
 struct Dims {
@@ -468,18 +615,18 @@ struct Dims {
 }
 
 impl Dims {
-    fn new(text: &Text, look: &Look) -> Self {
+    fn new(text: &Text, look: &Look, column_w: f32) -> Self {
         let s = look.scale;
         let small_px = look.font_px * 0.88;
         let pad = if look.separate { 12.0 } else { 10.0 } * s;
-        let inner = look.column_w - 2.0 * pad;
+        let inner = column_w - 2.0 * pad;
         let dial_cell = (inner - 2.0 * 8.0 * s) / DIALS_PER_ROW as f32;
         let big_px = look.font_px * 2.2;
         Self {
             scale: s,
             pad,
             gap: 8.0 * s,
-            panel_gap: 8.0 * s,
+            panel_gap: PANEL_GAP_DIP * s,
             big_px,
             big_h: text.line_height(big_px),
             between: 9.0 * s,
@@ -490,7 +637,7 @@ impl Dims {
             strip_h: 6.0 * s,
             tile_pad: 6.0 * s,
             tile_graph_h: 18.0 * s,
-            column_w: look.column_w,
+            column_w,
             wall_h: 64.0 * s,
             dial: dial_cell.min(MAX_DIAL_DIP * s).max(1.0),
         }
@@ -670,11 +817,13 @@ struct Plan {
 }
 
 impl Plan {
+    /// `balance` spreads the sections evenly over that many columns.
     fn new(
         sections: &mut [Section],
         d: &Dims,
         max_h: f32,
         separate: bool,
+        balance: Option<usize>,
         text: &dyn TextMeasure,
     ) -> Self {
         let inner = d.column_w - 2.0 * d.pad;
@@ -698,7 +847,9 @@ impl Plan {
         } else {
             (d.between, d.gap, 0.0)
         };
-        let columns = columns(&heights, between, max_h - 2.0 * d.pad);
+        let room = max_h - 2.0 * d.pad;
+        let limit = balance.map_or(room, |count| balanced(&heights, between, count).min(room));
+        let columns = columns(&heights, between, limit);
         let mut placed = Vec::new();
         let mut tallest: f32 = 0.0;
         for (c, column) in columns.iter().enumerate() {
@@ -805,6 +956,104 @@ fn split_unit(value: &str) -> (&str, &str) {
     }
 }
 
+impl Plan {
+    /// One row across `w` × `h`, as many items as fit: rings at a fixed
+    /// pitch, strip cells as wide as their text with the spare room shared.
+    fn row(sections: &[Section], d: &Dims, w: f32, h: f32, rings: bool, text: &Text) -> Self {
+        let end = if rings { h * 0.15 } else { h / 2.0 };
+        let room = (w - 2.0 * end).max(0.0);
+        let mut widths = Vec::new();
+        let mut used = 0.0;
+        for s in sections {
+            let cell = if rings {
+                h * 0.85
+            } else {
+                strip_width(s, d, text)
+            };
+            if used + cell > room {
+                break;
+            }
+            used += cell;
+            widths.push(cell);
+        }
+        let extra = (room - used) / widths.len().max(1) as f32;
+        let mut x = end;
+        let placed = widths
+            .iter()
+            .enumerate()
+            .map(|(index, &cell)| {
+                let rect = Rect {
+                    x,
+                    y: 0.0,
+                    w: cell + extra,
+                    h,
+                };
+                x += cell + extra;
+                Placed {
+                    index,
+                    rect,
+                    value_w: 0.0,
+                    divider: false,
+                }
+            })
+            .collect();
+        Self {
+            width: w,
+            height: h,
+            placed,
+            panels: vec![Rect {
+                x: 0.0,
+                y: 0.0,
+                w,
+                h,
+            }],
+        }
+    }
+
+    fn fit(&mut self, w: f32, h: f32, separate: bool) {
+        let inside = |r: &Rect| r.right() <= w + 0.5 && r.y + r.h <= h + 0.5;
+        if separate {
+            let kept: Vec<bool> = self.panels.iter().map(inside).collect();
+            let mut keep = kept.iter();
+            self.placed.retain(|_| *keep.next().unwrap_or(&false));
+            let mut keep = kept.iter();
+            self.panels.retain(|_| *keep.next().unwrap_or(&false));
+        } else {
+            self.placed.retain(|p| inside(&p.rect));
+            self.panels = vec![Rect {
+                x: 0.0,
+                y: 0.0,
+                w,
+                h,
+            }];
+        }
+        self.width = w;
+        self.height = h;
+    }
+}
+
+fn strip_width(s: &Section, d: &Dims, text: &Text) -> f32 {
+    let dot = 6.0 * d.scale;
+    dot + d.gap / 1.5
+        + text.width(s.content.title, d.small_px)
+        + d.gap / 1.5
+        + text.width(&s.content.value, d.font_px)
+        + d.gap
+}
+
+/// The first number in `value`, such as the download rate of a network
+/// pair; the whole text when it has none.
+fn first_number(value: &str) -> &str {
+    let Some(start) = value.find(|c: char| c.is_ascii_digit()) else {
+        return value;
+    };
+    let rest = &value[start..];
+    let end = rest
+        .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == ','))
+        .unwrap_or(rest.len());
+    &rest[..end]
+}
+
 /// Network shows two rates, which need a tile the whole width.
 fn wide_tile(kind: ItemKind) -> bool {
     kind == ItemKind::Network
@@ -838,6 +1087,19 @@ fn units(styles: &[WidgetStyle], wide: &[bool]) -> Vec<Vec<usize>> {
         }
     }
     out
+}
+
+fn balanced(heights: &[f32], between: f32, count: usize) -> f32 {
+    let total = heights.iter().sum::<f32>() + between * heights.len().saturating_sub(1) as f32;
+    let mut limit = heights
+        .iter()
+        .copied()
+        .fold(0.0, f32::max)
+        .max(total / count.max(1) as f32);
+    while columns(heights, between, limit).len() > count.max(1) {
+        limit += 1.0;
+    }
+    limit
 }
 
 /// Splits sections into columns, in order, starting a new one when the next
@@ -1186,6 +1448,74 @@ impl Ctx<'_> {
         Ok(())
     }
 
+    fn strip_cell(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
+        let (d, p, t) = (self.d, self.palette, self.text);
+        let c = s.content;
+        let middle = at.y + at.h / 2.0;
+        let dot = 6.0 * d.scale;
+        let mut x = at.x + (at.w - strip_width(s, d, t) + d.gap) / 2.0;
+        let mark = Rect {
+            x,
+            y: middle - dot / 2.0,
+            w: dot,
+            h: dot,
+        };
+        r.fill_rounded(mark, dot / 2.0, self.accent(s))?;
+        x += dot + d.gap / 1.5;
+        let small = t.format(d.small_px)?;
+        r.text_at(
+            t,
+            &small,
+            c.title,
+            x,
+            middle - d.small_h / 2.0,
+            p.popup_label,
+        )?;
+        x += t.width(c.title, d.small_px) + d.gap / 1.5;
+        let body = t.format(d.font_px)?;
+        let base = p.graph(c.kind, c.series[0]);
+        let loaded = p.graph_at(c.kind, c.series[0], s.latest);
+        let color = if loaded == base { p.popup_text } else { loaded };
+        let value = ellipsize(&c.value, at.right() - x, d.font_px, t);
+        r.text_at(t, &body, &value, x, middle - d.line_h / 2.0, color)
+    }
+
+    fn ring_cell(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
+        let (d, p, t) = (self.d, self.palette, self.text);
+        let c = s.content;
+        let size = at.w.min(at.h) * 0.8;
+        let stroke = (size * 0.1).max(2.0 * d.scale);
+        let center = (at.x + at.w / 2.0, at.y + at.h / 2.0);
+        let (histories, max) = self.series(s);
+        let (fraction, color) = histories
+            .first()
+            .map_or((0.0, self.accent(s)), |(part, h)| {
+                let latest = h.latest();
+                (
+                    meter_fraction(latest.unwrap_or(f64::NAN), max),
+                    p.graph_at(c.kind, *part, latest),
+                )
+            });
+        r.draw_ring(
+            center,
+            size / 2.0 - stroke / 2.0,
+            stroke,
+            fraction,
+            color,
+            p.popup_border,
+        )?;
+        let inside = size - 2.0 * stroke - 2.0 * d.scale;
+        let number = first_number(&c.value);
+        let px = [d.small_px, d.small_px * 0.8, d.small_px * 0.65]
+            .into_iter()
+            .find(|&px| t.width(number, px) <= inside)
+            .unwrap_or(d.small_px * 0.65);
+        let number = ellipsize(number, inside, px, t);
+        let x = center.0 - t.width(&number, px) / 2.0;
+        let y = center.1 - t.line_height(px) / 2.0;
+        r.text_at(t, &t.format(px)?, &number, x, y, p.popup_text)
+    }
+
     fn series<'s>(&'s self, s: &Section) -> (Vec<(CellPart, Cow<'s, History>)>, f64) {
         let c = s.content;
         let histories: Vec<(CellPart, Cow<History>)> = c
@@ -1221,11 +1551,29 @@ impl Ctx<'_> {
 }
 
 pub fn drag_cursor() {
+    set_cursor(IDC_SIZEALL);
+}
+
+pub fn resize_cursor(right: bool, bottom: bool) {
+    set_cursor(match (right, bottom) {
+        (true, true) => IDC_SIZENWSE,
+        (true, false) => IDC_SIZEWE,
+        _ => IDC_SIZENS,
+    });
+}
+
+fn set_cursor(id: windows::core::PCWSTR) {
     unsafe {
-        if let Ok(cursor) = LoadCursorW(None, IDC_SIZEALL) {
+        if let Ok(cursor) = LoadCursorW(None, id) {
             SetCursor(Some(cursor));
         }
     }
+}
+
+pub fn grip((x, y): (i32, i32), (w, h): (i32, i32), reach: i32) -> Option<(bool, bool)> {
+    let right = x >= w - reach && x < w;
+    let bottom = y >= h - reach && y < h;
+    (right || bottom).then_some((right, bottom))
 }
 
 fn is_topmost(hwnd: HWND) -> bool {
@@ -1415,13 +1763,15 @@ mod tests {
             material: WidgetMaterial::Glass,
             separate,
             transparency: true,
+            alpha: 255,
+            size: None,
         };
-        let d = Dims::new(&text, &look);
+        let d = Dims::new(&text, &look, look.column_w);
         let mut sections: Vec<Section> = contents
             .iter()
             .map(|(c, style)| Section::new(c, *style, &snapshot, &history))
             .collect();
-        let plan = Plan::new(&mut sections, &d, look.max_h, separate, &text);
+        let plan = Plan::new(&mut sections, &d, look.max_h, separate, None, &text);
         for placed in &plan.placed {
             let r = placed.rect;
             assert!(r.x >= 0.0 && r.right() <= plan.width, "{:?}", r);
@@ -1509,6 +1859,88 @@ mod tests {
     }
 
     #[test]
+    fn the_size_picks_the_layout() {
+        assert_eq!(arrangement(700.0, 60.0, 5), Arrangement::Strip);
+        assert_eq!(arrangement(240.0, 60.0, 5), Arrangement::Rings);
+        assert_eq!(
+            arrangement(940.0, 320.0, 5),
+            Arrangement::Dashboard { columns: 3 }
+        );
+        assert_eq!(
+            arrangement(2400.0, 320.0, 2),
+            Arrangement::Dashboard { columns: 2 },
+            "no more columns than items"
+        );
+        assert_eq!(arrangement(300.0, 300.0, 5), Arrangement::Tiles);
+        assert_eq!(arrangement(280.0, 600.0, 5), Arrangement::Lanes);
+    }
+
+    #[test]
+    fn a_row_keeps_what_fits_and_a_sized_widget_drops_what_does_not() {
+        use pulsar_core::config::Config;
+        let text = Text::new(None, false).unwrap();
+        let config = Config::default();
+        let (snapshot, history) = sample();
+        let kinds = [
+            ItemKind::Cpu,
+            ItemKind::Ram,
+            ItemKind::Gpu,
+            ItemKind::Disk,
+            ItemKind::Network,
+        ];
+        let contents: Vec<PopupContent> = kinds
+            .iter()
+            .map(|&kind| {
+                let options = crate::popup::content::Options::new(&config, kind, &snapshot.gpus);
+                crate::popup::content::build_with(kind, &snapshot, &history, &options)
+            })
+            .collect();
+        let look = Look {
+            column_w: 300.0,
+            max_h: 1000.0,
+            font_px: 12.0,
+            opacity: 1.0,
+            background: None,
+            reorder: None,
+            scale: 1.0,
+            network_floor: NetworkFloor::default(),
+            material: WidgetMaterial::Glass,
+            separate: true,
+            transparency: true,
+            alpha: 255,
+            size: None,
+        };
+        let d = Dims::new(&text, &look, look.column_w);
+        let mut sections: Vec<Section> = contents
+            .iter()
+            .map(|c| Section::new(c, WidgetStyle::Cards, &snapshot, &history))
+            .collect();
+        let rings = Plan::row(&sections, &d, 240.0, 60.0, true, &text);
+        assert!(!rings.placed.is_empty() && rings.placed.len() < kinds.len());
+        let strip = Plan::row(&sections, &d, 900.0, 60.0, false, &text);
+        assert_eq!(strip.placed.len(), kinds.len());
+        for plan in [&rings, &strip] {
+            for p in &plan.placed {
+                assert!(
+                    p.rect.x >= 0.0 && p.rect.right() <= plan.width,
+                    "{:?}",
+                    p.rect
+                );
+            }
+        }
+        let spread = Plan::new(&mut sections, &d, 1000.0, true, Some(3), &text);
+        let mut lefts: Vec<i32> = spread.placed.iter().map(|p| p.rect.x as i32).collect();
+        lefts.dedup();
+        assert_eq!(lefts.len(), 3, "balanced over three columns");
+        let mut cards = Plan::new(&mut sections, &d, f32::MAX, true, None, &text);
+        let tall = cards.height;
+        cards.fit(300.0, tall / 2.0, true);
+        assert!(!cards.placed.is_empty() && cards.placed.len() < kinds.len());
+        assert_eq!(cards.placed.len(), cards.panels.len());
+        assert!(cards.panels.iter().all(|p| p.y + p.h <= tall / 2.0 + 0.5));
+    }
+
+    #[test]
     fn a_card_splits_its_value_from_the_unit() {
         assert_eq!(split_unit("41%"), ("41", "%"));
         assert_eq!(split_unit("2.7 MB/s"), ("2.7", "MB/s"));
@@ -1516,6 +1948,9 @@ mod tests {
         assert_eq!(split_unit("58 °C"), ("58", "°C"));
         assert_eq!(split_unit("↓ 2 KB/s ↑ 1 KB/s"), ("↓ 2 KB/s ↑ 1 KB/s", ""));
         assert_eq!(split_unit("Offline"), ("Offline", ""));
+        assert_eq!(first_number("↓ 9.4 KB/s  ↑ 1 KB/s"), "9.4");
+        assert_eq!(first_number("1,234 MHz"), "1,234");
+        assert_eq!(first_number("—"), "—");
     }
 
     #[test]
