@@ -14,6 +14,8 @@ export struct ItemRow {
     enabled: bool,
     color: string,
     swatch: color,
+    up-color: string,
+    up-swatch: color,
     // Indexes into the styles, color-modes and item-popup-details lists.
     style: int,
     style-set: int,
@@ -1250,6 +1252,7 @@ export component SettingsWindow inherits Window {
     in-out property <float> widget-opacity;
     in-out property <float> widget-glass-tint;
     in-out property <bool> widget-border;
+    in-out property <bool> widget-network-inline;
     in-out property <bool> widget-focus-cycle;
     in-out property <int> widget-focus-interval;
     in-out property <int> widget-focus-transition;
@@ -1306,6 +1309,7 @@ export component SettingsWindow inherits Window {
     callback changed();
     callback item-enabled(int, bool);
     callback item-color(int, string);
+    callback item-up-color(int, string);
     // Row, field (0 style, 1 color mode, 2 popup) and the chosen index.
     callback item-choice(int, int, int);
     callback limit-label(string) -> string;
@@ -1487,9 +1491,17 @@ export component SettingsWindow inherits Window {
                                 text: row.color;
                                 swatch: row.swatch;
                                 fallback: row.swatch;
-                                placeholder: @tr("Default");
-                                field-width: 120px;
+                                placeholder: row.id == "item/Network" ? @tr("Download") : @tr("Default");
+                                field-width: row.id == "item/Network" ? 90px : 120px;
                                 edited(text) => { root.item-color(i, text); }
+                            }
+                            if row.id == "item/Network": ColorField {
+                                text: row.up-color;
+                                swatch: row.up-swatch;
+                                fallback: row.up-swatch;
+                                placeholder: @tr("Upload");
+                                field-width: 90px;
+                                edited(text) => { root.item-up-color(i, text); }
                             }
                             DragHandle {
                                 started(y) => {
@@ -2710,6 +2722,15 @@ export component SettingsWindow inherits Window {
                         description: @tr("A thin line around each panel.");
                         Switch {
                             checked <=> root.widget-border;
+                            toggled => { root.changed(); }
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("Network rates on one line");
+                        description: @tr("Download and upload side by side, instead of one above the other.");
+                        Switch {
+                            checked <=> root.widget-network-inline;
                             toggled => { root.changed(); }
                         }
                     }

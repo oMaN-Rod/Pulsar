@@ -318,6 +318,7 @@ pub struct WidgetConfig {
     /// 0–100: how strongly the background color tints the Glass material.
     pub glass_tint: u8,
     pub border: bool,
+    pub network_inline: bool,
     pub focus_cycle: bool,
     pub focus_interval_s: u16,
     pub focus_transition: FocusTransition,
@@ -360,6 +361,7 @@ impl Default for WidgetConfig {
             row_radius: None,
             glass_tint: 0,
             border: false,
+            network_inline: false,
             focus_cycle: false,
             focus_interval_s: 8,
             focus_transition: FocusTransition::default(),
@@ -761,6 +763,9 @@ pub struct ItemConfig {
     /// `#RRGGBB`; `None` uses the theme default.
     #[serde(default)]
     pub color: Option<String>,
+    /// Network only: the upload color, as `color` is the download one.
+    #[serde(default)]
+    pub up_color: Option<String>,
     /// Graph mode: draw the history graph behind the text; off shows text only.
     #[serde(default = "enabled_default")]
     pub graph: bool,
@@ -809,6 +814,7 @@ impl ItemConfig {
             kind,
             enabled,
             color: None,
+            up_color: None,
             graph: true,
             style: GraphStyle::Area,
             trend: false,
@@ -1191,6 +1197,11 @@ impl Config {
         for item in &mut self.items {
             if item.color.as_deref().is_some_and(|c| !is_hex_color(c)) {
                 item.color = None;
+            }
+            if item.kind != ItemKind::Network
+                || item.up_color.as_deref().is_some_and(|c| !is_hex_color(c))
+            {
+                item.up_color = None;
             }
             item.popup_width = item.popup_width.map(width);
             item.popup_graph_height = item.popup_graph_height.map(graph);
@@ -1890,6 +1901,20 @@ sample_interval_ms = 1
     }
 
     #[test]
+    fn sanitize_keeps_a_valid_upload_color() {
+        let mut c = Config::default();
+        c.item_mut(ItemKind::Network).unwrap().up_color = Some("#0000FF".into());
+        let c = c.sanitize();
+        assert_eq!(
+            c.item(ItemKind::Network).unwrap().up_color.as_deref(),
+            Some("#0000FF")
+        );
+        let mut c = Config::default();
+        c.item_mut(ItemKind::Network).unwrap().up_color = Some("blue".into());
+        assert_eq!(c.sanitize().item(ItemKind::Network).unwrap().up_color, None);
+    }
+
+    #[test]
     fn sanitize_repairs_items_keeping_order() {
         let c = Config {
             items: vec![
@@ -1900,6 +1925,7 @@ sample_interval_ms = 1
                 ItemConfig::new(ItemKind::Gpu, false),
                 ItemConfig {
                     color: Some("red".into()),
+                    up_color: Some("#0000FF".into()),
                     ..ItemConfig::new(ItemKind::Cpu, true)
                 },
             ],
@@ -1912,6 +1938,7 @@ sample_interval_ms = 1
         assert!(c.items[0].enabled, "first duplicate wins");
         assert_eq!(c.items[0].color.as_deref(), Some("#00FF00"));
         assert_eq!(c.items[1].color, None, "invalid color dropped");
+        assert_eq!(c.items[1].up_color, None, "upload color is network only");
         assert!(!c.items[2].enabled, "items added by repair start disabled");
     }
 

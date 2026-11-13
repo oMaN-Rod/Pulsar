@@ -42,6 +42,23 @@ pub struct PopupContent {
     pub graph: bool,
     pub error: Option<String>,
     pub blocks: Vec<Block>,
+    /// Network: each direction shown, in order.
+    pub readings: Vec<Reading>,
+    /// Draw `readings` one above the other instead of `value`.
+    pub stacked: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Reading {
+    pub part: CellPart,
+    pub name: String,
+    pub value: String,
+}
+
+impl Reading {
+    pub fn text(&self) -> String {
+        format!("{} {}", self.name, self.value)
+    }
 }
 
 /// What the settings ask the popups to show.
@@ -64,6 +81,10 @@ pub struct Options<'a> {
     pub adapters: &'a [String],
     /// Applies to the headline; the adapter rows keep the real rates.
     pub network_floor: NetworkFloor,
+    pub network_stacked: bool,
+    /// In place of the arrows; `None` keeps them.
+    pub down_name: Option<&'a str>,
+    pub up_name: Option<&'a str>,
 }
 
 impl<'a> Options<'a> {
@@ -83,6 +104,9 @@ impl<'a> Options<'a> {
                 _ => &config.network.adapters,
             },
             network_floor: NetworkFloor::new(&config.network),
+            network_stacked: false,
+            down_name: None,
+            up_name: None,
         }
     }
 }
@@ -676,6 +700,9 @@ pub fn build(
         gpus: &snapshot.gpus,
         adapters: &[],
         network_floor: NetworkFloor::default(),
+        network_stacked: false,
+        down_name: None,
+        up_name: None,
     };
     build_with(kind, snapshot, history, &options)
 }
@@ -688,6 +715,7 @@ pub fn build_with(
 ) -> PopupContent {
     let (ping_host, drives, count) = (options.ping_host, &options.drives[..], options.processes);
     let error = snapshot.item_error(kind).cloned();
+    let mut readings = Vec::new();
     let (title, value, series, mut blocks) = match kind {
         ItemKind::Cpu => (
             tr!("CPU"),
@@ -769,8 +797,10 @@ pub fn build_with(
                 NetworkShow::Download => vec![CellPart::Down],
                 NetworkShow::Upload => vec![CellPart::Up],
             };
+            let down_name = options.down_name.unwrap_or("↓");
+            let up_name = options.up_name.unwrap_or("↑");
             let rates = |down: String, up: String| {
-                let (down, up) = (format!("↓ {down}"), format!("↑ {up}"));
+                let (down, up) = (format!("{down_name} {down}"), format!("{up_name} {up}"));
                 match options.network_show {
                     NetworkShow::Both if options.upload_on_top => format!("{up}  {down}"),
                     NetworkShow::Both => format!("{down}  {up}"),
@@ -806,12 +836,23 @@ pub fn build_with(
                     })
                     .collect()
             };
+            let rate = |part| floored_cell_value(kind, part, snapshot, options.network_floor);
+            readings = series
+                .iter()
+                .map(|&part| Reading {
+                    part,
+                    name: if part == CellPart::Up {
+                        up_name
+                    } else {
+                        down_name
+                    }
+                    .into(),
+                    value: rate(part),
+                })
+                .collect();
             (
                 tr!("Network"),
-                rates(
-                    floored_cell_value(kind, CellPart::Down, snapshot, options.network_floor),
-                    floored_cell_value(kind, CellPart::Up, snapshot, options.network_floor),
-                ),
+                rates(rate(CellPart::Down), rate(CellPart::Up)),
                 series,
                 vec![
                     Block::Rows {
@@ -1076,6 +1117,8 @@ pub fn build_with(
         graph: options.graph,
         error,
         blocks,
+        stacked: options.network_stacked && readings.len() > 1,
+        readings,
     }
 }
 
@@ -1119,6 +1162,9 @@ mod tests {
             gpus: &NO_GPUS,
             adapters: &[],
             network_floor: NetworkFloor::default(),
+            network_stacked: false,
+            down_name: None,
+            up_name: None,
         }
     }
 
@@ -1726,6 +1772,27 @@ mod tests {
         let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
         assert_eq!(c.value, "↑ 0.5 KB/s  ↓ 2.0 KB/s");
         assert_eq!(c.series, [CellPart::Up, CellPart::Down]);
+    }
+
+    #[test]
+    fn stacked_rates_follow_the_order_and_direction_names() {
+        let mut s = Snapshot::default();
+        s.set(MetricKey::NetDownBps, 2048.0);
+        s.set(MetricKey::NetUpBps, 512.0);
+        let mut o = options(PopupDetail::Standard, 5);
+        o.upload_on_top = true;
+        o.down_name = Some("In");
+        let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
+        assert!(!c.stacked, "inline unless asked");
+        assert_eq!(c.value, "↑ 0.5 KB/s  In 2.0 KB/s");
+        o.network_stacked = true;
+        let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
+        assert!(c.stacked);
+        let lines: Vec<String> = c.readings.iter().map(Reading::text).collect();
+        assert_eq!(lines, ["↑ 0.5 KB/s", "In 2.0 KB/s"]);
+        o.network_show = NetworkShow::Download;
+        let c = build_with(ItemKind::Network, &s, &HistoryStore::new(60), &o);
+        assert!(!c.stacked, "one direction needs one line");
     }
 
     #[test]

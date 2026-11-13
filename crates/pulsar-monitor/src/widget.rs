@@ -294,7 +294,7 @@ impl Widget {
                             None => ctx.focus(r, s, placed.rect)?,
                         }
                     }
-                    None => ctx.section(r, s, placed.rect, placed.value_w)?,
+                    None => ctx.section(r, s, placed)?,
                 }
                 if placed.divider {
                     let line = Rect {
@@ -676,7 +676,7 @@ fn natural_size(
             let cells: f32 = contents
                 .iter()
                 .map(|(c, style)| {
-                    strip_width(&Section::new(c, *style, snapshot, history), &d, text)
+                    strip_width(&Section::new(c, *style, snapshot, history), &d, text, h)
                 })
                 .sum();
             let end = row_radius(look.row_radius, h).max(d.pad);
@@ -746,6 +746,8 @@ pub fn arrangement(w: f32, h: f32, items: usize) -> Arrangement {
     }
 }
 const MAX_DIAL_DIP: f32 = 76.0;
+/// The size of stacked network rates against a single large value.
+const STACK_SCALE: f32 = 0.7;
 
 struct Dims {
     scale: f32,
@@ -767,6 +769,7 @@ struct Dims {
     column_w: f32,
     wall_h: f32,
     dial: f32,
+    stack_h: f32,
 }
 
 impl Dims {
@@ -795,6 +798,7 @@ impl Dims {
             column_w,
             wall_h: 64.0 * s,
             dial: dial_cell.min(MAX_DIAL_DIP * s).max(1.0),
+            stack_h: text.line_height(big_px * STACK_SCALE),
         }
     }
 
@@ -804,6 +808,11 @@ impl Dims {
 
     fn dial_h(&self) -> f32 {
         self.dial + self.gap / 2.0 + self.small_h
+    }
+
+    fn dial_text_top(&self, lines: usize) -> f32 {
+        let below = (lines.max(1) - 1) as f32 * self.line_h / 2.0;
+        (self.dial / 2.0 - self.small_h - below).max(0.0)
     }
 }
 
@@ -903,14 +912,49 @@ impl<'a> Section<'a> {
         cached_topology().performance_threads(self.wall.len())
     }
 
+    fn value_lines(&self) -> usize {
+        if self.content.stacked {
+            self.content.readings.len()
+        } else {
+            1
+        }
+    }
+
+    fn value_w(&self, text: &dyn TextMeasure, px: f32) -> f32 {
+        if self.content.stacked {
+            self.content
+                .readings
+                .iter()
+                .map(|r| text.width(&r.text(), px))
+                .fold(0.0, f32::max)
+        } else {
+            text.width(&self.content.value, px)
+        }
+    }
+
     /// Height in the line styles.
     fn height(&self, d: &Dims) -> f32 {
-        let head = if self.style == WidgetStyle::Cards {
-            d.line_h + d.gap / 2.0 + d.big_h
-        } else {
-            d.line_h
+        let lines = self.value_lines() as f32;
+        let head = match self.style {
+            WidgetStyle::Cards if self.content.stacked => {
+                d.line_h + d.gap / 2.0 + lines * d.stack_h
+            }
+            WidgetStyle::Cards => d.line_h + d.gap / 2.0 + d.big_h,
+            _ => lines * d.line_h,
         };
         head + self.details_height(d)
+    }
+
+    fn cell_height(&self, d: &Dims) -> f32 {
+        let lines = self.value_lines();
+        match self.style {
+            WidgetStyle::Tiles => d.tile_h() + (lines - 1) as f32 * d.line_h,
+            WidgetStyle::Dials if wide_tile(self.content.kind) => d
+                .dial_h()
+                .max(d.dial_text_top(lines) + d.small_h + lines as f32 * d.line_h),
+            WidgetStyle::Dials => d.dial_h(),
+            _ => self.height(d),
+        }
     }
 
     /// Height of what `Ctx::details` draws, and the core wall above it.
@@ -964,8 +1008,9 @@ fn pair_rows(wide: &[bool]) -> Vec<(usize, Option<usize>)> {
 struct Placed {
     index: usize,
     rect: Rect,
-    /// Room kept for values on the right of the section's column, so
-    /// graphs line up.
+    /// Room kept for names on the left and values on the right of the
+    /// section's column, so graphs line up.
+    title_w: f32,
     value_w: f32,
     divider: bool,
 }
@@ -996,11 +1041,7 @@ impl Plan {
         let units = units(&styles, &wide);
         let heights: Vec<f32> = units
             .iter()
-            .map(|u| match styles[u[0]] {
-                WidgetStyle::Tiles => d.tile_h(),
-                WidgetStyle::Dials => d.dial_h(),
-                _ => sections[u[0]].height(d),
-            })
+            .map(|u| sections[u[0]].cell_height(d))
             .collect();
         let (between, cell_gap, column_gap) = if separate {
             let apart = d.panel_gap + 2.0 * d.pad;
@@ -1015,13 +1056,21 @@ impl Plan {
         let mut tallest: f32 = 0.0;
         for (c, column) in columns.iter().enumerate() {
             let x = d.pad + c as f32 * (d.column_w + column_gap);
-            let value_w = column
-                .iter()
-                .flat_map(|&u| &units[u])
-                .filter(|&&i| per_row(styles[i]) == 1)
-                .map(|&i| text.width(&sections[i].content.value, d.font_px))
+            let lines = || {
+                column
+                    .iter()
+                    .flat_map(|&u| &units[u])
+                    .filter(|&&i| per_row(styles[i]) == 1)
+                    .map(|&i| &sections[i])
+            };
+            let value_w = lines()
+                .map(|s| s.value_w(text, d.font_px))
                 .fold(0.0, f32::max)
                 .min(inner * 0.3);
+            let title_w = lines()
+                .map(|s| text.width(s.content.title, d.font_px))
+                .fold(0.0, f32::max)
+                .min(inner * 0.35);
             let mut y = d.pad;
             for (n, &u) in column.iter().enumerate() {
                 let h = heights[u];
@@ -1045,6 +1094,7 @@ impl Plan {
                     placed.push(Placed {
                         index,
                         rect,
+                        title_w,
                         value_w,
                         divider: !separate && is_line && next_is_line,
                     });
@@ -1137,7 +1187,7 @@ impl Plan {
             let cell = if rings {
                 h * 0.85
             } else {
-                strip_width(s, d, text)
+                strip_width(s, d, text, h)
             };
             if used + cell > room {
                 break;
@@ -1161,6 +1211,7 @@ impl Plan {
                 Placed {
                     index,
                     rect,
+                    title_w: 0.0,
                     value_w: 0.0,
                     divider: false,
                 }
@@ -1210,6 +1261,7 @@ impl Plan {
                 .map(|_| Placed {
                     index,
                     rect,
+                    title_w: 0.0,
                     value_w: 0.0,
                     divider: false,
                 })
@@ -1241,13 +1293,18 @@ impl Plan {
     }
 }
 
-fn strip_width(s: &Section, d: &Dims, text: &Text) -> f32 {
+fn strip_stacked(s: &Section, d: &Dims, h: f32) -> bool {
+    s.content.stacked && h >= s.value_lines() as f32 * d.small_h
+}
+
+fn strip_width(s: &Section, d: &Dims, text: &Text, h: f32) -> f32 {
     let dot = 6.0 * d.scale;
-    dot + d.gap / 1.5
-        + text.width(s.content.title, d.small_px)
-        + d.gap / 1.5
-        + text.width(&s.content.value, d.font_px)
-        + d.gap
+    let value_w = if strip_stacked(s, d, h) {
+        s.value_w(text, d.small_px)
+    } else {
+        text.width(&s.content.value, d.font_px)
+    };
+    dot + d.gap / 1.5 + text.width(s.content.title, d.small_px) + d.gap / 1.5 + value_w + d.gap
 }
 
 /// The first number in `value`, such as the download rate of a network
@@ -1346,24 +1403,26 @@ struct Ctx<'a> {
 }
 
 impl Ctx<'_> {
-    fn section(&self, r: &Renderer, s: &Section, at: Rect, value_w: f32) -> Result<()> {
+    fn section(&self, r: &Renderer, s: &Section, placed: &Placed) -> Result<()> {
+        let at = placed.rect;
         match s.style {
             WidgetStyle::Tiles => self.tile(r, s, at),
             WidgetStyle::Dials => self.dial(r, s, at),
             WidgetStyle::Cards => self.card(r, s, at),
-            _ => self.lines(r, s, at, value_w),
+            _ => self.lines(r, s, at, placed.title_w, placed.value_w),
         }
     }
 
     fn card(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
         let d = self.d;
-        let (baseline, x) = self.card_top(r, s, at, at.w * 0.55, d.big_px)?;
+        let (baseline, x) = self.card_top(r, s, at, at.w * 0.55, f32::MAX, d.big_px)?;
         let y = at.y + d.line_h + d.gap / 2.0;
+        let block = baseline - y;
         let graph = Rect {
             x: x + 1.5 * d.gap,
-            y: y + d.big_h * 0.1,
+            y: y + block * 0.1,
             w: at.right() - (x + 1.5 * d.gap),
-            h: d.big_h * 0.85,
+            h: block * 0.85,
         };
         if s.content.graph && graph.w >= 24.0 * d.scale {
             self.graph(r, s, graph, 1.4)?;
@@ -1373,11 +1432,13 @@ impl Ctx<'_> {
 
     fn focus(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
         let (d, p) = (self.d, self.palette);
-        let (baseline, _) = self.card_top(r, s, at, at.w, d.big_px * FOCUS_VALUE_SCALE)?;
         let details = at.y + at.h - s.details_height(d);
         let range = self.range(s);
         let range_y = details - d.small_h;
         let bottom = if range.is_some() { range_y } else { details };
+        let room_h = bottom - d.gap - (at.y + d.line_h + d.gap / 2.0);
+        let big_px = d.big_px * FOCUS_VALUE_SCALE;
+        let (baseline, _) = self.card_top(r, s, at, at.w, room_h, big_px)?;
         let graph = Rect {
             x: at.x,
             y: baseline + d.gap,
@@ -1436,6 +1497,7 @@ impl Ctx<'_> {
         s: &Section,
         at: Rect,
         room: f32,
+        room_h: f32,
         big_px: f32,
     ) -> Result<(f32, f32)> {
         let (d, p, t) = (self.d, self.palette, self.text);
@@ -1460,6 +1522,15 @@ impl Ctx<'_> {
         }
 
         let y = at.y + d.line_h + d.gap / 2.0;
+        if c.stacked {
+            let room = Rect {
+                x: at.x,
+                y,
+                w: room,
+                h: room_h,
+            };
+            return self.stacked_values(r, s, room, big_px * STACK_SCALE);
+        }
         let (number, unit) = split_unit(&c.value);
         let unit_w = t.width(unit, d.font_px);
         let big_h = t.line_height(big_px);
@@ -1488,60 +1559,191 @@ impl Ctx<'_> {
         Ok((baseline, x))
     }
 
+    /// Returns the last baseline and the right end.
+    fn stacked_values(
+        &self,
+        r: &Renderer,
+        s: &Section,
+        room: Rect,
+        big_px: f32,
+    ) -> Result<(f32, f32)> {
+        let (d, p, t) = (self.d, self.palette, self.text);
+        let c = s.content;
+        let body = t.format(d.font_px)?;
+        let x = room.x;
+        let name_w = c
+            .readings
+            .iter()
+            .map(|rd| t.width(&rd.name, d.font_px))
+            .fold(0.0, f32::max)
+            .min(room.w * 0.4);
+        let rate_x = x + name_w + d.gap / 2.0;
+        let rate_w = room.right() - 2.0 * d.scale - rate_x;
+        let lines = c.readings.len() as f32;
+        let smallest = (d.font_px * 1.25).min(big_px);
+        let widest = |px| {
+            c.readings
+                .iter()
+                .map(|rd| {
+                    let (number, unit) = split_unit(&rd.value);
+                    t.width(number, px) + t.width(unit, d.font_px) + 2.0 * d.scale
+                })
+                .fold(0.0, f32::max)
+        };
+        let px = [1.0, 0.85, 0.7, 0.58]
+            .into_iter()
+            .map(|f| (big_px * f).max(smallest))
+            .chain([d.font_px.min(smallest)])
+            .find(|&px| widest(px) <= rate_w && lines * t.line_height(px) <= room.h)
+            .unwrap_or(d.font_px.min(smallest));
+        let font = t.format(px)?;
+        let line_h = t.line_height(px);
+        let (mut baseline, mut right) = (room.y, x);
+        for rd in &c.readings {
+            if baseline + line_h > room.y + room.h {
+                break;
+            }
+            baseline += line_h;
+            let small_y = baseline - d.line_h - line_h * 0.06;
+            let name = ellipsize(&rd.name, name_w, d.font_px, t);
+            r.text_at(t, &body, &name, x, small_y, p.graph(c.kind, rd.part))?;
+            let (number, unit) = split_unit(&rd.value);
+            let unit_w = t.width(unit, d.font_px) + 2.0 * d.scale;
+            let unit = if unit_w < rate_w / 2.0 { unit } else { "" };
+            let number_w = if unit.is_empty() {
+                rate_w
+            } else {
+                rate_w - unit_w
+            };
+            let number = ellipsize(number, number_w, px, t);
+            let mut end = rate_x;
+            r.text_at(
+                t,
+                &font,
+                &number,
+                end,
+                baseline - t.line_height(px),
+                p.popup_text,
+            )?;
+            end += t.width(&number, px);
+            if !unit.is_empty() {
+                end += 2.0 * d.scale;
+                r.text_at(t, &body, unit, end, small_y, p.popup_label)?;
+                end += unit_w - 2.0 * d.scale;
+            }
+            right = right.max(end);
+        }
+        Ok((baseline, right))
+    }
+
     fn accent(&self, s: &Section) -> Color {
         self.palette.graph(s.content.kind, s.content.series[0])
     }
 
-    /// `column_value_w` is the room the column keeps for values, so graphs
-    /// end in line.
-    fn lines(&self, r: &Renderer, s: &Section, at: Rect, column_value_w: f32) -> Result<()> {
+    fn value_rows(&self, s: &Section, color: Color) -> Vec<(String, Color)> {
+        let c = s.content;
+        if c.stacked {
+            c.readings
+                .iter()
+                .map(|rd| (rd.text(), self.palette.graph(c.kind, rd.part)))
+                .collect()
+        } else {
+            vec![(c.value.clone(), color)]
+        }
+    }
+
+    fn fractions(&self, s: &Section) -> Vec<(f32, Color)> {
+        let (histories, max) = self.series(s);
+        histories
+            .iter()
+            .map(|(part, history)| {
+                let latest = history.latest();
+                (
+                    meter_fraction(latest.unwrap_or(f64::NAN), max),
+                    self.palette.graph_at(s.content.kind, *part, latest),
+                )
+            })
+            .collect()
+    }
+
+    fn meters(&self, s: &Section) -> Vec<(f32, Color)> {
+        match s.meter {
+            Some(fraction) => vec![(fraction, self.accent(s))],
+            None if s.content.kind == ItemKind::Network => self.fractions(s),
+            None => Vec::new(),
+        }
+    }
+
+    /// `column_title_w` and `column_value_w` are the room the column keeps
+    /// for names and values, so graphs start and end in line.
+    fn lines(
+        &self,
+        r: &Renderer,
+        s: &Section,
+        at: Rect,
+        column_title_w: f32,
+        column_value_w: f32,
+    ) -> Result<()> {
         let (d, p, t) = (self.d, self.palette, self.text);
         let c = s.content;
         let body = t.format(d.font_px)?;
         let small = t.format(d.small_px)?;
-        let accent = self.accent(s);
-        let value = ellipsize(&c.value, at.w * 0.7, d.font_px, t);
-        let value_w = t.width(&value, d.font_px);
-        let value_x = at.x + at.w - value_w;
-        r.text_at(t, &body, &value, value_x, at.y, accent)?;
-        // The name comes first; the graph takes what is left, ending in line
-        // with the column's other graphs.
-        let graph_end = value_x.min(at.x + at.w - column_value_w) - d.gap;
-        let title_w = t.width(c.title, d.font_px);
-        let graph_w = (at.w * 0.32).min(graph_end - (at.x + title_w + d.gap));
+        let values = self.value_rows(s, self.accent(s));
+        let lines = values.len() as f32;
+        let mut value_x = at.right();
+        for (i, (value, color)) in values.iter().enumerate() {
+            let value = ellipsize(value, at.w * 0.7, d.font_px, t);
+            let x = at.right() - t.width(&value, d.font_px);
+            r.text_at(t, &body, &value, x, at.y + i as f32 * d.line_h, *color)?;
+            value_x = value_x.min(x);
+        }
+        let graph_x = at.x + column_title_w + d.gap;
+        let graph_end = value_x.min(at.right() - column_value_w) - d.gap;
         let middle = Rect {
-            x: graph_end - graph_w,
+            x: graph_x,
             y: at.y + d.line_h * 0.15,
-            w: graph_w,
-            h: d.line_h * 0.7,
+            w: graph_end - graph_x,
+            h: d.line_h * (lines - 0.3),
+        };
+        let bars = if s.style == WidgetStyle::Meters {
+            self.meters(s)
+        } else {
+            Vec::new()
         };
         let has_graph = s.style != WidgetStyle::CoreWall
             && middle.w >= 24.0 * d.scale
-            && (s.style != WidgetStyle::Meters || s.meter.is_some());
+            && (s.style != WidgetStyle::Meters || !bars.is_empty());
         let title_end = if has_graph { middle.x } else { value_x } - d.gap;
         let title = ellipsize(c.title, title_end - at.x, d.font_px, t);
         r.text_at(t, &body, &title, at.x, at.y, p.popup_text)?;
-        if has_graph {
-            match s.style {
-                WidgetStyle::Meters => {
-                    if let Some(fraction) = s.meter {
-                        let track = Rect {
-                            y: middle.y + middle.h * 0.25,
-                            h: middle.h * 0.5,
-                            ..middle
-                        };
-                        r.fill_rounded(track, track.h / 2.0, p.popup_border)?;
-                        let fill = Rect {
-                            w: track.w * fraction,
-                            ..track
-                        };
-                        r.fill_rounded(fill, track.h / 2.0, accent)?;
-                    }
-                }
-                _ => self.graph(r, s, middle, 1.2)?,
+        if has_graph && s.style == WidgetStyle::Meters {
+            // A bar beside each line of the value, or thinner bars sharing it.
+            let count = bars.len() as f32;
+            let (track_h, pitch) = if count <= lines {
+                (d.line_h * 0.35, d.line_h)
+            } else {
+                let h = d.line_h * 0.35 * lines / count;
+                (h, h * 1.6)
+            };
+            let top = at.y + (lines * d.line_h - pitch * (count - 1.0) - track_h) / 2.0;
+            for (i, (fraction, color)) in bars.iter().enumerate() {
+                let track = Rect {
+                    x: middle.x,
+                    y: top + i as f32 * pitch,
+                    w: middle.w,
+                    h: track_h,
+                };
+                r.fill_rounded(track, track_h / 2.0, p.popup_border)?;
+                let fill = Rect {
+                    w: track.w * fraction,
+                    ..track
+                };
+                r.fill_rounded(fill, track_h / 2.0, *color)?;
             }
+        } else if has_graph {
+            self.graph(r, s, middle, 1.2)?;
         }
-        let mut y = at.y + d.line_h;
+        let mut y = at.y + lines * d.line_h;
         if s.style == WidgetStyle::CoreWall {
             y += d.gap / 2.0;
             let wall = Rect {
@@ -1664,12 +1866,16 @@ impl Ctx<'_> {
         let inner_w = at.w - 2.0 * d.tile_pad;
         let title = ellipsize(c.title, inner_w, d.small_px, t);
         r.text_at(t, &small, &title, inner_x, at.y + d.tile_pad, p.popup_label)?;
-        let value = ellipsize(&c.value, inner_w, d.font_px, t);
         let value_y = at.y + d.tile_pad + d.small_h;
-        r.text_at(t, &body, &value, inner_x, value_y, self.accent(s))?;
+        let values = self.value_rows(s, self.accent(s));
+        for (i, (value, color)) in values.iter().enumerate() {
+            let value = ellipsize(value, inner_w, d.font_px, t);
+            let y = value_y + i as f32 * d.line_h;
+            r.text_at(t, &body, &value, inner_x, y, *color)?;
+        }
         let graph = Rect {
             x: inner_x,
-            y: value_y + d.line_h,
+            y: value_y + values.len() as f32 * d.line_h,
             w: inner_w,
             h: d.tile_graph_h,
         };
@@ -1689,23 +1895,12 @@ impl Ctx<'_> {
             at.x + at.w / 2.0
         };
         let center = (center_x, at.y + d.dial / 2.0);
-        let (histories, max) = self.series(s);
-        let stroke = d.dial * if histories.len() > 1 { 0.09 } else { 0.11 };
+        let mut readings = self.fractions(s);
+        let stroke = d.dial * if readings.len() > 1 { 0.09 } else { 0.11 };
         let mut radius = d.dial / 2.0 - stroke / 2.0;
-        let readings: Vec<(f32, Color)> = if histories.is_empty() {
-            vec![(0.0, self.accent(s))]
-        } else {
-            histories
-                .iter()
-                .map(|(part, history)| {
-                    let latest = history.latest();
-                    (
-                        meter_fraction(latest.unwrap_or(f64::NAN), max),
-                        p.graph_at(c.kind, *part, latest),
-                    )
-                })
-                .collect()
-        };
+        if readings.is_empty() {
+            readings.push((0.0, self.accent(s)));
+        }
         for (fraction, color) in readings {
             r.draw_ring(center, radius, stroke, fraction, color, p.popup_border)?;
             radius -= stroke + d.scale;
@@ -1714,12 +1909,16 @@ impl Ctx<'_> {
         if wide {
             let x = at.x + d.dial + d.gap;
             let room = at.right() - x;
-            let middle = at.y + d.dial / 2.0;
+            let values = self.value_rows(s, p.popup_text);
+            let top = at.y + d.dial_text_top(values.len());
             let title = ellipsize(c.title, room, d.small_px, t);
-            r.text_at(t, &small, &title, x, middle - d.small_h, p.popup_label)?;
-            let value = ellipsize(&c.value, room, d.font_px, t);
+            r.text_at(t, &small, &title, x, top, p.popup_label)?;
             let body = t.format(d.font_px)?;
-            r.text_at(t, &body, &value, x, middle, p.popup_text)?;
+            for (i, (value, color)) in values.iter().enumerate() {
+                let value = ellipsize(value, room, d.font_px, t);
+                let y = top + d.small_h + i as f32 * d.line_h;
+                r.text_at(t, &body, &value, x, y, *color)?;
+            }
         } else {
             let inside = (d.dial - 2.0 * stroke - 4.0 * d.scale).max(1.0);
             let px = [d.font_px, d.small_px, d.small_px * 0.8]
@@ -1743,7 +1942,7 @@ impl Ctx<'_> {
         let c = s.content;
         let middle = at.y + at.h / 2.0;
         let dot = 6.0 * d.scale;
-        let mut x = at.x + (at.w - strip_width(s, d, t) + d.gap) / 2.0;
+        let mut x = at.x + (at.w - strip_width(s, d, t, at.h) + d.gap) / 2.0;
         let mark = Rect {
             x,
             y: middle - dot / 2.0,
@@ -1766,6 +1965,15 @@ impl Ctx<'_> {
         let base = p.graph(c.kind, c.series[0]);
         let loaded = p.graph_at(c.kind, c.series[0], s.latest);
         let color = if loaded == base { p.popup_text } else { loaded };
+        if strip_stacked(s, d, at.h) {
+            let top = middle - s.value_lines() as f32 * d.small_h / 2.0;
+            for (i, rd) in c.readings.iter().enumerate() {
+                let value = ellipsize(&rd.text(), at.right() - x, d.small_px, t);
+                let y = top + i as f32 * d.small_h;
+                r.text_at(t, &small, &value, x, y, color)?;
+            }
+            return Ok(());
+        }
         let value = ellipsize(&c.value, at.right() - x, d.font_px, t);
         r.text_at(t, &body, &value, x, middle - d.line_h / 2.0, color)
     }
@@ -1795,7 +2003,10 @@ impl Ctx<'_> {
             p.popup_border,
         )?;
         let inside = size - 2.0 * stroke - 2.0 * d.scale;
-        let number = first_number(&c.value);
+        let number = c
+            .readings
+            .first()
+            .map_or(first_number(&c.value), |rd| first_number(&rd.value));
         let px = [d.small_px, d.small_px * 0.8, d.small_px * 0.65]
             .into_iter()
             .find(|&px| t.width(number, px) <= inside)
@@ -2139,7 +2350,7 @@ mod tests {
         renderer
             .paint(&surface, Color::rgb(28, 28, 28), |r| {
                 for placed in &plan.placed {
-                    ctx.section(r, &sections[placed.index], placed.rect, placed.value_w)?;
+                    ctx.section(r, &sections[placed.index], placed)?;
                 }
                 Ok(())
             })
@@ -2445,6 +2656,151 @@ mod tests {
             bottom - at.y > 260.0 / 2.0,
             "the graph takes most of the height"
         );
+    }
+
+    #[test]
+    fn network_meters_stack_a_bar_per_direction_across_the_row() {
+        use pulsar_core::config::Config;
+        let text = Text::new(None, false).unwrap();
+        let mut config = Config::default();
+        config.network.down_label = Some("In".into());
+        let (snapshot, history) = sample();
+        let mut options =
+            crate::popup::content::Options::new(&config, ItemKind::Network, &snapshot.gpus);
+        options.network_stacked = true;
+        options.down_name = config.network.down_label.as_deref();
+        let content =
+            crate::popup::content::build_with(ItemKind::Network, &snapshot, &history, &options);
+        assert!(content.stacked);
+        assert!(content.readings[0].text().starts_with("In "));
+        assert!(content.readings[1].text().starts_with("↑ "));
+        let look = Look {
+            column_w: 320.0,
+            max_h: 400.0,
+            font_px: 12.0,
+            opacity: 1.0,
+            background: None,
+            reorder: None,
+            scale: 1.0,
+            network_floor: NetworkFloor::default(),
+            material: WidgetMaterial::Glass,
+            separate: false,
+            transparency: true,
+            alpha: 255,
+            size: None,
+            layout: WidgetLayout::Meters,
+            row_radius: None,
+            glass_tint: 0.0,
+            focus: FocusView::default(),
+            border: false,
+        };
+        let d = Dims::new(&text, &look, 320.0);
+        let section = Section::new(&content, WidgetStyle::Meters, &snapshot, &history);
+        assert_eq!(section.value_lines(), 2);
+        assert_eq!(
+            section.height(&d),
+            2.0 * d.line_h + section.details_height(&d)
+        );
+        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
+        let ctx = Ctx {
+            text: &text,
+            palette: &palette,
+            history: &history,
+            network_floor: look.network_floor,
+            d: &d,
+            bare_tiles: false,
+        };
+        let at = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 320.0,
+            h: 2.0 * d.line_h,
+        };
+        let title_w = text.width(content.title, d.font_px);
+        let value_w = section.value_w(&text, d.font_px);
+        let surface = Surface::new(320, at.h.ceil() as i32).unwrap();
+        let mut renderer = Renderer::new().unwrap();
+        let clear = Color::rgb(0, 0, 0).with_alpha(0.0);
+        renderer
+            .paint(&surface, clear, |r| {
+                ctx.lines(r, &section, at, title_w, value_w)
+            })
+            .unwrap();
+        let bits = crate::render::tests::pixels(&surface);
+        let lit = |x: f32, y: f32| bits[y as usize * 320 + x as usize] >> 24 > 0;
+        let (start, end) = (title_w + d.gap + 2.0, 320.0 - value_w - d.gap - 2.0);
+        assert!(end - start > 150.0, "the bar has most of the row");
+        for line in [0.5, 1.5] {
+            let y = line * d.line_h;
+            assert!(lit(start, y) && lit(end, y), "a bar on line {line}");
+        }
+        assert!(!lit(start, d.line_h), "the bars stand apart");
+    }
+
+    #[test]
+    fn stacked_rates_stay_inside_their_room() {
+        use pulsar_core::config::Config;
+        let text = Text::new(None, false).unwrap();
+        let config = Config::default();
+        let (snapshot, history) = sample();
+        let mut options =
+            crate::popup::content::Options::new(&config, ItemKind::Network, &snapshot.gpus);
+        options.network_stacked = true;
+        options.down_name = Some("WWWWWWWWWWWW");
+        let content =
+            crate::popup::content::build_with(ItemKind::Network, &snapshot, &history, &options);
+        let look = Look {
+            column_w: 200.0,
+            max_h: 400.0,
+            font_px: 16.0,
+            opacity: 1.0,
+            background: None,
+            reorder: None,
+            scale: 1.0,
+            network_floor: NetworkFloor::default(),
+            material: WidgetMaterial::Glass,
+            separate: false,
+            transparency: true,
+            alpha: 255,
+            size: None,
+            layout: WidgetLayout::Focus,
+            row_radius: None,
+            glass_tint: 0.0,
+            focus: FocusView::default(),
+            border: false,
+        };
+        let d = Dims::new(&text, &look, 200.0);
+        let section = Section::new(&content, WidgetStyle::Cards, &snapshot, &history);
+        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
+        let ctx = Ctx {
+            text: &text,
+            palette: &palette,
+            history: &history,
+            network_floor: look.network_floor,
+            d: &d,
+            bare_tiles: false,
+        };
+        let room = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: 160.0,
+            h: 2.0 * d.line_h,
+        };
+        let surface = Surface::new(240, 120).unwrap();
+        let mut renderer = Renderer::new().unwrap();
+        let clear = Color::rgb(0, 0, 0).with_alpha(0.0);
+        let mut drawn = (0.0, 0.0);
+        renderer
+            .paint(&surface, clear, |r| {
+                drawn = ctx.stacked_values(r, &section, room, d.big_px * FOCUS_VALUE_SCALE)?;
+                Ok(())
+            })
+            .unwrap();
+        assert!(drawn.0 <= room.h + 0.5, "{drawn:?}");
+        assert!(drawn.1 <= room.w + 0.5, "{drawn:?}");
+        let bits = crate::render::tests::pixels(&surface);
+        let outside = (0..120).any(|y| (162..240).any(|x| bits[y * 240 + x] >> 24 > 0));
+        assert!(!outside, "nothing is drawn past the room");
     }
 
     #[test]

@@ -177,15 +177,20 @@ impl Palette {
             if mode == ColorMode::Load {
                 by_load.push(kind);
             }
-            let custom = item
-                .and_then(|i| i.color.as_deref())
-                .and_then(Color::parse_hex);
+            let custom = |part| {
+                item.and_then(|i| match part {
+                    CellPart::Up => i.up_color.as_deref(),
+                    _ => i.color.as_deref(),
+                })
+                .and_then(Color::parse_hex)
+            };
             let parts: &[CellPart] = if kind == ItemKind::Network {
                 &[CellPart::Down, CellPart::Up]
             } else {
                 &[CellPart::Main]
             };
             for &part in parts {
+                let custom = custom(part);
                 let color = match mode {
                     ColorMode::Accent => accent.or(custom),
                     _ => custom.or(if config.display.accent_graphs {
@@ -545,6 +550,28 @@ mod tests {
         assert_ne!(
             p.graph(ItemKind::Network, CellPart::Down),
             p.graph(ItemKind::Network, CellPart::Up)
+        );
+    }
+
+    #[test]
+    fn upload_takes_its_own_color() {
+        let defaults = Palette::new(false, &Config::default(), None, &Theme::windows());
+        let mut c = Config::default();
+        c.item_mut(ItemKind::Network).unwrap().color = Some("#102030".into());
+        let p = Palette::new(false, &c, None, &Theme::windows());
+        assert_eq!(
+            p.graph(ItemKind::Network, CellPart::Down),
+            Color::rgb(0x10, 0x20, 0x30)
+        );
+        assert_eq!(
+            p.graph(ItemKind::Network, CellPart::Up),
+            defaults.graph(ItemKind::Network, CellPart::Up)
+        );
+        c.item_mut(ItemKind::Network).unwrap().up_color = Some("#405060".into());
+        let p = Palette::new(false, &c, None, &Theme::windows());
+        assert_eq!(
+            p.graph(ItemKind::Network, CellPart::Up),
+            Color::rgb(0x40, 0x50, 0x60)
         );
     }
 

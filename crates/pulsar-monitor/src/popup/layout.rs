@@ -285,6 +285,8 @@ mod tests {
             graph: true,
             error: None,
             blocks,
+            readings: Vec::new(),
+            stacked: false,
         }
     }
 

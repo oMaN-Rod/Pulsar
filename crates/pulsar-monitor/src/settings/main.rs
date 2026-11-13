@@ -383,6 +383,7 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_widget_opacity(f.widget_opacity as f32);
     ui.set_widget_glass_tint(f.widget_glass_tint as f32);
     ui.set_widget_border(f.widget_border);
+    ui.set_widget_network_inline(f.widget_network_inline);
     ui.set_widget_focus_cycle(f.widget_focus_cycle);
     ui.set_widget_focus_interval(f.widget_focus_interval);
     ui.set_widget_focus_transition(f.widget_focus_transition);
@@ -518,6 +519,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
                 enabled: r.enabled,
                 color: r.color.as_str().into(),
                 swatch: rgb(form::item_rgb(r.kind, &r.color, choices.theme())),
+                up_color: r.up_color.as_str().into(),
+                up_swatch: rgb(form::up_rgb(&r.up_color, choices.theme())),
                 style: r.style,
                 style_set: names::style_set(r.kind) as i32,
                 trend: r.trend,
@@ -642,6 +645,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
                 kind,
                 enabled: r.enabled,
                 color: r.color.to_string(),
+                up_color: r.up_color.to_string(),
                 style: r.style,
                 color_mode: r.color_mode,
                 popup: r.popup,
@@ -758,6 +762,7 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         widget_opacity: ui.get_widget_opacity().round() as i32,
         widget_glass_tint: ui.get_widget_glass_tint().round() as i32,
         widget_border: ui.get_widget_border(),
+        widget_network_inline: ui.get_widget_network_inline(),
         widget_focus_cycle: ui.get_widget_focus_cycle(),
         widget_focus_interval: ui.get_widget_focus_interval(),
         widget_focus_transition: ui.get_widget_focus_transition(),
@@ -1376,6 +1381,17 @@ fn main() -> Result<(), Box<dyn Error>> {
             ui.invoke_changed();
         }
     });
+    ui.on_item_up_color({
+        let (weak, state) = (ui.as_weak(), state.clone());
+        move |index, color| {
+            let Some(ui) = weak.upgrade() else { return };
+            update_row(&ui, index, |r| {
+                r.up_swatch = rgb(form::up_rgb(&color, state.borrow().choices.theme()));
+                r.up_color = color;
+            });
+            ui.invoke_changed();
+        }
+    });
     ui.on_move_item({
         let (weak, state) = (ui.as_weak(), state.clone());
         move |index, up| {
@@ -1450,7 +1466,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         id: id.clone(),
                         ..new
                     };
-                    form::apply_theme(&mut f, &saved);
+                    form::apply_saved_theme(&mut f, &saved);
                     s.choices.theme = Some(saved);
                     push(&ui, &f, &mut s.choices);
                     ui.set_theme_status(tr!("Saved.").into());

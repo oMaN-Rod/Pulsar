@@ -669,11 +669,11 @@ msgstr "延迟"
 msgid "{} · {} loss"
 msgstr "{} · 丢包 {}"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Download"
 msgstr "下载"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Upload"
 msgstr "上传"
 
@@ -2540,6 +2540,14 @@ msgstr "边框"
 #: ui/settings.slint
 msgid "A thin line around each panel."
 msgstr "在每个面板周围画一条细线。"
+
+#: ui/settings.slint
+msgid "Network rates on one line"
+msgstr "网络速率显示在一行"
+
+#: ui/settings.slint
+msgid "Download and upload side by side, instead of one above the other."
+msgstr "下载和上传并排显示，而不是上下排列。"
 
 #: ui/settings.slint
 msgid "Tiles show the value and graph only."

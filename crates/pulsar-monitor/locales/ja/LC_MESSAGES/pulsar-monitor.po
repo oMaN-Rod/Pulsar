@@ -668,11 +668,11 @@ msgstr "遅延"
 msgid "{} · {} loss"
 msgstr "{} · 損失 {}"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Download"
 msgstr "ダウンロード"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Upload"
 msgstr "アップロード"
 
@@ -2539,6 +2539,14 @@ msgstr "枠線"
 #: ui/settings.slint
 msgid "A thin line around each panel."
 msgstr "各パネルの周りに細い線を引きます。"
+
+#: ui/settings.slint
+msgid "Network rates on one line"
+msgstr "ネットワーク速度を1行で表示"
+
+#: ui/settings.slint
+msgid "Download and upload side by side, instead of one above the other."
+msgstr "ダウンロードとアップロードを上下ではなく横に並べます。"
 
 #: ui/settings.slint
 msgid "Tiles show the value and graph only."

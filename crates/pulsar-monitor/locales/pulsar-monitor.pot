@@ -666,11 +666,11 @@ msgstr ""
 msgid "{} · {} loss"
 msgstr ""
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Download"
 msgstr ""
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Upload"
 msgstr ""
 
@@ -2536,6 +2536,14 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "A thin line around each panel."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Network rates on one line"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Download and upload side by side, instead of one above the other."
 msgstr ""
 
 #: ui/settings.slint

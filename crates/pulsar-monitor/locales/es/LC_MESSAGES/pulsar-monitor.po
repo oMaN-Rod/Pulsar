@@ -668,11 +668,11 @@ msgstr "Latencia"
 msgid "{} · {} loss"
 msgstr "{} · {} de pérdida"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Download"
 msgstr "Descarga"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Upload"
 msgstr "Subida"
 
@@ -2539,6 +2539,14 @@ msgstr "Contorno"
 #: ui/settings.slint
 msgid "A thin line around each panel."
 msgstr "Una línea fina alrededor de cada panel."
+
+#: ui/settings.slint
+msgid "Network rates on one line"
+msgstr "Velocidades de red en una línea"
+
+#: ui/settings.slint
+msgid "Download and upload side by side, instead of one above the other."
+msgstr "Descarga y subida una al lado de la otra, en lugar de una sobre otra."
 
 #: ui/settings.slint
 msgid "Tiles show the value and graph only."

@@ -668,11 +668,11 @@ msgstr "지연 시간"
 msgid "{} · {} loss"
 msgstr "{} · 손실 {}"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Download"
 msgstr "다운로드"
 
-#: src/details/pages.rs
+#: src/details/pages.rs ui/settings.slint
 msgid "Upload"
 msgstr "업로드"
 
@@ -2539,6 +2539,14 @@ msgstr "테두리"
 #: ui/settings.slint
 msgid "A thin line around each panel."
 msgstr "각 패널 주위에 가는 선을 그립니다."
+
+#: ui/settings.slint
+msgid "Network rates on one line"
+msgstr "네트워크 속도를 한 줄로"
+
+#: ui/settings.slint
+msgid "Download and upload side by side, instead of one above the other."
+msgstr "다운로드와 업로드를 위아래가 아닌 나란히 표시합니다."
 
 #: ui/settings.slint
 msgid "Tiles show the value and graph only."

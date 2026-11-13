@@ -63,6 +63,7 @@ pub struct ItemRow {
     pub enabled: bool,
     /// `#RRGGBB`, or empty for the default color.
     pub color: String,
+    pub up_color: String,
     /// An index into `names::styles_for`.
     pub style: i32,
     /// An index into `names::COLOR_MODES`.
@@ -244,6 +245,7 @@ pub struct Form {
     pub widget_opacity: i32,
     pub widget_glass_tint: i32,
     pub widget_border: bool,
+    pub widget_network_inline: bool,
     pub widget_focus_cycle: bool,
     pub widget_focus_interval: i32,
     pub widget_focus_transition: i32,
@@ -280,11 +282,16 @@ pub fn item_rgb(kind: ItemKind, hex: &str, theme: &Colors) -> Rgb {
     parse_hex(hex).unwrap_or_else(|| theme.item(kind, CellPart::Main))
 }
 
+pub fn up_rgb(hex: &str, theme: &Colors) -> Rgb {
+    parse_hex(hex).unwrap_or_else(|| theme.item(ItemKind::Network, CellPart::Up))
+}
+
 /// Selects `theme` and clears the colors that would hide it.
 pub fn apply_theme(f: &mut Form, theme: &Theme) {
     f.theme = theme.id.clone();
     for row in &mut f.items {
         row.color.clear();
+        row.up_color.clear();
     }
     for color in [
         &mut f.label_color,
@@ -299,6 +306,16 @@ pub fn apply_theme(f: &mut Form, theme: &Theme) {
     f.tile_opacity_custom = false;
     f.panel_opacity_custom = false;
     f.color_labels = theme.color_labels;
+}
+
+/// Selects a theme just made by [`theme_from`], keeping the upload colors a
+/// theme cannot hold.
+pub fn apply_saved_theme(f: &mut Form, theme: &Theme) {
+    let up: Vec<String> = f.items.iter().map(|r| r.up_color.clone()).collect();
+    apply_theme(f, theme);
+    for (row, up) in f.items.iter_mut().zip(up) {
+        row.up_color = up;
+    }
 }
 
 /// `base` with the form's custom colors for a dark taskbar folded in, to
@@ -445,6 +462,7 @@ pub fn to_form(c: &Config) -> Form {
                 kind: i.kind,
                 enabled: i.enabled,
                 color: i.color.clone().unwrap_or_default(),
+                up_color: i.up_color.clone().unwrap_or_default(),
                 style: index_of(styles_for(i.kind), &i.graph.then_some(i.style)),
                 color_mode: index_of(&COLOR_MODES, &i.color_mode),
                 popup: i.popup.map_or(0, |p| index_of(&DETAILS, &p) + 1),
@@ -541,6 +559,7 @@ pub fn to_form(c: &Config) -> Form {
         widget_opacity: i32::from(c.widget.opacity),
         widget_glass_tint: i32::from(c.widget.glass_tint),
         widget_border: c.widget.border,
+        widget_network_inline: c.widget.network_inline,
         widget_focus_cycle: c.widget.focus_cycle,
         widget_focus_interval: i32::from(c.widget.focus_interval_s),
         widget_focus_transition: index_of(&FOCUS_TRANSITIONS, &c.widget.focus_transition),
@@ -761,6 +780,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
             let style = at(styles, r.style).unwrap_or(styles[0]);
             ItemConfig {
                 color: non_empty(&r.color),
+                up_color: non_empty(&r.up_color).filter(|_| r.kind == ItemKind::Network),
                 graph: style.is_some(),
                 // Text only keeps the graph style it had, for when the graph returns.
                 style: style
@@ -858,6 +878,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     w.opacity = clamp_u8(f.widget_opacity);
     w.glass_tint = clamp_u8(f.widget_glass_tint);
     w.border = f.widget_border;
+    w.network_inline = f.widget_network_inline;
     w.focus_cycle = f.widget_focus_cycle;
     w.focus_interval_s = f.widget_focus_interval.clamp(
         i32::from(*FOCUS_INTERVALS_S.start()),
@@ -1240,6 +1261,22 @@ mod tests {
             "as the overlay shows it on a light taskbar"
         );
         assert_eq!(t.light.panel_opacity, 40);
+    }
+
+    #[test]
+    fn saving_a_theme_keeps_the_upload_color() {
+        let mut f = to_form(&Config::default());
+        let net = f
+            .items
+            .iter()
+            .position(|r| r.kind == ItemKind::Network)
+            .unwrap();
+        f.items[net].color = "#010203".into();
+        f.items[net].up_color = "#405060".into();
+        let t = theme_from(&f, &Theme::windows(), "Mine");
+        apply_saved_theme(&mut f, &t);
+        assert_eq!(f.items[net].color, "");
+        assert_eq!(f.items[net].up_color, "#405060");
     }
 
     #[test]

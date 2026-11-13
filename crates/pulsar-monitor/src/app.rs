@@ -1396,6 +1396,9 @@ impl App {
                 let mut options = PopupOptions::new(&self.config, kind, &self.latest.gpus);
                 options.detail = self.config.widget_detail(kind);
                 options.network_show = NetworkShow::Both;
+                options.network_stacked = !w.network_inline;
+                options.down_name = self.config.network.down_label.as_deref();
+                options.up_name = self.config.network.up_label.as_deref();
                 options.processes = 0;
                 options.graph = true;
                 options.disk_names = self.disk_names.as_deref().unwrap_or_default();
