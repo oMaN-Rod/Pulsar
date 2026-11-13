@@ -884,7 +884,7 @@ msgstr "그래프"
 msgid "Translucent background"
 msgstr "반투명 배경"
 
-#: src/menu.rs
+#: src/menu.rs ui/settings.slint
 msgid "None"
 msgstr "없음"
 
@@ -1484,6 +1484,14 @@ msgstr "프로필을 읽을 수 없습니다."
 msgid "Settings page"
 msgstr "설정 페이지"
 
+#: src/widget.rs ui/details.slint
+msgid "Min"
+msgstr "최소"
+
+#: src/widget.rs ui/details.slint
+msgid "Max"
+msgstr "최대"
+
 #: src/widget.rs
 msgid "P-cores, {} threads"
 msgstr "P 코어, 스레드 {}개"
@@ -1512,7 +1520,7 @@ msgstr "매트릭스"
 msgid "Strips"
 msgstr "스트립"
 
-#: ui/details.slint
+#: ui/details.slint ui/settings.slint
 msgid "Rings"
 msgstr "링"
 
@@ -1575,14 +1583,6 @@ msgstr "센서"
 #: ui/details.slint
 msgid "Value"
 msgstr "값"
-
-#: ui/details.slint
-msgid "Min"
-msgstr "최소"
-
-#: ui/details.slint
-msgid "Max"
-msgstr "최대"
 
 #: ui/settings.slint
 msgid "Press keys…"
@@ -2393,12 +2393,12 @@ msgid "Size"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
-msgstr ""
+msgid "Drag any edge of the widget. With the Automatic layout, wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
+msgstr "위젯의 아무 가장자리나 끌어 크기를 조정합니다. 자동 레이아웃에서는 넓으면 열로 된 카드, 좁으면 항목별 한 줄, 정사각형이면 타일, 낮으면 값이나 링 한 줄을 표시합니다."
 
 #: ui/settings.slint
-msgid "As large as its items need, each in the style chosen for it."
-msgstr ""
+msgid "As large as its items need."
+msgstr "항목에 필요한 만큼의 크기입니다."
 
 #: ui/settings.slint
 msgid "Fit the content"
@@ -2409,16 +2409,24 @@ msgid "Drag to size"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Style"
-msgstr "스타일"
+msgid "Automatic picks one from the size. Focus shows one item at a time, with a large graph."
+msgstr "자동은 크기에 맞춰 선택합니다. 포커스는 항목을 하나씩 큰 그래프로 표시합니다."
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
-msgstr ""
+msgid "Automatic shows each item in the style chosen for it. Focus shows one item at a time, with a large graph."
+msgstr "자동은 각 항목을 선택한 스타일로 표시합니다. 포커스는 항목을 하나씩 큰 그래프로 표시합니다."
 
 #: ui/settings.slint
-msgid "Sparklines"
-msgstr "스파크라인"
+msgid "Automatic"
+msgstr "자동"
+
+#: ui/settings.slint
+msgid "Dashboard"
+msgstr "대시보드"
+
+#: ui/settings.slint
+msgid "Lanes"
+msgstr "레인"
 
 #: ui/settings.slint
 msgid "Tiles"
@@ -2431,6 +2439,62 @@ msgstr "미터"
 #: ui/settings.slint
 msgid "Dials"
 msgstr "다이얼"
+
+#: ui/settings.slint
+msgid "Strip"
+msgstr "스트립"
+
+#: ui/settings.slint
+msgid "Focus"
+msgstr "포커스"
+
+#: ui/settings.slint
+msgid "Cycle through items"
+msgstr "항목 순환"
+
+#: ui/settings.slint
+msgid "Seconds between items. Shortcuts for the next and previous item are under General."
+msgstr "항목 사이의 초. 다음 및 이전 항목 바로 가기는 일반에 있습니다."
+
+#: ui/settings.slint
+msgid "Transition"
+msgstr "전환"
+
+#: ui/settings.slint
+msgid "How Focus moves to the next item."
+msgstr "포커스가 다음 항목으로 넘어가는 방식입니다."
+
+#: ui/settings.slint
+msgid "Fade"
+msgstr "페이드"
+
+#: ui/settings.slint
+msgid "Slide"
+msgstr "슬라이드"
+
+#: ui/settings.slint
+msgid "Slide up"
+msgstr "위로 슬라이드"
+
+#: ui/settings.slint
+msgid "Transition length"
+msgstr "전환 길이"
+
+#: ui/settings.slint
+msgid "{} ms"
+msgstr "{}ms"
+
+#: ui/settings.slint
+msgid "Style"
+msgstr "스타일"
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Sparklines"
+msgstr "스파크라인"
 
 #: ui/settings.slint
 msgid "Device cards"
@@ -2469,6 +2533,14 @@ msgid "Each item on a panel of its own, with a gap between."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Border"
+msgstr "테두리"
+
+#: ui/settings.slint
+msgid "A thin line around each panel."
+msgstr "각 패널 주위에 가는 선을 그립니다."
+
+#: ui/settings.slint
 msgid "Tiles show the value and graph only."
 msgstr "타일에는 값과 그래프만 표시됩니다."
 
@@ -2489,12 +2561,28 @@ msgid "Background color"
 msgstr "배경색"
 
 #: ui/settings.slint
+msgid "Tints the glass. Empty uses the theme's panel color."
+msgstr "유리에 색을 입힙니다. 비워 두면 테마의 패널 색을 사용합니다."
+
+#: ui/settings.slint
 msgid "Empty uses the theme's panel color."
 msgstr "비워 두면 테마의 패널 색을 사용합니다."
 
 #: ui/settings.slint
 msgid "Background opacity"
 msgstr "배경 불투명도"
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr "유리 틴트"
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr "투명한 유리."
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
+msgstr "틴트 색의 {}%."
 
 #: ui/settings.slint
 msgid "Choose items"
@@ -2783,6 +2871,18 @@ msgstr "CSV 기록 시작 또는 중지"
 #: ui/settings.slint
 msgid "Switch to the next profile"
 msgstr "다음 프로필로 전환"
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr "포커스에서 다음 항목 표시"
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr "위젯의 포커스 레이아웃용입니다."
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr "포커스에서 이전 항목 표시"
 
 #: ui/settings.slint
 msgid "Alerts"

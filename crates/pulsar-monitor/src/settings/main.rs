@@ -381,7 +381,16 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_widget_detail(f.widget_detail);
     ui.set_widget_width(f.widget_width);
     ui.set_widget_opacity(f.widget_opacity as f32);
+    ui.set_widget_glass_tint(f.widget_glass_tint as f32);
+    ui.set_widget_border(f.widget_border);
+    ui.set_widget_focus_cycle(f.widget_focus_cycle);
+    ui.set_widget_focus_interval(f.widget_focus_interval);
+    ui.set_widget_focus_transition(f.widget_focus_transition);
+    ui.set_widget_focus_transition_ms(f.widget_focus_transition_ms as f32);
     ui.set_widget_material(f.widget_material);
+    ui.set_widget_layout(f.widget_layout);
+    ui.set_widget_row_radius_custom(f.widget_row_radius_custom);
+    ui.set_widget_row_radius(f.widget_row_radius as f32);
     ui.set_widget_separate(f.widget_separate);
     ui.set_widget_sizing(i32::from(f.widget_sized));
     ui.set_widget_hide_in_fullscreen(f.widget_hide_in_fullscreen);
@@ -550,6 +559,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_hotkey_details(f.hotkey_details.as_str().into());
     ui.set_hotkey_record(f.hotkey_record.as_str().into());
     ui.set_hotkey_next_profile(f.hotkey_next_profile.as_str().into());
+    ui.set_hotkey_next_item(f.hotkey_next_item.as_str().into());
+    ui.set_hotkey_previous_item(f.hotkey_previous_item.as_str().into());
     ui.set_alert_cpu_limit(f.alert_cpu_limit);
     ui.set_alert_gpu(f.alert_gpu);
     ui.set_alert_gpu_limit(f.alert_gpu_limit);
@@ -683,6 +694,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         hotkey_details: ui.get_hotkey_details().to_string(),
         hotkey_record: ui.get_hotkey_record().to_string(),
         hotkey_next_profile: ui.get_hotkey_next_profile().to_string(),
+        hotkey_next_item: ui.get_hotkey_next_item().to_string(),
+        hotkey_previous_item: ui.get_hotkey_previous_item().to_string(),
         drives: if ui.get_per_drive() {
             ui.get_drive_rows()
                 .iter()
@@ -743,7 +756,16 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         widget_detail: ui.get_widget_detail(),
         widget_width: ui.get_widget_width(),
         widget_opacity: ui.get_widget_opacity().round() as i32,
+        widget_glass_tint: ui.get_widget_glass_tint().round() as i32,
+        widget_border: ui.get_widget_border(),
+        widget_focus_cycle: ui.get_widget_focus_cycle(),
+        widget_focus_interval: ui.get_widget_focus_interval(),
+        widget_focus_transition: ui.get_widget_focus_transition(),
+        widget_focus_transition_ms: ui.get_widget_focus_transition_ms().round() as i32,
         widget_material: ui.get_widget_material(),
+        widget_layout: ui.get_widget_layout(),
+        widget_row_radius_custom: ui.get_widget_row_radius_custom(),
+        widget_row_radius: ui.get_widget_row_radius().round() as i32,
         widget_separate: ui.get_widget_separate(),
         widget_sized: ui.get_widget_sizing() == 1,
         widget_hide_in_fullscreen: ui.get_widget_hide_in_fullscreen(),
@@ -1575,7 +1597,9 @@ fn main() -> Result<(), Box<dyn Error>> {
                 1 => ui.set_hotkey_widget(value),
                 2 => ui.set_hotkey_details(value),
                 3 => ui.set_hotkey_record(value),
-                _ => ui.set_hotkey_next_profile(value),
+                4 => ui.set_hotkey_next_profile(value),
+                5 => ui.set_hotkey_next_item(value),
+                _ => ui.set_hotkey_previous_item(value),
             }
             ui.invoke_changed();
         }

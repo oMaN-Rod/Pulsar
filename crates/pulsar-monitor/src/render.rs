@@ -588,6 +588,36 @@ impl Renderer {
         }
     }
 
+    pub(crate) fn layered(
+        &self,
+        clip: Rect,
+        opacity: f32,
+        offset: (f32, f32),
+        draw: impl FnOnce() -> Result<()>,
+    ) -> Result<()> {
+        let layer = unsafe { self.target.CreateLayer(None)? };
+        let params = D2D1_LAYER_PARAMETERS {
+            contentBounds: rect_f(clip),
+            geometricMask: ManuallyDrop::new(None),
+            maskAntialiasMode: D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+            maskTransform: Matrix3x2::identity(),
+            opacity: opacity.clamp(0.0, 1.0),
+            opacityBrush: ManuallyDrop::new(None),
+            layerOptions: D2D1_LAYER_OPTIONS_NONE,
+        };
+        unsafe {
+            self.target.PushLayer(&params, &layer);
+            self.target
+                .SetTransform(&Matrix3x2::translation(offset.0, offset.1));
+        }
+        let drawn = draw();
+        unsafe {
+            self.target.SetTransform(&Matrix3x2::identity());
+            self.target.PopLayer();
+        }
+        drawn
+    }
+
     /// Runs `draw` with everything it draws cut to the capsule `r`.
     fn clipped_to_capsule(
         &self,
@@ -1742,12 +1772,12 @@ fn rect_f(r: Rect) -> D2D_RECT_F {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use pulsar_core::config::{Config, DisplayMode, NetworkShow};
     use pulsar_core::layout::{ItemNames, LayoutInput, TextSpacing, compute_layout};
 
-    fn pixels(surface: &Surface) -> Vec<u32> {
+    pub(crate) fn pixels(surface: &Surface) -> Vec<u32> {
         let mut out = vec![0u32; (surface.width * surface.height) as usize];
         let info = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {

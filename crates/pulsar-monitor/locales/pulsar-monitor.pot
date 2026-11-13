@@ -882,7 +882,7 @@ msgstr ""
 msgid "Translucent background"
 msgstr ""
 
-#: src/menu.rs
+#: src/menu.rs ui/settings.slint
 msgid "None"
 msgstr ""
 
@@ -1482,6 +1482,14 @@ msgstr ""
 msgid "Settings page"
 msgstr ""
 
+#: src/widget.rs ui/details.slint
+msgid "Min"
+msgstr ""
+
+#: src/widget.rs ui/details.slint
+msgid "Max"
+msgstr ""
+
 #: src/widget.rs
 msgid "P-cores, {} threads"
 msgstr ""
@@ -1510,7 +1518,7 @@ msgstr ""
 msgid "Strips"
 msgstr ""
 
-#: ui/details.slint
+#: ui/details.slint ui/settings.slint
 msgid "Rings"
 msgstr ""
 
@@ -1572,14 +1580,6 @@ msgstr ""
 
 #: ui/details.slint
 msgid "Value"
-msgstr ""
-
-#: ui/details.slint
-msgid "Min"
-msgstr ""
-
-#: ui/details.slint
-msgid "Max"
 msgstr ""
 
 #: ui/settings.slint
@@ -2391,11 +2391,11 @@ msgid "Size"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
+msgid "Drag any edge of the widget. With the Automatic layout, wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
 msgstr ""
 
 #: ui/settings.slint
-msgid "As large as its items need, each in the style chosen for it."
+msgid "As large as its items need."
 msgstr ""
 
 #: ui/settings.slint
@@ -2407,15 +2407,23 @@ msgid "Drag to size"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Style"
+msgid "Automatic picks one from the size. Focus shows one item at a time, with a large graph."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgid "Automatic shows each item in the style chosen for it. Focus shows one item at a time, with a large graph."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Sparklines"
+msgid "Automatic"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Dashboard"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Lanes"
 msgstr ""
 
 #: ui/settings.slint
@@ -2428,6 +2436,62 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Dials"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Strip"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Focus"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Cycle through items"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Seconds between items. Shortcuts for the next and previous item are under General."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Transition"
+msgstr ""
+
+#: ui/settings.slint
+msgid "How Focus moves to the next item."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Fade"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Slide"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Slide up"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Transition length"
+msgstr ""
+
+#: ui/settings.slint
+msgid "{} ms"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Style"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Sparklines"
 msgstr ""
 
 #: ui/settings.slint
@@ -2467,6 +2531,14 @@ msgid "Each item on a panel of its own, with a gap between."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Border"
+msgstr ""
+
+#: ui/settings.slint
+msgid "A thin line around each panel."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Tiles show the value and graph only."
 msgstr ""
 
@@ -2487,11 +2559,27 @@ msgid "Background color"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Tints the glass. Empty uses the theme's panel color."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Empty uses the theme's panel color."
 msgstr ""
 
 #: ui/settings.slint
 msgid "Background opacity"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr ""
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
 msgstr ""
 
 #: ui/settings.slint
@@ -2780,6 +2868,18 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Switch to the next profile"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr ""
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
 msgstr ""
 
 #: ui/settings.slint

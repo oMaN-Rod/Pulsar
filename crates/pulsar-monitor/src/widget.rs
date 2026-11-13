@@ -3,7 +3,9 @@
 
 use std::borrow::Cow;
 
-use pulsar_core::config::{WidgetLayer, WidgetMaterial, WidgetStyle};
+use pulsar_core::config::{
+    FocusTransition, WidgetLayer, WidgetLayout, WidgetMaterial, WidgetStyle,
+};
 use pulsar_core::display::{
     CoreLoad, NetworkFloor, area_points, core_loads, graph_max, meter_fraction, metric_for,
 };
@@ -18,8 +20,8 @@ use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DestroyWindow, EnumWindows, FindWindowExW, FindWindowW, GW_HWNDPREV,
     GWL_EXSTYLE, GetWindow, GetWindowLongPtrW, HWND_BOTTOM, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST,
-    IDC_ARROW, IDC_SIZEALL, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, LoadCursorW, RegisterClassW,
-    SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetCursor,
+    IDC_ARROW, IDC_SIZEALL, IDC_SIZENESW, IDC_SIZENS, IDC_SIZENWSE, IDC_SIZEWE, LoadCursorW,
+    RegisterClassW, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetCursor,
     SetWindowLongPtrW, SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WNDCLASSW, WNDPROC,
     WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
@@ -131,13 +133,24 @@ impl Widget {
         look: &Look,
         at: impl FnOnce(i32, i32) -> (i32, i32),
     ) -> Result<()> {
-        let arranged = look.size.map(|(w, h)| {
+        let size = look
+            .size
+            .or_else(|| natural_size(look, contents, snapshot, history, text));
+        let arranged = size.map(|(w, h)| {
             (
                 w,
                 h,
-                arrangement(w / look.scale, h / look.scale, contents.len()),
+                chosen(look.layout, w / look.scale, h / look.scale, contents.len()),
             )
         });
+        let unsized_style = match look.layout {
+            WidgetLayout::Dashboard => Some(WidgetStyle::Cards),
+            WidgetLayout::Lanes => Some(WidgetStyle::Sparklines),
+            WidgetLayout::Tiles => Some(WidgetStyle::Tiles),
+            WidgetLayout::Meters => Some(WidgetStyle::Meters),
+            WidgetLayout::Dials => Some(WidgetStyle::Dials),
+            _ => None,
+        };
         let panel_gap = PANEL_GAP_DIP * look.scale;
         let (column_w, max_h, forced) = match arranged {
             Some((w, h, Arrangement::Dashboard { columns })) => {
@@ -151,8 +164,11 @@ impl Widget {
             }
             Some((w, _, Arrangement::Lanes)) => (w, f32::MAX, Some(WidgetStyle::Sparklines)),
             Some((w, _, Arrangement::Tiles)) => (w, f32::MAX, Some(WidgetStyle::Tiles)),
+            Some((w, _, Arrangement::Meters)) => (w, f32::MAX, Some(WidgetStyle::Meters)),
+            Some((w, _, Arrangement::Dials)) => (w, f32::MAX, Some(WidgetStyle::Dials)),
+            Some((w, h, Arrangement::Focus)) => (w, h, Some(WidgetStyle::Cards)),
             Some((w, _, Arrangement::Strip | Arrangement::Rings)) => (w, f32::MAX, None),
-            None => (look.column_w, look.max_h, None),
+            None => (look.column_w, look.max_h, unsized_style),
         };
         let d = Dims::new(text, look, column_w);
         let mut sections: Vec<Section> = contents
@@ -164,12 +180,21 @@ impl Widget {
             Arrangement::Rings => Some((w, h, true)),
             _ => None,
         });
+        let focus = matches!(arranged, Some((_, _, Arrangement::Focus)));
+        let shown = look.focus.index % sections.len().max(1);
         let separate = look.separate && row.is_none();
-        let mut plan = match row {
-            Some((w, h, rings)) => Plan::row(&sections, &d, w, h, rings, text),
-            None => {
-                let balance = match arranged {
-                    Some((_, _, Arrangement::Dashboard { columns })) => Some(columns),
+        let mut plan = match (row, arranged) {
+            (Some((w, h, rings)), _) => {
+                let radius = row_radius(look.row_radius, h);
+                Plan::row(&sections, &d, w, h, rings, radius, text)
+            }
+            (None, Some((w, h, Arrangement::Focus))) => {
+                Plan::focus(&mut sections, shown, &d, w, h, text)
+            }
+            (None, _) => {
+                let balance = match (arranged, look.layout) {
+                    (Some((_, _, Arrangement::Dashboard { columns })), _) => Some(columns),
+                    (None, WidgetLayout::Dashboard) => Some(sections.len().div_ceil(2).clamp(1, 3)),
                     _ => None,
                 };
                 Plan::new(&mut sections, &d, max_h, separate, balance, text)
@@ -181,7 +206,7 @@ impl Widget {
         let blur = look.material.blurs() && look.transparency && self.ensure_backdrop();
         let skin = Skin::new(look, palette, blur);
         let radius = match row {
-            Some((_, h, _)) => h / 2.0,
+            Some((_, h, _)) => row_radius(look.row_radius, h),
             None => skin.radius * d.scale,
         };
         self.shapes = plan.panels.iter().map(|&r| (r, radius)).collect();
@@ -215,35 +240,60 @@ impl Widget {
                 let band = RESIZE_BAND_DIP * d.scale;
                 let hit = Color::rgb(0, 0, 0).with_alpha(1.0 / 255.0);
                 let (wf, hf) = (w as f32, h as f32);
-                r.fill_rounded(
+                for edge in [
+                    Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        w: band,
+                        h: hf,
+                    },
                     Rect {
                         x: wf - band,
                         y: 0.0,
                         w: band,
                         h: hf,
                     },
-                    0.0,
-                    hit,
-                )?;
-                r.fill_rounded(
+                    Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        w: wf,
+                        h: band,
+                    },
                     Rect {
                         x: 0.0,
                         y: hf - band,
                         w: wf,
                         h: band,
                     },
-                    0.0,
-                    hit,
-                )?;
+                ] {
+                    r.fill_rounded(edge, 0.0, hit)?;
+                }
             }
             for &panel in &plan.panels {
-                skin.panel(r, panel, radius, d.scale)?;
+                skin.panel(r, panel, radius, d.scale, look.border)?;
             }
             for placed in &plan.placed {
                 let s = &sections[placed.index];
                 match row {
                     Some((_, _, true)) => ctx.ring_cell(r, s, placed.rect)?,
                     Some((_, _, false)) => ctx.strip_cell(r, s, placed.rect)?,
+                    None if focus => {
+                        let leaving = look.focus.leaving.and_then(|(from, p)| {
+                            let from = from % sections.len();
+                            (from != placed.index && p < 1.0).then_some((from, p))
+                        });
+                        match leaving {
+                            Some((from, p)) => {
+                                let at = placed.rect;
+                                let [out, into] =
+                                    transition_frames(look.focus.transition, p, (at.w, at.h));
+                                let gone = &sections[from];
+                                r.layered(at, out.0, out.1, || ctx.focus(r, gone, at))?;
+                                r.layered(at, into.0, into.1, || ctx.focus(r, s, at))?;
+                            }
+                            None => ctx.focus(r, s, placed.rect)?,
+                        }
+                    }
                     None => ctx.section(r, s, placed.rect, placed.value_w)?,
                 }
                 if placed.divider {
@@ -478,12 +528,42 @@ pub struct Look {
     pub alpha: u8,
     /// Set by dragging its edges, in physical pixels; picks the layout.
     pub size: Option<(f32, f32)>,
+    pub layout: WidgetLayout,
+    /// Physical pixels; `None` rounds a row's ends fully.
+    pub row_radius: Option<f32>,
+    /// 0–1; Glass is clear at 0.
+    pub glass_tint: f32,
+    pub focus: FocusView,
+    pub border: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct FocusView {
+    pub index: usize,
+    /// The item shown before, and how far the change has come, 0–1.
+    pub leaving: Option<(usize, f32)>,
+    pub transition: FocusTransition,
+}
+
+/// Opacity and offset of the item leaving and the item arriving, `p` of the
+/// way through a change across a `w` × `h` area.
+pub fn transition_frames(
+    transition: FocusTransition,
+    p: f32,
+    (w, h): (f32, f32),
+) -> [(f32, (f32, f32)); 2] {
+    let e = 1.0 - (1.0 - p.clamp(0.0, 1.0)).powi(3);
+    match transition {
+        FocusTransition::None => [(0.0, (0.0, 0.0)), (1.0, (0.0, 0.0))],
+        FocusTransition::Fade => [(1.0 - e, (0.0, 0.0)), (e, (0.0, 0.0))],
+        FocusTransition::Slide => [(1.0, (-e * w, 0.0)), (1.0, ((1.0 - e) * w, 0.0))],
+        FocusTransition::SlideUp => [(1.0, (0.0, -e * h)), (1.0, (0.0, (1.0 - e) * h))],
+    }
 }
 
 struct Skin {
     fill: Color,
     border: Color,
-    rim: Option<Color>,
     /// In DIPs.
     radius: f32,
 }
@@ -505,21 +585,18 @@ impl Skin {
             border: p
                 .popup_border
                 .with_alpha(p.popup_border.a * look.opacity.max(0.3)),
-            rim: None,
             radius,
         };
         match look.material {
             WidgetMaterial::Solid => solid(8.0),
             WidgetMaterial::Glass if blur => Self {
-                fill: base.with_alpha(0.45 * look.opacity),
-                border: edge(0.16, 0.08),
-                rim: Some(Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(if light { 0.7 } else { 0.22 })),
+                fill: base.with_alpha((GLASS_MAX_TINT * look.glass_tint).max(1.0 / 255.0)),
+                border: edge(0.22, 0.10),
                 radius: 16.0,
             },
             WidgetMaterial::Acrylic if blur => Self {
-                fill: base.with_alpha(0.8 * look.opacity),
+                fill: base.with_alpha((0.8 * look.opacity).max(1.0 / 255.0)),
                 border: edge(0.09, 0.06),
-                rim: None,
                 radius: 8.0,
             },
             WidgetMaterial::Glass => solid(16.0),
@@ -527,46 +604,122 @@ impl Skin {
             WidgetMaterial::Clear => Self {
                 fill: base.with_alpha((0.28 * look.opacity).max(1.0 / 255.0)),
                 border: edge(0.10, 0.08),
-                rim: None,
                 radius: 12.0,
             },
         }
     }
 
-    fn panel(&self, r: &Renderer, at: Rect, radius: f32, scale: f32) -> Result<()> {
+    fn panel(&self, r: &Renderer, at: Rect, radius: f32, scale: f32, border: bool) -> Result<()> {
         r.fill_rounded(at, radius, self.fill)?;
-        let line = scale.max(1.0);
-        r.stroke_rounded(at, radius, line, self.border)?;
-        if let Some(rim) = self.rim {
-            let top = Rect {
-                x: at.x + radius,
-                y: at.y + line,
-                w: (at.w - 2.0 * radius).max(0.0),
-                h: line,
-            };
-            r.fill_rounded(top, 0.0, rim)?;
+        if !border {
+            return Ok(());
         }
-        Ok(())
+        r.stroke_rounded(at, radius, scale.max(1.0), self.border)
     }
 }
 
 const DIALS_PER_ROW: usize = 3;
+/// A full tint still lets some of the blur through.
+const GLASS_MAX_TINT: f32 = 0.85;
 const PANEL_GAP_DIP: f32 = 8.0;
 pub const RESIZE_BAND_DIP: f32 = 8.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Arrangement {
-    Dashboard {
-        columns: usize,
-    },
+    Dashboard { columns: usize },
     Lanes,
     Tiles,
+    Meters,
+    Dials,
     Strip,
     Rings,
+    Focus,
 }
 
 const DASHBOARD_COLUMN_DIP: f32 = 300.0;
+const STRIP_HEIGHTS_DIP: (f32, f32) = (32.0, 52.0);
+const RINGS_HEIGHT_DIP: f32 = 60.0;
+
+/// The heights a chosen row layout may be dragged between, in DIPs.
+pub fn height_range(layout: WidgetLayout) -> Option<(f32, f32)> {
+    match layout {
+        WidgetLayout::Strip => Some(STRIP_HEIGHTS_DIP),
+        WidgetLayout::Rings => Some((RINGS_HEIGHT_DIP, RINGS_HEIGHT_DIP)),
+        WidgetLayout::Focus => Some((FOCUS_MIN_DIP.1, f32::MAX)),
+        _ => None,
+    }
+}
+
+/// The narrowest a chosen layout may be dragged, in DIPs.
+pub fn min_width(layout: WidgetLayout) -> f32 {
+    match layout {
+        WidgetLayout::Focus => FOCUS_MIN_DIP.0,
+        _ => 0.0,
+    }
+}
+
+/// A chosen layout's size when the widget fits its content; `None` where the
+/// content itself sets the size.
+fn natural_size(
+    look: &Look,
+    contents: &[(PopupContent, WidgetStyle)],
+    snapshot: &Snapshot,
+    history: &HistoryStore,
+    text: &Text,
+) -> Option<(f32, f32)> {
+    let s = look.scale;
+    let n = contents.len().max(1) as f32;
+    match look.layout {
+        WidgetLayout::Strip => {
+            let h = STRIP_HEIGHTS_DIP.1 * s;
+            let d = Dims::new(text, look, look.column_w);
+            let cells: f32 = contents
+                .iter()
+                .map(|(c, style)| {
+                    strip_width(&Section::new(c, *style, snapshot, history), &d, text)
+                })
+                .sum();
+            let end = row_radius(look.row_radius, h).max(d.pad);
+            Some(((cells + 2.0 * end).ceil(), h))
+        }
+        WidgetLayout::Rings => {
+            let h = RINGS_HEIGHT_DIP * s;
+            Some(((n * h * 0.85 + 2.0 * h * 0.15).ceil(), h))
+        }
+        WidgetLayout::Focus => Some((look.column_w, (look.column_w * FOCUS_ASPECT).round())),
+        _ => None,
+    }
+}
+
+fn row_radius(radius: Option<f32>, h: f32) -> f32 {
+    radius.map_or(h / 2.0, |r| r.min(h / 2.0))
+}
+const FOCUS_VALUE_SCALE: f32 = 1.6;
+const FOCUS_ASPECT: f32 = 0.8;
+/// Room for the title, the large value, a graph and a line of details.
+const FOCUS_MIN_DIP: (f32, f32) = (180.0, 140.0);
 const STRIP_CELL_DIP: f32 = 92.0;
+
+pub fn chosen(layout: WidgetLayout, w: f32, h: f32, items: usize) -> Arrangement {
+    match layout {
+        WidgetLayout::Auto => arrangement(w, h, items),
+        WidgetLayout::Dashboard => Arrangement::Dashboard {
+            columns: dashboard_columns(w, items),
+        },
+        WidgetLayout::Lanes => Arrangement::Lanes,
+        WidgetLayout::Tiles => Arrangement::Tiles,
+        WidgetLayout::Meters => Arrangement::Meters,
+        WidgetLayout::Dials => Arrangement::Dials,
+        WidgetLayout::Strip => Arrangement::Strip,
+        WidgetLayout::Rings => Arrangement::Rings,
+        WidgetLayout::Focus => Arrangement::Focus,
+    }
+}
+
+fn dashboard_columns(w: f32, items: usize) -> usize {
+    let fit = ((w + PANEL_GAP_DIP) / (DASHBOARD_COLUMN_DIP + PANEL_GAP_DIP)) as usize;
+    fit.clamp(1, items.max(1))
+}
 
 /// The layout for a `w` × `h` DIP widget with `items` items.
 pub fn arrangement(w: f32, h: f32, items: usize) -> Arrangement {
@@ -578,10 +731,12 @@ pub fn arrangement(w: f32, h: f32, items: usize) -> Arrangement {
             Arrangement::Rings
         };
     }
+    if items == 1 && w >= FOCUS_MIN_DIP.0 && h >= FOCUS_MIN_DIP.1 {
+        return Arrangement::Focus;
+    }
     if w >= 600.0 && h >= 200.0 {
-        let fit = ((w + PANEL_GAP_DIP) / (DASHBOARD_COLUMN_DIP + PANEL_GAP_DIP)) as usize;
         return Arrangement::Dashboard {
-            columns: fit.clamp(1, items),
+            columns: dashboard_columns(w, items),
         };
     }
     if w >= 0.8 * h {
@@ -750,11 +905,17 @@ impl<'a> Section<'a> {
 
     /// Height in the line styles.
     fn height(&self, d: &Dims) -> f32 {
-        let mut h = if self.style == WidgetStyle::Cards {
+        let head = if self.style == WidgetStyle::Cards {
             d.line_h + d.gap / 2.0 + d.big_h
         } else {
             d.line_h
         };
+        head + self.details_height(d)
+    }
+
+    /// Height of what `Ctx::details` draws, and the core wall above it.
+    fn details_height(&self, d: &Dims) -> f32 {
+        let mut h = 0.0;
         if self.style == WidgetStyle::CoreWall {
             h += d.gap / 2.0 + d.wall_h;
             if self.split().is_some() {
@@ -959,8 +1120,16 @@ fn split_unit(value: &str) -> (&str, &str) {
 impl Plan {
     /// One row across `w` × `h`, as many items as fit: rings at a fixed
     /// pitch, strip cells as wide as their text with the spare room shared.
-    fn row(sections: &[Section], d: &Dims, w: f32, h: f32, rings: bool, text: &Text) -> Self {
-        let end = if rings { h * 0.15 } else { h / 2.0 };
+    fn row(
+        sections: &[Section],
+        d: &Dims,
+        w: f32,
+        h: f32,
+        rings: bool,
+        radius: f32,
+        text: &Text,
+    ) -> Self {
+        let end = if rings { h * 0.15 } else { radius.max(d.pad) };
         let room = (w - 2.0 * end).max(0.0);
         let mut widths = Vec::new();
         let mut used = 0.0;
@@ -1010,6 +1179,46 @@ impl Plan {
         }
     }
 
+    fn focus(
+        sections: &mut [Section],
+        index: usize,
+        d: &Dims,
+        w: f32,
+        h: f32,
+        text: &Text,
+    ) -> Self {
+        let rect = Rect {
+            x: d.pad,
+            y: d.pad,
+            w: (w - 2.0 * d.pad).max(0.0),
+            h: (h - 2.0 * d.pad).max(0.0),
+        };
+        for s in sections.iter_mut() {
+            s.lay_out_pairs(d, rect.w, text);
+        }
+        let panel = Rect {
+            x: 0.0,
+            y: 0.0,
+            w,
+            h,
+        };
+        Self {
+            width: w,
+            height: h,
+            placed: sections
+                .get(index)
+                .map(|_| Placed {
+                    index,
+                    rect,
+                    value_w: 0.0,
+                    divider: false,
+                })
+                .into_iter()
+                .collect(),
+            panels: vec![panel],
+        }
+    }
+
     fn fit(&mut self, w: f32, h: f32, separate: bool) {
         let inside = |r: &Rect| r.right() <= w + 0.5 && r.y + r.h <= h + 0.5;
         if separate {
@@ -1044,14 +1253,18 @@ fn strip_width(s: &Section, d: &Dims, text: &Text) -> f32 {
 /// The first number in `value`, such as the download rate of a network
 /// pair; the whole text when it has none.
 fn first_number(value: &str) -> &str {
-    let Some(start) = value.find(|c: char| c.is_ascii_digit()) else {
+    let Some(digits) = value.find(|c: char| c.is_ascii_digit()) else {
         return value;
     };
-    let rest = &value[start..];
+    let start = match value[..digits].chars().next_back() {
+        Some(sign @ ('-' | '\u{2212}')) => digits - sign.len_utf8(),
+        _ => digits,
+    };
+    let rest = &value[digits..];
     let end = rest
         .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == ','))
         .unwrap_or(rest.len());
-    &rest[..end]
+    &value[start..digits + end]
 }
 
 /// Network shows two rates, which need a tile the whole width.
@@ -1143,6 +1356,88 @@ impl Ctx<'_> {
     }
 
     fn card(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
+        let d = self.d;
+        let (baseline, x) = self.card_top(r, s, at, at.w * 0.55, d.big_px)?;
+        let y = at.y + d.line_h + d.gap / 2.0;
+        let graph = Rect {
+            x: x + 1.5 * d.gap,
+            y: y + d.big_h * 0.1,
+            w: at.right() - (x + 1.5 * d.gap),
+            h: d.big_h * 0.85,
+        };
+        if s.content.graph && graph.w >= 24.0 * d.scale {
+            self.graph(r, s, graph, 1.4)?;
+        }
+        self.details(r, s, at, baseline)
+    }
+
+    fn focus(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
+        let (d, p) = (self.d, self.palette);
+        let (baseline, _) = self.card_top(r, s, at, at.w, d.big_px * FOCUS_VALUE_SCALE)?;
+        let details = at.y + at.h - s.details_height(d);
+        let range = self.range(s);
+        let range_y = details - d.small_h;
+        let bottom = if range.is_some() { range_y } else { details };
+        let graph = Rect {
+            x: at.x,
+            y: baseline + d.gap,
+            w: at.w,
+            h: bottom - d.gap / 2.0 - (baseline + d.gap),
+        };
+        if let Some((min, max)) = &range {
+            let (t, small) = (self.text, self.text.format(d.small_px)?);
+            let mut x = at.x;
+            for (label, value) in [(tr!("Min"), min), (tr!("Max"), max)] {
+                let label_w = t.width(label, d.small_px);
+                let value_w = t.width(value, d.small_px);
+                if x + label_w + d.gap / 2.0 + value_w > at.right() {
+                    break;
+                }
+                r.text_at(t, &small, label, x, range_y, p.popup_label)?;
+                x += label_w + d.gap / 2.0;
+                r.text_at(t, &small, value, x, range_y, p.popup_text)?;
+                x += value_w + 2.0 * d.gap;
+            }
+        }
+        if s.content.graph && graph.h >= 16.0 * d.scale {
+            let line = d.scale.max(1.0);
+            for quarter in 1..4 {
+                let y = (graph.y + graph.h * quarter as f32 / 4.0).round();
+                r.fill_rounded(
+                    Rect {
+                        y,
+                        h: line,
+                        ..graph
+                    },
+                    0.0,
+                    p.popup_border,
+                )?;
+            }
+            self.graph(r, s, graph, 1.8)?;
+        }
+        self.details(r, s, at, details)
+    }
+
+    fn range(&self, s: &Section) -> Option<(String, String)> {
+        let (histories, _) = self.series(s);
+        let (_, history) = histories.first()?;
+        let unit = metric_for(s.content.kind, s.content.series[0]).unit();
+        Some((
+            format_value(history.min()?, unit),
+            format_value(history.max()?, unit),
+        ))
+    }
+
+    /// The title line and the value under it, at most `big_px` and within
+    /// `room`; returns the value's baseline and right end.
+    fn card_top(
+        &self,
+        r: &Renderer,
+        s: &Section,
+        at: Rect,
+        room: f32,
+        big_px: f32,
+    ) -> Result<(f32, f32)> {
         let (d, p, t) = (self.d, self.palette, self.text);
         let c = s.content;
         let body = t.format(d.font_px)?;
@@ -1166,36 +1461,31 @@ impl Ctx<'_> {
 
         let y = at.y + d.line_h + d.gap / 2.0;
         let (number, unit) = split_unit(&c.value);
-        let room = at.w * 0.55;
         let unit_w = t.width(unit, d.font_px);
-        let big_px = [d.big_px, d.big_px * 0.75, d.font_px * 1.25]
+        let big_h = t.line_height(big_px);
+        let smallest = d.font_px * 1.25;
+        let room = room - 2.0 * d.scale;
+        let big_px = [1.0, 0.85, 0.7, 0.58, 0.48]
             .into_iter()
+            .map(|f| (big_px * f).max(smallest))
+            .chain([smallest])
             .find(|&px| t.width(number, px) + unit_w <= room)
-            .unwrap_or(d.font_px * 1.25);
+            .unwrap_or(smallest);
         let number = ellipsize(number, room - unit_w, big_px, t);
         let base = p.graph(c.kind, c.series[0]);
         let loaded = p.graph_at(c.kind, c.series[0], s.latest);
         let color = if loaded == base { p.popup_text } else { loaded };
-        let baseline = y + d.big_h;
+        let baseline = y + big_h;
         let number_y = baseline - t.line_height(big_px);
         r.text_at(t, &t.format(big_px)?, &number, at.x, number_y, color)?;
         let mut x = at.x + t.width(&number, big_px);
         if !unit.is_empty() {
             x += d.scale * 2.0;
-            let unit_y = baseline - d.line_h - d.big_h * 0.06;
+            let unit_y = baseline - d.line_h - big_h * 0.06;
             r.text_at(t, &body, unit, x, unit_y, p.popup_label)?;
             x += unit_w;
         }
-        let graph = Rect {
-            x: x + 1.5 * d.gap,
-            y: y + d.big_h * 0.1,
-            w: at.right() - (x + 1.5 * d.gap),
-            h: d.big_h * 0.85,
-        };
-        if c.graph && graph.w >= 24.0 * d.scale {
-            self.graph(r, s, graph, 1.4)?;
-        }
-        self.details(r, s, at, baseline)
+        Ok((baseline, x))
     }
 
     fn accent(&self, s: &Section) -> Color {
@@ -1554,9 +1844,12 @@ pub fn drag_cursor() {
     set_cursor(IDC_SIZEALL);
 }
 
-pub fn resize_cursor(right: bool, bottom: bool) {
-    set_cursor(match (right, bottom) {
-        (true, true) => IDC_SIZENWSE,
+pub fn resize_cursor(edges: Edges) {
+    let across = edges.left || edges.right;
+    let up = edges.top || edges.bottom;
+    set_cursor(match (across, up) {
+        (true, true) if edges.left == edges.top => IDC_SIZENWSE,
+        (true, true) => IDC_SIZENESW,
         (true, false) => IDC_SIZEWE,
         _ => IDC_SIZENS,
     });
@@ -1570,10 +1863,53 @@ fn set_cursor(id: windows::core::PCWSTR) {
     }
 }
 
-pub fn grip((x, y): (i32, i32), (w, h): (i32, i32), reach: i32) -> Option<(bool, bool)> {
-    let right = x >= w - reach && x < w;
-    let bottom = y >= h - reach && y < h;
-    (right || bottom).then_some((right, bottom))
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Edges {
+    pub left: bool,
+    pub right: bool,
+    pub top: bool,
+    pub bottom: bool,
+}
+
+impl Edges {
+    pub fn any(self) -> bool {
+        self.left || self.right || self.top || self.bottom
+    }
+}
+
+pub fn grip((x, y): (i32, i32), (w, h): (i32, i32), reach: i32) -> Option<Edges> {
+    let edges = Edges {
+        left: x >= 0 && x < reach,
+        right: x >= w - reach && x < w,
+        top: y >= 0 && y < reach,
+        bottom: y >= h - reach && y < h,
+    };
+    edges.any().then_some(edges)
+}
+
+/// The size and top-left corner after dragging `edges` by `delta`: the edges
+/// not dragged stay where they were.
+pub fn resized(
+    edges: Edges,
+    (x, y): (i32, i32),
+    (w, h): (i32, i32),
+    (dx, dy): (i32, i32),
+    clamp_w: impl Fn(i32) -> i32,
+    clamp_h: impl Fn(i32) -> i32,
+) -> ((i32, i32), (i32, i32)) {
+    let new_w = clamp_w(match (edges.left, edges.right) {
+        (true, _) => w - dx,
+        (_, true) => w + dx,
+        _ => w,
+    });
+    let new_h = clamp_h(match (edges.top, edges.bottom) {
+        (true, _) => h - dy,
+        (_, true) => h + dy,
+        _ => h,
+    });
+    let x = if edges.left { x + w - new_w } else { x };
+    let y = if edges.top { y + h - new_h } else { y };
+    ((x, y), (new_w, new_h))
 }
 
 fn is_topmost(hwnd: HWND) -> bool {
@@ -1765,6 +2101,11 @@ mod tests {
             transparency: true,
             alpha: 255,
             size: None,
+            layout: WidgetLayout::Auto,
+            row_radius: None,
+            glass_tint: 0.0,
+            focus: FocusView::default(),
+            border: true,
         };
         let d = Dims::new(&text, &look, look.column_w);
         let mut sections: Vec<Section> = contents
@@ -1859,6 +2200,38 @@ mod tests {
     }
 
     #[test]
+    fn every_blurred_material_still_takes_the_mouse_when_fully_clear() {
+        let config = pulsar_core::config::Config::default();
+        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
+        for material in [WidgetMaterial::Glass, WidgetMaterial::Acrylic] {
+            let look = Look {
+                column_w: 300.0,
+                max_h: 600.0,
+                font_px: 12.0,
+                opacity: 0.0,
+                background: None,
+                reorder: None,
+                scale: 1.0,
+                network_floor: NetworkFloor::default(),
+                material,
+                separate: true,
+                transparency: true,
+                alpha: 255,
+                size: None,
+                layout: WidgetLayout::Auto,
+                row_radius: None,
+                glass_tint: 0.0,
+                focus: FocusView::default(),
+                border: false,
+            };
+            assert!(
+                Skin::new(&look, &palette, true).fill.a > 0.0,
+                "{material:?}"
+            );
+        }
+    }
+
+    #[test]
     fn the_size_picks_the_layout() {
         assert_eq!(arrangement(700.0, 60.0, 5), Arrangement::Strip);
         assert_eq!(arrangement(240.0, 60.0, 5), Arrangement::Rings);
@@ -1873,6 +2246,205 @@ mod tests {
         );
         assert_eq!(arrangement(300.0, 300.0, 5), Arrangement::Tiles);
         assert_eq!(arrangement(280.0, 600.0, 5), Arrangement::Lanes);
+        assert_eq!(arrangement(300.0, 250.0, 1), Arrangement::Focus);
+        assert_eq!(
+            arrangement(300.0, 100.0, 1),
+            Arrangement::Tiles,
+            "too short for Focus"
+        );
+        assert_eq!(first_number("-5°C"), "-5");
+        assert_eq!(first_number("\u{2212}12 °C"), "\u{2212}12");
+        assert_eq!(first_number("↓ 3.2 MB/s"), "3.2");
+        assert_eq!(arrangement(900.0, 600.0, 1), Arrangement::Focus, "any size");
+        assert_eq!(
+            arrangement(300.0, 60.0, 1),
+            Arrangement::Strip,
+            "too short for a graph"
+        );
+    }
+
+    #[test]
+    fn dragging_the_left_or_top_edge_keeps_the_far_edge_in_place() {
+        let edges = |left, right, top, bottom| Edges {
+            left,
+            right,
+            top,
+            bottom,
+        };
+        let keep = |v: i32| v.clamp(100, 1000);
+        let left = resized(
+            edges(true, false, false, false),
+            (500, 300),
+            (400, 200),
+            (-50, 0),
+            keep,
+            keep,
+        );
+        assert_eq!(left, ((450, 300), (450, 200)));
+        let top_left = resized(
+            edges(true, false, true, false),
+            (500, 300),
+            (400, 200),
+            (30, 20),
+            keep,
+            keep,
+        );
+        assert_eq!(top_left, ((530, 320), (370, 180)));
+        let floor = resized(
+            edges(true, false, false, false),
+            (500, 300),
+            (400, 200),
+            (390, 0),
+            keep,
+            keep,
+        );
+        assert_eq!(
+            floor,
+            ((800, 300), (100, 200)),
+            "the right edge holds at the smallest width"
+        );
+        let right = resized(
+            edges(false, true, false, true),
+            (500, 300),
+            (400, 200),
+            (10, 10),
+            keep,
+            keep,
+        );
+        assert_eq!(right, ((500, 300), (410, 210)));
+        assert_eq!(
+            grip((2, 50), (400, 200), 8),
+            Some(edges(true, false, false, false))
+        );
+        assert_eq!(
+            grip((398, 2), (400, 200), 8),
+            Some(edges(false, true, true, false))
+        );
+        assert_eq!(grip((200, 100), (400, 200), 8), None);
+    }
+
+    #[test]
+    fn a_focus_change_hands_over_from_the_leaving_item_to_the_arriving_one() {
+        let area = (300.0, 200.0);
+        for t in [
+            FocusTransition::Fade,
+            FocusTransition::Slide,
+            FocusTransition::SlideUp,
+        ] {
+            let [out, into] = transition_frames(t, 0.0, area);
+            assert_eq!(out, (1.0, (0.0, 0.0)), "{t:?} starts on the old item");
+            assert!(
+                into.0 == 0.0 || into.1 != (0.0, 0.0),
+                "{t:?} hides the new one"
+            );
+            let [out, into] = transition_frames(t, 1.0, area);
+            assert_eq!(into, (1.0, (0.0, 0.0)), "{t:?} ends on the new item");
+            assert!(
+                out.0 == 0.0 || out.1 != (0.0, 0.0),
+                "{t:?} has the old one gone"
+            );
+        }
+        let [_, into] = transition_frames(FocusTransition::None, 0.0, area);
+        assert_eq!(into, (1.0, (0.0, 0.0)));
+    }
+
+    #[test]
+    fn a_chosen_layout_overrides_the_size() {
+        assert_eq!(
+            chosen(WidgetLayout::Auto, 300.0, 300.0, 5),
+            Arrangement::Tiles
+        );
+        assert_eq!(
+            chosen(WidgetLayout::Focus, 300.0, 300.0, 5),
+            Arrangement::Focus
+        );
+        assert_eq!(
+            chosen(WidgetLayout::Strip, 300.0, 300.0, 5),
+            Arrangement::Strip
+        );
+        assert_eq!(
+            chosen(WidgetLayout::Meters, 300.0, 300.0, 5),
+            Arrangement::Meters
+        );
+        assert_eq!(
+            chosen(WidgetLayout::Dials, 900.0, 60.0, 5),
+            Arrangement::Dials
+        );
+        assert_eq!(
+            chosen(WidgetLayout::Dashboard, 300.0, 100.0, 5),
+            Arrangement::Dashboard { columns: 1 },
+            "as many columns as fit"
+        );
+    }
+
+    #[test]
+    fn focus_fills_the_widget_with_one_items_graph_above_its_details() {
+        use pulsar_core::config::Config;
+        let text = Text::new(None, false).unwrap();
+        let config = Config::default();
+        let (snapshot, history) = sample();
+        let options = crate::popup::content::Options::new(&config, ItemKind::Cpu, &snapshot.gpus);
+        let content =
+            crate::popup::content::build_with(ItemKind::Cpu, &snapshot, &history, &options);
+        let look = Look {
+            column_w: 300.0,
+            max_h: 260.0,
+            font_px: 12.0,
+            opacity: 1.0,
+            background: None,
+            reorder: None,
+            scale: 1.0,
+            network_floor: NetworkFloor::default(),
+            material: WidgetMaterial::Glass,
+            separate: true,
+            transparency: true,
+            alpha: 255,
+            size: Some((300.0, 260.0)),
+            layout: WidgetLayout::Auto,
+            row_radius: None,
+            glass_tint: 0.0,
+            focus: FocusView::default(),
+            border: true,
+        };
+        let d = Dims::new(&text, &look, 300.0);
+        let mut sections = vec![Section::new(
+            &content,
+            WidgetStyle::Cards,
+            &snapshot,
+            &history,
+        )];
+        let plan = Plan::focus(&mut sections, 0, &d, 300.0, 260.0, &text);
+        assert_eq!((plan.width, plan.height), (300.0, 260.0));
+        assert_eq!(plan.panels.len(), 1);
+        let at = plan.placed[0].rect;
+        assert!(at.x > 0.0 && at.right() < 300.0 && at.y + at.h < 260.0);
+        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
+        let ctx = Ctx {
+            text: &text,
+            palette: &palette,
+            history: &history,
+            network_floor: look.network_floor,
+            d: &d,
+            bare_tiles: true,
+        };
+        let surface = Surface::new(300, 260).unwrap();
+        let mut renderer = Renderer::new().unwrap();
+        let clear = Color::rgb(0, 0, 0).with_alpha(0.0);
+        renderer
+            .paint(&surface, clear, |r| ctx.focus(r, &sections[0], at))
+            .unwrap();
+        let bits = crate::render::tests::pixels(&surface);
+        let range = d.small_h;
+        let bottom = at.y + at.h - sections[0].details_height(&d) - range - d.gap / 2.0;
+        let (x, y) = ((at.right() - 3.0) as usize, (bottom - 3.0) as usize);
+        assert!(
+            bits[y * 300 + x] >> 24 > 0,
+            "the latest reading fills down to the details"
+        );
+        assert!(
+            bottom - at.y > 260.0 / 2.0,
+            "the graph takes most of the height"
+        );
     }
 
     #[test]
@@ -1909,15 +2481,25 @@ mod tests {
             transparency: true,
             alpha: 255,
             size: None,
+            layout: WidgetLayout::Auto,
+            row_radius: None,
+            glass_tint: 0.0,
+            focus: FocusView::default(),
+            border: true,
         };
         let d = Dims::new(&text, &look, look.column_w);
         let mut sections: Vec<Section> = contents
             .iter()
             .map(|c| Section::new(c, WidgetStyle::Cards, &snapshot, &history))
             .collect();
-        let rings = Plan::row(&sections, &d, 240.0, 60.0, true, &text);
+        let rings = Plan::row(&sections, &d, 240.0, 60.0, true, 30.0, &text);
         assert!(!rings.placed.is_empty() && rings.placed.len() < kinds.len());
-        let strip = Plan::row(&sections, &d, 900.0, 60.0, false, &text);
+        let strip = Plan::row(&sections, &d, 900.0, 60.0, false, 30.0, &text);
+        let square = Plan::row(&sections, &d, 900.0, 60.0, false, 0.0, &text);
+        assert!(
+            square.placed[0].rect.x < strip.placed[0].rect.x,
+            "square ends need less room"
+        );
         assert_eq!(strip.placed.len(), kinds.len());
         for plan in [&rings, &strip] {
             for p in &plan.placed {

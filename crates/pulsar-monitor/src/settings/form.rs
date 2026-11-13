@@ -4,10 +4,11 @@ use pulsar_core::colors::Rgb;
 #[cfg(test)]
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
-    Config, DisplayMode, DriveValue, ItemConfig, LabelStyle, LoadColors, LoadThresholds,
-    MemoryUnit, NetworkShow, NoRoom, OverFullscreen, PopupBackground, Position, PushStrength,
-    RateUnit, RemoveFrom, ScreenEdge, StripShape, TemperatureUnit, WidgetLayer, WidgetMaterial,
-    WidgetSizing, WidgetStyle, sanitize_label,
+    Config, DisplayMode, DriveValue, FOCUS_INTERVALS_S, FOCUS_TRANSITIONS_MS, FocusTransition,
+    ItemConfig, LabelStyle, LoadColors, LoadThresholds, MemoryUnit, NetworkShow, NoRoom,
+    OverFullscreen, PopupBackground, Position, PushStrength, ROW_RADII, RateUnit, RemoveFrom,
+    SHAPE_RADII, ScreenEdge, StripShape, TemperatureUnit, WIDGET_FOCUS_SIZE, WidgetLayer,
+    WidgetLayout, WidgetMaterial, WidgetSizing, WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -31,6 +32,23 @@ const OVER_FULLSCREEN: [OverFullscreen; 3] = [
     OverFullscreen::Never,
     OverFullscreen::Hotkey,
     OverFullscreen::HotkeyAndEdge,
+];
+const WIDGET_LAYOUTS: [WidgetLayout; 9] = [
+    WidgetLayout::Auto,
+    WidgetLayout::Dashboard,
+    WidgetLayout::Lanes,
+    WidgetLayout::Tiles,
+    WidgetLayout::Meters,
+    WidgetLayout::Dials,
+    WidgetLayout::Strip,
+    WidgetLayout::Rings,
+    WidgetLayout::Focus,
+];
+const FOCUS_TRANSITIONS: [FocusTransition; 4] = [
+    FocusTransition::None,
+    FocusTransition::Fade,
+    FocusTransition::Slide,
+    FocusTransition::SlideUp,
 ];
 const WIDGET_MATERIALS: [WidgetMaterial; 4] = [
     WidgetMaterial::Solid,
@@ -185,6 +203,8 @@ pub struct Form {
     pub hotkey_details: String,
     pub hotkey_record: String,
     pub hotkey_next_profile: String,
+    pub hotkey_next_item: String,
+    pub hotkey_previous_item: String,
     pub network_bits: bool,
     pub upload_on_top: bool,
     pub network_show: i32,
@@ -222,8 +242,17 @@ pub struct Form {
     pub widget_detail: i32,
     pub widget_width: i32,
     pub widget_opacity: i32,
+    pub widget_glass_tint: i32,
+    pub widget_border: bool,
+    pub widget_focus_cycle: bool,
+    pub widget_focus_interval: i32,
+    pub widget_focus_transition: i32,
+    pub widget_focus_transition_ms: i32,
     /// An index into `WIDGET_MATERIALS`.
     pub widget_material: i32,
+    pub widget_layout: i32,
+    pub widget_row_radius_custom: bool,
+    pub widget_row_radius: i32,
     pub widget_separate: bool,
     pub widget_sized: bool,
     pub widget_hide_in_fullscreen: bool,
@@ -314,7 +343,6 @@ pub fn theme_from(f: &Form, base: &Theme, name: &str) -> Theme {
 }
 
 const DEFAULT_SHAPE_RADIUS: u8 = 8;
-const MAX_SHAPE_RADIUS: u8 = 24;
 const DEFAULT_BATTERY_INTERVAL_MS: i32 = 2000;
 const NETWORK_SHOW: [NetworkShow; 3] = [
     NetworkShow::Both,
@@ -472,6 +500,8 @@ pub fn to_form(c: &Config) -> Form {
         hotkey_details: c.hotkeys.details.clone().unwrap_or_default(),
         hotkey_record: c.hotkeys.record.clone().unwrap_or_default(),
         hotkey_next_profile: c.hotkeys.next_profile.clone().unwrap_or_default(),
+        hotkey_next_item: c.hotkeys.next_item.clone().unwrap_or_default(),
+        hotkey_previous_item: c.hotkeys.previous_item.clone().unwrap_or_default(),
         network_bits: c.units.network == RateUnit::Bits,
         upload_on_top: d.upload_on_top,
         network_show: index_of(&NETWORK_SHOW, &c.network.show),
@@ -509,7 +539,16 @@ pub fn to_form(c: &Config) -> Form {
         widget_detail: index_of(&DETAILS, &c.widget.detail),
         widget_width: i32::from(c.widget.width),
         widget_opacity: i32::from(c.widget.opacity),
+        widget_glass_tint: i32::from(c.widget.glass_tint),
+        widget_border: c.widget.border,
+        widget_focus_cycle: c.widget.focus_cycle,
+        widget_focus_interval: i32::from(c.widget.focus_interval_s),
+        widget_focus_transition: index_of(&FOCUS_TRANSITIONS, &c.widget.focus_transition),
+        widget_focus_transition_ms: i32::from(c.widget.focus_transition_ms),
         widget_material: index_of(&WIDGET_MATERIALS, &c.widget.material),
+        widget_layout: index_of(&WIDGET_LAYOUTS, &c.widget.layout),
+        widget_row_radius_custom: c.widget.row_radius.is_some(),
+        widget_row_radius: i32::from(c.widget.row_radius.unwrap_or(DEFAULT_SHAPE_RADIUS)),
         widget_separate: c.widget.separate,
         widget_sized: c.widget.sizing == WidgetSizing::Chosen,
         widget_hide_in_fullscreen: c.widget.hide_in_fullscreen,
@@ -635,6 +674,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     c.hotkeys.details = non_empty(&f.hotkey_details);
     c.hotkeys.record = non_empty(&f.hotkey_record);
     c.hotkeys.next_profile = non_empty(&f.hotkey_next_profile);
+    c.hotkeys.next_item = non_empty(&f.hotkey_next_item);
+    c.hotkeys.previous_item = non_empty(&f.hotkey_previous_item);
     c.general.autostart = f.autostart;
     c.general.update_check = f.update_check;
     c.general.tray_icon = f.tray_icon;
@@ -668,7 +709,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     d.float_blur = f.float_blur;
     d.shape_radius = f
         .shape_radius_custom
-        .then(|| f.shape_radius.clamp(0, i32::from(MAX_SHAPE_RADIUS)) as u8);
+        .then(|| f.shape_radius.clamp(0, i32::from(*SHAPE_RADII.end())) as u8);
     d.labels = match f.labels {
         1 => LabelStyle::Short,
         2 => LabelStyle::None,
@@ -815,7 +856,27 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     w.detail = at(&DETAILS, f.widget_detail).unwrap_or_default();
     w.width = f.widget_width.clamp(0, i32::from(u16::MAX)) as u16;
     w.opacity = clamp_u8(f.widget_opacity);
+    w.glass_tint = clamp_u8(f.widget_glass_tint);
+    w.border = f.widget_border;
+    w.focus_cycle = f.widget_focus_cycle;
+    w.focus_interval_s = f.widget_focus_interval.clamp(
+        i32::from(*FOCUS_INTERVALS_S.start()),
+        i32::from(*FOCUS_INTERVALS_S.end()),
+    ) as u16;
+    w.focus_transition = at(&FOCUS_TRANSITIONS, f.widget_focus_transition).unwrap_or_default();
+    w.focus_transition_ms = f.widget_focus_transition_ms.clamp(
+        i32::from(*FOCUS_TRANSITIONS_MS.start()),
+        i32::from(*FOCUS_TRANSITIONS_MS.end()),
+    ) as u16;
     w.material = at(&WIDGET_MATERIALS, f.widget_material).unwrap_or_default();
+    let layout = at(&WIDGET_LAYOUTS, f.widget_layout).unwrap_or_default();
+    if layout == WidgetLayout::Focus && w.layout != WidgetLayout::Focus {
+        w.size = WIDGET_FOCUS_SIZE;
+    }
+    w.layout = layout;
+    w.row_radius = f
+        .widget_row_radius_custom
+        .then(|| f.widget_row_radius.clamp(0, i32::from(*ROW_RADII.end())) as u8);
     w.dock.edge = f
         .widget_dock_edge
         .map(|i| at(&SCREEN_EDGES, i).unwrap_or_default());
@@ -1030,6 +1091,22 @@ mod tests {
             item_rgb(ItemKind::Cpu, "#01", &ocean.dark),
             ocean.dark.item(ItemKind::Cpu, CellPart::Main)
         );
+    }
+
+    #[test]
+    fn choosing_focus_gives_the_widget_its_size_once() {
+        let mut c = Config::default();
+        c.widget.size = [900, 120];
+        let mut f = to_form(&c);
+        f.widget_layout = index_of(&WIDGET_LAYOUTS, &WidgetLayout::Focus);
+        f.widget_focus_transition_ms = 99_999;
+        let out = to_config(&f, &c);
+        assert_eq!(out.widget.size, WIDGET_FOCUS_SIZE);
+        assert_eq!(out.widget.focus_transition_ms, *FOCUS_TRANSITIONS_MS.end());
+        let mut resized = out.clone();
+        resized.widget.size = [500, 400];
+        let again = to_config(&to_form(&resized), &resized);
+        assert_eq!(again.widget.size, [500, 400], "a later drag is kept");
     }
 
     #[test]

@@ -121,10 +121,11 @@ impl Layout {
     }
 
     fn nearest(&self, x: f32, y: f32) -> Option<&Cell> {
-        let at = if self.vertical { y } else { x };
         let distance = |c: &&Cell| {
-            let (start, len) = self.along(&c.rect);
-            (start - at).max(at - start - len).max(0.0)
+            let r = c.rect;
+            let dx = (r.x - x).max(x - r.right()).max(0.0);
+            let dy = (r.y - y).max(y - r.y - r.h).max(0.0);
+            dx * dx + dy * dy
         };
         self.cells
             .iter()
@@ -4049,6 +4050,23 @@ mod tests {
             }
             assert_inside(&l);
         }
+    }
+
+    #[test]
+    fn a_text_pill_end_hovers_as_the_row_beside_it() {
+        let i = LayoutInput {
+            shape: StripShape::Pill,
+            ..input(DisplayMode::Text, 48.0, 96)
+        };
+        let l = compute_layout(&specs(&[ItemKind::Cpu, ItemKind::Ram]), i, &Fixed);
+        let (top, bottom) = (&l.cells[0], &l.cells[1]);
+        assert_eq!(top.rect.x, bottom.rect.x, "one column of two rows");
+        let x = top.rect.x - 1.0;
+        assert_eq!(l.hit_test(x, top.rect.y + 1.0), Some(top.kind));
+        assert_eq!(
+            l.hit_test(x, bottom.rect.y + bottom.rect.h - 1.0),
+            Some(bottom.kind)
+        );
     }
 
     #[test]

@@ -884,7 +884,7 @@ msgstr "Gráfica"
 msgid "Translucent background"
 msgstr "Fondo translúcido"
 
-#: src/menu.rs
+#: src/menu.rs ui/settings.slint
 msgid "None"
 msgstr "Ninguno"
 
@@ -1484,6 +1484,14 @@ msgstr "No se pudo leer el perfil."
 msgid "Settings page"
 msgstr "Página de configuración"
 
+#: src/widget.rs ui/details.slint
+msgid "Min"
+msgstr "Mín."
+
+#: src/widget.rs ui/details.slint
+msgid "Max"
+msgstr "Máx."
+
 #: src/widget.rs
 msgid "P-cores, {} threads"
 msgstr "Núcleos P, {} hilos"
@@ -1512,7 +1520,7 @@ msgstr "Matriz"
 msgid "Strips"
 msgstr "Barras"
 
-#: ui/details.slint
+#: ui/details.slint ui/settings.slint
 msgid "Rings"
 msgstr "Anillos"
 
@@ -1575,14 +1583,6 @@ msgstr "Sensor"
 #: ui/details.slint
 msgid "Value"
 msgstr "Valor"
-
-#: ui/details.slint
-msgid "Min"
-msgstr "Mín."
-
-#: ui/details.slint
-msgid "Max"
-msgstr "Máx."
 
 #: ui/settings.slint
 msgid "Press keys…"
@@ -2393,12 +2393,12 @@ msgid "Size"
 msgstr "Tamaño"
 
 #: ui/settings.slint
-msgid "Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
-msgstr "Arrastra el borde derecho o inferior del widget. Ancho muestra tarjetas en columnas; estrecho, una línea por elemento; cuadrado, mosaicos; y bajo, una sola fila de valores o anillos."
+msgid "Drag any edge of the widget. With the Automatic layout, wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
+msgstr "Arrastra cualquier borde del widget. Con el diseño Automático, ancho muestra tarjetas en columnas, estrecho una línea por elemento, cuadrado mosaicos y bajo una sola fila de valores o anillos."
 
 #: ui/settings.slint
-msgid "As large as its items need, each in the style chosen for it."
-msgstr "Tan grande como lo necesiten sus elementos, cada uno con el estilo elegido."
+msgid "As large as its items need."
+msgstr "Tan grande como lo necesiten sus elementos."
 
 #: ui/settings.slint
 msgid "Fit the content"
@@ -2409,16 +2409,24 @@ msgid "Drag to size"
 msgstr "Arrastrar para ajustar"
 
 #: ui/settings.slint
-msgid "Style"
-msgstr "Estilo"
+msgid "Automatic picks one from the size. Focus shows one item at a time, with a large graph."
+msgstr "Automático elige uno según el tamaño. Enfoque muestra un elemento a la vez, con un gráfico grande."
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
-msgstr "Minigráficos: una línea por elemento con un gráfico pequeño. Mosaicos: una cuadrícula de gráficos pequeños. Medidores: una barra con el valor actual. Diales: una cuadrícula de anillos. Tarjetas de dispositivo: el dispositivo, un valor grande junto a su gráfico y luego los detalles."
+msgid "Automatic shows each item in the style chosen for it. Focus shows one item at a time, with a large graph."
+msgstr "Automático muestra cada elemento con el estilo elegido para él. Enfoque muestra un elemento a la vez, con un gráfico grande."
 
 #: ui/settings.slint
-msgid "Sparklines"
-msgstr "Minigráficos"
+msgid "Automatic"
+msgstr "Automático"
+
+#: ui/settings.slint
+msgid "Dashboard"
+msgstr "Panel"
+
+#: ui/settings.slint
+msgid "Lanes"
+msgstr "Carriles"
 
 #: ui/settings.slint
 msgid "Tiles"
@@ -2431,6 +2439,62 @@ msgstr "Medidores"
 #: ui/settings.slint
 msgid "Dials"
 msgstr "Diales"
+
+#: ui/settings.slint
+msgid "Strip"
+msgstr "Franja"
+
+#: ui/settings.slint
+msgid "Focus"
+msgstr "Enfoque"
+
+#: ui/settings.slint
+msgid "Cycle through items"
+msgstr "Recorrer los elementos"
+
+#: ui/settings.slint
+msgid "Seconds between items. Shortcuts for the next and previous item are under General."
+msgstr "Segundos entre elementos. Los atajos para el elemento siguiente y anterior están en General."
+
+#: ui/settings.slint
+msgid "Transition"
+msgstr "Transición"
+
+#: ui/settings.slint
+msgid "How Focus moves to the next item."
+msgstr "Cómo pasa Enfoque al siguiente elemento."
+
+#: ui/settings.slint
+msgid "Fade"
+msgstr "Fundido"
+
+#: ui/settings.slint
+msgid "Slide"
+msgstr "Deslizar"
+
+#: ui/settings.slint
+msgid "Slide up"
+msgstr "Deslizar hacia arriba"
+
+#: ui/settings.slint
+msgid "Transition length"
+msgstr "Duración de la transición"
+
+#: ui/settings.slint
+msgid "{} ms"
+msgstr "{} ms"
+
+#: ui/settings.slint
+msgid "Style"
+msgstr "Estilo"
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr "Minigráficos: una línea por elemento con un gráfico pequeño. Mosaicos: una cuadrícula de gráficos pequeños. Medidores: una barra con el valor actual. Diales: una cuadrícula de anillos. Tarjetas de dispositivo: el dispositivo, un valor grande junto a su gráfico y luego los detalles."
+
+#: ui/settings.slint
+msgid "Sparklines"
+msgstr "Minigráficos"
 
 #: ui/settings.slint
 msgid "Device cards"
@@ -2469,6 +2533,14 @@ msgid "Each item on a panel of its own, with a gap between."
 msgstr "Cada elemento en su propio panel, con un espacio entre ellos."
 
 #: ui/settings.slint
+msgid "Border"
+msgstr "Contorno"
+
+#: ui/settings.slint
+msgid "A thin line around each panel."
+msgstr "Una línea fina alrededor de cada panel."
+
+#: ui/settings.slint
 msgid "Tiles show the value and graph only."
 msgstr "Los mosaicos solo muestran el valor y el gráfico."
 
@@ -2489,12 +2561,28 @@ msgid "Background color"
 msgstr "Color de fondo"
 
 #: ui/settings.slint
+msgid "Tints the glass. Empty uses the theme's panel color."
+msgstr "Tiñe el cristal. Vacío usa el color del panel del tema."
+
+#: ui/settings.slint
 msgid "Empty uses the theme's panel color."
 msgstr "Vacío usa el color de panel del tema."
 
 #: ui/settings.slint
 msgid "Background opacity"
 msgstr "Opacidad del fondo"
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr "Tinte del cristal"
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr "Cristal transparente."
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
+msgstr "{}% del color del tinte."
 
 #: ui/settings.slint
 msgid "Choose items"
@@ -2783,6 +2871,18 @@ msgstr "Iniciar o detener la grabación en CSV"
 #: ui/settings.slint
 msgid "Switch to the next profile"
 msgstr "Cambiar al siguiente perfil"
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr "Mostrar el siguiente elemento en Enfoque"
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr "Para el diseño Enfoque del widget."
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr "Mostrar el elemento anterior en Enfoque"
 
 #: ui/settings.slint
 msgid "Alerts"

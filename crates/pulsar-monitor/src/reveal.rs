@@ -21,7 +21,8 @@ use crate::theme::Color;
 
 const PUSH_PAUSE: Duration = Duration::from_millis(250);
 /// Pen, touch and remote sessions move the pointer to absolute positions,
-/// which cannot push past the edge, so resting there opens it instead.
+/// which cannot push past the edge, so resting there opens it instead. So
+/// does an edge shared with another monitor, where the pointer crosses over.
 pub const REST: Duration = Duration::from_millis(300);
 const OPEN: Duration = Duration::from_millis(220);
 const CLOSE: Duration = Duration::from_millis(160);
@@ -30,6 +31,9 @@ const FADE: Duration = Duration::from_millis(120);
 pub const CORNER: f32 = 48.0;
 pub const SLIDE: f32 = 36.0;
 pub const REACH: f32 = 10.0;
+/// How far in from the edge resting counts, as the pointer can't be held
+/// on the last pixel of an edge it can cross.
+pub const REST_BAND: f32 = 3.0;
 
 /// Raw mouse counts, which do not scale with the pointer speed setting.
 pub fn threshold(push: PushStrength) -> i32 {
@@ -49,27 +53,34 @@ pub fn outward(edge: ScreenEdge, dx: i32, dy: i32) -> (i32, i32) {
     }
 }
 
-/// Whether `at` is on `edge`'s outermost pixels of `monitor`, away from its
-/// corners, where the title bar buttons and the Start button are.
-pub fn on_edge(edge: ScreenEdge, at: (i32, i32), monitor: Rect32, corner: i32) -> bool {
+/// Whether `at` is within `depth` pixels of `edge` inside `monitor`, away
+/// from its corners, where the title bar buttons and the Start button are.
+pub fn on_edge(edge: ScreenEdge, at: (i32, i32), monitor: Rect32, corner: i32, depth: i32) -> bool {
     let (x, y) = at;
     let within = |v: i32, low: i32, high: i32| v >= low + corner && v < high - corner;
+    let inside =
+        |v: i32, outer: i32, inward: i32| (v - outer) * inward >= 0 && (v - outer).abs() < depth;
     match edge {
-        ScreenEdge::Left => x <= monitor.left && within(y, monitor.top, monitor.bottom),
-        ScreenEdge::Right => x >= monitor.right - 1 && within(y, monitor.top, monitor.bottom),
-        ScreenEdge::Top => y <= monitor.top && within(x, monitor.left, monitor.right),
-        ScreenEdge::Bottom => y >= monitor.bottom - 1 && within(x, monitor.left, monitor.right),
+        ScreenEdge::Left => inside(x, monitor.left, 1) && within(y, monitor.top, monitor.bottom),
+        ScreenEdge::Right => {
+            inside(x, monitor.right - 1, -1) && within(y, monitor.top, monitor.bottom)
+        }
+        ScreenEdge::Top => inside(y, monitor.top, 1) && within(x, monitor.left, monitor.right),
+        ScreenEdge::Bottom => {
+            inside(y, monitor.bottom - 1, -1) && within(x, monitor.left, monitor.right)
+        }
     }
 }
 
-/// The point just past `at` on `edge`, which must be off every screen for
-/// a push to count; elsewhere the pointer just crosses to the next monitor.
-pub fn beyond(edge: ScreenEdge, (x, y): (i32, i32)) -> (i32, i32) {
+/// The point just past `monitor`'s `edge` beside `at`, which must be off
+/// every screen for a push to count; elsewhere the pointer just crosses to
+/// the next monitor.
+pub fn beyond(edge: ScreenEdge, (x, y): (i32, i32), monitor: Rect32) -> (i32, i32) {
     match edge {
-        ScreenEdge::Left => (x - 1, y),
-        ScreenEdge::Right => (x + 1, y),
-        ScreenEdge::Top => (x, y - 1),
-        ScreenEdge::Bottom => (x, y + 1),
+        ScreenEdge::Left => (monitor.left - 1, y),
+        ScreenEdge::Right => (monitor.right, y),
+        ScreenEdge::Top => (x, monitor.top - 1),
+        ScreenEdge::Bottom => (x, monitor.bottom),
     }
 }
 
@@ -172,6 +183,7 @@ pub struct Dock {
     pub monitor: Rect32,
     pub corner: i32,
     pub margin: i32,
+    pub band: i32,
     pub threshold: i32,
     pub hide_after: Duration,
     /// Whether the edge may open the widget now, as it may not over a
@@ -244,7 +256,9 @@ impl Reveal {
     }
 
     fn while_hidden(&mut self, p: &Pointer, dock: &Dock, now: Instant) {
-        let touching = on_edge(dock.edge, p.at, dock.monitor, dock.corner) && !p.crossing;
+        let rests = p.absolute || p.crossing;
+        let depth = if rests { dock.band } else { 1 };
+        let touching = on_edge(dock.edge, p.at, dock.monitor, dock.corner, depth);
         if !touching {
             self.armed = true;
         }
@@ -253,7 +267,7 @@ impl Reveal {
             self.resting_since = None;
             return;
         }
-        if p.absolute {
+        if rests {
             self.resting_since.get_or_insert(now);
             return;
         }
@@ -274,7 +288,9 @@ impl Reveal {
         if contains(reach(panel, dock.edge, dock.monitor, dock.margin), p.at) {
             self.entered = true;
             self.left_at = None;
-        } else if self.entered && !self.pinned {
+        } else if !self.pinned
+            && (self.entered || !on_edge(dock.edge, p.at, dock.monitor, 0, dock.band))
+        {
             self.left_at.get_or_insert(now);
         }
     }
@@ -283,7 +299,7 @@ impl Reveal {
         match self.phase {
             Phase::Hidden => {
                 if let Some(since) = self.resting_since {
-                    let touching = on_edge(dock.edge, cursor, dock.monitor, dock.corner);
+                    let touching = on_edge(dock.edge, cursor, dock.monitor, dock.corner, dock.band);
                     if !touching || !dock.allowed {
                         self.resting_since = None;
                     } else if now.duration_since(since) >= REST {
@@ -550,6 +566,7 @@ mod tests {
             monitor: MONITOR,
             corner: 48,
             margin: 10,
+            band: 3,
             threshold: 100,
             hide_after: Duration::from_millis(300),
             allowed: true,
@@ -572,14 +589,25 @@ mod tests {
     #[test]
     fn only_the_outer_pixels_away_from_the_corners_count() {
         let corner = 48;
-        assert!(on_edge(ScreenEdge::Right, (1919, 500), MONITOR, corner));
-        assert!(!on_edge(ScreenEdge::Right, (1918, 500), MONITOR, corner));
-        assert!(!on_edge(ScreenEdge::Right, (1919, 20), MONITOR, corner));
-        assert!(!on_edge(ScreenEdge::Right, (1919, 1060), MONITOR, corner));
-        assert!(on_edge(ScreenEdge::Bottom, (900, 1079), MONITOR, corner));
-        assert!(on_edge(ScreenEdge::Top, (900, 0), MONITOR, corner));
-        assert!(on_edge(ScreenEdge::Left, (0, 500), MONITOR, corner));
-        assert!(!on_edge(ScreenEdge::Left, (0, 10), MONITOR, corner));
+        assert!(on_edge(ScreenEdge::Right, (1919, 500), MONITOR, corner, 1));
+        assert!(!on_edge(ScreenEdge::Right, (1918, 500), MONITOR, corner, 1));
+        assert!(!on_edge(ScreenEdge::Right, (1919, 20), MONITOR, corner, 1));
+        assert!(!on_edge(
+            ScreenEdge::Right,
+            (1919, 1060),
+            MONITOR,
+            corner,
+            1
+        ));
+        assert!(on_edge(ScreenEdge::Bottom, (900, 1079), MONITOR, corner, 1));
+        assert!(on_edge(ScreenEdge::Top, (900, 0), MONITOR, corner, 1));
+        assert!(on_edge(ScreenEdge::Left, (0, 500), MONITOR, corner, 1));
+        assert!(!on_edge(ScreenEdge::Left, (0, 10), MONITOR, corner, 1));
+        assert!(
+            !on_edge(ScreenEdge::Right, (3839, 500), MONITOR, corner, 1),
+            "the far edge of the monitor beside it"
+        );
+        assert!(!on_edge(ScreenEdge::Left, (-1080, 500), MONITOR, corner, 1));
     }
 
     #[test]
@@ -645,16 +673,43 @@ mod tests {
     }
 
     #[test]
-    fn an_edge_shared_with_another_monitor_does_not_push() {
+    fn an_edge_shared_with_another_monitor_opens_by_resting_near_it() {
         let t = Instant::now();
         let d = dock();
         let mut r = Reveal::default();
         for i in 0..10 {
-            let mut p = push((1919, 500), 50);
+            let mut p = push((1917, 500), 50);
             p.crossing = true;
             r.on_pointer(&p, &d, ms(t, i * 10));
         }
-        assert_eq!(r.phase, Phase::Hidden);
+        assert_eq!(r.phase, Phase::Hidden, "pushing does nothing");
+        r.tick((1917, 500), &d, ms(t, 310));
+        assert!(matches!(r.phase, Phase::Opening(_)));
+
+        let mut r = Reveal::default();
+        let mut p = push((1918, 500), 50);
+        p.crossing = true;
+        r.on_pointer(&p, &d, t);
+        r.tick((2400, 500), &d, ms(t, 310));
+        assert_eq!(r.phase, Phase::Hidden, "crossing over does not open it");
+    }
+
+    #[test]
+    fn resting_counts_a_few_pixels_in_and_pushing_only_the_last() {
+        let corner = 48;
+        assert!(on_edge(ScreenEdge::Right, (1917, 500), MONITOR, corner, 3));
+        assert!(!on_edge(ScreenEdge::Right, (1916, 500), MONITOR, corner, 3));
+        assert!(on_edge(ScreenEdge::Left, (2, 500), MONITOR, corner, 3));
+        assert!(!on_edge(ScreenEdge::Left, (-1, 500), MONITOR, corner, 3));
+        assert!(!on_edge(
+            ScreenEdge::Bottom,
+            (900, 1077),
+            MONITOR,
+            corner,
+            1
+        ));
+        assert_eq!(beyond(ScreenEdge::Right, (1917, 500), MONITOR), (1920, 500));
+        assert_eq!(beyond(ScreenEdge::Top, (900, 2), MONITOR), (900, -1));
     }
 
     #[test]
@@ -711,6 +766,21 @@ mod tests {
             r.on_pointer(&push((1919, 500), 50), &hidden, ms(t, 1810 + i * 10));
         }
         assert!(matches!(r.phase, Phase::Opening(_)));
+    }
+
+    #[test]
+    fn it_hides_when_the_pointer_leaves_the_edge_without_reaching_it() {
+        let t = Instant::now();
+        let d = dock();
+        let mut r = Reveal::default();
+        r.open(t, false);
+        r.tick((1919, 900), &d, ms(t, 300));
+        r.on_pointer(&push((1919, 900), 5), &d, ms(t, 310));
+        r.tick((1919, 900), &d, ms(t, 1000));
+        assert_eq!(r.phase, Phase::Open, "still at the edge it was pushed");
+        r.on_pointer(&push((1200, 900), -50), &d, ms(t, 1010));
+        r.tick((1200, 900), &d, ms(t, 1320));
+        assert!(matches!(r.phase, Phase::Closing(_)));
     }
 
     #[test]

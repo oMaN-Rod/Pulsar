@@ -884,7 +884,7 @@ msgstr "グラフ"
 msgid "Translucent background"
 msgstr "半透明の背景"
 
-#: src/menu.rs
+#: src/menu.rs ui/settings.slint
 msgid "None"
 msgstr "なし"
 
@@ -1484,6 +1484,14 @@ msgstr "プロファイルを読み取れませんでした。"
 msgid "Settings page"
 msgstr "設定ページ"
 
+#: src/widget.rs ui/details.slint
+msgid "Min"
+msgstr "最小"
+
+#: src/widget.rs ui/details.slint
+msgid "Max"
+msgstr "最大"
+
 #: src/widget.rs
 msgid "P-cores, {} threads"
 msgstr "P コア、{}スレッド"
@@ -1512,7 +1520,7 @@ msgstr "マトリックス"
 msgid "Strips"
 msgstr "ストリップ"
 
-#: ui/details.slint
+#: ui/details.slint ui/settings.slint
 msgid "Rings"
 msgstr "リング"
 
@@ -1575,14 +1583,6 @@ msgstr "センサー"
 #: ui/details.slint
 msgid "Value"
 msgstr "値"
-
-#: ui/details.slint
-msgid "Min"
-msgstr "最小"
-
-#: ui/details.slint
-msgid "Max"
-msgstr "最大"
 
 #: ui/settings.slint
 msgid "Press keys…"
@@ -2393,12 +2393,12 @@ msgid "Size"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
-msgstr ""
+msgid "Drag any edge of the widget. With the Automatic layout, wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
+msgstr "ウィジェットの任意の端をドラッグします。自動レイアウトでは、横長は列のカード、縦長は項目ごとの行、正方形はタイル、低い場合は値またはリングの 1 行になります。"
 
 #: ui/settings.slint
-msgid "As large as its items need, each in the style chosen for it."
-msgstr ""
+msgid "As large as its items need."
+msgstr "項目に必要な大きさになります。"
 
 #: ui/settings.slint
 msgid "Fit the content"
@@ -2409,16 +2409,24 @@ msgid "Drag to size"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Style"
-msgstr "スタイル"
+msgid "Automatic picks one from the size. Focus shows one item at a time, with a large graph."
+msgstr "自動ではサイズに合わせて選びます。フォーカスは項目を 1 つずつ大きなグラフで表示します。"
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
-msgstr ""
+msgid "Automatic shows each item in the style chosen for it. Focus shows one item at a time, with a large graph."
+msgstr "自動では各項目を選んだスタイルで表示します。フォーカスは項目を 1 つずつ大きなグラフで表示します。"
 
 #: ui/settings.slint
-msgid "Sparklines"
-msgstr "ミニ折れ線グラフ"
+msgid "Automatic"
+msgstr "自動"
+
+#: ui/settings.slint
+msgid "Dashboard"
+msgstr "ダッシュボード"
+
+#: ui/settings.slint
+msgid "Lanes"
+msgstr "レーン"
 
 #: ui/settings.slint
 msgid "Tiles"
@@ -2431,6 +2439,62 @@ msgstr "メーター"
 #: ui/settings.slint
 msgid "Dials"
 msgstr "ダイヤル"
+
+#: ui/settings.slint
+msgid "Strip"
+msgstr "ストリップ"
+
+#: ui/settings.slint
+msgid "Focus"
+msgstr "フォーカス"
+
+#: ui/settings.slint
+msgid "Cycle through items"
+msgstr "項目を順に切り替える"
+
+#: ui/settings.slint
+msgid "Seconds between items. Shortcuts for the next and previous item are under General."
+msgstr "項目を切り替える間隔（秒）。次・前の項目のショートカットは「全般」にあります。"
+
+#: ui/settings.slint
+msgid "Transition"
+msgstr "切り替え効果"
+
+#: ui/settings.slint
+msgid "How Focus moves to the next item."
+msgstr "フォーカスが次の項目に移るときの動き。"
+
+#: ui/settings.slint
+msgid "Fade"
+msgstr "フェード"
+
+#: ui/settings.slint
+msgid "Slide"
+msgstr "スライド"
+
+#: ui/settings.slint
+msgid "Slide up"
+msgstr "上にスライド"
+
+#: ui/settings.slint
+msgid "Transition length"
+msgstr "切り替えの長さ"
+
+#: ui/settings.slint
+msgid "{} ms"
+msgstr "{} ミリ秒"
+
+#: ui/settings.slint
+msgid "Style"
+msgstr "スタイル"
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Sparklines"
+msgstr "ミニ折れ線グラフ"
 
 #: ui/settings.slint
 msgid "Device cards"
@@ -2469,6 +2533,14 @@ msgid "Each item on a panel of its own, with a gap between."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Border"
+msgstr "枠線"
+
+#: ui/settings.slint
+msgid "A thin line around each panel."
+msgstr "各パネルの周りに細い線を引きます。"
+
+#: ui/settings.slint
 msgid "Tiles show the value and graph only."
 msgstr "タイルは値とグラフのみを表示します。"
 
@@ -2489,12 +2561,28 @@ msgid "Background color"
 msgstr "背景色"
 
 #: ui/settings.slint
+msgid "Tints the glass. Empty uses the theme's panel color."
+msgstr "ガラスに色を付けます。空欄の場合はテーマのパネル色を使います。"
+
+#: ui/settings.slint
 msgid "Empty uses the theme's panel color."
 msgstr "空欄はテーマのパネル色を使います。"
 
 #: ui/settings.slint
 msgid "Background opacity"
 msgstr "背景の不透明度"
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr "ガラスの色合い"
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr "透明なガラス。"
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
+msgstr "色合いの {}%。"
 
 #: ui/settings.slint
 msgid "Choose items"
@@ -2783,6 +2871,18 @@ msgstr "CSV 記録の開始・停止"
 #: ui/settings.slint
 msgid "Switch to the next profile"
 msgstr "次のプロファイルに切り替え"
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr "フォーカスで次の項目を表示"
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr "ウィジェットのフォーカス レイアウト用。"
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr "フォーカスで前の項目を表示"
 
 #: ui/settings.slint
 msgid "Alerts"

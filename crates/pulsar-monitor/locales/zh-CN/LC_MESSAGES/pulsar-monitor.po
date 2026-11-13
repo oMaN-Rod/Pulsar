@@ -885,7 +885,7 @@ msgstr "图表"
 msgid "Translucent background"
 msgstr "半透明背景"
 
-#: src/menu.rs
+#: src/menu.rs ui/settings.slint
 msgid "None"
 msgstr "无"
 
@@ -1485,6 +1485,14 @@ msgstr "无法读取配置文件。"
 msgid "Settings page"
 msgstr "设置页面"
 
+#: src/widget.rs ui/details.slint
+msgid "Min"
+msgstr "最小值"
+
+#: src/widget.rs ui/details.slint
+msgid "Max"
+msgstr "最大值"
+
 #: src/widget.rs
 msgid "P-cores, {} threads"
 msgstr "性能核，{} 个线程"
@@ -1513,7 +1521,7 @@ msgstr "矩阵"
 msgid "Strips"
 msgstr "条带"
 
-#: ui/details.slint
+#: ui/details.slint ui/settings.slint
 msgid "Rings"
 msgstr "圆环"
 
@@ -1576,14 +1584,6 @@ msgstr "传感器"
 #: ui/details.slint
 msgid "Value"
 msgstr "当前值"
-
-#: ui/details.slint
-msgid "Min"
-msgstr "最小值"
-
-#: ui/details.slint
-msgid "Max"
-msgstr "最大值"
 
 #: ui/settings.slint
 msgid "Press keys…"
@@ -2394,12 +2394,12 @@ msgid "Size"
 msgstr "大小"
 
 #: ui/settings.slint
-msgid "Drag the widget's right or bottom edge. Wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
-msgstr "拖动小组件的右边缘或下边缘。较宽时按列显示卡片，较窄时每个项目一行，接近正方形时显示磁贴，较矮时显示一行数值或环形。"
+msgid "Drag any edge of the widget. With the Automatic layout, wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
+msgstr "拖动小组件的任意边缘。使用自动布局时，宽则显示多列卡片，窄则每个项目一行，方形显示磁贴，矮则显示一行数值或圆环。"
 
 #: ui/settings.slint
-msgid "As large as its items need, each in the style chosen for it."
-msgstr "按项目所需大小显示，每个项目使用为其选择的样式。"
+msgid "As large as its items need."
+msgstr "大小随项目所需而定。"
 
 #: ui/settings.slint
 msgid "Fit the content"
@@ -2410,16 +2410,24 @@ msgid "Drag to size"
 msgstr "拖动调整大小"
 
 #: ui/settings.slint
-msgid "Style"
-msgstr "样式"
+msgid "Automatic picks one from the size. Focus shows one item at a time, with a large graph."
+msgstr "自动会根据大小选择。聚焦每次显示一个项目，并配大图表。"
 
 #: ui/settings.slint
-msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
-msgstr "迷你图：每个项目一行并带小图。磁贴：小图网格。电平表：显示当前值的条形。表盘：环形网格。设备卡片：设备名称，大号数值及其图表，然后是详细信息。"
+msgid "Automatic shows each item in the style chosen for it. Focus shows one item at a time, with a large graph."
+msgstr "自动会以为每个项目选择的样式显示。聚焦每次显示一个项目，并配大图表。"
 
 #: ui/settings.slint
-msgid "Sparklines"
-msgstr "迷你图"
+msgid "Automatic"
+msgstr "自动"
+
+#: ui/settings.slint
+msgid "Dashboard"
+msgstr "仪表板"
+
+#: ui/settings.slint
+msgid "Lanes"
+msgstr "行列"
 
 #: ui/settings.slint
 msgid "Tiles"
@@ -2432,6 +2440,62 @@ msgstr "仪表"
 #: ui/settings.slint
 msgid "Dials"
 msgstr "表盘"
+
+#: ui/settings.slint
+msgid "Strip"
+msgstr "条带"
+
+#: ui/settings.slint
+msgid "Focus"
+msgstr "聚焦"
+
+#: ui/settings.slint
+msgid "Cycle through items"
+msgstr "轮流显示项目"
+
+#: ui/settings.slint
+msgid "Seconds between items. Shortcuts for the next and previous item are under General."
+msgstr "切换项目的间隔秒数。下一个和上一个项目的快捷键在“常规”中。"
+
+#: ui/settings.slint
+msgid "Transition"
+msgstr "过渡"
+
+#: ui/settings.slint
+msgid "How Focus moves to the next item."
+msgstr "聚焦切换到下一个项目的方式。"
+
+#: ui/settings.slint
+msgid "Fade"
+msgstr "淡入淡出"
+
+#: ui/settings.slint
+msgid "Slide"
+msgstr "滑动"
+
+#: ui/settings.slint
+msgid "Slide up"
+msgstr "向上滑动"
+
+#: ui/settings.slint
+msgid "Transition length"
+msgstr "过渡时长"
+
+#: ui/settings.slint
+msgid "{} ms"
+msgstr "{} 毫秒"
+
+#: ui/settings.slint
+msgid "Style"
+msgstr "样式"
+
+#: ui/settings.slint
+msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
+msgstr "迷你图：每个项目一行并带小图。磁贴：小图网格。电平表：显示当前值的条形。表盘：环形网格。设备卡片：设备名称，大号数值及其图表，然后是详细信息。"
+
+#: ui/settings.slint
+msgid "Sparklines"
+msgstr "迷你图"
 
 #: ui/settings.slint
 msgid "Device cards"
@@ -2470,6 +2534,14 @@ msgid "Each item on a panel of its own, with a gap between."
 msgstr "每个项目使用单独的面板，彼此之间留有间隙。"
 
 #: ui/settings.slint
+msgid "Border"
+msgstr "边框"
+
+#: ui/settings.slint
+msgid "A thin line around each panel."
+msgstr "在每个面板周围画一条细线。"
+
+#: ui/settings.slint
 msgid "Tiles show the value and graph only."
 msgstr "磁贴只显示数值和图表。"
 
@@ -2490,12 +2562,28 @@ msgid "Background color"
 msgstr "背景颜色"
 
 #: ui/settings.slint
+msgid "Tints the glass. Empty uses the theme's panel color."
+msgstr "为玻璃着色。留空则使用主题的面板颜色。"
+
+#: ui/settings.slint
 msgid "Empty uses the theme's panel color."
 msgstr "留空则使用主题的面板颜色。"
 
 #: ui/settings.slint
 msgid "Background opacity"
 msgstr "背景不透明度"
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr "玻璃着色"
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr "透明玻璃。"
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
+msgstr "着色颜色的 {}%。"
 
 #: ui/settings.slint
 msgid "Choose items"
@@ -2784,6 +2872,18 @@ msgstr "开始或停止记录到 CSV"
 #: ui/settings.slint
 msgid "Switch to the next profile"
 msgstr "切换到下一个配置文件"
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr "在聚焦中显示下一个项目"
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr "用于小组件的聚焦布局。"
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr "在聚焦中显示上一个项目"
 
 #: ui/settings.slint
 msgid "Alerts"

@@ -8,8 +8,9 @@ use std::time::{Duration, Instant};
 
 use pulsar_core::alerts::Alerts;
 use pulsar_core::config::{
-    self, Config, NetworkShow, NoRoom, OverFullscreen, Position, ScreenEdge, WIDGET_CHOSEN_HEIGHTS,
-    WIDGET_CHOSEN_WIDTHS, WidgetLayer, WidgetSizing,
+    self, Config, FOCUS_INTERVALS_S, FocusTransition, NetworkShow, NoRoom, OverFullscreen,
+    Position, ScreenEdge, WIDGET_CHOSEN_HEIGHTS, WIDGET_CHOSEN_WIDTHS, WidgetLayer, WidgetLayout,
+    WidgetSizing,
 };
 use pulsar_core::display::{NetworkFloor, floored_cell_value, floored_value, metric_for};
 use pulsar_core::gpu_slots::GpuSlots;
@@ -91,6 +92,9 @@ const TIMER_FADE: usize = 5;
 const TIMER_PRESENCE: usize = 6;
 const TIMER_ITEM_DRAG: usize = 7;
 const TIMER_REVEAL: usize = 8;
+const TIMER_FOCUS_CYCLE: usize = 9;
+const TIMER_FOCUS_ANIMATE: usize = 10;
+const FOCUS_FRAME_MS: u32 = 15;
 const REVEAL_FRAME_MS: u32 = 10;
 const REVEAL_POLL_MS: u32 = 50;
 /// Capture alone misses a release off a window that is not in the foreground.
@@ -221,6 +225,13 @@ pub struct App {
     widget_resize: Option<Resize>,
     /// The size being dragged to, in physical pixels.
     widget_size: Option<(i32, i32)>,
+    /// Where the widget's corner is while its left or top edge is dragged.
+    widget_origin: Option<(i32, i32)>,
+    /// The item the Focus layout shows; wraps around the widget's items.
+    focus_item: usize,
+    /// The item Focus is moving away from, and when the move began.
+    focus_change: Option<(usize, Instant)>,
+    focus_cycle_ms: Option<u32>,
     item_drag: Option<ItemDrag>,
     /// A drag ended before its button came up, so that release is no click.
     ignore_release: bool,
@@ -250,6 +261,9 @@ pub struct App {
     dock_monitor: Option<(String, Option<String>)>,
     listening: bool,
     escape_registered: bool,
+    /// The reveal timer's interval while it runs; restarting it on every
+    /// pointer move would put off a hide for as long as the pointer moves.
+    reveal_every: Option<u32>,
     lip: Option<Lip>,
 }
 
@@ -359,8 +373,8 @@ const HOTKEY_ESCAPE: i32 = 100;
 struct Resize {
     start: (i32, i32),
     size: (i32, i32),
-    right: bool,
-    bottom: bool,
+    origin: (i32, i32),
+    edges: widget::Edges,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -462,6 +476,10 @@ impl App {
             widget_drag: None,
             widget_resize: None,
             widget_size: None,
+            widget_origin: None,
+            focus_item: 0,
+            focus_change: None,
+            focus_cycle_ms: None,
             item_drag: None,
             ignore_release: false,
             session_items: Vec::new(),
@@ -483,6 +501,7 @@ impl App {
             dock_monitor: None,
             listening: false,
             escape_registered: false,
+            reveal_every: None,
             lip: None,
         })
     }
@@ -496,6 +515,7 @@ impl App {
         self.fullscreen = Debounce::new(taskbar::fullscreen_monitors());
         self.register_appbar(ABM_NEW);
         self.register_hotkeys();
+        self.arm_focus_cycle(false);
         self.refresh();
     }
 
@@ -546,6 +566,7 @@ impl App {
             0 => {
                 self.hidden = !self.hidden;
                 self.close_popup();
+                self.arm_focus_cycle(false);
                 self.refresh();
             }
             1 if self.docked.is_some() => self.toggle_reveal(),
@@ -558,6 +579,8 @@ impl App {
             2 => self.open_details(None),
             3 => self.toggle_recording(),
             4 => self.next_profile(),
+            5 => self.step_focus(1),
+            6 => self.step_focus(-1),
             _ => {}
         }
     }
@@ -1318,7 +1341,9 @@ impl App {
         let shown = self.reveal.shown(Instant::now());
         let slide = self.reveal.slide;
         let current = self.widget.shown_at;
-        let dpi = self.widget.dpi();
+        let origin = self.widget_origin;
+        // The window may still be on another monitor before a dock first opens.
+        let dpi = docked.map_or_else(|| self.widget.dpi(), |d| (d.scale * 96.0).round() as u32);
         let scale = dpi as f32 / 96.0;
         let max_h = match docked.map(|d| d.edge) {
             Some(ScreenEdge::Top | ScreenEdge::Bottom) => 0.0,
@@ -1344,11 +1369,26 @@ impl App {
                 None => 255,
             },
             size: (w.sizing == WidgetSizing::Chosen).then(|| {
-                self.widget_size.map_or(
+                let (x, y) = self.widget_size.map_or(
                     (f32::from(w.size[0]) * scale, f32::from(w.size[1]) * scale),
                     |(x, y)| (x as f32, y as f32),
-                )
+                );
+                let y = widget::height_range(w.layout)
+                    .map_or(y, |(low, high)| y.clamp(low * scale, high * scale));
+                (x.max(widget::min_width(w.layout) * scale), y)
             }),
+            layout: w.layout,
+            row_radius: w.row_radius.map(|r| f32::from(r) * scale),
+            glass_tint: f32::from(w.glass_tint.min(100)) / 100.0,
+            border: w.border,
+            focus: widget::FocusView {
+                index: self.focus_item,
+                leaving: self.focus_change.map(|(from, at)| {
+                    let ms = f32::from(w.focus_transition_ms.max(1));
+                    (from, at.elapsed().as_secs_f32() * 1000.0 / ms)
+                }),
+                transition: w.focus_transition,
+            },
         };
         let contents: Vec<_> = items
             .into_iter()
@@ -1373,6 +1413,7 @@ impl App {
             &self.history,
             &look,
             |width, height| match (current, docked) {
+                (_, None) if origin.is_some() => origin.unwrap_or_default(),
                 (Some(at), _) if dragging => at,
                 (_, Some(d)) => {
                     let (x, y, _) = docked_place(d, (width, height), shown, slide);
@@ -1391,6 +1432,75 @@ impl App {
             .set_click_through(w.lock_position && w.click_through);
         let layer = self.widget_layer();
         self.widget.arrange(layer, unsafe { GetForegroundWindow() });
+    }
+
+    fn focus_shown(&self) -> bool {
+        let w = &self.config.widget;
+        w.enabled
+            && !self.hidden
+            && w.layout == WidgetLayout::Focus
+            && (self.docked.is_none() || self.reveal.showing())
+            && self.config.widget_items().len() >= 2
+    }
+
+    fn step_focus(&mut self, by: isize) {
+        if !self.focus_shown() {
+            return;
+        }
+        let count = self.config.widget_items().len();
+        let from = self.focus_item % count;
+        self.focus_item = (from as isize + by).rem_euclid(count as isize) as usize;
+        if self.config.widget.focus_transition != FocusTransition::None {
+            self.focus_change = Some((from, Instant::now()));
+            unsafe { SetTimer(Some(self.host), TIMER_FOCUS_ANIMATE, FOCUS_FRAME_MS, None) };
+        }
+        self.arm_focus_cycle(true);
+        self.show_widget();
+    }
+
+    fn on_focus_frame(&mut self) {
+        let ms = u64::from(self.config.widget.focus_transition_ms);
+        if self
+            .focus_change
+            .is_none_or(|(_, at)| at.elapsed() >= Duration::from_millis(ms))
+        {
+            self.focus_change = None;
+            unsafe {
+                let _ = KillTimer(Some(self.host), TIMER_FOCUS_ANIMATE);
+            }
+        }
+        self.show_widget();
+    }
+
+    /// `restart` begins a fresh countdown even when cycling was already running.
+    fn arm_focus_cycle(&mut self, restart: bool) {
+        let shown = self.focus_shown();
+        if !shown && self.focus_change.take().is_some() {
+            unsafe {
+                let _ = KillTimer(Some(self.host), TIMER_FOCUS_ANIMATE);
+            }
+        }
+        let w = &self.config.widget;
+        let every = (shown && w.focus_cycle).then(|| {
+            u32::from(
+                w.focus_interval_s
+                    .clamp(*FOCUS_INTERVALS_S.start(), *FOCUS_INTERVALS_S.end()),
+            ) * 1000
+        });
+        if every == self.focus_cycle_ms && !restart {
+            return;
+        }
+        self.focus_cycle_ms = every;
+        unsafe {
+            match every {
+                Some(ms) => {
+                    SetTimer(Some(self.host), TIMER_FOCUS_CYCLE, ms, None);
+                }
+                None => {
+                    let _ = KillTimer(Some(self.host), TIMER_FOCUS_CYCLE);
+                }
+            }
+        }
     }
 
     fn widget_layer(&self) -> WidgetLayer {
@@ -1441,11 +1551,13 @@ impl App {
             }
             self.listening = registered && listen;
         }
-        if !listen && self.reveal.showing() {
+        if !listen {
             self.reveal = Reveal::default();
             self.set_escape(false);
+            self.set_reveal_timer(None);
         }
         self.reveal.slide = reveal::animations_enabled();
+        self.arm_focus_cycle(false);
     }
 
     fn dock(&self) -> Option<Dock> {
@@ -1457,6 +1569,7 @@ impl App {
             monitor: d.monitor,
             corner: (reveal::CORNER * d.scale) as i32,
             margin: (reveal::REACH * d.scale) as i32,
+            band: (reveal::REST_BAND * d.scale).round().max(1.0) as i32,
             threshold: reveal::threshold(settings.push),
             hide_after: Duration::from_millis(u64::from(settings.hide_delay_ms)),
             allowed: !over_game || settings.over_fullscreen == OverFullscreen::HotkeyAndEdge,
@@ -1472,7 +1585,7 @@ impl App {
             return;
         };
         let at = cursor();
-        let (bx, by) = reveal::beyond(dock.edge, at);
+        let (bx, by) = reveal::beyond(dock.edge, at, dock.monitor);
         let pointer = Pointer {
             at,
             dx,
@@ -1489,14 +1602,24 @@ impl App {
 
     fn on_reveal_tick(&mut self) {
         let Some(dock) = self.dock() else {
-            unsafe {
-                let _ = KillTimer(Some(self.host), TIMER_REVEAL);
-            }
+            self.set_reveal_timer(None);
             return;
         };
         let before = self.reveal.phase;
         let ticks = self.reveal.tick(cursor(), &dock, Instant::now());
         self.after_reveal(before, ticks);
+    }
+
+    fn close_dock_over_game(&mut self) {
+        let Some(d) = self.docked else {
+            return;
+        };
+        let never = self.config.widget.dock.over_fullscreen == OverFullscreen::Never;
+        if never && self.reveal.showing() && self.fullscreen.current().contains(&d.monitor) {
+            let before = self.reveal.phase;
+            self.reveal.close(Instant::now());
+            self.after_reveal(before, true);
+        }
     }
 
     fn toggle_reveal(&mut self) {
@@ -1530,17 +1653,33 @@ impl App {
             self.reveal_frame();
         }
         self.set_escape(self.reveal.showing());
+        if self.reveal.showing() != (before != Phase::Hidden) {
+            self.arm_focus_cycle(false);
+        }
         self.update_lip();
-        unsafe {
-            if ticks {
-                let every = if self.reveal.animating() {
-                    REVEAL_FRAME_MS
-                } else {
-                    REVEAL_POLL_MS
-                };
-                SetTimer(Some(self.host), TIMER_REVEAL, every, None);
+        let every = ticks.then(|| {
+            if self.reveal.animating() {
+                REVEAL_FRAME_MS
             } else {
-                let _ = KillTimer(Some(self.host), TIMER_REVEAL);
+                REVEAL_POLL_MS
+            }
+        });
+        self.set_reveal_timer(every);
+    }
+
+    fn set_reveal_timer(&mut self, every: Option<u32>) {
+        if every == self.reveal_every {
+            return;
+        }
+        self.reveal_every = every;
+        unsafe {
+            match every {
+                Some(ms) => {
+                    SetTimer(Some(self.host), TIMER_REVEAL, ms, None);
+                }
+                None => {
+                    let _ = KillTimer(Some(self.host), TIMER_REVEAL);
+                }
             }
         }
     }
@@ -1596,28 +1735,49 @@ impl App {
         if on == self.escape_registered {
             return;
         }
-        self.escape_registered = on;
-        unsafe {
+        // Another app may hold Esc; staying unregistered retries next time.
+        self.escape_registered = unsafe {
             if on {
-                let _ = RegisterHotKey(
+                RegisterHotKey(
                     Some(self.host),
                     HOTKEY_ESCAPE,
                     MOD_NOREPEAT,
                     u32::from(VK_ESCAPE.0),
-                );
+                )
+                .is_ok()
             } else {
                 let _ = UnregisterHotKey(Some(self.host), HOTKEY_ESCAPE);
+                false
             }
-        }
+        };
     }
 
-    fn widget_grip(&self, at: (i32, i32)) -> Option<(bool, bool)> {
+    fn widget_grip(&self, at: (i32, i32)) -> Option<widget::Edges> {
         let w = &self.config.widget;
         if w.sizing != WidgetSizing::Chosen || w.lock_position {
             return None;
         }
         let reach = (widget::RESIZE_BAND_DIP * self.widget.dpi() as f32 / 96.0) as i32;
-        widget::grip(at, self.widget.size(), reach)
+        let mut edges = widget::grip(at, self.widget.size(), reach)?;
+        if widget::height_range(w.layout).is_some_and(|(low, high)| low == high) {
+            edges.top = false;
+            edges.bottom = false;
+        }
+        // The docked side stays on its screen edge; the free sides move.
+        if let Some(d) = self.docked {
+            match d.edge {
+                ScreenEdge::Left => edges.left = false,
+                ScreenEdge::Right => edges.right = false,
+                ScreenEdge::Top => edges.top = false,
+                ScreenEdge::Bottom => edges.bottom = false,
+            }
+            if matches!(d.edge, ScreenEdge::Left | ScreenEdge::Right) {
+                edges.top = false;
+            } else {
+                edges.left = false;
+            }
+        }
+        edges.any().then_some(edges)
     }
 
     /// Sets the cursor over the widget; false leaves it to Windows.
@@ -1629,7 +1789,7 @@ impl App {
             return false;
         };
         match self.widget_grip((x - left, y - top)) {
-            Some((right, bottom)) => widget::resize_cursor(right, bottom),
+            Some(edges) => widget::resize_cursor(edges),
             None => widget::drag_cursor(),
         }
         true
@@ -1640,12 +1800,14 @@ impl App {
             self.start_item_drag(self.widget.hwnd, x, y);
             return;
         }
-        if let Some((right, bottom)) = self.widget_grip((x, y)) {
+        if let Some(edges) = self.widget_grip((x, y))
+            && let Some(origin) = self.widget.shown_at
+        {
             self.widget_resize = Some(Resize {
                 start: cursor(),
                 size: self.widget.size(),
-                right,
-                bottom,
+                origin,
+                edges,
             });
             unsafe { SetCapture(self.widget.hwnd) };
             return;
@@ -1663,27 +1825,30 @@ impl App {
         if let Some(resize) = &self.widget_resize {
             let (cx, cy) = cursor();
             let scale = self.widget.dpi() as f32 / 96.0;
-            let span = |range: &std::ops::RangeInclusive<u16>, start: i32, delta: i32, on: bool| {
+            let span = |range: &std::ops::RangeInclusive<u16>| {
                 let low = (f32::from(*range.start()) * scale) as i32;
                 let high = (f32::from(*range.end()) * scale) as i32;
-                (start + if on { delta } else { 0 }).clamp(low, high)
+                move |v: i32| v.clamp(low, high)
             };
-            let size = (
-                span(
-                    &WIDGET_CHOSEN_WIDTHS,
-                    resize.size.0,
-                    cx - resize.start.0,
-                    resize.right,
-                ),
-                span(
-                    &WIDGET_CHOSEN_HEIGHTS,
-                    resize.size.1,
-                    cy - resize.start.1,
-                    resize.bottom,
-                ),
+            let (origin, size) = widget::resized(
+                resize.edges,
+                resize.origin,
+                resize.size,
+                (cx - resize.start.0, cy - resize.start.1),
+                |v: i32| {
+                    let floor = widget::min_width(self.config.widget.layout) * scale;
+                    span(&WIDGET_CHOSEN_WIDTHS)(v).max(floor.round() as i32)
+                },
+                |v: i32| {
+                    let v = span(&WIDGET_CHOSEN_HEIGHTS)(v);
+                    widget::height_range(self.config.widget.layout).map_or(v, |(low, high)| {
+                        v.clamp((low * scale).round() as i32, (high * scale).round() as i32)
+                    })
+                },
             );
-            if self.widget_size != Some(size) {
+            if self.widget_size != Some(size) || self.widget_origin != Some(origin) {
                 self.widget_size = Some(size);
+                self.widget_origin = Some(origin);
                 self.show_widget();
             }
             return;
@@ -1709,10 +1874,19 @@ impl App {
             unsafe {
                 let _ = ReleaseCapture();
             }
+            let origin = self.widget_origin.take();
             if let Some((w, h)) = self.widget_size.take() {
                 let scale = self.widget.dpi() as f32 / 96.0;
                 let dip = |v: i32| (v as f32 / scale).round() as u16;
-                self.change_config(|c| c.widget.size = [dip(w), dip(h)]);
+                // Saved even for the right or bottom edge: with no saved place
+                // the widget would go back to its default corner.
+                let moved = origin.filter(|_| self.docked.is_none());
+                self.change_config(|c| {
+                    c.widget.size = [dip(w), dip(h)];
+                    if let Some((x, y)) = moved {
+                        c.widget.position = Some([x, y]);
+                    }
+                });
             }
             return;
         }
@@ -2252,6 +2426,7 @@ impl App {
             .fullscreen
             .update(fullscreen, Instant::now(), FULLSCREEN_DELAY, leaving)
         {
+            self.close_dock_over_game();
             self.refresh();
             return;
         }
@@ -2282,6 +2457,8 @@ impl App {
             TIMER_FADE => self.fade_tick(),
             TIMER_ITEM_DRAG => self.on_item_drag_tick(),
             TIMER_REVEAL => self.on_reveal_tick(),
+            TIMER_FOCUS_CYCLE => self.step_focus(1),
+            TIMER_FOCUS_ANIMATE => self.on_focus_frame(),
             TIMER_PRESENCE => {
                 unsafe {
                     let _ = KillTimer(Some(self.host), TIMER_PRESENCE);
@@ -2491,6 +2668,7 @@ impl App {
         if hotkeys_changed {
             self.register_hotkeys();
         }
+        self.arm_focus_cycle(false);
         self.tray.set_visible(self.config.general.tray_icon);
         self.palette = Palette::current(&self.config);
         if !self.config.display.hover_popup {
@@ -2852,6 +3030,7 @@ unsafe extern "system" fn widget_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPAR
             with_app(|a| {
                 a.widget_drag = None;
                 a.widget_resize = None;
+                a.widget_origin = None;
                 if a.widget_size.take().is_some() {
                     a.show_widget();
                 }

@@ -248,8 +248,42 @@ pub enum WidgetSizing {
     Chosen,
 }
 
+/// Only applies while the widget is sized by dragging.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum WidgetLayout {
+    #[default]
+    Auto,
+    Dashboard,
+    Lanes,
+    Tiles,
+    Meters,
+    Dials,
+    Strip,
+    Rings,
+    Focus,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FocusTransition {
+    None,
+    #[default]
+    Fade,
+    Slide,
+    SlideUp,
+}
+
+/// The size the Focus layout takes when it is chosen, in logical pixels.
+pub const WIDGET_FOCUS_SIZE: [u16; 2] = [300, 240];
+pub const FOCUS_INTERVALS_S: std::ops::RangeInclusive<u16> = 2..=120;
+/// Corner radii in DIPs, for the taskbar strip's shapes and the widget's rows.
+pub const SHAPE_RADII: std::ops::RangeInclusive<u8> = 0..=24;
+pub const ROW_RADII: std::ops::RangeInclusive<u8> = 0..=30;
+pub const FOCUS_TRANSITIONS_MS: std::ops::RangeInclusive<u16> = 100..=1500;
+
 pub const WIDGET_CHOSEN_WIDTHS: std::ops::RangeInclusive<u16> = 100..=2400;
-pub const WIDGET_CHOSEN_HEIGHTS: std::ops::RangeInclusive<u16> = 36..=1600;
+pub const WIDGET_CHOSEN_HEIGHTS: std::ops::RangeInclusive<u16> = 32..=1600;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -278,6 +312,16 @@ pub struct WidgetConfig {
     pub separate: bool,
     pub dock: DockConfig,
     pub sizing: WidgetSizing,
+    pub layout: WidgetLayout,
+    /// DIPs at the corners of the Strip and Rings layouts; `None` rounds the ends fully.
+    pub row_radius: Option<u8>,
+    /// 0–100: how strongly the background color tints the Glass material.
+    pub glass_tint: u8,
+    pub border: bool,
+    pub focus_cycle: bool,
+    pub focus_interval_s: u16,
+    pub focus_transition: FocusTransition,
+    pub focus_transition_ms: u16,
     /// Logical pixels, used while sized by dragging.
     pub size: [u16; 2],
     pub lock_position: bool,
@@ -312,6 +356,14 @@ impl Default for WidgetConfig {
             separate: false,
             dock: DockConfig::default(),
             sizing: WidgetSizing::default(),
+            layout: WidgetLayout::default(),
+            row_radius: None,
+            glass_tint: 0,
+            border: false,
+            focus_cycle: false,
+            focus_interval_s: 8,
+            focus_transition: FocusTransition::default(),
+            focus_transition_ms: 350,
             size: [340, 420],
             lock_position: false,
             click_through: false,
@@ -428,16 +480,21 @@ pub struct HotkeysConfig {
     pub details: Option<String>,
     pub record: Option<String>,
     pub next_profile: Option<String>,
+    /// Step through the items of the widget's Focus layout.
+    pub next_item: Option<String>,
+    pub previous_item: Option<String>,
 }
 
 impl HotkeysConfig {
-    pub fn all(&self) -> [&Option<String>; 5] {
+    pub fn all(&self) -> [&Option<String>; 7] {
         [
             &self.show_hide,
             &self.widget,
             &self.details,
             &self.record,
             &self.next_profile,
+            &self.next_item,
+            &self.previous_item,
         ]
     }
 }
@@ -990,6 +1047,8 @@ impl Config {
             &mut h.details,
             &mut h.record,
             &mut h.next_profile,
+            &mut h.next_item,
+            &mut h.previous_item,
         ] {
             *key = key
                 .as_deref()
@@ -1017,9 +1076,19 @@ impl Config {
             names.sort();
             names.dedup();
         }
+        let shape_radius = &mut self.display.shape_radius;
+        *shape_radius = shape_radius.map(|r| r.min(*SHAPE_RADII.end()));
         let w = &mut self.widget;
         w.width = w.width.clamp(*WIDGET_WIDTHS.start(), *WIDGET_WIDTHS.end());
         w.opacity = w.opacity.min(100);
+        w.glass_tint = w.glass_tint.min(100);
+        w.row_radius = w.row_radius.map(|r| r.min(*ROW_RADII.end()));
+        w.focus_interval_s = w
+            .focus_interval_s
+            .clamp(*FOCUS_INTERVALS_S.start(), *FOCUS_INTERVALS_S.end());
+        w.focus_transition_ms = w
+            .focus_transition_ms
+            .clamp(*FOCUS_TRANSITIONS_MS.start(), *FOCUS_TRANSITIONS_MS.end());
         w.dock.hide_delay_ms = w.dock.hide_delay_ms.min(*HIDE_DELAYS_MS.end());
         w.size = [
             w.size[0].clamp(*WIDGET_CHOSEN_WIDTHS.start(), *WIDGET_CHOSEN_WIDTHS.end()),
@@ -1713,6 +1782,22 @@ sample_interval_ms = 1
         let c = c.sanitize();
         assert_eq!(c.general.sample_interval(true), 5000);
         assert_eq!(c.general.sample_interval(false), 1000);
+    }
+
+    #[test]
+    fn sanitize_keeps_the_new_look_settings_in_range() {
+        let mut c = Config::default();
+        c.display.shape_radius = Some(200);
+        c.widget.row_radius = Some(200);
+        c.widget.glass_tint = 250;
+        c.widget.focus_interval_s = 0;
+        c.widget.focus_transition_ms = u16::MAX;
+        let c = c.sanitize();
+        assert_eq!(c.display.shape_radius, Some(*SHAPE_RADII.end()));
+        assert_eq!(c.widget.row_radius, Some(*ROW_RADII.end()));
+        assert_eq!(c.widget.glass_tint, 100);
+        assert_eq!(c.widget.focus_interval_s, *FOCUS_INTERVALS_S.start());
+        assert_eq!(c.widget.focus_transition_ms, *FOCUS_TRANSITIONS_MS.end());
     }
 
     #[test]
