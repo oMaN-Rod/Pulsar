@@ -2,6 +2,7 @@ use pulsar_core::tr_noop;
 
 pub struct IndexRow {
     pub tab: i32,
+    pub subtab: i32,
     pub page: &'static str,
     pub section: &'static str,
     pub title: &'static str,
@@ -32,6 +33,7 @@ pub struct Entry {
     /// Stays the same across languages and source order.
     pub id: String,
     pub tab: i32,
+    pub subtab: i32,
     pub title: &'static str,
     pub path: String,
     pub description: &'static str,
@@ -99,6 +101,7 @@ pub fn entries(
         found.push(Entry {
             id: item.id.clone(),
             tab: 0,
+            subtab: 0,
             title: translate(item.name),
             path: translate(page).to_string(),
             description: "",
@@ -160,6 +163,7 @@ fn index_entry(row: &IndexRow, translate: &impl Fn(&'static str) -> &'static str
             format!("row/{}/{}", row.tab, row.title)
         },
         tab: row.tab,
+        subtab: row.subtab,
         title: translate(row.title),
         path,
         description,

@@ -1645,6 +1645,10 @@ msgid "App"
 msgstr "Aplicación"
 
 #: ui/settings.slint
+msgid "Shortcuts"
+msgstr "Atajos"
+
+#: ui/settings.slint
 msgid "General"
 msgstr "General"
 
@@ -1663,6 +1667,22 @@ msgstr "Ninguna opción coincide con la búsqueda."
 #: ui/settings.slint
 msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
 msgstr "Elige qué muestra la superposición, su orden y el color de cada elemento (vacío usa el predeterminado). Abre las opciones de un elemento para su estilo de gráfica, coloreado y ventana emergente. Haz clic derecho en un elemento de la barra de tareas para ver las mismas opciones."
+
+#: ui/settings.slint
+msgid "Load colors"
+msgstr "Colores por carga"
+
+#: ui/settings.slint
+msgid "Alt+Up and Alt+Down move it."
+msgstr "Alt+Arriba y Alt+Abajo lo mueven."
+
+#: ui/settings.slint
+msgid "On the taskbar"
+msgstr "En la barra de tareas"
+
+#: ui/settings.slint
+msgid "Hidden"
+msgstr "Oculto"
 
 #: ui/settings.slint
 msgid "Overlay label"
@@ -1829,6 +1849,14 @@ msgid "From the third threshold. Empty uses red."
 msgstr "Desde el tercer umbral. Vacío usa rojo."
 
 #: ui/settings.slint
+msgid "Text"
+msgstr "Texto"
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "Posición"
+
+#: ui/settings.slint
 msgid "Mode"
 msgstr "Modo"
 
@@ -1917,10 +1945,6 @@ msgid "Fade out while a fullscreen game or video is in front."
 msgstr "Se desvanece mientras haya un juego o vídeo a pantalla completa delante."
 
 #: ui/settings.slint
-msgid "Text"
-msgstr "Texto"
-
-#: ui/settings.slint
 msgid "Font"
 msgstr "Fuente"
 
@@ -1963,10 +1987,6 @@ msgstr "Espacio entre filas"
 #: ui/settings.slint
 msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
 msgstr "Píxeles entre filas. En la barra de tareas se reduce a lo que quepa y nunca elimina una fila."
-
-#: ui/settings.slint
-msgid "Position"
-msgstr "Posición"
 
 #: ui/settings.slint
 msgid "Placement"
@@ -2269,6 +2289,10 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr "Un panel en el escritorio con un gráfico y detalles de cada elemento, como una ventana emergente que se queda abierta. Arrástralo para moverlo; haz clic derecho para ver el menú."
 
 #: ui/settings.slint
+msgid "Look"
+msgstr "Aspecto"
+
+#: ui/settings.slint
 msgid "Show the widget"
 msgstr "Mostrar el widget"
 
@@ -2383,10 +2407,6 @@ msgstr "Los clics llegan a lo que haya debajo. Desbloquéalo desde el menú del 
 #: ui/settings.slint
 msgid "While a fullscreen app is on the widget's monitor."
 msgstr "Mientras haya una aplicación a pantalla completa en el monitor del widget."
-
-#: ui/settings.slint
-msgid "Look"
-msgstr "Aspecto"
 
 #: ui/settings.slint
 msgid "Size"
@@ -2669,6 +2689,30 @@ msgid "Amount used"
 msgstr "Cantidad en uso"
 
 #: ui/settings.slint
+msgid "Sampling"
+msgstr "Muestreo"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings."
+msgstr "Milisegundos entre lecturas."
+
+#: ui/settings.slint
+msgid "Update interval on battery"
+msgstr "Intervalo de actualización con batería"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr "Milisegundos entre lecturas sin conexión a la corriente. Si está desactivado, se usa el intervalo anterior."
+
+#: ui/settings.slint
+msgid "History length"
+msgstr "Longitud del historial"
+
+#: ui/settings.slint
+msgid "Readings kept for the graphs."
+msgstr "Lecturas que se guardan para las gráficas."
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "Discos"
 
@@ -2817,6 +2861,50 @@ msgid "Milliseconds between pings."
 msgstr "Milisegundos entre pings."
 
 #: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr "Selecciona un cuadro y pulsa las teclas, con Ctrl, Alt o Win. Retroceso lo borra. Funcionan en cualquier parte de Windows."
+
+#: ui/settings.slint
+msgid "Pulsar"
+msgstr "Pulsar"
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr "Mostrar u ocultar Pulsar"
+
+#: ui/settings.slint
+msgid "Clear shortcut"
+msgstr "Borrar el atajo"
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr "Abrir los detalles del sistema"
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr "Iniciar o detener la grabación en CSV"
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr "Cambiar al siguiente perfil"
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr "Activar o desactivar el widget de escritorio"
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr "Mostrar el siguiente elemento en Enfoque"
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr "Para el diseño Enfoque del widget."
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr "Mostrar el elemento anterior en Enfoque"
+
+#: ui/settings.slint
 msgid "Language"
 msgstr "Idioma"
 
@@ -2847,50 +2935,6 @@ msgstr "Icono en la bandeja"
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
 msgstr "Muestra Pulsar en el área de notificación. Si está oculto, haz clic derecho en la superposición para ver el menú, o vuelve a iniciar Pulsar para abrir la configuración."
-
-#: ui/settings.slint
-msgid "Shortcuts"
-msgstr "Atajos"
-
-#: ui/settings.slint
-msgid "Keyboard shortcuts"
-msgstr "Atajos de teclado"
-
-#: ui/settings.slint
-msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
-msgstr "Selecciona un cuadro y pulsa las teclas, con Ctrl, Alt o Win. Retroceso lo borra. Funcionan en cualquier parte de Windows."
-
-#: ui/settings.slint
-msgid "Show or hide Pulsar"
-msgstr "Mostrar u ocultar Pulsar"
-
-#: ui/settings.slint
-msgid "Turn the desktop widget on or off"
-msgstr "Activar o desactivar el widget de escritorio"
-
-#: ui/settings.slint
-msgid "Open system details"
-msgstr "Abrir los detalles del sistema"
-
-#: ui/settings.slint
-msgid "Start or stop recording to CSV"
-msgstr "Iniciar o detener la grabación en CSV"
-
-#: ui/settings.slint
-msgid "Switch to the next profile"
-msgstr "Cambiar al siguiente perfil"
-
-#: ui/settings.slint
-msgid "Show the next item in Focus"
-msgstr "Mostrar el siguiente elemento en Enfoque"
-
-#: ui/settings.slint
-msgid "For the widget's Focus layout."
-msgstr "Para el diseño Enfoque del widget."
-
-#: ui/settings.slint
-msgid "Show the previous item in Focus"
-msgstr "Mostrar el elemento anterior en Enfoque"
 
 #: ui/settings.slint
 msgid "Alerts"
@@ -2937,30 +2981,6 @@ msgid "When any drive falls to this."
 msgstr "Cuando cualquier unidad baja a este valor."
 
 #: ui/settings.slint
-msgid "Sampling"
-msgstr "Muestreo"
-
-#: ui/settings.slint
-msgid "Milliseconds between readings."
-msgstr "Milisegundos entre lecturas."
-
-#: ui/settings.slint
-msgid "Update interval on battery"
-msgstr "Intervalo de actualización con batería"
-
-#: ui/settings.slint
-msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
-msgstr "Milisegundos entre lecturas sin conexión a la corriente. Si está desactivado, se usa el intervalo anterior."
-
-#: ui/settings.slint
-msgid "History length"
-msgstr "Longitud del historial"
-
-#: ui/settings.slint
-msgid "Readings kept for the graphs."
-msgstr "Lecturas que se guardan para las gráficas."
-
-#: ui/settings.slint
 msgid "Reset"
 msgstr "Restablecer"
 
@@ -2969,12 +2989,12 @@ msgid "Reset all settings"
 msgstr "Restablecer toda la configuración"
 
 #: ui/settings.slint
-msgid "Everything except Start with Windows and the language goes back to its default."
-msgstr "Todo, excepto Iniciar con Windows y el idioma, vuelve a su valor predeterminado."
-
-#: ui/settings.slint
 msgid "Start over with the default look and items."
 msgstr "Empieza de nuevo con el aspecto y los elementos predeterminados."
+
+#: ui/settings.slint
+msgid "Everything except Start with Windows and the language goes back to its default."
+msgstr "Todo, excepto Iniciar con Windows y el idioma, vuelve a su valor predeterminado."
 
 #: ui/settings.slint
 msgid "Reset…"

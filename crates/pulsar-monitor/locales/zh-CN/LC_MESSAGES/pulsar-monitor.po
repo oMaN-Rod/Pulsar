@@ -1646,6 +1646,10 @@ msgid "App"
 msgstr "应用"
 
 #: ui/settings.slint
+msgid "Shortcuts"
+msgstr "快捷键"
+
+#: ui/settings.slint
 msgid "General"
 msgstr "常规"
 
@@ -1664,6 +1668,22 @@ msgstr "没有符合搜索条件的设置。"
 #: ui/settings.slint
 msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
 msgstr "选择叠加层显示的内容、顺序以及每项的颜色（留空则使用默认颜色）。打开某一项的选项可设置其图表样式、着色方式和弹出窗口。在任务栏上右键单击某一项也可使用相同选项。"
+
+#: ui/settings.slint
+msgid "Load colors"
+msgstr "负载颜色"
+
+#: ui/settings.slint
+msgid "Alt+Up and Alt+Down move it."
+msgstr "按 Alt+向上键和 Alt+向下键移动。"
+
+#: ui/settings.slint
+msgid "On the taskbar"
+msgstr "在任务栏上"
+
+#: ui/settings.slint
+msgid "Hidden"
+msgstr "隐藏"
 
 #: ui/settings.slint
 msgid "Overlay label"
@@ -1830,6 +1850,14 @@ msgid "From the third threshold. Empty uses red."
 msgstr "从第三个阈值起。留空时使用红色。"
 
 #: ui/settings.slint
+msgid "Text"
+msgstr "文字"
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "位置"
+
+#: ui/settings.slint
 msgid "Mode"
 msgstr "模式"
 
@@ -1918,10 +1946,6 @@ msgid "Fade out while a fullscreen game or video is in front."
 msgstr "全屏游戏或视频处于前台时淡出隐藏。"
 
 #: ui/settings.slint
-msgid "Text"
-msgstr "文字"
-
-#: ui/settings.slint
 msgid "Font"
 msgstr "字体"
 
@@ -1964,10 +1988,6 @@ msgstr "行间距"
 #: ui/settings.slint
 msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
 msgstr "行之间的像素数。在任务栏上，间距会缩小到可容纳的大小，绝不会减少行数。"
-
-#: ui/settings.slint
-msgid "Position"
-msgstr "位置"
 
 #: ui/settings.slint
 msgid "Placement"
@@ -2270,6 +2290,10 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr "桌面上的面板，显示每个项目的图表和详细信息，就像一直打开的弹出窗口。拖动可移动它；右键单击可打开菜单。"
 
 #: ui/settings.slint
+msgid "Look"
+msgstr "外观"
+
+#: ui/settings.slint
 msgid "Show the widget"
 msgstr "显示小组件"
 
@@ -2384,10 +2408,6 @@ msgstr "点击会传给下方的内容。可从托盘图标菜单中解锁。"
 #: ui/settings.slint
 msgid "While a fullscreen app is on the widget's monitor."
 msgstr "当小组件所在的显示器上有全屏应用时。"
-
-#: ui/settings.slint
-msgid "Look"
-msgstr "外观"
 
 #: ui/settings.slint
 msgid "Size"
@@ -2670,6 +2690,30 @@ msgid "Amount used"
 msgstr "已用容量"
 
 #: ui/settings.slint
+msgid "Sampling"
+msgstr "采样"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings."
+msgstr "两次读数之间的间隔（毫秒）。"
+
+#: ui/settings.slint
+msgid "Update interval on battery"
+msgstr "使用电池时的更新间隔"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr "未接通电源时两次读数之间的毫秒数。关闭时使用上面的间隔。"
+
+#: ui/settings.slint
+msgid "History length"
+msgstr "历史长度"
+
+#: ui/settings.slint
+msgid "Readings kept for the graphs."
+msgstr "图表保留的读数个数。"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "磁盘"
 
@@ -2818,6 +2862,50 @@ msgid "Milliseconds between pings."
 msgstr "两次 Ping 之间的间隔（毫秒）。"
 
 #: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr "选中一个框并按下按键，需包含 Ctrl、Alt 或 Win。按 Backspace 清除。它们在 Windows 中随处可用。"
+
+#: ui/settings.slint
+msgid "Pulsar"
+msgstr "Pulsar"
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr "显示或隐藏 Pulsar"
+
+#: ui/settings.slint
+msgid "Clear shortcut"
+msgstr "清除快捷键"
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr "打开系统详细信息"
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr "开始或停止记录到 CSV"
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr "切换到下一个配置文件"
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr "打开或关闭桌面小组件"
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr "在聚焦中显示下一个项目"
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr "用于小组件的聚焦布局。"
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr "在聚焦中显示上一个项目"
+
+#: ui/settings.slint
 msgid "Language"
 msgstr "语言"
 
@@ -2848,50 +2936,6 @@ msgstr "托盘图标"
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
 msgstr "在通知区域显示 Pulsar 图标。隐藏后，可右键单击任务栏上的监控条打开菜单，或再次启动 Pulsar 打开设置。"
-
-#: ui/settings.slint
-msgid "Shortcuts"
-msgstr "快捷键"
-
-#: ui/settings.slint
-msgid "Keyboard shortcuts"
-msgstr "键盘快捷键"
-
-#: ui/settings.slint
-msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
-msgstr "选中一个框并按下按键，需包含 Ctrl、Alt 或 Win。按 Backspace 清除。它们在 Windows 中随处可用。"
-
-#: ui/settings.slint
-msgid "Show or hide Pulsar"
-msgstr "显示或隐藏 Pulsar"
-
-#: ui/settings.slint
-msgid "Turn the desktop widget on or off"
-msgstr "打开或关闭桌面小组件"
-
-#: ui/settings.slint
-msgid "Open system details"
-msgstr "打开系统详细信息"
-
-#: ui/settings.slint
-msgid "Start or stop recording to CSV"
-msgstr "开始或停止记录到 CSV"
-
-#: ui/settings.slint
-msgid "Switch to the next profile"
-msgstr "切换到下一个配置文件"
-
-#: ui/settings.slint
-msgid "Show the next item in Focus"
-msgstr "在聚焦中显示下一个项目"
-
-#: ui/settings.slint
-msgid "For the widget's Focus layout."
-msgstr "用于小组件的聚焦布局。"
-
-#: ui/settings.slint
-msgid "Show the previous item in Focus"
-msgstr "在聚焦中显示上一个项目"
 
 #: ui/settings.slint
 msgid "Alerts"
@@ -2938,30 +2982,6 @@ msgid "When any drive falls to this."
 msgstr "任一驱动器降至此值时。"
 
 #: ui/settings.slint
-msgid "Sampling"
-msgstr "采样"
-
-#: ui/settings.slint
-msgid "Milliseconds between readings."
-msgstr "两次读数之间的间隔（毫秒）。"
-
-#: ui/settings.slint
-msgid "Update interval on battery"
-msgstr "使用电池时的更新间隔"
-
-#: ui/settings.slint
-msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
-msgstr "未接通电源时两次读数之间的毫秒数。关闭时使用上面的间隔。"
-
-#: ui/settings.slint
-msgid "History length"
-msgstr "历史长度"
-
-#: ui/settings.slint
-msgid "Readings kept for the graphs."
-msgstr "图表保留的读数个数。"
-
-#: ui/settings.slint
 msgid "Reset"
 msgstr "重置"
 
@@ -2970,12 +2990,12 @@ msgid "Reset all settings"
 msgstr "重置所有设置"
 
 #: ui/settings.slint
-msgid "Everything except Start with Windows and the language goes back to its default."
-msgstr "除“开机自启”和语言外，所有设置都将恢复默认值。"
-
-#: ui/settings.slint
 msgid "Start over with the default look and items."
 msgstr "恢复默认的外观和监控项。"
+
+#: ui/settings.slint
+msgid "Everything except Start with Windows and the language goes back to its default."
+msgstr "除“开机自启”和语言外，所有设置都将恢复默认值。"
 
 #: ui/settings.slint
 msgid "Reset…"

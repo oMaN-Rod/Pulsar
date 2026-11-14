@@ -9,6 +9,8 @@ const ITEM_TEMPLATE: &str = "for row[i] in root.items:";
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Scanned {
     pub tab: i32,
+    /// The tab within the page, for a page split into tabs.
+    pub subtab: i32,
     pub page: String,
     pub section: String,
     pub title: String,
@@ -24,6 +26,8 @@ pub struct Scanned {
 
 enum Frame {
     Page,
+    Pivot,
+    Subtab,
     Items,
     Row,
     Section,
@@ -38,6 +42,8 @@ struct Scan {
     page: Option<usize>,
     in_items: bool,
     section: String,
+    subtab: i32,
+    subtabs: Vec<String>,
     /// The titles of the open row, with the condition choosing between them.
     titles: Vec<(String, Option<(String, bool)>)>,
     row: Option<Scanned>,
@@ -50,12 +56,26 @@ impl Scan {
             self.frames.push(Frame::Items);
             return;
         }
+        if self.page.is_some()
+            && let Some(subtab) = subtab_of(header)
+        {
+            self.subtab = subtab;
+            self.section = self
+                .subtabs
+                .get(subtab as usize)
+                .cloned()
+                .unwrap_or_default();
+            self.frames.push(Frame::Subtab);
+            return;
+        }
         let name = header.rsplit([' ', ':', '=']).next().unwrap_or_default();
         let frame = match name {
             "Page" => match tab_of(header).filter(|&tab| tab >= 0) {
                 Some(tab) => {
                     self.page = Some(self.rows.len());
                     self.section.clear();
+                    self.subtab = 0;
+                    self.subtabs.clear();
                     self.rows.push(Scanned {
                         tab,
                         is_page: true,
@@ -71,6 +91,7 @@ impl Scan {
                 Frame::Row
             }
             "SectionTitle" => Frame::Section,
+            "Pivot" if self.page.is_some() => Frame::Pivot,
             "Text" => Frame::Text,
             _ => Frame::Other,
         };
@@ -82,6 +103,10 @@ impl Scan {
             Some(Frame::Page) => self.page = None,
             Some(Frame::Items) => self.in_items = false,
             Some(Frame::Row) => self.finish_row(),
+            Some(Frame::Subtab) => {
+                self.subtab = 0;
+                self.section.clear();
+            }
             _ => {}
         }
     }
@@ -95,6 +120,7 @@ impl Scan {
         for (title, when) in std::mem::take(&mut self.titles) {
             self.rows.push(Scanned {
                 tab,
+                subtab: self.subtab,
                 page: page.clone(),
                 section: self.section.clone(),
                 title,
@@ -135,6 +161,12 @@ impl Scan {
             Some(Frame::Text) if text.starts_with("text:") => {
                 self.rows[page].descriptions.extend(messages);
             }
+            Some(Frame::Pivot) if text.starts_with("model:") => {
+                self.subtabs = messages;
+            }
+            Some(Frame::Page) if text.starts_with("intro:") => {
+                self.rows[page].descriptions.extend(messages);
+            }
             _ => {}
         }
     }
@@ -142,6 +174,11 @@ impl Scan {
 
 fn tab_of(header: &str) -> Option<i32> {
     let (_, rest) = header.split_once("root.tab ==")?;
+    rest.trim().split(':').next()?.trim().parse().ok()
+}
+
+fn subtab_of(header: &str) -> Option<i32> {
+    let (_, rest) = header.split_once("root.subtab ==")?;
     rest.trim().split(':').next()?.trim().parse().ok()
 }
 
@@ -258,8 +295,8 @@ pub fn generate(rows: &[Scanned]) -> String {
             None => "None".to_string(),
         };
         out.push_str(&format!(
-            "    IndexRow {{ tab: {}, page: {:?}, section: {:?}, title: {:?}, when: {when}, descriptions: &{:?}, keywords: &{:?}, is_page: {}, per_item: {} }},\n",
-            row.tab, row.page, row.section, row.title, row.descriptions, row.keywords, row.is_page, row.per_item,
+            "    IndexRow {{ tab: {}, subtab: {}, page: {:?}, section: {:?}, title: {:?}, when: {when}, descriptions: &{:?}, keywords: &{:?}, is_page: {}, per_item: {} }},\n",
+            row.tab, row.subtab, row.page, row.section, row.title, row.descriptions, row.keywords, row.is_page, row.per_item,
         ));
     }
     out.push_str("]\n");

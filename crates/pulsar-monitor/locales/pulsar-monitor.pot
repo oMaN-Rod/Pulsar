@@ -1643,6 +1643,10 @@ msgid "App"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Shortcuts"
+msgstr ""
+
+#: ui/settings.slint
 msgid "General"
 msgstr ""
 
@@ -1660,6 +1664,22 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Load colors"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Alt+Up and Alt+Down move it."
+msgstr ""
+
+#: ui/settings.slint
+msgid "On the taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Hidden"
 msgstr ""
 
 #: ui/settings.slint
@@ -1827,6 +1847,14 @@ msgid "From the third threshold. Empty uses red."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Text"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Position"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Mode"
 msgstr ""
 
@@ -1915,10 +1943,6 @@ msgid "Fade out while a fullscreen game or video is in front."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Text"
-msgstr ""
-
-#: ui/settings.slint
 msgid "Font"
 msgstr ""
 
@@ -1960,10 +1984,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Position"
 msgstr ""
 
 #: ui/settings.slint
@@ -2267,6 +2287,10 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr ""
 
 #: ui/settings.slint
+msgid "Look"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Show the widget"
 msgstr ""
 
@@ -2380,10 +2404,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "While a fullscreen app is on the widget's monitor."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Look"
 msgstr ""
 
 #: ui/settings.slint
@@ -2667,6 +2687,30 @@ msgid "Amount used"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Sampling"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Milliseconds between readings."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Update interval on battery"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr ""
+
+#: ui/settings.slint
+msgid "History length"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Readings kept for the graphs."
+msgstr ""
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr ""
 
@@ -2815,6 +2859,50 @@ msgid "Milliseconds between pings."
 msgstr ""
 
 #: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Pulsar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Clear shortcut"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr ""
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Language"
 msgstr ""
 
@@ -2844,50 +2932,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Shortcuts"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Keyboard shortcuts"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Show or hide Pulsar"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Turn the desktop widget on or off"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Open system details"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Start or stop recording to CSV"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Switch to the next profile"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Show the next item in Focus"
-msgstr ""
-
-#: ui/settings.slint
-msgid "For the widget's Focus layout."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Show the previous item in Focus"
 msgstr ""
 
 #: ui/settings.slint
@@ -2935,30 +2979,6 @@ msgid "When any drive falls to this."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Sampling"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Milliseconds between readings."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Update interval on battery"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
-msgstr ""
-
-#: ui/settings.slint
-msgid "History length"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Readings kept for the graphs."
-msgstr ""
-
-#: ui/settings.slint
 msgid "Reset"
 msgstr ""
 
@@ -2967,11 +2987,11 @@ msgid "Reset all settings"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Everything except Start with Windows and the language goes back to its default."
+msgid "Start over with the default look and items."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Start over with the default look and items."
+msgid "Everything except Start with Windows and the language goes back to its default."
 msgstr ""
 
 #: ui/settings.slint

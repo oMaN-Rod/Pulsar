@@ -1645,6 +1645,10 @@ msgid "App"
 msgstr "アプリ"
 
 #: ui/settings.slint
+msgid "Shortcuts"
+msgstr "ショートカット"
+
+#: ui/settings.slint
 msgid "General"
 msgstr "全般"
 
@@ -1663,6 +1667,22 @@ msgstr "検索に一致する設定はありません。"
 #: ui/settings.slint
 msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
 msgstr "重ねて表示するパネルに表示する項目、順序、各項目の色を選びます（空欄は既定色）。各項目を開くと、グラフのスタイル、配色、ポップアップを設定できます。タスクバーの項目を右クリックしても同じ設定ができます。"
+
+#: ui/settings.slint
+msgid "Load colors"
+msgstr "負荷の色"
+
+#: ui/settings.slint
+msgid "Alt+Up and Alt+Down move it."
+msgstr "Alt+↑ と Alt+↓ で移動します。"
+
+#: ui/settings.slint
+msgid "On the taskbar"
+msgstr "タスクバーに表示"
+
+#: ui/settings.slint
+msgid "Hidden"
+msgstr "非表示"
 
 #: ui/settings.slint
 msgid "Overlay label"
@@ -1829,6 +1849,14 @@ msgid "From the third threshold. Empty uses red."
 msgstr "3番目のしきい値以上。空欄は赤です。"
 
 #: ui/settings.slint
+msgid "Text"
+msgstr "テキスト"
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "位置"
+
+#: ui/settings.slint
 msgid "Mode"
 msgstr "モード"
 
@@ -1917,10 +1945,6 @@ msgid "Fade out while a fullscreen game or video is in front."
 msgstr "全画面のゲームや動画が前面にある間はフェードアウトします。"
 
 #: ui/settings.slint
-msgid "Text"
-msgstr "テキスト"
-
-#: ui/settings.slint
 msgid "Font"
 msgstr "フォント"
 
@@ -1963,10 +1987,6 @@ msgstr "行間の余白"
 #: ui/settings.slint
 msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
 msgstr "行間のピクセル数。タスクバー上では収まるように縮めますが、行は削除しません。"
-
-#: ui/settings.slint
-msgid "Position"
-msgstr "位置"
 
 #: ui/settings.slint
 msgid "Placement"
@@ -2269,6 +2289,10 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr "各項目のグラフと詳細を表示するデスクトップ上のパネルです。開いたままのポップアップのように使えます。ドラッグで移動、右クリックでメニューを開きます。"
 
 #: ui/settings.slint
+msgid "Look"
+msgstr "外観"
+
+#: ui/settings.slint
 msgid "Show the widget"
 msgstr "ウィジェットを表示"
 
@@ -2383,10 +2407,6 @@ msgstr "クリックは背後のウィンドウに届きます。トレイアイ
 #: ui/settings.slint
 msgid "While a fullscreen app is on the widget's monitor."
 msgstr "ウィジェットと同じモニターに全画面アプリがある間に適用します。"
-
-#: ui/settings.slint
-msgid "Look"
-msgstr "外観"
 
 #: ui/settings.slint
 msgid "Size"
@@ -2669,6 +2689,30 @@ msgid "Amount used"
 msgstr "使用量"
 
 #: ui/settings.slint
+msgid "Sampling"
+msgstr "測定"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings."
+msgstr "測定間隔（ミリ秒）。"
+
+#: ui/settings.slint
+msgid "Update interval on battery"
+msgstr "バッテリー使用中の更新間隔"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr "電源未接続時の測定間隔（ミリ秒）。無効にすると上の間隔を使います。"
+
+#: ui/settings.slint
+msgid "History length"
+msgstr "履歴の長さ"
+
+#: ui/settings.slint
+msgid "Readings kept for the graphs."
+msgstr "グラフ用に保持する測定値の数です。"
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "ディスク"
 
@@ -2817,6 +2861,50 @@ msgid "Milliseconds between pings."
 msgstr "Ping の送信間隔（ミリ秒）。"
 
 #: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr "入力欄を選び、Ctrl 、Alt 、Win のいずれかと組み合わせたキーを押します。Backspace で解除します。Windows のどこからでも使えます。"
+
+#: ui/settings.slint
+msgid "Pulsar"
+msgstr "Pulsar"
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr "Pulsar の表示・非表示"
+
+#: ui/settings.slint
+msgid "Clear shortcut"
+msgstr "ショートカットをクリア"
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr "システム詳細を開く"
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr "CSV 記録の開始・停止"
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr "次のプロファイルに切り替え"
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr "ウィジェットのオン・オフ"
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr "フォーカスで次の項目を表示"
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr "ウィジェットのフォーカス レイアウト用。"
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr "フォーカスで前の項目を表示"
+
+#: ui/settings.slint
 msgid "Language"
 msgstr "言語"
 
@@ -2847,50 +2935,6 @@ msgstr "トレイアイコン"
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
 msgstr "通知領域に Pulsar を表示します。非表示の場合は、重ねて表示するパネルを右クリックしてメニューを開くか、Pulsar を再実行して設定を開けます。"
-
-#: ui/settings.slint
-msgid "Shortcuts"
-msgstr "ショートカット"
-
-#: ui/settings.slint
-msgid "Keyboard shortcuts"
-msgstr "キーボードショートカット"
-
-#: ui/settings.slint
-msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
-msgstr "入力欄を選び、Ctrl 、Alt 、Win のいずれかと組み合わせたキーを押します。Backspace で解除します。Windows のどこからでも使えます。"
-
-#: ui/settings.slint
-msgid "Show or hide Pulsar"
-msgstr "Pulsar の表示・非表示"
-
-#: ui/settings.slint
-msgid "Turn the desktop widget on or off"
-msgstr "ウィジェットのオン・オフ"
-
-#: ui/settings.slint
-msgid "Open system details"
-msgstr "システム詳細を開く"
-
-#: ui/settings.slint
-msgid "Start or stop recording to CSV"
-msgstr "CSV 記録の開始・停止"
-
-#: ui/settings.slint
-msgid "Switch to the next profile"
-msgstr "次のプロファイルに切り替え"
-
-#: ui/settings.slint
-msgid "Show the next item in Focus"
-msgstr "フォーカスで次の項目を表示"
-
-#: ui/settings.slint
-msgid "For the widget's Focus layout."
-msgstr "ウィジェットのフォーカス レイアウト用。"
-
-#: ui/settings.slint
-msgid "Show the previous item in Focus"
-msgstr "フォーカスで前の項目を表示"
 
 #: ui/settings.slint
 msgid "Alerts"
@@ -2937,30 +2981,6 @@ msgid "When any drive falls to this."
 msgstr "いずれかのドライブの空き容量がこの値まで低下すると通知します。"
 
 #: ui/settings.slint
-msgid "Sampling"
-msgstr "測定"
-
-#: ui/settings.slint
-msgid "Milliseconds between readings."
-msgstr "測定間隔（ミリ秒）。"
-
-#: ui/settings.slint
-msgid "Update interval on battery"
-msgstr "バッテリー使用中の更新間隔"
-
-#: ui/settings.slint
-msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
-msgstr "電源未接続時の測定間隔（ミリ秒）。無効にすると上の間隔を使います。"
-
-#: ui/settings.slint
-msgid "History length"
-msgstr "履歴の長さ"
-
-#: ui/settings.slint
-msgid "Readings kept for the graphs."
-msgstr "グラフ用に保持する測定値の数です。"
-
-#: ui/settings.slint
 msgid "Reset"
 msgstr "リセット"
 
@@ -2969,12 +2989,12 @@ msgid "Reset all settings"
 msgstr "すべての設定をリセット"
 
 #: ui/settings.slint
-msgid "Everything except Start with Windows and the language goes back to its default."
-msgstr "「Windows と同時に起動」と言語を除き、すべての設定を既定値に戻します。"
-
-#: ui/settings.slint
 msgid "Start over with the default look and items."
 msgstr "既定の外観と項目でやり直します。"
+
+#: ui/settings.slint
+msgid "Everything except Start with Windows and the language goes back to its default."
+msgstr "「Windows と同時に起動」と言語を除き、すべての設定を既定値に戻します。"
 
 #: ui/settings.slint
 msgid "Reset…"

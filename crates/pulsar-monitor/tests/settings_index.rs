@@ -61,14 +61,29 @@ fn rows_know_their_page_and_section() {
     );
     assert!(font.descriptions[0].starts_with("Fonts without"));
     let mode = rows.iter().find(|r| r.title == "Mode").expect("the row");
-    assert_eq!((mode.section.as_str(), mode.keywords.len()), ("", 2));
+    assert_eq!((mode.section.as_str(), mode.keywords.len()), ("Overlay", 2));
+}
+
+#[test]
+fn rows_in_a_tab_know_it_and_take_its_name_as_their_section() {
+    let rows = rows();
+    let find = |title: &str| rows.iter().find(|r| r.title == title).expect("the row");
+    let at = |r: &Scanned| (r.tab, r.subtab, r.section.clone());
+    assert_eq!(at(find("Mode")), (1, 0, "Overlay".into()));
+    assert_eq!(at(find("Font")), (1, 1, "Text".into()));
+    assert_eq!(
+        at(find("Fit to the taskbar")),
+        (1, 2, "When the taskbar is full".into())
+    );
+    assert_eq!(at(find("Host")), (6, 3, "Ping".into()));
+    assert_eq!(at(find("Measure")), (5, 0, "Frame rate".into()));
 }
 
 #[test]
 fn every_page_but_the_results_is_listed() {
     let mut tabs: Vec<i32> = rows().iter().filter(|r| r.is_page).map(|r| r.tab).collect();
     tabs.sort_unstable();
-    assert_eq!(tabs, (0..=9).collect::<Vec<i32>>());
+    assert_eq!(tabs, (0..=10).collect::<Vec<i32>>());
 }
 
 #[test]

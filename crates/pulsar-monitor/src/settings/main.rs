@@ -500,21 +500,17 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_panel_color(f.panel_color.as_str().into());
     ui.set_panel_opacity_custom(f.panel_opacity_custom);
     ui.set_panel_opacity(f.panel_opacity as f32);
-    // Keep a row open across a reload, such as after moving it.
-    let open: Vec<SharedString> = ui
-        .get_items()
-        .iter()
-        .filter(|r| r.expanded)
-        .map(|r| r.name)
-        .collect();
-    let rows: Vec<ItemRow> = f
+    // Keep the chosen item across a reload, such as after moving it; the
+    // first one is chosen until another is.
+    let chosen: Option<SharedString> = ui.get_items().iter().find(|r| r.expanded).map(|r| r.name);
+    let mut rows: Vec<ItemRow> = f
         .items
         .iter()
         .map(|r| {
             let name: SharedString = names::item_name(r.kind).into();
             ItemRow {
                 id: item_id(r.kind).into(),
-                expanded: open.contains(&name),
+                expanded: chosen.as_ref() == Some(&name),
                 name,
                 enabled: r.enabled,
                 color: r.color.as_str().into(),
@@ -538,6 +534,11 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
             }
         })
         .collect();
+    if !rows.iter().any(|r| r.expanded)
+        && let Some(first) = rows.first_mut()
+    {
+        first.expanded = true;
+    }
     ui.set_items(ModelRc::new(VecModel::from(rows)));
     ui.set_load_low_color(f.load_colors[0].as_str().into());
     ui.set_load_moderate_color(f.load_colors[1].as_str().into());
@@ -983,7 +984,7 @@ fn open_search_result(ui: &SettingsWindow, kinds: &[ItemKind], id: &str) {
         .as_ref()
         .and_then(|owner| kinds.iter().position(|&kind| item_id(kind) == *owner));
     if let Some(row) = row {
-        update_row(ui, row as i32, |r| r.expanded = true);
+        choose_item(ui, row as i32);
     }
     let (title, key) = match &entry.owner {
         Some(_) => ("", id),
@@ -997,6 +998,7 @@ fn open_search_result(ui: &SettingsWindow, kinds: &[ItemKind], id: &str) {
     jump.set_missing(false);
     jump.set_pending(entry.is_row);
     ui.set_tab(entry.tab);
+    ui.set_subtab(entry.subtab);
 }
 
 /// Switches the window to the config's language if that changed.
@@ -1173,6 +1175,20 @@ fn show_update_result(ui: &SettingsWindow, availability: Availability) {
     ui.set_update_url(url.into());
     ui.set_update_notes(notes.into());
     ui.set_update_checking(false);
+}
+
+/// Shows the options of the item at `index`, and no other's.
+fn choose_item(ui: &SettingsWindow, index: i32) {
+    let items = ui.get_items();
+    for i in 0..items.row_count() {
+        if let Some(mut row) = items.row_data(i) {
+            let chosen = i as i32 == index;
+            if row.expanded != chosen {
+                row.expanded = chosen;
+                items.set_row_data(i, row);
+            }
+        }
+    }
 }
 
 fn update_row(ui: &SettingsWindow, index: i32, edit: impl FnOnce(&mut ItemRow)) {
@@ -1361,9 +1377,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     ui.on_limit_label(|text| config::typed_label(&text).into());
     ui.on_item_expanded({
         let weak = ui.as_weak();
-        move |index, expanded| {
-            if let Some(ui) = weak.upgrade() {
-                update_row(&ui, index, |r| r.expanded = expanded);
+        move |index, chosen| {
+            if let Some(ui) = weak.upgrade()
+                && chosen
+            {
+                choose_item(&ui, index);
             }
         }
     });

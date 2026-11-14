@@ -1645,6 +1645,10 @@ msgid "App"
 msgstr "앱"
 
 #: ui/settings.slint
+msgid "Shortcuts"
+msgstr "바로 가기 키"
+
+#: ui/settings.slint
 msgid "General"
 msgstr "일반"
 
@@ -1663,6 +1667,22 @@ msgstr "검색과 일치하는 설정이 없습니다."
 #: ui/settings.slint
 msgid "Choose what the overlay shows, its order, and each item's color (empty uses the default). Open an item's options for its graph style, coloring and popup. Right-click an item on the taskbar for the same options."
 msgstr "오버레이에 표시할 항목과 순서, 항목별 색(비워 두면 기본값)을 선택합니다. 항목의 옵션을 열어 그래프 스타일, 색 지정, 팝업을 설정합니다. 작업 표시줄에서 항목을 마우스 오른쪽 단추로 클릭해도 같은 옵션을 사용할 수 있습니다."
+
+#: ui/settings.slint
+msgid "Load colors"
+msgstr "부하 색상"
+
+#: ui/settings.slint
+msgid "Alt+Up and Alt+Down move it."
+msgstr "Alt+위쪽 및 Alt+아래쪽 키로 이동합니다."
+
+#: ui/settings.slint
+msgid "On the taskbar"
+msgstr "작업 표시줄에 표시"
+
+#: ui/settings.slint
+msgid "Hidden"
+msgstr "숨김"
 
 #: ui/settings.slint
 msgid "Overlay label"
@@ -1829,6 +1849,14 @@ msgid "From the third threshold. Empty uses red."
 msgstr "세 번째 임계값부터. 비워 두면 빨간색을 사용합니다."
 
 #: ui/settings.slint
+msgid "Text"
+msgstr "텍스트"
+
+#: ui/settings.slint
+msgid "Position"
+msgstr "위치"
+
+#: ui/settings.slint
 msgid "Mode"
 msgstr "모드"
 
@@ -1917,10 +1945,6 @@ msgid "Fade out while a fullscreen game or video is in front."
 msgstr "전체 화면 게임이나 동영상이 앞에 있으면 숨깁니다."
 
 #: ui/settings.slint
-msgid "Text"
-msgstr "텍스트"
-
-#: ui/settings.slint
 msgid "Font"
 msgstr "글꼴"
 
@@ -1963,10 +1987,6 @@ msgstr "행 간격"
 #: ui/settings.slint
 msgid "Pixels between rows. On the taskbar, it shrinks to what fits and never removes a row."
 msgstr "행 사이의 픽셀 수입니다. 작업 표시줄에서는 들어가는 만큼 줄어들며 행을 없애지 않습니다."
-
-#: ui/settings.slint
-msgid "Position"
-msgstr "위치"
 
 #: ui/settings.slint
 msgid "Placement"
@@ -2269,6 +2289,10 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr "항목마다 그래프와 세부 정보를 보여 주는 바탕 화면 패널로, 계속 열려 있는 팝업과 비슷합니다. 끌어서 옮기고 마우스 오른쪽 단추로 클릭하면 메뉴가 열립니다."
 
 #: ui/settings.slint
+msgid "Look"
+msgstr "모양"
+
+#: ui/settings.slint
 msgid "Show the widget"
 msgstr "위젯 표시"
 
@@ -2383,10 +2407,6 @@ msgstr "클릭이 아래에 있는 창으로 전달됩니다. 알림 영역 아�
 #: ui/settings.slint
 msgid "While a fullscreen app is on the widget's monitor."
 msgstr "위젯이 있는 모니터에서 전체 화면 앱이 실행 중일 때"
-
-#: ui/settings.slint
-msgid "Look"
-msgstr "모양"
 
 #: ui/settings.slint
 msgid "Size"
@@ -2669,6 +2689,30 @@ msgid "Amount used"
 msgstr "사용량"
 
 #: ui/settings.slint
+msgid "Sampling"
+msgstr "샘플링"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings."
+msgstr "측정 간격(밀리초)입니다."
+
+#: ui/settings.slint
+msgid "Update interval on battery"
+msgstr "배터리 사용 시 업데이트 간격"
+
+#: ui/settings.slint
+msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
+msgstr "전원이 연결되지 않았을 때 측정 간격(밀리초)입니다. 끄면 위의 간격을 사용합니다."
+
+#: ui/settings.slint
+msgid "History length"
+msgstr "기록 길이"
+
+#: ui/settings.slint
+msgid "Readings kept for the graphs."
+msgstr "그래프에 보관할 측정값 수입니다."
+
+#: ui/settings.slint
 msgid "Disks"
 msgstr "디스크"
 
@@ -2817,6 +2861,50 @@ msgid "Milliseconds between pings."
 msgstr "Ping 간격(밀리초)입니다."
 
 #: ui/settings.slint
+msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
+msgstr "입력란을 선택하고 Ctrl, Alt 또는 Win과 함께 키를 누릅니다. Backspace를 누르면 지워집니다. Windows 어디에서나 작동합니다."
+
+#: ui/settings.slint
+msgid "Pulsar"
+msgstr "Pulsar"
+
+#: ui/settings.slint
+msgid "Show or hide Pulsar"
+msgstr "Pulsar 표시 또는 숨기기"
+
+#: ui/settings.slint
+msgid "Clear shortcut"
+msgstr "바로 가기 지우기"
+
+#: ui/settings.slint
+msgid "Open system details"
+msgstr "시스템 세부 정보 열기"
+
+#: ui/settings.slint
+msgid "Start or stop recording to CSV"
+msgstr "CSV 기록 시작 또는 중지"
+
+#: ui/settings.slint
+msgid "Switch to the next profile"
+msgstr "다음 프로필로 전환"
+
+#: ui/settings.slint
+msgid "Turn the desktop widget on or off"
+msgstr "바탕 화면 위젯 켜기 또는 끄기"
+
+#: ui/settings.slint
+msgid "Show the next item in Focus"
+msgstr "포커스에서 다음 항목 표시"
+
+#: ui/settings.slint
+msgid "For the widget's Focus layout."
+msgstr "위젯의 포커스 레이아웃용입니다."
+
+#: ui/settings.slint
+msgid "Show the previous item in Focus"
+msgstr "포커스에서 이전 항목 표시"
+
+#: ui/settings.slint
 msgid "Language"
 msgstr "언어"
 
@@ -2847,50 +2935,6 @@ msgstr "알림 영역 아이콘"
 #: ui/settings.slint
 msgid "Show Pulsar in the notification area. When hidden, right-click the overlay for the menu, or start Pulsar again to open Settings."
 msgstr "알림 영역에 Pulsar를 표시합니다. 숨긴 경우 오버레이를 마우스 오른쪽 단추로 클릭해 메뉴를 열거나 Pulsar를 다시 실행해 설정을 엽니다."
-
-#: ui/settings.slint
-msgid "Shortcuts"
-msgstr "바로 가기 키"
-
-#: ui/settings.slint
-msgid "Keyboard shortcuts"
-msgstr "바로 가기 키"
-
-#: ui/settings.slint
-msgid "Select a box and press the keys, with Ctrl, Alt or Win. Backspace clears it. They work anywhere in Windows."
-msgstr "입력란을 선택하고 Ctrl, Alt 또는 Win과 함께 키를 누릅니다. Backspace를 누르면 지워집니다. Windows 어디에서나 작동합니다."
-
-#: ui/settings.slint
-msgid "Show or hide Pulsar"
-msgstr "Pulsar 표시 또는 숨기기"
-
-#: ui/settings.slint
-msgid "Turn the desktop widget on or off"
-msgstr "바탕 화면 위젯 켜기 또는 끄기"
-
-#: ui/settings.slint
-msgid "Open system details"
-msgstr "시스템 세부 정보 열기"
-
-#: ui/settings.slint
-msgid "Start or stop recording to CSV"
-msgstr "CSV 기록 시작 또는 중지"
-
-#: ui/settings.slint
-msgid "Switch to the next profile"
-msgstr "다음 프로필로 전환"
-
-#: ui/settings.slint
-msgid "Show the next item in Focus"
-msgstr "포커스에서 다음 항목 표시"
-
-#: ui/settings.slint
-msgid "For the widget's Focus layout."
-msgstr "위젯의 포커스 레이아웃용입니다."
-
-#: ui/settings.slint
-msgid "Show the previous item in Focus"
-msgstr "포커스에서 이전 항목 표시"
 
 #: ui/settings.slint
 msgid "Alerts"
@@ -2937,30 +2981,6 @@ msgid "When any drive falls to this."
 msgstr "드라이브 중 하나라도 이 값까지 떨어질 때."
 
 #: ui/settings.slint
-msgid "Sampling"
-msgstr "샘플링"
-
-#: ui/settings.slint
-msgid "Milliseconds between readings."
-msgstr "측정 간격(밀리초)입니다."
-
-#: ui/settings.slint
-msgid "Update interval on battery"
-msgstr "배터리 사용 시 업데이트 간격"
-
-#: ui/settings.slint
-msgid "Milliseconds between readings while unplugged. Off keeps the interval above."
-msgstr "전원이 연결되지 않았을 때 측정 간격(밀리초)입니다. 끄면 위의 간격을 사용합니다."
-
-#: ui/settings.slint
-msgid "History length"
-msgstr "기록 길이"
-
-#: ui/settings.slint
-msgid "Readings kept for the graphs."
-msgstr "그래프에 보관할 측정값 수입니다."
-
-#: ui/settings.slint
 msgid "Reset"
 msgstr "초기화"
 
@@ -2969,12 +2989,12 @@ msgid "Reset all settings"
 msgstr "모든 설정 초기화"
 
 #: ui/settings.slint
-msgid "Everything except Start with Windows and the language goes back to its default."
-msgstr "Windows 시작 시 실행과 언어를 제외한 모든 설정을 기본값으로 되돌립니다."
-
-#: ui/settings.slint
 msgid "Start over with the default look and items."
 msgstr "기본 모양과 항목으로 다시 시작합니다."
+
+#: ui/settings.slint
+msgid "Everything except Start with Windows and the language goes back to its default."
+msgstr "Windows 시작 시 실행과 언어를 제외한 모든 설정을 기본값으로 되돌립니다."
 
 #: ui/settings.slint
 msgid "Reset…"
