@@ -1437,6 +1437,14 @@ msgid "Windows default ({})"
 msgstr "Igual que Windows ({})"
 
 #: src/settings/main.rs
+msgid "{} items"
+msgstr "{} elementos"
+
+#: src/settings/main.rs ui/settings.slint
+msgid "Widget"
+msgstr "Widget"
+
+#: src/settings/main.rs
 msgid "You have the latest version."
 msgstr "Tienes la última versión."
 
@@ -1627,10 +1635,6 @@ msgstr "Diseño"
 #: ui/settings.slint
 msgid "Theme"
 msgstr "Tema"
-
-#: ui/settings.slint
-msgid "Widget"
-msgstr "Widget"
 
 #: ui/settings.slint
 msgid "Readings"
@@ -2161,32 +2165,28 @@ msgid "Custom colors"
 msgstr "Colores personalizados"
 
 #: ui/settings.slint
+msgid "Dark taskbar"
+msgstr "Barra oscura"
+
+#: ui/settings.slint
+msgid "Light taskbar"
+msgstr "Barra clara"
+
+#: ui/settings.slint
 msgid "Label color"
 msgstr "Color de las etiquetas"
 
 #: ui/settings.slint
-msgid "Empty uses the theme."
-msgstr "Vacío usa el tema."
+msgid "Empty uses the theme. On a light taskbar, empty uses the label color."
+msgstr "Vacío usa el tema. En una barra de tareas clara, vacío usa el color de etiqueta."
 
 #: ui/settings.slint
 msgid "Value color"
 msgstr "Color de los valores"
 
 #: ui/settings.slint
-msgid "Label color on a light taskbar"
-msgstr "Color de las etiquetas con barra de tareas clara"
-
-#: ui/settings.slint
-msgid "Empty uses the label color above."
-msgstr "Vacío usa el color de las etiquetas de arriba."
-
-#: ui/settings.slint
-msgid "Value color on a light taskbar"
-msgstr "Color de los valores con barra de tareas clara"
-
-#: ui/settings.slint
-msgid "Empty uses the value color above."
-msgstr "Vacío usa el color de los valores de arriba."
+msgid "Empty uses the theme. On a light taskbar, empty uses the value color."
+msgstr "Vacío usa el tema. En una barra de tareas clara, vacío usa el color de valor."
 
 #: ui/settings.slint
 msgid "Color labels by item"
@@ -2209,36 +2209,20 @@ msgid "Background"
 msgstr "Fondo"
 
 #: ui/settings.slint
-msgid "Tile color"
-msgstr "Color de los mosaicos"
+msgid "Tiles"
+msgstr "Mosaicos"
 
 #: ui/settings.slint
-msgid "Empty uses the theme tint."
-msgstr "Vacío usa el tono del tema."
+msgid "The color behind each item, and its opacity when the switch is on. Empty uses the theme tint; 0% removes the tiles."
+msgstr "El color detrás de cada elemento y su opacidad cuando el interruptor está activado. Vacío usa el tono del tema; 0 % quita los mosaicos."
 
 #: ui/settings.slint
-msgid "Custom tile opacity"
-msgstr "Opacidad personalizada de los mosaicos"
+msgid "Panel"
+msgstr "Panel"
 
 #: ui/settings.slint
-msgid "{}% — 0% removes the tiles."
-msgstr "{}% — 0% quita los mosaicos."
-
-#: ui/settings.slint
-msgid "Using the theme default."
-msgstr "Se usa el valor del tema."
-
-#: ui/settings.slint
-msgid "Panel color"
-msgstr "Color del panel"
-
-#: ui/settings.slint
-msgid "A panel behind the whole overlay. Empty uses the theme."
-msgstr "Un panel detrás de toda la superposición. Vacío usa el tema."
-
-#: ui/settings.slint
-msgid "Custom panel opacity"
-msgstr "Opacidad del panel personalizada"
+msgid "A panel behind the whole overlay, and its opacity when the switch is on. Empty uses the theme."
+msgstr "Un panel detrás de toda la superposición y su opacidad cuando el interruptor está activado. Vacío usa el tema."
 
 #: ui/settings.slint
 msgid "Off"
@@ -2289,12 +2273,12 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr "Un panel en el escritorio con un gráfico y detalles de cada elemento, como una ventana emergente que se queda abierta. Arrástralo para moverlo; haz clic derecho para ver el menú."
 
 #: ui/settings.slint
-msgid "Look"
-msgstr "Aspecto"
-
-#: ui/settings.slint
 msgid "Show the widget"
 msgstr "Mostrar el widget"
+
+#: ui/settings.slint
+msgid "Look"
+msgstr "Aspecto"
 
 #: ui/settings.slint
 msgid "Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut."
@@ -2449,10 +2433,6 @@ msgid "Lanes"
 msgstr "Carriles"
 
 #: ui/settings.slint
-msgid "Tiles"
-msgstr "Mosaicos"
-
-#: ui/settings.slint
 msgid "Meters"
 msgstr "Medidores"
 
@@ -2473,8 +2453,8 @@ msgid "Cycle through items"
 msgstr "Recorrer los elementos"
 
 #: ui/settings.slint
-msgid "Seconds between items. Shortcuts for the next and previous item are under General."
-msgstr "Segundos entre elementos. Los atajos para el elemento siguiente y anterior están en General."
+msgid "Seconds between items. Shortcuts for the next and previous item are on the Shortcuts page."
+msgstr "Segundos entre elementos. Los atajos para el elemento siguiente y anterior están en la página Atajos."
 
 #: ui/settings.slint
 msgid "Transition"
@@ -2631,6 +2611,46 @@ msgstr "Servicio de sensores"
 #: ui/settings.slint
 msgid "CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO."
 msgstr "La temperatura y el consumo de la CPU y la temperatura del chipset provienen del servicio de sensores opcional de Pulsar y del controlador PawnIO, que necesitan derechos de administrador. Vuelve a ejecutar el instalador de Pulsar para añadirlos. CPU Intel y AMD Ryzen desde Zen; la temperatura del chipset solo en Intel. Sin ellos, el consumo y la temperatura de la CPU provienen de Windows cuando el equipo los publica. La frecuencia de fotogramas necesita el servicio pero no PawnIO."
+
+#: ui/settings.slint
+msgid "Running"
+msgstr "En ejecución"
+
+#: ui/settings.slint
+msgid "Not installed"
+msgstr "No instalado"
+
+#: ui/settings.slint
+msgid "Not running"
+msgstr "Detenido"
+
+#: ui/settings.slint
+msgid "Needs updating"
+msgstr "Necesita actualizarse"
+
+#: ui/settings.slint
+msgid "PawnIO driver"
+msgstr "Controlador PawnIO"
+
+#: ui/settings.slint
+msgid "Lets the sensor service read CPU temperature and power. It needs administrator rights; the Pulsar installer adds it."
+msgstr "Permite al servicio de sensores leer la temperatura y el consumo de la CPU. Necesita permisos de administrador; el instalador de Pulsar lo añade."
+
+#: ui/settings.slint
+msgid "Installed"
+msgstr "Instalado"
+
+#: ui/settings.slint
+msgid "CPU not supported yet"
+msgstr "CPU aún no compatible"
+
+#: ui/settings.slint
+msgid "Could not read"
+msgstr "No se pudo leer"
+
+#: ui/settings.slint
+msgid "Needs the service"
+msgstr "Necesita el servicio"
 
 #: ui/settings.slint
 msgid "About PawnIO"
@@ -3041,24 +3061,16 @@ msgid "Delete"
 msgstr "Eliminar"
 
 #: ui/settings.slint
-msgid "Pulsar {}"
-msgstr "Pulsar {}"
-
-#: ui/settings.slint
 msgid "A Windows 11 taskbar system monitor."
 msgstr "Un monitor del sistema para la barra de tareas de Windows 11."
 
 #: ui/settings.slint
-msgid "Updates"
-msgstr "Actualizaciones"
+msgid "Check now"
+msgstr "Buscar ahora"
 
 #: ui/settings.slint
 msgid "Ask GitHub for the latest release now. Nothing is downloaded."
 msgstr "Consulta ahora en GitHub la última versión publicada. No se descarga nada."
-
-#: ui/settings.slint
-msgid "Check now"
-msgstr "Buscar ahora"
 
 #: ui/settings.slint
 msgid "Release page"

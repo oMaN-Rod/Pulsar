@@ -94,6 +94,8 @@ export struct WidgetItemRow {
 export struct ProfileRow {
     name: string,
     active: bool,
+    summary: string,
+    initial: string,
 }
 
 export struct DriveRow {
@@ -110,6 +112,7 @@ export struct DeviceRow {
 
 export struct SearchResult {
     id: string,
+    tab: int,
     title: string,
     path: string,
     description: string,
@@ -310,28 +313,39 @@ component ResultRow inherits Rectangle {
     callback clicked();
     background: touch.has-hover ? Palette.foreground.transparentize(0.92) : transparent;
     border-radius: 6px;
-    VerticalLayout {
-        padding-left: 16px;
+    HorizontalLayout {
+        padding-left: 12px;
         padding-right: 16px;
         padding-top: 10px;
         padding-bottom: 10px;
-        spacing: 2px;
-        Text {
-            text: root.result.title;
-            font-size: 14px;
-            overflow: elide;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: start;
+            PageTile {
+                tab: root.result.tab;
+                width: 28px;
+                height: 28px;
+            }
         }
-        Text {
-            text: root.result.path;
-            font-size: 12px;
-            color: Palette.accent-background;
-            overflow: elide;
-        }
-        if root.result.description != "": Text {
-            text: root.result.description;
-            font-size: 12px;
-            color: Palette.foreground.transparentize(0.35);
-            overflow: elide;
+        VerticalLayout {
+            spacing: 2px;
+            Text {
+                text: root.result.title;
+                font-size: 14px;
+                overflow: elide;
+            }
+            Text {
+                text: root.result.path;
+                font-size: 12px;
+                color: Look.tint(root.result.tab);
+                overflow: elide;
+            }
+            if root.result.description != "": Text {
+                text: root.result.description;
+                font-size: 12px;
+                color: Look.muted;
+                overflow: elide;
+            }
         }
     }
     touch := TouchArea {
@@ -1028,6 +1042,79 @@ component Pivot inherits Rectangle {
     }
 }
 
+// kind: 0 good, 1 needs attention, 2 broken, 3 unknown.
+component Badge inherits Rectangle {
+    in property <string> text;
+    in property <int> kind;
+    property <color> tint: root.kind == 0 ? #6CCB5F : root.kind == 1 ? #FFB900 : root.kind == 2 ? #FF5A5F : #9A9A9A;
+    height: 24px;
+    width: row.preferred-width;
+    border-radius: 12px;
+    background: root.tint.transparentize(0.84);
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+    row := HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 6px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 6px;
+                height: 6px;
+                border-radius: 3px;
+                background: root.tint;
+            }
+        }
+        Text {
+            text: root.text;
+            font-size: 12px;
+            font-weight: 600;
+            vertical-alignment: center;
+            color: root.tint.brighter(0.25);
+        }
+    }
+}
+
+component DangerButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> filled;
+    callback clicked();
+    property <color> red: #E5484D;
+    height: Look.control-height;
+    width: label.preferred-width + 24px;
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: keys.has-focus ? Palette.foreground : root.red;
+    background: root.filled ? (touch.pressed ? root.red.darker(0.2) : touch.has-hover ? root.red.brighter(0.1) : root.red)
+        : (touch.pressed ? root.red.transparentize(0.75) : touch.has-hover ? root.red.transparentize(0.88) : transparent);
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { root.clicked(); }
+    forward-focus: keys;
+    label := Text {
+        text: root.text;
+        color: root.filled ? #FFFFFF : root.red;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    keys := FocusScope {
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                root.clicked();
+                return accept;
+            }
+            reject
+        }
+    }
+    touch := TouchArea {
+        clicked => {
+            keys.focus();
+            root.clicked();
+        }
+    }
+}
+
 component Card inherits Rectangle {
     background: Palette.alternate-background;
     border-radius: 8px;
@@ -1282,10 +1369,148 @@ component ColorField inherits HorizontalLayout {
 
 // Owns its scroll view: an `if` instance inside one's layout is measured at its
 // unwrapped width, which leaves wrapped text out of the content height.
+// A drawing on an 80 × 50 grid: `frame` and `stroke` are outlines, `fill`
+// solid shapes, and `cover` a window drawn over or under them.
+struct Picture {
+    frame: string,
+    cover: string,
+    cover-on-top: bool,
+    fill: string,
+    stroke: string,
+}
+
+global Pictures {
+    out property <[Picture]> placements: [
+        { frame: "M 4 3 H 76 V 41 H 4 Z M 30 46 H 50", cover: "M 24 14 H 66 V 36 H 24 Z", cover-on-top: true, fill: "M 10 9 H 34 V 29 H 10 Z", stroke: "" },
+        { frame: "M 4 3 H 76 V 41 H 4 Z M 30 46 H 50", cover: "M 24 14 H 66 V 36 H 24 Z", cover-on-top: false, fill: "M 10 9 H 34 V 29 H 10 Z", stroke: "" },
+        { frame: "M 4 3 H 76 V 41 H 4 Z M 30 46 H 50", cover: "M 10 12 H 50 V 34 H 10 Z", cover-on-top: false, fill: "M 64 8 H 76 V 36 H 64 Z", stroke: "M 60 18 L 56 22 L 60 26" },
+    ];
+    out property <[Picture]> layouts: [
+        { frame: "", cover: "", cover-on-top: false, fill: "M 40 6 L 43.5 21.5 L 59 25 L 43.5 28.5 L 40 44 L 36.5 28.5 L 21 25 L 36.5 21.5 Z M 62 6 L 63.5 10.5 L 68 12 L 63.5 13.5 L 62 18 L 60.5 13.5 L 56 12 L 60.5 10.5 Z", stroke: "" },
+        { frame: "", cover: "", cover-on-top: false, fill: "M 6 6 H 27 V 23 H 6 Z M 30 6 H 51 V 23 H 30 Z M 54 6 H 75 V 23 H 54 Z M 6 27 H 27 V 44 H 6 Z M 30 27 H 51 V 44 H 30 Z M 54 27 H 75 V 44 H 54 Z", stroke: "" },
+        { frame: "", cover: "", cover-on-top: false, fill: "M 6 7 H 18 V 11 H 6 Z M 6 18 H 18 V 22 H 6 Z M 6 29 H 18 V 33 H 6 Z M 6 40 H 18 V 44 H 6 Z", stroke: "M 22.0 7 L 32.4 10 L 42.8 8 L 53.2 11 L 63.6 9 L 74.0 10 M 22.0 21 L 32.4 19 L 42.8 22 L 53.2 18 L 63.6 20 L 74.0 19 M 22.0 29 L 32.4 32 L 42.8 30 L 53.2 33 L 63.6 31 L 74.0 32 M 22.0 43 L 32.4 41 L 42.8 44 L 53.2 40 L 63.6 42 L 74.0 41" },
+        { frame: "", cover: "", cover-on-top: false, fill: "M 6 8 H 21 V 23 H 6 Z M 24 8 H 39 V 23 H 24 Z M 42 8 H 57 V 23 H 42 Z M 60 8 H 75 V 23 H 60 Z M 6 27 H 21 V 42 H 6 Z M 24 27 H 39 V 42 H 24 Z M 42 27 H 57 V 42 H 42 Z M 60 27 H 75 V 42 H 60 Z", stroke: "" },
+        { frame: "M 14 10 H 74 M 14 21 H 74 M 14 32 H 74 M 14 43 H 74", cover: "", cover-on-top: false, fill: "M 6 8 H 11 V 12 H 6 Z M 14 8 H 64 V 12 H 14 Z M 6 19 H 11 V 23 H 6 Z M 14 19 H 44 V 23 H 14 Z M 6 30 H 11 V 34 H 6 Z M 14 30 H 74 V 34 H 14 Z M 6 41 H 11 V 45 H 6 Z M 14 41 H 54 V 45 H 14 Z", stroke: "" },
+        { frame: "M 6 30 A 10 10 0 0 1 26 30 M 30 30 A 10 10 0 0 1 50 30 M 54 30 A 10 10 0 0 1 74 30", cover: "", cover-on-top: false, fill: "M 10 37 H 22 V 40 H 10 Z M 34 37 H 46 V 40 H 34 Z M 58 37 H 70 V 40 H 58 Z", stroke: "M 6 30 A 10 10 0 0 1 19.1 20.5 M 30 30 A 10 10 0 0 1 36.9 20.5 M 54 30 A 10 10 0 0 1 72.9 25.5" },
+        { frame: "", cover: "", cover-on-top: false, fill: "M 4 20 H 20 V 30 H 4 Z M 23 20 H 39 V 30 H 23 Z M 42 20 H 58 V 30 H 42 Z M 61 20 H 77 V 30 H 61 Z", stroke: "" },
+        { frame: "M 7 21 A 9 9 0 1 1 25 21 A 9 9 0 1 1 7 21 M 31 21 A 9 9 0 1 1 49 21 A 9 9 0 1 1 31 21 M 55 21 A 9 9 0 1 1 73 21 A 9 9 0 1 1 55 21", cover: "", cover-on-top: false, fill: "M 10 37 H 22 V 40 H 10 Z M 34 37 H 46 V 40 H 34 Z M 58 37 H 70 V 40 H 58 Z", stroke: "M 16 12 A 9 9 0 1 1 7.4 23.8 M 40 12 A 9 9 0 0 1 42.8 29.6 M 64 12 A 9 9 0 1 1 58.7 13.7" },
+        { frame: "M 6 5 H 74 V 45 H 6 Z", cover: "", cover-on-top: false, fill: "M 10 9 H 30 V 13 H 10 Z M 10 41 L 10 31 L 22 25 L 34 29 L 46 17 L 58 21 L 70 13 L 70 41 Z", stroke: "M 10 31 L 22 25 L 34 29 L 46 17 L 58 21 L 70 13" },
+    ];
+}
+
+component PictureDrawing inherits Path {
+    viewbox-width: 80;
+    viewbox-height: 50;
+}
+
+component PictureTile inherits Rectangle {
+    in property <string> name;
+    in property <Picture> picture;
+    in property <bool> selected;
+    in property <color> tint;
+    callback clicked();
+    border-radius: 8px;
+    background: touch.has-hover ? Palette.foreground.transparentize(0.88) : Palette.foreground.transparentize(0.95);
+    border-width: root.selected || focus.has-focus ? 2px : 1px;
+    border-color: root.selected ? Palette.accent-background
+        : focus.has-focus ? Palette.foreground
+        : Palette.foreground.transparentize(0.92);
+    accessible-role: button;
+    accessible-label: root.name;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { root.clicked(); }
+    VerticalLayout {
+        padding: 8px;
+        spacing: 4px;
+        art := Rectangle {
+            vertical-stretch: 1;
+            property <length> w: Math.min(self.width, self.height * 1.6);
+            property <length> h: self.w / 1.6;
+            // Layers from the back: frame, cover (under), fill, stroke, cover (on top).
+            for k in 5: PictureDrawing {
+                property <bool> cover: (k == 1 && !root.picture.cover-on-top) || (k == 4 && root.picture.cover-on-top);
+                x: (parent.width - parent.w) / 2;
+                y: (parent.height - parent.h) / 2;
+                width: parent.w;
+                height: parent.h;
+                commands: k == 0 ? root.picture.frame : self.cover ? root.picture.cover : k == 2 ? root.picture.fill : k == 3 ? root.picture.stroke : "";
+                fill: self.cover ? Palette.alternate-background : k == 2 ? root.tint.transparentize(0.45) : transparent;
+                stroke: k == 0 || self.cover ? Look.muted : k == 3 ? root.tint : transparent;
+                stroke-width: k == 3 ? 2px : 1.5px;
+            }
+        }
+        Text {
+            text: root.name;
+            font-size: 12px;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+            color: root.selected ? Palette.foreground : Palette.foreground.transparentize(0.15);
+        }
+    }
+    focus := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Key.Return || event.text == " ") {
+                root.clicked();
+                return accept;
+            }
+            reject
+        }
+    }
+    touch := TouchArea {
+        clicked => {
+            focus.focus();
+            root.clicked();
+        }
+    }
+}
+
+component PicturePicker inherits Rectangle {
+    in property <[string]> names;
+    in property <[Picture]> pictures;
+    in property <int> selected;
+    in property <length> tile-width: 96px;
+    in property <length> tile-height: 84px;
+    in property <color> tint: Look.tint(4);
+    callback picked(int);
+    property <length> step-x: root.tile-width + 8px;
+    property <length> step-y: root.tile-height + 8px;
+    property <int> columns: Math.max(1, Math.floor((self.width + 8px) / self.step-x));
+    min-height: Math.ceil(self.names.length / self.columns) * self.step-y - 8px;
+    for name[i] in root.names: PictureTile {
+        x: Math.mod(i, root.columns) * root.step-x;
+        y: Math.floor(i / root.columns) * root.step-y;
+        width: root.tile-width;
+        height: root.tile-height;
+        name: name;
+        picture: root.pictures[i];
+        selected: i == root.selected;
+        tint: root.tint;
+        clicked => { root.picked(i); }
+    }
+}
+
+component PickerRow inherits VerticalLayout {
+    in property <string> title;
+    in property <string> description;
+    SettingRow {
+        title: root.title;
+        description: root.description;
+    }
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-bottom: 14px;
+        @children
+    }
+}
+
 component Page inherits ScrollView {
     in property <string> title;
     in property <int> tab: -1;
     in property <string> intro;
+    in property <string> switch-label;
+    in-out property <bool> switch-on;
+    callback switch-toggled();
     property <int> arrivals: SearchJump.arrivals;
     // Scrolls to rows beyond the view while one is dragged.
     Timer {
@@ -1318,7 +1543,6 @@ component Page inherits ScrollView {
         }
         VerticalLayout {
             HorizontalLayout {
-                alignment: start;
                 spacing: 14px;
                 padding-bottom: 4px;
                 if root.tab >= 0: PageTile {
@@ -1328,16 +1552,32 @@ component Page inherits ScrollView {
                     glyph-size: 20px;
                 }
                 Text {
+                    horizontal-stretch: 0;
                     text: root.title;
                     font-size: 28px;
                     font-weight: 600;
                     vertical-alignment: center;
                 }
                 if root.intro != "": VerticalLayout {
+                    horizontal-stretch: 0;
                     alignment: center;
                     InfoTip {
                         text: root.intro;
                         about: root.title;
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                if root.switch-label != "": HorizontalLayout {
+                    horizontal-stretch: 0;
+                    spacing: 10px;
+                    Text {
+                        text: root.switch-label;
+                        vertical-alignment: center;
+                    }
+                    Switch {
+                        checked <=> root.switch-on;
+                        accessible-label: root.switch-label;
+                        toggled => { root.switch-toggled(); }
                     }
                 }
             }
@@ -1388,6 +1628,12 @@ export component SettingsWindow inherits Window {
     in-out property <int> tab;
     // The tab within a page that has them.
     in-out property <int> subtab;
+    property <int> item-key-focus: -1;
+    // 0 running, 1 not installed, 2 not running, 3 out of date.
+    in property <int> service-state;
+    // 0 working, 1 not installed, 2 CPU not supported, 3 read failed, 4 unknown.
+    in property <int> pawnio-state;
+    callback refresh-sensors();
     init => { Look.tab = self.tab; }
     in-out property <bool> autostart;
     in-out property <bool> update-check;
@@ -1526,6 +1772,7 @@ export component SettingsWindow inherits Window {
     in property <string> diagnostics-status;
     in property <string> update-status;
     in property <bool> update-checking;
+    in property <int> update-kind: 3;
     in property <string> update-url;
     in property <string> update-notes;
     in property <[string]> fonts;
@@ -1835,21 +2082,41 @@ export component SettingsWindow inherits Window {
                                 accessible-label: row.name;
                                 accessible-item-selected: row.expanded;
                                 accessible-description: @tr("Alt+Up and Alt+Down move it.");
+                                property <bool> key-target: root.item-key-focus == i;
+                                // Moving an item rebuilds the rows, so a new row takes the focus as it starts.
+                                init => {
+                                    if (self.key-target) {
+                                        keys.focus();
+                                    }
+                                }
+                                changed key-target => {
+                                    if (self.key-target) {
+                                        keys.focus();
+                                    }
+                                }
                                 keys := FocusScope {
                                     key-pressed(event) => {
                                         if (event.modifiers.alt && event.text == Key.UpArrow) {
+                                            if (i > 0) {
+                                                root.item-key-focus = i - 1;
+                                            }
                                             root.move-item(i, true);
                                             return accept;
                                         }
                                         if (event.modifiers.alt && event.text == Key.DownArrow) {
+                                            if (i < root.items.length - 1) {
+                                                root.item-key-focus = i + 1;
+                                            }
                                             root.move-item(i, false);
                                             return accept;
                                         }
                                         if (event.text == Key.UpArrow && i > 0) {
+                                            root.item-key-focus = i - 1;
                                             root.item-expanded(i - 1, true);
                                             return accept;
                                         }
                                         if (event.text == Key.DownArrow && i < root.items.length - 1) {
+                                            root.item-key-focus = i + 1;
                                             root.item-expanded(i + 1, true);
                                             return accept;
                                         }
@@ -1858,6 +2125,7 @@ export component SettingsWindow inherits Window {
                                 }
                                 pick := TouchArea {
                                     clicked => {
+                                        root.item-key-focus = i;
                                         root.item-expanded(i, true);
                                         keys.focus();
                                     }
@@ -2669,46 +2937,49 @@ export component SettingsWindow inherits Window {
                 }
                 SectionTitle { text: @tr("Custom colors"); icon: "\u{E790}"; }
                 Card {
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 10px;
+                        spacing: 8px;
+                        Rectangle { horizontal-stretch: 1; }
+                        Text { text: @tr("Dark taskbar"); width: 126px; font-size: 12px; color: Look.muted; }
+                        Text { text: @tr("Light taskbar"); width: 126px; font-size: 12px; color: Look.muted; }
+                    }
                     SettingRow {
                         title: @tr("Label color");
-                        description: @tr("Empty uses the theme.");
+                        description: @tr("Empty uses the theme. On a light taskbar, empty uses the label color.");
                         ColorField {
                             text <=> root.label-color;
                             swatch: root.label-swatch;
                             fallback: root.label-default;
+                            field-width: 90px;
+                            edited => { root.changed(); }
+                        }
+                        ColorField {
+                            text <=> root.label-color-light;
+                            swatch: root.label-light-swatch;
+                            fallback: root.label-default;
+                            field-width: 90px;
                             edited => { root.changed(); }
                         }
                     }
                     Divider { }
                     SettingRow {
                         title: @tr("Value color");
-                        description: @tr("Empty uses the theme.");
+                        description: @tr("Empty uses the theme. On a light taskbar, empty uses the value color.");
                         ColorField {
                             text <=> root.value-color;
                             swatch: root.value-swatch;
                             fallback: root.value-default;
+                            field-width: 90px;
                             edited => { root.changed(); }
                         }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Label color on a light taskbar");
-                        description: @tr("Empty uses the label color above.");
-                        ColorField {
-                            text <=> root.label-color-light;
-                            swatch: root.label-light-swatch;
-                            fallback: root.label-default;
-                            edited => { root.changed(); }
-                        }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Value color on a light taskbar");
-                        description: @tr("Empty uses the value color above.");
                         ColorField {
                             text <=> root.value-color-light;
                             swatch: root.value-light-swatch;
                             fallback: root.value-default;
+                            field-width: 90px;
                             edited => { root.changed(); }
                         }
                     }
@@ -2734,21 +3005,18 @@ export component SettingsWindow inherits Window {
                 SectionTitle { text: @tr("Background"); icon: "\u{E771}"; }
                 Card {
                     SettingRow {
-                        title: @tr("Tile color");
-                        description: @tr("Empty uses the theme tint.");
+                        title: @tr("Tiles");
+                        description: @tr("The color behind each item, and its opacity when the switch is on. Empty uses the theme tint; 0% removes the tiles.");
+                        status: root.tile-opacity-custom ? "\{Math.round(root.tile-opacity)}%" : @tr("Theme");
                         ColorField {
                             text <=> root.tile-color;
                             swatch: root.tile-swatch;
                             fallback: root.tile-default;
+                            field-width: 90px;
                             edited => { root.changed(); }
                         }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Custom tile opacity");
-                        status: root.tile-opacity-custom ? @tr("{}% — 0% removes the tiles.", Math.round(root.tile-opacity)) : @tr("Using the theme default.");
                         Slider {
-                            width: 160px;
+                            width: 120px;
                             enabled: root.tile-opacity-custom;
                             minimum: 0;
                             maximum: 100;
@@ -2762,21 +3030,18 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Panel color");
-                        description: @tr("A panel behind the whole overlay. Empty uses the theme.");
+                        title: @tr("Panel");
+                        description: @tr("A panel behind the whole overlay, and its opacity when the switch is on. Empty uses the theme.");
+                        status: !root.panel-opacity-custom ? @tr("Theme") : root.panel-opacity > 0 ? "\{Math.round(root.panel-opacity)}%" : @tr("Off");
                         ColorField {
                             text <=> root.panel-color;
                             swatch: root.panel-swatch;
                             fallback: root.panel-default;
+                            field-width: 90px;
                             edited => { root.changed(); }
                         }
-                    }
-                    Divider { }
-                    SettingRow {
-                        title: @tr("Custom panel opacity");
-                        status: !root.panel-opacity-custom ? @tr("Using the theme default.") : root.panel-opacity > 0 ? "\{Math.round(root.panel-opacity)}%" : @tr("Off");
                         Slider {
-                            width: 160px;
+                            width: 120px;
                             enabled: root.panel-opacity-custom;
                             minimum: 0;
                             maximum: 100;
@@ -2876,6 +3141,9 @@ export component SettingsWindow inherits Window {
                 title: @tr("Widget");
                 tab: 4;
                 intro: @tr("A panel on the desktop with a graph and details for each item, like a popup that stays open. Drag it to move it; right-click it for the menu.");
+                switch-label: @tr("Show the widget");
+                switch-on <=> root.widget-enabled;
+                switch-toggled => { root.changed(); }
                 Pivot {
                     model: [@tr("Placement"), @tr("Look"), @tr("Items")];
                     current-index <=> root.subtab;
@@ -2883,22 +3151,19 @@ export component SettingsWindow inherits Window {
                 if root.subtab == 0: VerticalLayout {
                     spacing: 12px;
                     Card {
-                        SettingRow {
-                            title: @tr("Show the widget");
-                            Switch {
-                                checked <=> root.widget-enabled;
-                                toggled => { root.changed(); }
-                            }
-                        }
-                        Divider { }
-                        SettingRow {
+                        PickerRow {
                             title: @tr("Placement");
                             description: root.widget-layer == 2 ? @tr("Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut.") : @tr("On the desktop stays behind your windows and comes forward when you show the desktop.");
-                            ComboBox {
-                                width: 200px;
-                                model: [@tr("On the desktop"), @tr("Always on top"), @tr("Docked to a screen edge")];
-                                current-index <=> root.widget-layer;
-                                selected => { root.changed(); }
+                            PicturePicker {
+                                names: [@tr("On the desktop"), @tr("Always on top"), @tr("Docked to a screen edge")];
+                                pictures: Pictures.placements;
+                                tile-width: 156px;
+                                tile-height: 112px;
+                                selected: root.widget-layer;
+                                picked(i) => {
+                                    root.widget-layer = i;
+                                    root.changed();
+                                }
                             }
                         }
                         if root.widget-layer == 2: Divider { }
@@ -3011,21 +3276,24 @@ export component SettingsWindow inherits Window {
                             }
                         }
                         Divider { }
-                        SettingRow {
+                        PickerRow {
                             title: @tr("Layout");
                             description: root.widget-sizing == 1 ? @tr("Automatic picks one from the size. Focus shows one item at a time, with a large graph.") : @tr("Automatic shows each item in the style chosen for it. Focus shows one item at a time, with a large graph.");
-                            ComboBox {
-                                width: 200px;
-                                model: [@tr("Automatic"), @tr("Dashboard"), @tr("Lanes"), @tr("Tiles"), @tr("Meters"), @tr("Dials"), @tr("Strip"), @tr("Rings"), @tr("Focus")];
-                                current-index <=> root.widget-layout;
-                                selected => { root.changed(); }
+                            PicturePicker {
+                                names: [@tr("Automatic"), @tr("Dashboard"), @tr("Lanes"), @tr("Tiles"), @tr("Meters"), @tr("Dials"), @tr("Strip"), @tr("Rings"), @tr("Focus")];
+                                pictures: Pictures.layouts;
+                                selected: root.widget-layout;
+                                picked(i) => {
+                                    root.widget-layout = i;
+                                    root.changed();
+                                }
                             }
                         }
                         if root.widget-layout == 8: Divider { }
                         OptionalRow {
                             shown: root.widget-layout == 8;
                             title: @tr("Cycle through items");
-                            description: @tr("Seconds between items. Shortcuts for the next and previous item are under General.");
+                            description: @tr("Seconds between items. Shortcuts for the next and previous item are on the Shortcuts page.");
                             SpinBox {
                                 width: 120px;
                                 enabled: root.widget-focus-cycle;
@@ -3274,11 +3542,32 @@ export component SettingsWindow inherits Window {
             if root.tab == 5: Page {
                 title: @tr("Sensors");
                 tab: 5;
+                init => { root.refresh-sensors(); }
                 SectionTitle { text: @tr("Temperatures and power"); icon: "\u{E945}"; }
                 Card {
                     SettingRow {
                         title: @tr("Sensor service");
                         description: @tr("CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO.");
+                        Badge {
+                            kind: root.service-state == 0 ? 0 : root.service-state == 2 ? 2 : 1;
+                            text: root.service-state == 0 ? @tr("Running")
+                                : root.service-state == 1 ? @tr("Not installed")
+                                : root.service-state == 2 ? @tr("Not running")
+                                : @tr("Needs updating");
+                        }
+                    }
+                    Divider { }
+                    SettingRow {
+                        title: @tr("PawnIO driver");
+                        description: @tr("Lets the sensor service read CPU temperature and power. It needs administrator rights; the Pulsar installer adds it.");
+                        Badge {
+                            kind: root.pawnio-state == 0 ? 0 : root.pawnio-state == 3 ? 2 : root.pawnio-state == 4 ? 3 : 1;
+                            text: root.pawnio-state == 0 ? @tr("Installed")
+                                : root.pawnio-state == 1 ? @tr("Not installed")
+                                : root.pawnio-state == 2 ? @tr("CPU not supported yet")
+                                : root.pawnio-state == 3 ? @tr("Could not read")
+                                : @tr("Needs the service");
+                        }
                         Button {
                             text: @tr("About PawnIO");
                             clicked => { root.open-link("https://pawnio.eu"); }
@@ -3917,13 +4206,13 @@ export component SettingsWindow inherits Window {
                         title: @tr("Reset all settings");
                         description: @tr("Start over with the default look and items.");
                         status: root.confirm-reset ? @tr("Everything except Start with Windows and the language goes back to its default.") : "";
-                        if !root.confirm-reset: Button {
+                        if !root.confirm-reset: DangerButton {
                             text: @tr("Reset…");
                             clicked => { root.confirm-reset = true; }
                         }
-                        if root.confirm-reset: Button {
+                        if root.confirm-reset: DangerButton {
                             text: @tr("Reset");
-                            primary: true;
+                            filled: true;
                             clicked => {
                                 root.confirm-reset = false;
                                 root.reset-all();
@@ -3971,20 +4260,73 @@ export component SettingsWindow inherits Window {
                     }
                 }
                 if root.profiles.length > 0: SectionTitle { text: @tr("Saved profiles"); icon: "\u{E81E}"; }
-                if root.profiles.length > 0: Card {
-                    for profile[i] in root.profiles: VerticalLayout {
-                        if i > 0: Divider { }
-                        SettingRow {
-                            title: profile.name;
-                            status: profile.active ? @tr("Current") : "";
-                            Button {
-                                text: @tr("Apply");
-                                enabled: !profile.active;
-                                clicked => { root.apply-profile(i); }
+                if root.profiles.length > 0: Rectangle {
+                    property <length> card-width: (self.width - 12px) / 2;
+                    property <length> card-height: 108px;
+                    height: Math.ceil(root.profiles.length / 2) * (self.card-height + 12px) - 12px;
+                    for profile[i] in root.profiles: Card {
+                        x: Math.mod(i, 2) * (parent.card-width + 12px);
+                        y: Math.floor(i / 2) * (parent.card-height + 12px);
+                        width: parent.card-width;
+                        height: parent.card-height;
+                        border-color: profile.active ? Palette.accent-background.transparentize(0.4) : Palette.border.transparentize(0.6);
+                        VerticalLayout {
+                            padding: 14px;
+                            spacing: 14px;
+                            alignment: start;
+                            HorizontalLayout {
+                                spacing: 12px;
+                                Rectangle {
+                                    width: 32px;
+                                    height: 32px;
+                                    border-radius: 8px;
+                                    background: Look.tint(Math.mod(i, 11)).transparentize(0.84);
+                                    Text {
+                                        text: profile.initial;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                        font-size: 14px;
+                                        font-weight: 700;
+                                        color: Look.tint(Math.mod(i, 11));
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: profile.name;
+                                        font-size: 15px;
+                                        font-weight: 600;
+                                        overflow: elide;
+                                    }
+                                    Text {
+                                        text: profile.summary;
+                                        font-size: 12px;
+                                        color: Look.muted;
+                                        overflow: elide;
+                                    }
+                                }
+                                if profile.active: VerticalLayout {
+                                    alignment: center;
+                                    Badge {
+                                        text: @tr("Current");
+                                        kind: 0;
+                                    }
+                                }
                             }
-                            Button {
-                                text: @tr("Delete");
-                                clicked => { root.delete-profile(i); }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                alignment: start;
+                                Button {
+                                    text: @tr("Apply");
+                                    primary: true;
+                                    enabled: !profile.active;
+                                    clicked => { root.apply-profile(i); }
+                                }
+                                Button {
+                                    text: @tr("Delete");
+                                    clicked => { root.delete-profile(i); }
+                                }
                             }
                         }
                     }
@@ -4004,32 +4346,69 @@ export component SettingsWindow inherits Window {
                             height: 48px;
                         }
                         VerticalLayout {
+                            horizontal-stretch: 1;
                             alignment: center;
-                            spacing: 4px;
-                            Text {
-                                text: @tr("Pulsar {}", root.version);
-                                font-size: 20px;
-                                font-weight: 600;
+                            spacing: 6px;
+                            HorizontalLayout {
+                                alignment: start;
+                                spacing: 10px;
+                                Text {
+                                    text: "Pulsar";
+                                    font-size: 20px;
+                                    font-weight: 600;
+                                    vertical-alignment: center;
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        height: 22px;
+                                        width: version-text.preferred-width + 16px;
+                                        border-radius: 11px;
+                                        background: Palette.foreground.transparentize(0.9);
+                                        version-text := Text {
+                                            text: root.version;
+                                            font-size: 12px;
+                                            font-weight: 600;
+                                            vertical-alignment: center;
+                                            horizontal-alignment: center;
+                                        }
+                                    }
+                                }
                             }
                             Text {
                                 text: @tr("A Windows 11 taskbar system monitor.");
                                 color: Palette.foreground.transparentize(0.35);
                             }
+                            if root.update-status != "": HorizontalLayout {
+                                alignment: start;
+                                Badge {
+                                    text: root.update-status;
+                                    kind: root.update-kind;
+                                }
+                            }
+                        }
+                        VerticalLayout {
+                            horizontal-stretch: 0;
+                            alignment: center;
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Button {
+                                    text: @tr("Check now");
+                                    enabled: !root.update-checking;
+                                    clicked => { root.check-for-update(); }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    InfoTip {
+                                        text: @tr("Ask GitHub for the latest release now. Nothing is downloaded.");
+                                        about: @tr("Check now");
+                                    }
+                                }
+                            }
                         }
                     }
                 }
-                Card {
-                    SettingRow {
-                        title: @tr("Updates");
-                        description: @tr("Ask GitHub for the latest release now. Nothing is downloaded.");
-                        status: root.update-status;
-                        Button {
-                            text: @tr("Check now");
-                            enabled: !root.update-checking;
-                            clicked => { root.check-for-update(); }
-                        }
-                    }
-                    Divider { height: root.update-url != "" ? 1px : 0; }
+                if root.update-url != "" || root.update-notes != "": Card {
                     OptionalRow {
                         shown: root.update-url != "";
                         title: @tr("Release page");
@@ -4039,7 +4418,7 @@ export component SettingsWindow inherits Window {
                             clicked => { root.open-link(root.update-url); }
                         }
                     }
-                    Divider { height: root.update-notes != "" ? 1px : 0; }
+                    Divider { height: root.update-url != "" && root.update-notes != "" ? 1px : 0; }
                     OptionalRow {
                         shown: root.update-notes != "";
                         title: @tr("What's new");

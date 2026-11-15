@@ -1438,6 +1438,14 @@ msgid "Windows default ({})"
 msgstr "跟随 Windows（{}）"
 
 #: src/settings/main.rs
+msgid "{} items"
+msgstr "{} 个项目"
+
+#: src/settings/main.rs ui/settings.slint
+msgid "Widget"
+msgstr "小组件"
+
+#: src/settings/main.rs
 msgid "You have the latest version."
 msgstr "已是最新版本。"
 
@@ -1628,10 +1636,6 @@ msgstr "布局"
 #: ui/settings.slint
 msgid "Theme"
 msgstr "主题"
-
-#: ui/settings.slint
-msgid "Widget"
-msgstr "小组件"
 
 #: ui/settings.slint
 msgid "Readings"
@@ -2162,32 +2166,28 @@ msgid "Custom colors"
 msgstr "自定义颜色"
 
 #: ui/settings.slint
+msgid "Dark taskbar"
+msgstr "深色任务栏"
+
+#: ui/settings.slint
+msgid "Light taskbar"
+msgstr "浅色任务栏"
+
+#: ui/settings.slint
 msgid "Label color"
 msgstr "标签颜色"
 
 #: ui/settings.slint
-msgid "Empty uses the theme."
-msgstr "留空则使用主题颜色。"
+msgid "Empty uses the theme. On a light taskbar, empty uses the label color."
+msgstr "留空则使用主题。在浅色任务栏上，留空则使用标签颜色。"
 
 #: ui/settings.slint
 msgid "Value color"
 msgstr "数值颜色"
 
 #: ui/settings.slint
-msgid "Label color on a light taskbar"
-msgstr "浅色任务栏上的标签颜色"
-
-#: ui/settings.slint
-msgid "Empty uses the label color above."
-msgstr "留空则使用上方的标签颜色。"
-
-#: ui/settings.slint
-msgid "Value color on a light taskbar"
-msgstr "浅色任务栏上的数值颜色"
-
-#: ui/settings.slint
-msgid "Empty uses the value color above."
-msgstr "留空则使用上方的数值颜色。"
+msgid "Empty uses the theme. On a light taskbar, empty uses the value color."
+msgstr "留空则使用主题。在浅色任务栏上，留空则使用数值颜色。"
 
 #: ui/settings.slint
 msgid "Color labels by item"
@@ -2210,36 +2210,20 @@ msgid "Background"
 msgstr "背景"
 
 #: ui/settings.slint
-msgid "Tile color"
-msgstr "底块颜色"
+msgid "Tiles"
+msgstr "磁贴"
 
 #: ui/settings.slint
-msgid "Empty uses the theme tint."
-msgstr "留空则使用主题色调。"
+msgid "The color behind each item, and its opacity when the switch is on. Empty uses the theme tint; 0% removes the tiles."
+msgstr "每个项目背后的颜色，以及开关打开时的不透明度。留空则使用主题色调；0% 会移除磁贴。"
 
 #: ui/settings.slint
-msgid "Custom tile opacity"
-msgstr "自定义底块不透明度"
+msgid "Panel"
+msgstr "面板"
 
 #: ui/settings.slint
-msgid "{}% — 0% removes the tiles."
-msgstr "{}% — 0% 表示不显示底块。"
-
-#: ui/settings.slint
-msgid "Using the theme default."
-msgstr "使用主题默认值。"
-
-#: ui/settings.slint
-msgid "Panel color"
-msgstr "面板颜色"
-
-#: ui/settings.slint
-msgid "A panel behind the whole overlay. Empty uses the theme."
-msgstr "整个监控条后方的面板。留空则使用主题颜色。"
-
-#: ui/settings.slint
-msgid "Custom panel opacity"
-msgstr "自定义面板不透明度"
+msgid "A panel behind the whole overlay, and its opacity when the switch is on. Empty uses the theme."
+msgstr "整个叠加层背后的面板，以及开关打开时的不透明度。留空则使用主题。"
 
 #: ui/settings.slint
 msgid "Off"
@@ -2290,12 +2274,12 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr "桌面上的面板，显示每个项目的图表和详细信息，就像一直打开的弹出窗口。拖动可移动它；右键单击可打开菜单。"
 
 #: ui/settings.slint
-msgid "Look"
-msgstr "外观"
-
-#: ui/settings.slint
 msgid "Show the widget"
 msgstr "显示小组件"
+
+#: ui/settings.slint
+msgid "Look"
+msgstr "外观"
 
 #: ui/settings.slint
 msgid "Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut."
@@ -2450,10 +2434,6 @@ msgid "Lanes"
 msgstr "行列"
 
 #: ui/settings.slint
-msgid "Tiles"
-msgstr "磁贴"
-
-#: ui/settings.slint
 msgid "Meters"
 msgstr "仪表"
 
@@ -2474,8 +2454,8 @@ msgid "Cycle through items"
 msgstr "轮流显示项目"
 
 #: ui/settings.slint
-msgid "Seconds between items. Shortcuts for the next and previous item are under General."
-msgstr "切换项目的间隔秒数。下一个和上一个项目的快捷键在“常规”中。"
+msgid "Seconds between items. Shortcuts for the next and previous item are on the Shortcuts page."
+msgstr "切换项目的间隔秒数。下一个和上一个项目的快捷键在“快捷键”页面中。"
 
 #: ui/settings.slint
 msgid "Transition"
@@ -2632,6 +2612,46 @@ msgstr "传感器服务"
 #: ui/settings.slint
 msgid "CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO."
 msgstr "CPU 温度、CPU 功耗和芯片组温度来自可选的 Pulsar 传感器服务和 PawnIO 驱动程序，二者都需要管理员权限。再次运行 Pulsar 安装程序即可添加。支持 Intel CPU 及 Zen 起的 AMD Ryzen；芯片组温度仅限 Intel。没有它们时，如果电脑提供，CPU 功耗和温度将来自 Windows。帧率需要该服务，但不需要 PawnIO。"
+
+#: ui/settings.slint
+msgid "Running"
+msgstr "正在运行"
+
+#: ui/settings.slint
+msgid "Not installed"
+msgstr "未安装"
+
+#: ui/settings.slint
+msgid "Not running"
+msgstr "未运行"
+
+#: ui/settings.slint
+msgid "Needs updating"
+msgstr "需要更新"
+
+#: ui/settings.slint
+msgid "PawnIO driver"
+msgstr "PawnIO 驱动程序"
+
+#: ui/settings.slint
+msgid "Lets the sensor service read CPU temperature and power. It needs administrator rights; the Pulsar installer adds it."
+msgstr "让传感器服务读取 CPU 温度和功耗。需要管理员权限；Pulsar 安装程序会添加它。"
+
+#: ui/settings.slint
+msgid "Installed"
+msgstr "已安装"
+
+#: ui/settings.slint
+msgid "CPU not supported yet"
+msgstr "暂不支持此 CPU"
+
+#: ui/settings.slint
+msgid "Could not read"
+msgstr "无法读取"
+
+#: ui/settings.slint
+msgid "Needs the service"
+msgstr "需要服务"
 
 #: ui/settings.slint
 msgid "About PawnIO"
@@ -3042,24 +3062,16 @@ msgid "Delete"
 msgstr "删除"
 
 #: ui/settings.slint
-msgid "Pulsar {}"
-msgstr "Pulsar {}"
-
-#: ui/settings.slint
 msgid "A Windows 11 taskbar system monitor."
 msgstr "一款 Windows 11 任务栏系统监控工具。"
 
 #: ui/settings.slint
-msgid "Updates"
-msgstr "更新"
+msgid "Check now"
+msgstr "立即检查"
 
 #: ui/settings.slint
 msgid "Ask GitHub for the latest release now. Nothing is downloaded."
 msgstr "立即向 GitHub 查询最新版本。不会下载任何内容。"
-
-#: ui/settings.slint
-msgid "Check now"
-msgstr "立即检查"
 
 #: ui/settings.slint
 msgid "Release page"

@@ -1150,7 +1150,7 @@ msgstr "ダイヤル"
 
 #: src/names.rs
 msgid "Device card"
-msgstr ""
+msgstr "デバイス カード"
 
 #: src/names.rs
 msgid "Core wall"
@@ -1437,6 +1437,14 @@ msgid "Windows default ({})"
 msgstr "Windows の既定（{}）"
 
 #: src/settings/main.rs
+msgid "{} items"
+msgstr "{} 項目"
+
+#: src/settings/main.rs ui/settings.slint
+msgid "Widget"
+msgstr "ウィジェット"
+
+#: src/settings/main.rs
 msgid "You have the latest version."
 msgstr "最新バージョンです。"
 
@@ -1627,10 +1635,6 @@ msgstr "レイアウト"
 #: ui/settings.slint
 msgid "Theme"
 msgstr "テーマ"
-
-#: ui/settings.slint
-msgid "Widget"
-msgstr "ウィジェット"
 
 #: ui/settings.slint
 msgid "Readings"
@@ -2161,32 +2165,28 @@ msgid "Custom colors"
 msgstr "カスタム色"
 
 #: ui/settings.slint
+msgid "Dark taskbar"
+msgstr "暗いタスクバー"
+
+#: ui/settings.slint
+msgid "Light taskbar"
+msgstr "明るいタスクバー"
+
+#: ui/settings.slint
 msgid "Label color"
 msgstr "ラベルの色"
 
 #: ui/settings.slint
-msgid "Empty uses the theme."
-msgstr "空欄はテーマの色を使います。"
+msgid "Empty uses the theme. On a light taskbar, empty uses the label color."
+msgstr "空欄ではテーマの色を使います。明るいタスクバーでは、空欄でラベルの色を使います。"
 
 #: ui/settings.slint
 msgid "Value color"
 msgstr "値の色"
 
 #: ui/settings.slint
-msgid "Label color on a light taskbar"
-msgstr "明るいタスクバーのラベル色"
-
-#: ui/settings.slint
-msgid "Empty uses the label color above."
-msgstr "空欄は上のラベル色を使います。"
-
-#: ui/settings.slint
-msgid "Value color on a light taskbar"
-msgstr "明るいタスクバーの値の色"
-
-#: ui/settings.slint
-msgid "Empty uses the value color above."
-msgstr "空欄は上の値の色を使います。"
+msgid "Empty uses the theme. On a light taskbar, empty uses the value color."
+msgstr "空欄ではテーマの色を使います。明るいタスクバーでは、空欄で値の色を使います。"
 
 #: ui/settings.slint
 msgid "Color labels by item"
@@ -2209,36 +2209,20 @@ msgid "Background"
 msgstr "背景"
 
 #: ui/settings.slint
-msgid "Tile color"
-msgstr "タイルの色"
+msgid "Tiles"
+msgstr "タイル"
 
 #: ui/settings.slint
-msgid "Empty uses the theme tint."
-msgstr "空欄はテーマの背景色を使います。"
+msgid "The color behind each item, and its opacity when the switch is on. Empty uses the theme tint; 0% removes the tiles."
+msgstr "各項目の背景色と、スイッチがオンのときの不透明度。空欄ではテーマの色合いを使い、0% でタイルを消します。"
 
 #: ui/settings.slint
-msgid "Custom tile opacity"
-msgstr "タイルの不透明度を指定"
+msgid "Panel"
+msgstr "パネル"
 
 #: ui/settings.slint
-msgid "{}% — 0% removes the tiles."
-msgstr "{}% — 0%でタイルを非表示にします。"
-
-#: ui/settings.slint
-msgid "Using the theme default."
-msgstr "テーマの既定値を使用中です。"
-
-#: ui/settings.slint
-msgid "Panel color"
-msgstr "パネルの色"
-
-#: ui/settings.slint
-msgid "A panel behind the whole overlay. Empty uses the theme."
-msgstr "重ねて表示するパネル全体の背面に表示するパネルです。空欄はテーマの色を使います。"
-
-#: ui/settings.slint
-msgid "Custom panel opacity"
-msgstr "パネルの不透明度を指定"
+msgid "A panel behind the whole overlay, and its opacity when the switch is on. Empty uses the theme."
+msgstr "オーバーレイ全体の背後のパネルと、スイッチがオンのときの不透明度。空欄ではテーマの色を使います。"
 
 #: ui/settings.slint
 msgid "Off"
@@ -2289,16 +2273,16 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr "各項目のグラフと詳細を表示するデスクトップ上のパネルです。開いたままのポップアップのように使えます。ドラッグで移動、右クリックでメニューを開きます。"
 
 #: ui/settings.slint
-msgid "Look"
-msgstr "外観"
-
-#: ui/settings.slint
 msgid "Show the widget"
 msgstr "ウィジェットを表示"
 
 #: ui/settings.slint
+msgid "Look"
+msgstr "外観"
+
+#: ui/settings.slint
 msgid "Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut."
-msgstr ""
+msgstr "画面の端に隠れ、ポインターを端に押し当てるか、ウィジェットのショートカットを押すと表示されます。"
 
 #: ui/settings.slint
 msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
@@ -2314,87 +2298,87 @@ msgstr "常に手前に表示"
 
 #: ui/settings.slint
 msgid "Docked to a screen edge"
-msgstr ""
+msgstr "画面の端にドッキング"
 
 #: ui/settings.slint
 msgid "Edge"
-msgstr ""
+msgstr "端"
 
 #: ui/settings.slint
 msgid "Left"
-msgstr ""
+msgstr "左"
 
 #: ui/settings.slint
 msgid "Top"
-msgstr ""
+msgstr "上"
 
 #: ui/settings.slint
 msgid "Right"
-msgstr ""
+msgstr "右"
 
 #: ui/settings.slint
 msgid "Bottom"
-msgstr ""
+msgstr "下"
 
 #: ui/settings.slint
 msgid "Monitor"
-msgstr ""
+msgstr "モニター"
 
 #: ui/settings.slint
 msgid "Where an edge meets another monitor, the pointer crosses over instead."
-msgstr ""
+msgstr "端が別のモニターと接している場合、ポインターはそのモニターへ移動します。"
 
 #: ui/settings.slint
 msgid "Push to show"
-msgstr ""
+msgstr "押して表示"
 
 #: ui/settings.slint
 msgid "How hard to push past the edge. A pen or touch rests on the edge instead."
-msgstr ""
+msgstr "端をどれだけ強く押すと表示するか。ペンやタッチでは端に触れたままにします。"
 
 #: ui/settings.slint
 msgid "Light"
-msgstr ""
+msgstr "弱"
 
 #: ui/settings.slint
 msgid "Medium"
-msgstr ""
+msgstr "中"
 
 #: ui/settings.slint
 msgid "Firm"
-msgstr ""
+msgstr "強"
 
 #: ui/settings.slint
 msgid "Hide after leaving"
-msgstr ""
+msgstr "離れてから隠すまで"
 
 #: ui/settings.slint
 msgid "Milliseconds. A click elsewhere or Esc hides it at once."
-msgstr ""
+msgstr "ミリ秒。ほかの場所をクリックするか Esc を押すとすぐに隠れます。"
 
 #: ui/settings.slint
 msgid "Show an edge line"
-msgstr ""
+msgstr "端に線を表示"
 
 #: ui/settings.slint
 msgid "A thin line where the widget waits."
-msgstr ""
+msgstr "ウィジェットが待機している場所に細い線を表示します。"
 
 #: ui/settings.slint
 msgid "Over fullscreen apps"
-msgstr ""
+msgstr "全画面アプリの上"
 
 #: ui/settings.slint
 msgid "Never"
-msgstr ""
+msgstr "表示しない"
 
 #: ui/settings.slint
 msgid "Shortcut only"
-msgstr ""
+msgstr "ショートカットのみ"
 
 #: ui/settings.slint
 msgid "Shortcut and edge"
-msgstr ""
+msgstr "ショートカットと端"
 
 #: ui/settings.slint
 msgid "Click-through while locked"
@@ -2410,7 +2394,7 @@ msgstr "ウィジェットと同じモニターに全画面アプリがある間
 
 #: ui/settings.slint
 msgid "Size"
-msgstr ""
+msgstr "サイズ"
 
 #: ui/settings.slint
 msgid "Drag any edge of the widget. With the Automatic layout, wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
@@ -2422,11 +2406,11 @@ msgstr "項目に必要な大きさになります。"
 
 #: ui/settings.slint
 msgid "Fit the content"
-msgstr ""
+msgstr "内容に合わせる"
 
 #: ui/settings.slint
 msgid "Drag to size"
-msgstr ""
+msgstr "ドラッグでサイズ変更"
 
 #: ui/settings.slint
 msgid "Automatic picks one from the size. Focus shows one item at a time, with a large graph."
@@ -2449,10 +2433,6 @@ msgid "Lanes"
 msgstr "レーン"
 
 #: ui/settings.slint
-msgid "Tiles"
-msgstr "タイル"
-
-#: ui/settings.slint
 msgid "Meters"
 msgstr "メーター"
 
@@ -2473,8 +2453,8 @@ msgid "Cycle through items"
 msgstr "項目を順に切り替える"
 
 #: ui/settings.slint
-msgid "Seconds between items. Shortcuts for the next and previous item are under General."
-msgstr "項目を切り替える間隔（秒）。次・前の項目のショートカットは「全般」にあります。"
+msgid "Seconds between items. Shortcuts for the next and previous item are on the Shortcuts page."
+msgstr "項目を切り替える間隔（秒）。次・前の項目のショートカットは「ショートカット」ページにあります。"
 
 #: ui/settings.slint
 msgid "Transition"
@@ -2510,7 +2490,7 @@ msgstr "スタイル"
 
 #: ui/settings.slint
 msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
-msgstr ""
+msgstr "ミニ折れ線グラフ: 項目ごとに小さなグラフ付きの 1 行。タイル: 小さなグラフの格子。メーター: 現在値のバー。ダイヤル: リングの格子。デバイス カード: デバイス、グラフの横の大きな値、そして詳細。"
 
 #: ui/settings.slint
 msgid "Sparklines"
@@ -2518,39 +2498,39 @@ msgstr "ミニ折れ線グラフ"
 
 #: ui/settings.slint
 msgid "Device cards"
-msgstr ""
+msgstr "デバイス カード"
 
 #: ui/settings.slint
 msgid "Material"
-msgstr ""
+msgstr "素材"
 
 #: ui/settings.slint
 msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
-msgstr ""
+msgstr "ガラスとアクリルはウィジェットの背後をぼかします。透明はぼかさないので、ゲームの上で使えます。"
 
 #: ui/settings.slint
 msgid "Solid"
-msgstr ""
+msgstr "単色"
 
 #: ui/settings.slint
 msgid "Glass"
-msgstr ""
+msgstr "ガラス"
 
 #: ui/settings.slint
 msgid "Acrylic"
-msgstr ""
+msgstr "アクリル"
 
 #: ui/settings.slint
 msgid "Clear"
-msgstr ""
+msgstr "透明"
 
 #: ui/settings.slint
 msgid "Separate cards"
-msgstr ""
+msgstr "カードを分ける"
 
 #: ui/settings.slint
 msgid "Each item on a panel of its own, with a gap between."
-msgstr ""
+msgstr "項目ごとに別のパネルにし、間に隙間を空けます。"
 
 #: ui/settings.slint
 msgid "Border"
@@ -2631,6 +2611,46 @@ msgstr "センサーサービス"
 #: ui/settings.slint
 msgid "CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO."
 msgstr "CPU 温度、CPU 電力、チップセット温度は、任意で導入できる Pulsar センサーサービスと PawnIO ドライバーから取得します。導入には管理者権限が必要です。追加するにはインストーラーを再実行してください。Intel CPU と Zen 以降の AMD Ryzen に対応し、チップセット温度は Intel のみ対応します。未導入でも、PC が Windows に公開する CPU 電力と温度は取得できます。フレームレートにはサービスが必要ですが、PawnIO は不要です。"
+
+#: ui/settings.slint
+msgid "Running"
+msgstr "実行中"
+
+#: ui/settings.slint
+msgid "Not installed"
+msgstr "未インストール"
+
+#: ui/settings.slint
+msgid "Not running"
+msgstr "停止中"
+
+#: ui/settings.slint
+msgid "Needs updating"
+msgstr "更新が必要"
+
+#: ui/settings.slint
+msgid "PawnIO driver"
+msgstr "PawnIO ドライバー"
+
+#: ui/settings.slint
+msgid "Lets the sensor service read CPU temperature and power. It needs administrator rights; the Pulsar installer adds it."
+msgstr "センサー サービスが CPU の温度と電力を読み取れるようにします。管理者権限が必要で、Pulsar のインストーラーが追加します。"
+
+#: ui/settings.slint
+msgid "Installed"
+msgstr "インストール済み"
+
+#: ui/settings.slint
+msgid "CPU not supported yet"
+msgstr "この CPU は未対応"
+
+#: ui/settings.slint
+msgid "Could not read"
+msgstr "読み取れません"
+
+#: ui/settings.slint
+msgid "Needs the service"
+msgstr "サービスが必要"
 
 #: ui/settings.slint
 msgid "About PawnIO"
@@ -3041,24 +3061,16 @@ msgid "Delete"
 msgstr "削除"
 
 #: ui/settings.slint
-msgid "Pulsar {}"
-msgstr "Pulsar {}"
-
-#: ui/settings.slint
 msgid "A Windows 11 taskbar system monitor."
 msgstr "Windows 11 のタスクバー用システムモニター。"
 
 #: ui/settings.slint
-msgid "Updates"
-msgstr "更新"
+msgid "Check now"
+msgstr "今すぐ確認"
 
 #: ui/settings.slint
 msgid "Ask GitHub for the latest release now. Nothing is downloaded."
 msgstr "GitHub で最新リリースを今すぐ確認します。ダウンロードは行いません。"
-
-#: ui/settings.slint
-msgid "Check now"
-msgstr "今すぐ確認"
 
 #: ui/settings.slint
 msgid "Release page"

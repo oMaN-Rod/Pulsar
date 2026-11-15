@@ -85,7 +85,7 @@ impl Scan {
                 }
                 None => Frame::Other,
             },
-            "SettingRow" | "OptionalRow" if self.page.is_some() => {
+            "SettingRow" | "OptionalRow" | "PickerRow" if self.page.is_some() => {
                 assert!(self.row.is_none(), "a row inside a row: {header}");
                 self.row = Some(Scanned::default());
                 Frame::Row
@@ -163,6 +163,9 @@ impl Scan {
             }
             Some(Frame::Pivot) if text.starts_with("model:") => {
                 self.subtabs = messages;
+            }
+            Some(Frame::Page) if text.starts_with("switch-label:") => {
+                self.rows[page].keywords.extend(messages);
             }
             Some(Frame::Page) if text.starts_with("intro:") => {
                 self.rows[page].descriptions.extend(messages);

@@ -1435,6 +1435,14 @@ msgid "Windows default ({})"
 msgstr ""
 
 #: src/settings/main.rs
+msgid "{} items"
+msgstr ""
+
+#: src/settings/main.rs ui/settings.slint
+msgid "Widget"
+msgstr ""
+
+#: src/settings/main.rs
 msgid "You have the latest version."
 msgstr ""
 
@@ -1624,10 +1632,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Theme"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Widget"
 msgstr ""
 
 #: ui/settings.slint
@@ -2159,11 +2163,19 @@ msgid "Custom colors"
 msgstr ""
 
 #: ui/settings.slint
+msgid "Dark taskbar"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Light taskbar"
+msgstr ""
+
+#: ui/settings.slint
 msgid "Label color"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Empty uses the theme."
+msgid "Empty uses the theme. On a light taskbar, empty uses the label color."
 msgstr ""
 
 #: ui/settings.slint
@@ -2171,19 +2183,7 @@ msgid "Value color"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Label color on a light taskbar"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Empty uses the label color above."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Value color on a light taskbar"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Empty uses the value color above."
+msgid "Empty uses the theme. On a light taskbar, empty uses the value color."
 msgstr ""
 
 #: ui/settings.slint
@@ -2207,35 +2207,19 @@ msgid "Background"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Tile color"
+msgid "Tiles"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Empty uses the theme tint."
+msgid "The color behind each item, and its opacity when the switch is on. Empty uses the theme tint; 0% removes the tiles."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Custom tile opacity"
+msgid "Panel"
 msgstr ""
 
 #: ui/settings.slint
-msgid "{}% — 0% removes the tiles."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Using the theme default."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Panel color"
-msgstr ""
-
-#: ui/settings.slint
-msgid "A panel behind the whole overlay. Empty uses the theme."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Custom panel opacity"
+msgid "A panel behind the whole overlay, and its opacity when the switch is on. Empty uses the theme."
 msgstr ""
 
 #: ui/settings.slint
@@ -2287,11 +2271,11 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr ""
 
 #: ui/settings.slint
-msgid "Look"
+msgid "Show the widget"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Show the widget"
+msgid "Look"
 msgstr ""
 
 #: ui/settings.slint
@@ -2447,10 +2431,6 @@ msgid "Lanes"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Tiles"
-msgstr ""
-
-#: ui/settings.slint
 msgid "Meters"
 msgstr ""
 
@@ -2471,7 +2451,7 @@ msgid "Cycle through items"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Seconds between items. Shortcuts for the next and previous item are under General."
+msgid "Seconds between items. Shortcuts for the next and previous item are on the Shortcuts page."
 msgstr ""
 
 #: ui/settings.slint
@@ -2628,6 +2608,46 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Running"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Not installed"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Not running"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Needs updating"
+msgstr ""
+
+#: ui/settings.slint
+msgid "PawnIO driver"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Lets the sensor service read CPU temperature and power. It needs administrator rights; the Pulsar installer adds it."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Installed"
+msgstr ""
+
+#: ui/settings.slint
+msgid "CPU not supported yet"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Could not read"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Needs the service"
 msgstr ""
 
 #: ui/settings.slint
@@ -3039,23 +3059,15 @@ msgid "Delete"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Pulsar {}"
-msgstr ""
-
-#: ui/settings.slint
 msgid "A Windows 11 taskbar system monitor."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Updates"
+msgid "Check now"
 msgstr ""
 
 #: ui/settings.slint
 msgid "Ask GitHub for the latest release now. Nothing is downloaded."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Check now"
 msgstr ""
 
 #: ui/settings.slint

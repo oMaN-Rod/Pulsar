@@ -1150,7 +1150,7 @@ msgstr "다이얼"
 
 #: src/names.rs
 msgid "Device card"
-msgstr ""
+msgstr "장치 카드"
 
 #: src/names.rs
 msgid "Core wall"
@@ -1437,6 +1437,14 @@ msgid "Windows default ({})"
 msgstr "Windows 기본값({})"
 
 #: src/settings/main.rs
+msgid "{} items"
+msgstr "항목 {}개"
+
+#: src/settings/main.rs ui/settings.slint
+msgid "Widget"
+msgstr "위젯"
+
+#: src/settings/main.rs
 msgid "You have the latest version."
 msgstr "최신 버전을 사용 중입니다."
 
@@ -1627,10 +1635,6 @@ msgstr "레이아웃"
 #: ui/settings.slint
 msgid "Theme"
 msgstr "테마"
-
-#: ui/settings.slint
-msgid "Widget"
-msgstr "위젯"
 
 #: ui/settings.slint
 msgid "Readings"
@@ -2161,32 +2165,28 @@ msgid "Custom colors"
 msgstr "사용자 지정 색"
 
 #: ui/settings.slint
+msgid "Dark taskbar"
+msgstr "어두운 작업 표시줄"
+
+#: ui/settings.slint
+msgid "Light taskbar"
+msgstr "밝은 작업 표시줄"
+
+#: ui/settings.slint
 msgid "Label color"
 msgstr "레이블 색"
 
 #: ui/settings.slint
-msgid "Empty uses the theme."
-msgstr "비워 두면 테마를 따릅니다."
+msgid "Empty uses the theme. On a light taskbar, empty uses the label color."
+msgstr "비워 두면 테마를 사용합니다. 밝은 작업 표시줄에서는 비워 두면 레이블 색을 사용합니다."
 
 #: ui/settings.slint
 msgid "Value color"
 msgstr "값 색"
 
 #: ui/settings.slint
-msgid "Label color on a light taskbar"
-msgstr "밝은 작업 표시줄의 레이블 색"
-
-#: ui/settings.slint
-msgid "Empty uses the label color above."
-msgstr "비워 두면 위의 레이블 색을 사용합니다."
-
-#: ui/settings.slint
-msgid "Value color on a light taskbar"
-msgstr "밝은 작업 표시줄의 값 색"
-
-#: ui/settings.slint
-msgid "Empty uses the value color above."
-msgstr "비워 두면 위의 값 색을 사용합니다."
+msgid "Empty uses the theme. On a light taskbar, empty uses the value color."
+msgstr "비워 두면 테마를 사용합니다. 밝은 작업 표시줄에서는 비워 두면 값 색을 사용합니다."
 
 #: ui/settings.slint
 msgid "Color labels by item"
@@ -2209,36 +2209,20 @@ msgid "Background"
 msgstr "배경"
 
 #: ui/settings.slint
-msgid "Tile color"
-msgstr "타일 색"
+msgid "Tiles"
+msgstr "타일"
 
 #: ui/settings.slint
-msgid "Empty uses the theme tint."
-msgstr "비워 두면 테마 색조를 사용합니다."
+msgid "The color behind each item, and its opacity when the switch is on. Empty uses the theme tint; 0% removes the tiles."
+msgstr "각 항목 뒤의 색과, 스위치가 켜져 있을 때의 불투명도입니다. 비워 두면 테마 색조를 사용하며 0%는 타일을 없앱니다."
 
 #: ui/settings.slint
-msgid "Custom tile opacity"
-msgstr "사용자 지정 타일 불투명도"
+msgid "Panel"
+msgstr "패널"
 
 #: ui/settings.slint
-msgid "{}% — 0% removes the tiles."
-msgstr "{}% — 0%이면 타일을 표시하지 않습니다."
-
-#: ui/settings.slint
-msgid "Using the theme default."
-msgstr "테마 기본값을 사용합니다."
-
-#: ui/settings.slint
-msgid "Panel color"
-msgstr "패널 색"
-
-#: ui/settings.slint
-msgid "A panel behind the whole overlay. Empty uses the theme."
-msgstr "오버레이 전체 뒤에 표시되는 패널입니다. 비워 두면 테마를 따릅니다."
-
-#: ui/settings.slint
-msgid "Custom panel opacity"
-msgstr "사용자 지정 패널 불투명도"
+msgid "A panel behind the whole overlay, and its opacity when the switch is on. Empty uses the theme."
+msgstr "오버레이 전체 뒤의 패널과, 스위치가 켜져 있을 때의 불투명도입니다. 비워 두면 테마를 사용합니다."
 
 #: ui/settings.slint
 msgid "Off"
@@ -2289,16 +2273,16 @@ msgid "A panel on the desktop with a graph and details for each item, like a pop
 msgstr "항목마다 그래프와 세부 정보를 보여 주는 바탕 화면 패널로, 계속 열려 있는 팝업과 비슷합니다. 끌어서 옮기고 마우스 오른쪽 단추로 클릭하면 메뉴가 열립니다."
 
 #: ui/settings.slint
-msgid "Look"
-msgstr "모양"
-
-#: ui/settings.slint
 msgid "Show the widget"
 msgstr "위젯 표시"
 
 #: ui/settings.slint
+msgid "Look"
+msgstr "모양"
+
+#: ui/settings.slint
 msgid "Hidden at a screen edge until you push the pointer against it, or press the widget's shortcut."
-msgstr ""
+msgstr "화면 가장자리에 숨어 있다가 포인터를 가장자리로 밀거나 위젯 바로 가기를 누르면 나타납니다."
 
 #: ui/settings.slint
 msgid "On the desktop stays behind your windows and comes forward when you show the desktop."
@@ -2314,87 +2298,87 @@ msgstr "항상 위"
 
 #: ui/settings.slint
 msgid "Docked to a screen edge"
-msgstr ""
+msgstr "화면 가장자리에 도킹"
 
 #: ui/settings.slint
 msgid "Edge"
-msgstr ""
+msgstr "가장자리"
 
 #: ui/settings.slint
 msgid "Left"
-msgstr ""
+msgstr "왼쪽"
 
 #: ui/settings.slint
 msgid "Top"
-msgstr ""
+msgstr "위쪽"
 
 #: ui/settings.slint
 msgid "Right"
-msgstr ""
+msgstr "오른쪽"
 
 #: ui/settings.slint
 msgid "Bottom"
-msgstr ""
+msgstr "아래쪽"
 
 #: ui/settings.slint
 msgid "Monitor"
-msgstr ""
+msgstr "모니터"
 
 #: ui/settings.slint
 msgid "Where an edge meets another monitor, the pointer crosses over instead."
-msgstr ""
+msgstr "가장자리가 다른 모니터와 맞닿은 곳에서는 포인터가 그 모니터로 넘어갑니다."
 
 #: ui/settings.slint
 msgid "Push to show"
-msgstr ""
+msgstr "밀어서 표시"
 
 #: ui/settings.slint
 msgid "How hard to push past the edge. A pen or touch rests on the edge instead."
-msgstr ""
+msgstr "가장자리를 얼마나 세게 밀어야 하는지입니다. 펜이나 터치는 가장자리에 머물면 됩니다."
 
 #: ui/settings.slint
 msgid "Light"
-msgstr ""
+msgstr "약하게"
 
 #: ui/settings.slint
 msgid "Medium"
-msgstr ""
+msgstr "보통"
 
 #: ui/settings.slint
 msgid "Firm"
-msgstr ""
+msgstr "강하게"
 
 #: ui/settings.slint
 msgid "Hide after leaving"
-msgstr ""
+msgstr "벗어난 뒤 숨기기"
 
 #: ui/settings.slint
 msgid "Milliseconds. A click elsewhere or Esc hides it at once."
-msgstr ""
+msgstr "밀리초입니다. 다른 곳을 클릭하거나 Esc를 누르면 바로 숨깁니다."
 
 #: ui/settings.slint
 msgid "Show an edge line"
-msgstr ""
+msgstr "가장자리 선 표시"
 
 #: ui/settings.slint
 msgid "A thin line where the widget waits."
-msgstr ""
+msgstr "위젯이 대기하는 곳에 가는 선을 표시합니다."
 
 #: ui/settings.slint
 msgid "Over fullscreen apps"
-msgstr ""
+msgstr "전체 화면 앱 위에서"
 
 #: ui/settings.slint
 msgid "Never"
-msgstr ""
+msgstr "표시 안 함"
 
 #: ui/settings.slint
 msgid "Shortcut only"
-msgstr ""
+msgstr "바로 가기만"
 
 #: ui/settings.slint
 msgid "Shortcut and edge"
-msgstr ""
+msgstr "바로 가기와 가장자리"
 
 #: ui/settings.slint
 msgid "Click-through while locked"
@@ -2410,7 +2394,7 @@ msgstr "위젯이 있는 모니터에서 전체 화면 앱이 실행 중일 때"
 
 #: ui/settings.slint
 msgid "Size"
-msgstr ""
+msgstr "크기"
 
 #: ui/settings.slint
 msgid "Drag any edge of the widget. With the Automatic layout, wide shows cards in columns, narrow a line per item, square tiles, and short a single row of values or rings."
@@ -2422,11 +2406,11 @@ msgstr "항목에 필요한 만큼의 크기입니다."
 
 #: ui/settings.slint
 msgid "Fit the content"
-msgstr ""
+msgstr "내용에 맞추기"
 
 #: ui/settings.slint
 msgid "Drag to size"
-msgstr ""
+msgstr "끌어서 크기 조정"
 
 #: ui/settings.slint
 msgid "Automatic picks one from the size. Focus shows one item at a time, with a large graph."
@@ -2449,10 +2433,6 @@ msgid "Lanes"
 msgstr "레인"
 
 #: ui/settings.slint
-msgid "Tiles"
-msgstr "타일"
-
-#: ui/settings.slint
 msgid "Meters"
 msgstr "미터"
 
@@ -2473,8 +2453,8 @@ msgid "Cycle through items"
 msgstr "항목 순환"
 
 #: ui/settings.slint
-msgid "Seconds between items. Shortcuts for the next and previous item are under General."
-msgstr "항목 사이의 초. 다음 및 이전 항목 바로 가기는 일반에 있습니다."
+msgid "Seconds between items. Shortcuts for the next and previous item are on the Shortcuts page."
+msgstr "항목 사이의 초. 다음 및 이전 항목 바로 가기는 바로 가기 키 페이지에 있습니다."
 
 #: ui/settings.slint
 msgid "Transition"
@@ -2510,7 +2490,7 @@ msgstr "스타일"
 
 #: ui/settings.slint
 msgid "Sparklines: a line per item with a small graph. Tiles: a grid of small graphs. Meters: a bar for the current value. Dials: a grid of rings. Device cards: the device, a large value beside its graph, then details."
-msgstr ""
+msgstr "스파크라인: 항목마다 작은 그래프가 있는 한 줄. 타일: 작은 그래프의 격자. 미터: 현재 값 막대. 다이얼: 링의 격자. 장치 카드: 장치, 그래프 옆의 큰 값, 그리고 세부 정보."
 
 #: ui/settings.slint
 msgid "Sparklines"
@@ -2518,39 +2498,39 @@ msgstr "스파크라인"
 
 #: ui/settings.slint
 msgid "Device cards"
-msgstr ""
+msgstr "장치 카드"
 
 #: ui/settings.slint
 msgid "Material"
-msgstr ""
+msgstr "재질"
 
 #: ui/settings.slint
 msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
-msgstr ""
+msgstr "유리와 아크릴은 위젯 뒤를 흐리게 합니다. 투명은 흐리게 하지 않아 게임 위에서 쓰기 좋습니다."
 
 #: ui/settings.slint
 msgid "Solid"
-msgstr ""
+msgstr "단색"
 
 #: ui/settings.slint
 msgid "Glass"
-msgstr ""
+msgstr "유리"
 
 #: ui/settings.slint
 msgid "Acrylic"
-msgstr ""
+msgstr "아크릴"
 
 #: ui/settings.slint
 msgid "Clear"
-msgstr ""
+msgstr "투명"
 
 #: ui/settings.slint
 msgid "Separate cards"
-msgstr ""
+msgstr "카드 나누기"
 
 #: ui/settings.slint
 msgid "Each item on a panel of its own, with a gap between."
-msgstr ""
+msgstr "항목마다 별도의 패널에 두고 사이에 간격을 둡니다."
 
 #: ui/settings.slint
 msgid "Border"
@@ -2631,6 +2611,46 @@ msgstr "센서 서비스"
 #: ui/settings.slint
 msgid "CPU temperature, CPU power and chipset temperature come from the optional Pulsar sensor service and the PawnIO driver, both of which need administrator rights. Run the Pulsar installer again to add them. Intel CPUs, and AMD Ryzen from Zen onwards; chipset temperature on Intel only. Without them, CPU power and temperature come from Windows where the PC publishes them. Frame rate needs the service but not PawnIO."
 msgstr "CPU 온도, CPU 전력, 칩셋 온도는 선택 설치 항목인 Pulsar 센서 서비스와 PawnIO 드라이버에서 가져오며, 둘 다 관리자 권한이 필요합니다. 추가하려면 Pulsar 설치 프로그램을 다시 실행하세요. Intel CPU와 Zen 이후 AMD Ryzen을 지원하며, 칩셋 온도는 Intel에서만 지원됩니다. 이 구성 요소가 없으면 PC가 제공하는 경우 CPU 전력과 온도를 Windows에서 가져옵니다. 프레임 속도는 서비스가 필요하지만 PawnIO는 필요하지 않습니다."
+
+#: ui/settings.slint
+msgid "Running"
+msgstr "실행 중"
+
+#: ui/settings.slint
+msgid "Not installed"
+msgstr "설치되지 않음"
+
+#: ui/settings.slint
+msgid "Not running"
+msgstr "실행되지 않음"
+
+#: ui/settings.slint
+msgid "Needs updating"
+msgstr "업데이트 필요"
+
+#: ui/settings.slint
+msgid "PawnIO driver"
+msgstr "PawnIO 드라이버"
+
+#: ui/settings.slint
+msgid "Lets the sensor service read CPU temperature and power. It needs administrator rights; the Pulsar installer adds it."
+msgstr "센서 서비스가 CPU 온도와 전력을 읽을 수 있게 합니다. 관리자 권한이 필요하며 Pulsar 설치 프로그램이 추가합니다."
+
+#: ui/settings.slint
+msgid "Installed"
+msgstr "설치됨"
+
+#: ui/settings.slint
+msgid "CPU not supported yet"
+msgstr "아직 지원되지 않는 CPU"
+
+#: ui/settings.slint
+msgid "Could not read"
+msgstr "읽을 수 없음"
+
+#: ui/settings.slint
+msgid "Needs the service"
+msgstr "서비스 필요"
 
 #: ui/settings.slint
 msgid "About PawnIO"
@@ -3041,24 +3061,16 @@ msgid "Delete"
 msgstr "삭제"
 
 #: ui/settings.slint
-msgid "Pulsar {}"
-msgstr "Pulsar {}"
-
-#: ui/settings.slint
 msgid "A Windows 11 taskbar system monitor."
 msgstr "Windows 11 작업 표시줄 시스템 모니터입니다."
 
 #: ui/settings.slint
-msgid "Updates"
-msgstr "업데이트"
+msgid "Check now"
+msgstr "지금 확인"
 
 #: ui/settings.slint
 msgid "Ask GitHub for the latest release now. Nothing is downloaded."
 msgstr "지금 GitHub에서 최신 릴리스를 확인합니다. 아무것도 다운로드하지 않습니다."
-
-#: ui/settings.slint
-msgid "Check now"
-msgstr "지금 확인"
 
 #: ui/settings.slint
 msgid "Release page"

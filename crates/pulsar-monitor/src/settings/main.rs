@@ -15,7 +15,7 @@ use std::cell::{Cell, RefCell};
 use std::error::Error;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 use pulsar_core::colors::{self, default_rgb};
 use pulsar_core::config::GraphStyle;
@@ -43,6 +43,8 @@ slint::include_modules!();
 const SAVE_DELAY: Duration = Duration::from_millis(300);
 /// How often to look for changes made by the app (e.g. the tray menu).
 const WATCH_INTERVAL: Duration = Duration::from_secs(1);
+const SENSOR_POLL: Duration = Duration::from_millis(100);
+const SENSOR_WAIT: Duration = Duration::from_secs(3);
 const ABOUT_TAB: i32 = 8;
 const PROFILES_TAB: i32 = 9;
 const RESULTS_TAB: i32 = -1;
@@ -966,6 +968,7 @@ fn refresh_search(ui: &SettingsWindow) {
         .into_iter()
         .map(|entry| SearchResult {
             id: entry.id.as_str().into(),
+            tab: entry.tab,
             title: entry.title.into(),
             path: entry.path.as_str().into(),
             description: entry.description.into(),
@@ -1025,18 +1028,49 @@ fn show(ui: &SettingsWindow, state: &mut State, config: Config) {
 fn push_profiles(ui: &SettingsWindow, state: &mut State) {
     let dir = profile::profiles_dir();
     let entries = dir.as_deref().map(profile::list).unwrap_or_default();
+    let themes = theme::list(theme::themes_dir().as_deref());
     let rows: Vec<ProfileRow> = entries
         .iter()
-        .map(|e| ProfileRow {
-            name: e.name.as_str().into(),
-            active: dir
-                .as_deref()
-                .and_then(|d| profile::load(d, &e.id))
-                .is_some_and(|p| p.matches(&state.config)),
+        .map(|e| {
+            let loaded = dir.as_deref().and_then(|d| profile::load(d, &e.id));
+            ProfileRow {
+                name: e.name.as_str().into(),
+                initial: e
+                    .name
+                    .chars()
+                    .next()
+                    .into_iter()
+                    .flat_map(char::to_uppercase)
+                    .collect::<String>()
+                    .into(),
+                active: loaded.as_ref().is_some_and(|p| p.matches(&state.config)),
+                summary: loaded
+                    .as_ref()
+                    .map(|p| profile_summary(p, &themes))
+                    .unwrap_or_default()
+                    .into(),
+            }
         })
         .collect();
     state.profile_ids = entries.into_iter().map(|e| e.id).collect();
     ui.set_profiles(ModelRc::new(VecModel::from(rows)));
+}
+
+fn profile_summary(p: &Profile, themes: &[theme::Entry]) -> String {
+    let id = p.display.theme.clone().unwrap_or_default();
+    let theme = themes
+        .iter()
+        .find(|e| e.id == id)
+        .or(themes.first())
+        .map(theme::Entry::display_name)
+        .unwrap_or_default();
+    let shown = p.items.iter().filter(|i| i.enabled).count();
+    let mut parts = vec![theme, tr!("{} items", shown)];
+    if p.widget.enabled {
+        parts.push(tr!("Widget").to_string());
+    }
+    parts.retain(|s| !s.is_empty());
+    parts.join(" · ")
 }
 
 /// Picks up a change made by another process. A file that does not parse
@@ -1149,28 +1183,33 @@ fn check_for_update() -> Availability {
 }
 
 fn show_update_result(ui: &SettingsWindow, availability: Availability) {
-    let (status, url, notes) = match availability {
+    let (kind, status, url, notes) = match availability {
         Availability::Available(release) => (
+            1,
             tr!("Pulsar {} is available", release.version),
             release.url,
             release.notes,
         ),
         Availability::UpToDate => (
+            0,
             tr!("You have the latest version.").to_string(),
             String::new(),
             String::new(),
         ),
         Availability::NoRelease => (
+            3,
             tr!("No release has been published yet.").to_string(),
             String::new(),
             String::new(),
         ),
         Availability::Failed(reason) => (
+            2,
             tr!("Could not check for updates: {}", reason),
             String::new(),
             String::new(),
         ),
     };
+    ui.set_update_kind(kind);
     ui.set_update_status(status.into());
     ui.set_update_url(url.into());
     ui.set_update_notes(notes.into());
@@ -1189,6 +1228,48 @@ fn choose_item(ui: &SettingsWindow, index: i32) {
             }
         }
     }
+}
+
+/// An idle service stops publishing until asked, so ask and wait for fresh
+/// readings before showing its state.
+fn refresh_sensor_state(ui: &SettingsWindow, poll: &Rc<Timer>) {
+    use pulsar_core::sensors::{self, Unavailable};
+    sensors::want_readings();
+    let started = Instant::now();
+    let (weak, timer) = (ui.as_weak(), Rc::downgrade(poll));
+    let check = move || {
+        let state = sensors::read();
+        let waiting =
+            matches!(state, Err(Unavailable::NotRunning)) && started.elapsed() < SENSOR_WAIT;
+        if waiting {
+            return;
+        }
+        if let Some(ui) = weak.upgrade() {
+            show_sensor_state(&ui, state);
+        }
+        if let Some(timer) = timer.upgrade() {
+            timer.stop();
+        }
+    };
+    poll.start(TimerMode::Repeated, SENSOR_POLL, check);
+}
+
+fn show_sensor_state(
+    ui: &SettingsWindow,
+    state: Result<pulsar_core::sensors::Readings, pulsar_core::sensors::Unavailable>,
+) {
+    use pulsar_core::sensors::Unavailable;
+    let (service, pawnio) = match state {
+        Ok(_) => (0, 0),
+        Err(Unavailable::NotInstalled) => (1, 4),
+        Err(Unavailable::NotRunning) => (2, 4),
+        Err(Unavailable::WrongVersion) => (3, 4),
+        Err(Unavailable::NoDriver) => (0, 1),
+        Err(Unavailable::UnsupportedCpu) => (0, 2),
+        Err(Unavailable::ReadFailed) => (0, 3),
+    };
+    ui.set_service_state(service);
+    ui.set_pawnio_state(pawnio);
 }
 
 fn update_row(ui: &SettingsWindow, index: i32, edit: impl FnOnce(&mut ItemRow)) {
@@ -1286,6 +1367,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 return;
             }
             ui.set_update_checking(true);
+            ui.set_update_kind(3);
             ui.set_update_status(tr!("Checking for updates…").into());
             ui.set_update_url(SharedString::new());
             ui.set_update_notes(SharedString::new());
@@ -1375,6 +1457,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
     ui.on_limit_label(|text| config::typed_label(&text).into());
+    let sensor_poll = Rc::new(Timer::default());
+    ui.on_refresh_sensors({
+        let (weak, poll) = (ui.as_weak(), sensor_poll.clone());
+        move || {
+            if let Some(ui) = weak.upgrade() {
+                refresh_sensor_state(&ui, &poll);
+            }
+        }
+    });
     ui.on_item_expanded({
         let weak = ui.as_weak();
         move |index, chosen| {

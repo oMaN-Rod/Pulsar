@@ -25,7 +25,10 @@ fn literal_row_titles() -> Vec<String> {
     let lines: Vec<&str> = SOURCE[start..].lines().map(str::trim).collect();
     let mut titles = Vec::new();
     for (i, line) in lines.iter().enumerate() {
-        if line.ends_with("SettingRow {") || line.ends_with("OptionalRow {") {
+        if ["SettingRow {", "OptionalRow {", "PickerRow {"]
+            .iter()
+            .any(|row| line.ends_with(row))
+        {
             let title = lines[i + 1..]
                 .iter()
                 .find(|l| l.starts_with("title:"))
