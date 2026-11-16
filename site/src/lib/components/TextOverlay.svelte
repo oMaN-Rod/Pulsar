@@ -59,7 +59,12 @@
           {#if j}<span class="tx-gap"></span>{/if}
           <button
             type="button"
-            class={['tx', held(cell.key) && 'held', held(cell.key) && drag?.active && 'lifted']}
+            class={[
+              'tx',
+              cell.above && 'above',
+              held(cell.key) && 'held',
+              held(cell.key) && drag?.active && 'lifted',
+            ]}
             data-key={cell.key}
             aria-label={cell.name}
             style:transform={held(cell.key) ? drag?.transform : null}

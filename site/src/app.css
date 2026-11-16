@@ -1054,12 +1054,360 @@ body.day .picker-list {
   overflow: auto;
   scrollbar-width: thin;
   right: calc(var(--inset-r) + var(--panel-w) + 32px);
-  padding: 10px 12px;
-  border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   font-size: 13px;
   line-height: 1.35;
-  transition: right 0.42s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    right 0.42s cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.25s;
+}
+.w-panel {
+  padding: 10px 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+.widget.blur .w-panel {
+  -webkit-backdrop-filter: blur(30px) saturate(1.4);
+  backdrop-filter: blur(30px) saturate(1.4);
+}
+.separate {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.separate > .w-tiles {
+  gap: 8px;
+}
+.separate .w-tile {
+  padding: 8px 10px 0;
+}
+.widget.sized {
+  overflow: hidden;
+  max-height: none;
+}
+.widget.sized .widget-body,
+.widget.sized .widget-body > * {
+  height: 100%;
+  box-sizing: border-box;
+}
+.widget.sized .widget-body > .w-panel {
+  overflow: hidden;
+}
+.grip {
+  position: absolute;
+  z-index: 2;
+}
+.grip[data-side='w'],
+.grip[data-side='e'] {
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+}
+.grip[data-side='w'] {
+  left: 0;
+}
+.grip[data-side='e'] {
+  right: 0;
+}
+.grip[data-side='s'],
+.grip[data-side='n'] {
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: ns-resize;
+}
+.grip[data-side='s'] {
+  bottom: 0;
+}
+.grip[data-side='n'] {
+  top: 0;
+}
+.grip[data-side='sw'],
+.grip[data-side='se'],
+.grip[data-side='nw'],
+.grip[data-side='ne'] {
+  width: 14px;
+  height: 14px;
+}
+.grip[data-side='sw'] {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+.grip[data-side='se'] {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+.grip[data-side='nw'] {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.grip[data-side='ne'] {
+  right: 0;
+  top: 0;
+  cursor: nesw-resize;
+}
+
+/* A widget docked to a screen edge, hidden until the pointer pushes against it */
+.widget.dock-left {
+  left: calc(var(--inset-l) + 8px);
+  right: auto;
+}
+.widget.dock-top,
+.widget.dock-bottom {
+  left: calc((100% + var(--inset-l) - var(--inset-r)) / 2);
+  right: auto;
+  transform: translateX(-50%);
+}
+.widget.dock-top {
+  top: 8px;
+}
+.widget.dock-bottom {
+  top: auto;
+  bottom: calc(var(--inset-b) + 8px);
+}
+.widget.stowed {
+  opacity: 0;
+  pointer-events: none;
+}
+.widget.dock-left.stowed {
+  transform: translateX(calc(-100% - 16px));
+}
+.widget.dock-right.stowed {
+  transform: translateX(calc(100% + var(--panel-w) + 64px));
+}
+.widget.dock-top.stowed {
+  transform: translate(-50%, calc(-100% - 16px));
+}
+.widget.dock-bottom.stowed {
+  transform: translate(-50%, calc(100% + var(--inset-b) + 16px));
+}
+.dock-zone,
+.dock-lip {
+  position: absolute;
+  z-index: 4;
+}
+.dock-zone[data-dock='left'],
+.dock-zone[data-dock='right'] {
+  top: 0;
+  bottom: var(--inset-b);
+  width: 10px;
+}
+.dock-zone[data-dock='left'] {
+  left: var(--inset-l);
+}
+.dock-zone[data-dock='right'] {
+  right: calc(var(--inset-r) + var(--panel-w) + 32px);
+}
+body.panel-closed .dock-zone[data-dock='right'] {
+  right: var(--inset-r);
+}
+.dock-zone[data-dock='top'],
+.dock-zone[data-dock='bottom'] {
+  left: var(--inset-l);
+  right: var(--inset-r);
+  height: 10px;
+}
+.dock-zone[data-dock='top'] {
+  top: 0;
+}
+.dock-zone[data-dock='bottom'] {
+  bottom: var(--inset-b);
+}
+.dock-lip {
+  pointer-events: none;
+  border-radius: 2px;
+  background: rgba(76, 194, 255, 0.7);
+}
+.dock-lip[data-dock='left'],
+.dock-lip[data-dock='right'] {
+  top: calc((100% - var(--inset-b)) / 2 - 40px);
+  width: 3px;
+  height: 80px;
+}
+.dock-lip[data-dock='left'] {
+  left: var(--inset-l);
+}
+.dock-lip[data-dock='right'] {
+  right: calc(var(--inset-r) + var(--panel-w) + 32px);
+}
+body.panel-closed .dock-lip[data-dock='right'] {
+  right: var(--inset-r);
+}
+.dock-lip[data-dock='top'],
+.dock-lip[data-dock='bottom'] {
+  left: calc((100% + var(--inset-l) - var(--inset-r)) / 2 - 40px);
+  width: 80px;
+  height: 3px;
+}
+.dock-lip[data-dock='top'] {
+  top: 0;
+}
+.dock-lip[data-dock='bottom'] {
+  bottom: var(--inset-b);
+}
+
+/* Device cards, the dashboard and the single-row and Focus layouts */
+.w-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 0;
+}
+.w-card-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  min-width: 0;
+}
+.w-card-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.w-card-head small {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.w-card-temp {
+  margin-left: auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.w-card-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: end;
+  gap: 12px;
+}
+.w-big {
+  font-weight: 300;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.w-big-line small,
+.w-card-rates small {
+  margin-left: 3px;
+  font-size: 11px;
+}
+.w-card-rates {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  white-space: nowrap;
+}
+.w-card-rates b {
+  margin-right: 4px;
+  font-weight: 400;
+}
+.w-chart {
+  display: block;
+  width: 100%;
+  height: 40px;
+}
+.w-stack {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.25;
+}
+.w-stack.small {
+  align-items: flex-start;
+  font-size: 11px;
+}
+.w-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  max-width: 76px;
+  justify-self: end;
+}
+.w-meters .w-meter {
+  max-width: none;
+}
+.w-dash {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows), auto);
+  grid-auto-flow: column;
+  gap: 0 18px;
+}
+.w-dash.separate {
+  gap: 8px;
+}
+.w-dash.w-panel .w-dash-cell:not(.top) {
+  border-top: 1px solid rgba(127, 127, 127, 0.18);
+}
+.w-strip,
+.w-rings {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+.w-strip {
+  gap: 16px;
+  padding: 4px 20px;
+}
+.w-strip-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.w-strip-item i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.w-strip-item b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.w-rings {
+  gap: 10px;
+  padding: 4px 14px;
+}
+.w-rings .w-ring span {
+  font-size: 11px;
+}
+.w-focus {
+  display: flex;
+  flex-direction: column;
+  padding: 14px 16px;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  outline: none;
+}
+.w-focus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+.w-focus .w-chart {
+  flex: 1;
+  height: auto;
+  min-height: 30px;
+}
+.w-focus-foot {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+}
+.w-focus-foot b {
+  margin-right: 10px;
+  font-weight: 600;
 }
 body.panel-closed .widget {
   right: calc(var(--inset-r) + 16px);
@@ -1460,6 +1808,42 @@ body.panel-closed .widget {
   position: absolute;
   inset: 0;
 }
+.tile-svg.stretched {
+  width: 100%;
+  height: 100%;
+}
+.tile-text {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.overlay.shape-pill {
+  border-radius: var(--corner);
+  overflow: hidden;
+}
+.overlay.shape-pill .tile {
+  border-radius: 0;
+}
+.overlay.shape-chips .tile {
+  border-radius: var(--corner);
+}
+.overlay.text.shape-pill {
+  padding: 0 calc(var(--corner) / 2);
+}
+.float-box.capsule {
+  padding: 0;
+  border-radius: var(--corner);
+  box-shadow: none;
+}
+.float-box.capsule.glass.pill {
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.float-box.glass.chips .tile {
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+}
 .tile .t {
   position: absolute;
   white-space: nowrap;
@@ -1564,9 +1948,13 @@ select:disabled {
 .tx:hover {
   background: rgba(127, 127, 127, 0.18);
 }
-.tx-net {
+.tx-net,
+.tx.above {
   flex-direction: column;
   align-items: flex-start;
+}
+.tx.above {
+  gap: var(--tx-row);
 }
 .desk:not([data-edge='bottom']) .taskbar .text-overlay {
   flex-direction: column;

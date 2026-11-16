@@ -48,14 +48,36 @@ function custom(): Profile {
   p.disk.value = 'used';
   p.popupDetail = 'detailed';
   p.popup = { width: 360, graphHeight: 90, processes: 3, background: 'solid', graph: false };
+  p.shape = 'chips';
+  p.shapeRadius = 6;
+  p.floatBlur = false;
   p.widget = {
     enabled: true,
-    style: 'tiles',
+    layer: 'on_top',
+    style: 'cards',
     detail: 'standard',
     width: 320,
     opacity: 70,
     background: '#101010',
+    material: 'glass',
+    glassTint: 40,
+    separate: true,
+    border: true,
+    networkInline: true,
+    sizing: 'chosen',
+    layout: 'focus',
+    size: [720, 60],
+    rowRadius: 12,
+    focus: { cycle: true, intervalS: 5, transition: 'slide_up', transitionMs: 600 },
+    dock: {
+      edge: 'bottom',
+      push: 'firm',
+      hideDelayMs: 800,
+      lip: true,
+      overFullscreen: 'hotkey_and_edge',
+    },
   };
+  p.items.network = { ...p.items.network, upColor: '#0000FF', labelAbove: true };
   p.items.cpu = {
     ...p.items.cpu,
     style: 'cores',
@@ -210,6 +232,46 @@ describe('profile files', () => {
     expect(back.profile.position).toBe('floating');
   });
 
+  it('reads a Pulsar profile with a docked glass widget', () => {
+    const doc = parseToml(
+      [
+        '[display]',
+        'shape = "pill"',
+        '[widget]',
+        'style = "cards"',
+        'material = "acrylic"',
+        'layout = "dashboard"',
+        'sizing = "chosen"',
+        'size = [900, 220]',
+        '[widget.dock]',
+        'edge = "left"',
+        'monitor = "\\\\\\\\?\\\\DISPLAY#X"',
+        'push = "light"',
+        '[[items]]',
+        'kind = "network"',
+        'up_color = "#00ff00"',
+        'label_above = true',
+      ].join('\n'),
+    );
+    const { profile } = profileFromToml(doc, 'x');
+    expect(profile.shape).toBe('pill');
+    expect(profile.widget).toMatchObject({
+      style: 'cards',
+      material: 'acrylic',
+      layout: 'dashboard',
+      sizing: 'chosen',
+      size: [900, 220],
+    });
+    expect(profile.widget.dock).toMatchObject({ edge: 'left', push: 'light' });
+    expect(profile.items.network).toMatchObject({ upColor: '#00FF00', labelAbove: true });
+    profile.widget.dock.edge = 'top';
+    const out = parseToml(profileToToml(profile, 'windows', false));
+    const dock = (out.widget as Record<string, Record<string, unknown>>).dock;
+    expect(dock.edge).toBe('top');
+    expect(dock.monitor).toBe('\\\\?\\DISPLAY#X');
+    expect((out.widget as Record<string, unknown>).style).toBe('cards');
+  });
+
   it('writes network settings only when they differ from Pulsar', () => {
     const text = profileToToml(defaultProfile(), 'windows', false);
     expect(parseToml(text).network).toEqual({ show: 'both' });
@@ -305,6 +367,40 @@ describe('mergeProfile', () => {
       upLabel: 'Up',
       popupShow: 'download',
     });
+  });
+
+  it('keeps the new widget and strip settings in range', () => {
+    const saved = JSON.parse(JSON.stringify(defaultProfile()));
+    saved.shape = 'blob';
+    saved.shapeRadius = 99;
+    saved.widget = {
+      ...saved.widget,
+      style: 'cards',
+      material: 'chrome',
+      glassTint: 250,
+      size: [10, 99999],
+      rowRadius: 99,
+      focus: { intervalS: 0, transitionMs: 99999, transition: 'spin' },
+      dock: { edge: 'middle', hideDelayMs: -1 },
+    };
+    saved.items.cpu.upColor = '#123456';
+    const p = mergeProfile(saved);
+    expect(p.shape).toBe('rectangle');
+    expect(p.shapeRadius).toBe(24);
+    expect(p.widget.style).toBe('cards');
+    expect(p.widget.material).toBe('solid');
+    expect(p.widget.glassTint).toBe(100);
+    expect(p.widget.size).toEqual([100, 1600]);
+    expect(p.widget.rowRadius).toBe(30);
+    expect(p.widget.focus).toEqual({
+      cycle: false,
+      intervalS: 2,
+      transition: 'fade',
+      transitionMs: 1500,
+    });
+    expect(p.widget.dock.edge).toBeNull();
+    expect(p.widget.dock.hideDelayMs).toBe(0);
+    expect(p.items.cpu.upColor).toBeNull();
   });
 
   it('returns the defaults for nothing usable', () => {

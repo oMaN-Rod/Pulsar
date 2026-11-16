@@ -121,7 +121,7 @@ export function withItemColors(v: Resolved, p: Profile): Resolved {
   const items = { ...v.items };
   for (const [k, it] of Object.entries(p.items) as [ItemKey, ItemSettings][])
     if (it.color) items[k] = it.color;
-  return { ...v, items, up: p.items.network.color ?? v.up };
+  return { ...v, items, up: p.items.network.upColor ?? v.up };
 }
 
 export const labelFor = (k: ItemKey, p: Profile) =>
@@ -242,7 +242,7 @@ export function renderTile(k: ItemKey, ctx: TileContext, connDot = dotOn(ctx.p))
   const net = k === 'network';
   const upOnly = net && p.network.show === 'upload';
   const base = graphColor(k, v, sim, p, item, light);
-  const up = item.colorMode === 'item' && (!p.accentGraphs || item.color) ? v.up : base;
+  const up = item.colorMode === 'item' && (!p.accentGraphs || item.upColor) ? v.up : base;
   const c = upOnly ? up : base;
   const L = v.colorLabels ? v.items[k] : v.label;
   const T = v.text;
@@ -738,6 +738,7 @@ export interface TextCell {
   labelColor: string;
   valueColor: string;
   value: string;
+  above?: boolean;
 }
 
 export type TextColumn = { kind: 'cells'; cells: TextCell[] } | { kind: 'network'; rows: Run[][] };
@@ -767,10 +768,37 @@ export function textColumns(keys: ItemKey[], ctx: Omit<TileContext, 'item'>): Te
     pending = [];
   };
   for (const k of keys) {
+    const above = p.items[k].labelAbove;
     if (k === 'network') {
       flush();
       const c = graphColor(k, v, sim, p, p.items[k], light);
-      columns.push({ kind: 'network', rows: networkRows(sim, p, c, v.up, light) });
+      const rows = networkRows(sim, p, c, v.up, light);
+      if (!above) {
+        columns.push({ kind: 'network', rows });
+        continue;
+      }
+      for (const row of rows) {
+        const value = row.at(-1)?.text?.trim() ?? '';
+        columns.push({
+          kind: 'cells',
+          cells: [
+            {
+              key: k,
+              name: META[k].name,
+              label: row.slice(0, -1),
+              labelColor: v.label,
+              valueColor: v.text,
+              value,
+              above,
+            },
+          ],
+        });
+      }
+      continue;
+    }
+    if (above) {
+      flush();
+      columns.push({ kind: 'cells', cells: [{ ...cell(k), above }] });
       continue;
     }
     pending.push(k);

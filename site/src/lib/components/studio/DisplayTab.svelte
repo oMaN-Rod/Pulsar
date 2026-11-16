@@ -5,6 +5,7 @@
     FONTS,
     LOAD_UNITS,
     MAX_BPS,
+    SHAPE_RADII,
     TEXT_GAPS,
     typedLabel,
     thresholdsFor,
@@ -72,6 +73,46 @@
   ]}
   onchange={(v) => (p.mode = v)}
 />
+<section>
+  <h2 class="eyebrow">Shape</h2>
+  <SegField
+    name="Shape"
+    value={p.shape}
+    options={[
+      ['rectangle', 'Rectangle'],
+      ['pill', 'Pill'],
+      ['chips', 'Chips'],
+    ]}
+    onchange={(v) => (p.shape = v)}
+  />
+  <label class="check">
+    <input
+      type="checkbox"
+      checked={p.shapeRadius !== null}
+      disabled={p.shape === 'rectangle'}
+      onchange={(e) => (p.shapeRadius = e.currentTarget.checked ? 8 : null)}
+    />
+    <span>Custom corner radius</span>
+  </label>
+  <RangeField
+    name="Corner radius"
+    min={SHAPE_RADII[0]}
+    max={SHAPE_RADII[1]}
+    value={p.shapeRadius ?? 8}
+    output={p.shapeRadius === null ? 'Fully round' : `${p.shapeRadius} px`}
+    disabled={p.shape === 'rectangle' || p.shapeRadius === null}
+    oninput={(v) => (p.shapeRadius = v)}
+  />
+  <CheckField
+    name="Blur when floating"
+    bind:checked={p.floatBlur}
+    disabled={p.shape === 'rectangle'}
+  />
+  <p class="note">
+    One pill around all the items, or a chip each. A floating pill or chips blur what is behind
+    them.
+  </p>
+</section>
 <section>
   <h2 class="eyebrow">Fit</h2>
   <CheckField name="Fit to the taskbar" bind:checked={p.fit.enabled} />

@@ -62,15 +62,56 @@ export const GRAPH_STYLES: (Choice<GraphStyle> & { only?: ItemKey[] })[] = [
 export const stylesFor = (key: unknown) =>
   GRAPH_STYLES.filter((s) => !s.only || (s.only as unknown[]).includes(key));
 
-export type WidgetStyle = 'sparklines' | 'tiles' | 'meters' | 'dials' | 'core_wall';
+export type WidgetStyle = 'sparklines' | 'tiles' | 'meters' | 'dials' | 'core_wall' | 'cards';
 
 export const WIDGET_STYLES: Choice<WidgetStyle>[] = [
   { id: 'sparklines', name: 'Sparklines' },
   { id: 'tiles', name: 'Tiles' },
   { id: 'meters', name: 'Meters' },
   { id: 'dials', name: 'Dials' },
+  { id: 'cards', name: 'Device cards' },
   { id: 'core_wall', name: 'Core wall' },
 ];
+
+export type WidgetLayout =
+  'auto' | 'dashboard' | 'lanes' | 'tiles' | 'meters' | 'dials' | 'strip' | 'rings' | 'focus';
+
+export const WIDGET_LAYOUTS: Choice<WidgetLayout>[] = [
+  { id: 'auto', name: 'Automatic' },
+  { id: 'dashboard', name: 'Dashboard' },
+  { id: 'lanes', name: 'Lanes' },
+  { id: 'tiles', name: 'Tiles' },
+  { id: 'meters', name: 'Meters' },
+  { id: 'dials', name: 'Dials' },
+  { id: 'strip', name: 'Strip' },
+  { id: 'rings', name: 'Rings' },
+  { id: 'focus', name: 'Focus' },
+];
+
+export type WidgetMaterial = 'solid' | 'glass' | 'acrylic' | 'clear';
+
+export const WIDGET_MATERIALS: Choice<WidgetMaterial>[] = [
+  { id: 'solid', name: 'Solid' },
+  { id: 'glass', name: 'Glass' },
+  { id: 'acrylic', name: 'Acrylic' },
+  { id: 'clear', name: 'Clear' },
+];
+
+export type ScreenEdge = 'left' | 'top' | 'right' | 'bottom';
+export const SCREEN_EDGES: ScreenEdge[] = ['left', 'top', 'right', 'bottom'];
+export type PushStrength = 'light' | 'medium' | 'firm';
+export type OverFullscreen = 'never' | 'hotkey' | 'hotkey_and_edge';
+export type FocusTransition = 'none' | 'fade' | 'slide' | 'slide_up';
+export type StripShape = 'rectangle' | 'pill' | 'chips';
+
+export const SHAPE_RADII = [0, 24] as const;
+export const ROW_RADII = [0, 30] as const;
+export const HIDE_DELAYS_MS = [0, 5000] as const;
+export const FOCUS_INTERVALS_S = [2, 120] as const;
+export const FOCUS_TRANSITIONS_MS = [100, 1500] as const;
+export const WIDGET_WIDTHS = [220, 600] as const;
+export const WIDGET_CHOSEN_WIDTHS = [100, 2400] as const;
+export const WIDGET_CHOSEN_HEIGHTS = [32, 1600] as const;
 
 export type Detail = 'simple' | 'standard' | 'detailed';
 
@@ -159,6 +200,10 @@ export interface ItemSettings {
   popupGraphHeight: number | null;
   widgetStyle: WidgetStyle | null;
   widgetDetail: Detail | null;
+  /** Text mode: the label above the value, in a column of its own. */
+  labelAbove: boolean;
+  /** Network only: the upload color, as `color` is the download one. */
+  upColor: string | null;
 }
 
 /** An imported profile file and the site's own writing of it at the time, as TOML. */
@@ -187,6 +232,10 @@ export interface Profile {
   verticalLabels: boolean;
   accentGraphs: boolean;
   position: 'left' | 'right' | 'floating';
+  shape: StripShape;
+  /** The corner radius of a pill or chip; `null` rounds the ends fully. */
+  shapeRadius: number | null;
+  floatBlur: boolean;
   font: { family: string; size: number; bold: boolean };
   textGaps: { item: number; label: number; row: number };
   /** In place of the theme's colors on the overlay; `null` keeps the theme's. */
@@ -222,11 +271,38 @@ export interface Profile {
   };
   widget: {
     enabled: boolean;
+    layer: 'desktop' | 'on_top';
     style: WidgetStyle;
     detail: Detail;
     width: number;
     opacity: number;
     background: string | null;
+    material: WidgetMaterial;
+    /** 0–100: how strongly the background color tints Glass. */
+    glassTint: number;
+    separate: boolean;
+    border: boolean;
+    networkInline: boolean;
+    sizing: 'content' | 'chosen';
+    layout: WidgetLayout;
+    /** Logical pixels, while sized by dragging. */
+    size: [number, number];
+    /** The corners of the Strip and Rings layouts; `null` rounds the ends fully. */
+    rowRadius: number | null;
+    focus: {
+      cycle: boolean;
+      intervalS: number;
+      transition: FocusTransition;
+      transitionMs: number;
+    };
+    /** `edge: null` leaves the widget where it was put. */
+    dock: {
+      edge: ScreenEdge | null;
+      push: PushStrength;
+      hideDelayMs: number;
+      lip: boolean;
+      overFullscreen: OverFullscreen;
+    };
   };
 }
 
@@ -277,6 +353,8 @@ function cleanItem(k: ItemKey, saved: Partial<ItemSettings> | undefined): ItemSe
   return {
     ...it,
     color: hexOrNull(it.color),
+    labelAbove: it.labelAbove === true,
+    upColor: k === 'network' ? hexOrNull(it.upColor) : null,
     label: cleanLabel(it.label),
     shortLabel: cleanLabel(it.shortLabel),
     popupWidth: sized(it.popupWidth, ...POPUP_WIDTHS),
@@ -304,6 +382,8 @@ export function defaultItem(k: ItemKey): ItemSettings {
     popupGraphHeight: null,
     widgetStyle: null,
     widgetDetail: null,
+    labelAbove: false,
+    upColor: null,
   };
 }
 
@@ -325,6 +405,9 @@ export function defaultProfile(): Profile {
     verticalLabels: false,
     accentGraphs: false,
     position: 'right',
+    shape: 'rectangle',
+    shapeRadius: null,
+    floatBlur: true,
     font: { family: '', size: 9, bold: false },
     textGaps: { item: 10, label: 4, row: 0 },
     overrides: {
@@ -358,11 +441,83 @@ export function defaultProfile(): Profile {
     popup: { width: 300, graphHeight: 72, processes: 5, background: 'translucent', graph: true },
     widget: {
       enabled: true,
+      layer: 'desktop',
       style: 'sparklines',
       detail: 'simple',
       width: 280,
       opacity: 90,
       background: null,
+      material: 'solid',
+      glassTint: 0,
+      separate: false,
+      border: false,
+      networkInline: false,
+      sizing: 'content',
+      layout: 'auto',
+      size: [340, 420],
+      rowRadius: null,
+      focus: { cycle: false, intervalS: 8, transition: 'fade', transitionMs: 350 },
+      dock: {
+        edge: null,
+        push: 'medium',
+        hideDelayMs: 300,
+        lip: false,
+        overFullscreen: 'hotkey',
+      },
+    },
+  };
+}
+
+const LAYERS = ['desktop', 'on_top'] as const;
+const SIZINGS = ['content', 'chosen'] as const;
+const SHAPES = ['rectangle', 'pill', 'chips'] as const;
+const PUSHES = ['light', 'medium', 'firm'] as const;
+const OVER_FULLSCREEN = ['never', 'hotkey', 'hotkey_and_edge'] as const;
+const TRANSITIONS = ['none', 'fade', 'slide', 'slide_up'] as const;
+
+type SavedWidget = Partial<Omit<Profile['widget'], 'focus' | 'dock'>> & {
+  focus?: Partial<Profile['widget']['focus']>;
+  dock?: Partial<Profile['widget']['dock']>;
+};
+
+/** `w` with every field in range, as Pulsar loads it. */
+function cleanWidget(w: SavedWidget): Profile['widget'] {
+  const base = defaultProfile().widget;
+  const focus: Record<string, unknown> = { ...w.focus };
+  const dock: Record<string, unknown> = { ...w.dock };
+  const size = Array.isArray(w.size) ? w.size : base.size;
+  return {
+    enabled: typeof w.enabled === 'boolean' ? w.enabled : base.enabled,
+    layer: pick(w.layer, LAYERS, base.layer),
+    style: pick(w.style, ids(WIDGET_STYLES), base.style),
+    detail: pick(w.detail, ids(DETAILS), base.detail),
+    width: whole(w.width, ...WIDGET_WIDTHS, base.width),
+    opacity: whole(w.opacity, 0, 100, base.opacity),
+    background: hexOrNull(w.background),
+    material: pick(w.material, ids(WIDGET_MATERIALS), base.material),
+    glassTint: whole(w.glassTint, 0, 100, base.glassTint),
+    separate: w.separate === true,
+    border: w.border === true,
+    networkInline: w.networkInline === true,
+    sizing: pick(w.sizing, SIZINGS, base.sizing),
+    layout: pick(w.layout, ids(WIDGET_LAYOUTS), base.layout),
+    size: [
+      whole(size[0], ...WIDGET_CHOSEN_WIDTHS, base.size[0]),
+      whole(size[1], ...WIDGET_CHOSEN_HEIGHTS, base.size[1]),
+    ],
+    rowRadius: sized(w.rowRadius, ...ROW_RADII),
+    focus: {
+      cycle: focus.cycle === true,
+      intervalS: whole(focus.intervalS, ...FOCUS_INTERVALS_S, base.focus.intervalS),
+      transition: pick(focus.transition, TRANSITIONS, base.focus.transition),
+      transitionMs: whole(focus.transitionMs, ...FOCUS_TRANSITIONS_MS, base.focus.transitionMs),
+    },
+    dock: {
+      edge: pick(dock.edge, SCREEN_EDGES, null),
+      push: pick(dock.push, PUSHES, base.dock.push),
+      hideDelayMs: whole(dock.hideDelayMs, ...HIDE_DELAYS_MS, base.dock.hideDelayMs),
+      lip: dock.lip === true,
+      overFullscreen: pick(dock.overFullscreen, OVER_FULLSCREEN, base.dock.overFullscreen),
     },
   };
 }
@@ -378,7 +533,6 @@ export function mergeProfile(input: unknown): Profile {
   if (!saved?.items) return base;
   const savedItems = saved.items as Partial<Record<ItemKey, Partial<ItemSettings>>>;
   const font = { ...base.font, ...saved.font };
-  const widget = { ...base.widget, ...saved.widget };
   const net = { ...base.network, ...saved.network };
   const source = saved.source as ProfileSource | null | undefined;
   return {
@@ -386,6 +540,9 @@ export function mergeProfile(input: unknown): Profile {
     ...(saved as Partial<Profile>),
     source: typeof source?.file === 'string' && typeof source.written === 'string' ? source : null,
     position: pick(saved.position, POSITIONS, base.position),
+    shape: pick(saved.shape, SHAPES, base.shape),
+    shapeRadius: sized(saved.shapeRadius, ...SHAPE_RADII),
+    floatBlur: saved.floatBlur !== false,
     font: {
       ...font,
       family: fontName(font.family),
@@ -427,7 +584,7 @@ export function mergeProfile(input: unknown): Profile {
     },
     disk: { value: pick(saved.disk?.value, DISK_VALUES, base.disk.value) },
     popup: { ...base.popup, ...saved.popup },
-    widget: { ...widget, background: hexOrNull(widget.background) },
+    widget: cleanWidget((saved.widget ?? {}) as SavedWidget),
     fit: { ...base.fit, ...saved.fit },
     order: complete(saved.order),
     widgetOrder:
@@ -486,6 +643,9 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
   kv('mode', p.mode);
   if (themeId !== 'windows') kv('theme', themeId);
   kv('position', p.position);
+  if (p.shape !== 'rectangle') kv('shape', p.shape);
+  if (p.shapeRadius !== null) kv('shape_radius', p.shapeRadius);
+  if (!p.floatBlur) kv('float_blur', false);
   kv('labels', p.labels);
   kv('icons', p.icons || p.labels === 'none');
   kv('graph_inline', p.inline);
@@ -537,15 +697,38 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
   kv('width', p.popup.width);
   kv('graph_height', p.popup.graphHeight);
   const widgetItems = widgetKeys(p);
+  const w = p.widget;
   lines.push('', '[widget]');
-  kv('enabled', p.widget.enabled && widgetItems.length > 0);
-  kv('style', p.widget.style);
-  kv('detail', p.widget.detail);
-  kv('width', p.widget.width);
-  kv('opacity', p.widget.opacity);
-  if (p.widget.background) kv('background', p.widget.background);
+  kv('enabled', w.enabled && widgetItems.length > 0);
+  if (w.layer !== 'desktop') kv('layer', w.layer);
+  kv('style', w.style);
+  kv('detail', w.detail);
+  kv('width', w.width);
+  kv('opacity', w.opacity);
+  if (w.background) kv('background', w.background);
+  kv('material', w.material);
+  if (w.glassTint) kv('glass_tint', w.glassTint);
+  if (w.separate) kv('separate', true);
+  if (w.border) kv('border', true);
+  if (w.networkInline) kv('network_inline', true);
+  kv('sizing', w.sizing);
+  kv('layout', w.layout);
+  kv('size', w.size);
+  if (w.rowRadius !== null) kv('row_radius', w.rowRadius);
+  if (w.focus.cycle) kv('focus_cycle', true);
+  kv('focus_interval_s', w.focus.intervalS);
+  kv('focus_transition', w.focus.transition);
+  kv('focus_transition_ms', w.focus.transitionMs);
   lines.push(`items = [${widgetItems.map(q).join(', ')}]`);
   if (p.widgetOrder.length) lines.push(`order = [${p.widgetOrder.map(q).join(', ')}]`);
+  if (w.dock.edge) {
+    lines.push('', '[widget.dock]');
+    kv('edge', w.dock.edge);
+    kv('push', w.dock.push);
+    kv('hide_delay_ms', w.dock.hideDelayMs);
+    kv('lip', w.dock.lip);
+    kv('over_fullscreen', w.dock.overFullscreen);
+  }
   for (const k of p.order) {
     const it = p.items[k];
     lines.push('', '[[items]]');
@@ -559,6 +742,8 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
     if (it.tileWidth) kv('tile_width', it.tileWidth);
     if (it.tileHeight) kv('tile_height', it.tileHeight);
     if (it.color) kv('color', it.color);
+    if (k === 'network' && it.upColor) kv('up_color', it.upColor);
+    if (it.labelAbove) kv('label_above', true);
     const label = cleanLabel(it.label);
     const shortLabel = cleanLabel(it.shortLabel);
     if (label) kv('label', label);
@@ -599,6 +784,9 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
   p.name = typeof doc.name === 'string' && doc.name.trim() ? doc.name.trim() : fallbackName;
   p.mode = pick(d.mode, ['graph', 'text'], p.mode);
   p.position = pick(d.position, POSITIONS, p.position);
+  p.shape = pick(d.shape, SHAPES, p.shape);
+  p.shapeRadius = sized(d.shape_radius, ...SHAPE_RADII);
+  p.floatBlur = d.float_blur !== false;
   p.labels = pick(d.labels, ['full', 'short', 'none'], p.labels);
   p.icons = d.icons === true;
   p.inline = d.graph_inline === true;
@@ -654,13 +842,38 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
   p.popup.width = whole(pop.width, 220, 800, p.popup.width);
   p.popup.graphHeight = whole(pop.graph_height, 24, 400, p.popup.graphHeight);
   const w = table(doc.widget);
-  p.widget.enabled = w.enabled !== false;
-  p.widget.style = pick(w.style, ids(WIDGET_STYLES), p.widget.style);
-  p.widget.detail = pick(w.detail, ids(DETAILS), p.widget.detail);
-  p.widget.width = whole(w.width, 220, 600, p.widget.width);
-  p.widget.opacity = whole(w.opacity, 0, 100, p.widget.opacity);
-  if (typeof w.background === 'string' && /^#[0-9a-fA-F]{6}$/.test(w.background))
-    p.widget.background = w.background.toUpperCase();
+  const dock = table(w.dock);
+  p.widget = cleanWidget({
+    enabled: w.enabled !== false,
+    layer: w.layer,
+    style: w.style,
+    detail: w.detail,
+    width: w.width,
+    opacity: w.opacity,
+    background: w.background,
+    material: w.material,
+    glassTint: w.glass_tint,
+    separate: w.separate,
+    border: w.border,
+    networkInline: w.network_inline,
+    sizing: w.sizing,
+    layout: w.layout,
+    size: w.size,
+    rowRadius: w.row_radius,
+    focus: {
+      cycle: w.focus_cycle,
+      intervalS: w.focus_interval_s,
+      transition: w.focus_transition,
+      transitionMs: w.focus_transition_ms,
+    },
+    dock: {
+      edge: dock.edge,
+      push: dock.push,
+      hideDelayMs: dock.hide_delay_ms,
+      lip: dock.lip,
+      overFullscreen: dock.over_fullscreen,
+    },
+  } as SavedWidget);
   if (Array.isArray(doc.items)) {
     const entries = doc.items.map((it) => table(it as TomlValue));
     p.order = complete(entries.map((it) => it.kind));
@@ -677,6 +890,8 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
       item.tileWidth = sized(it.tile_width, 16, 400);
       item.tileHeight = sized(it.tile_height, 16, 200);
       item.color = hexOrNull(it.color);
+      item.upColor = it.kind === 'network' ? hexOrNull(it.up_color) : null;
+      item.labelAbove = it.label_above === true;
       item.label = cleanLabel(it.label);
       item.shortLabel = cleanLabel(it.short_label);
       item.popupWidth = sized(it.popup_width, ...POPUP_WIDTHS);

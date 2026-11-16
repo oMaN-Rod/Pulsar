@@ -2,14 +2,16 @@
   import type { Tile } from '../styles.ts';
   import Runs from './Runs.svelte';
 
-  let { tile }: { tile: Tile } = $props();
+  let { tile, room = [0, 0] }: { tile: Tile; room?: [number, number] } = $props();
+  const stretched = $derived(room[0] > 0 || room[1] > 0);
 </script>
 
 <svg
-  class="tile-svg"
+  class={['tile-svg', stretched && 'stretched']}
   width={tile.w}
   height={tile.h}
   viewBox="0 0 {tile.w} {tile.h}"
+  preserveAspectRatio={stretched ? 'none' : undefined}
   aria-hidden="true"
 >
   {#each tile.shapes as s, i (i)}
@@ -24,6 +26,14 @@
     {/if}
   {/each}
 </svg>
-{#each tile.spans as span, i (i)}
-  <span class={['t', span.small && 'small']} style={span.style}><Runs runs={span.runs} /></span>
-{/each}
+{#if stretched}
+  <span class="tile-text" style:left="{room[0]}px" style:right="{room[1]}px">
+    {#each tile.spans as span, i (i)}
+      <span class={['t', span.small && 'small']} style={span.style}><Runs runs={span.runs} /></span>
+    {/each}
+  </span>
+{:else}
+  {#each tile.spans as span, i (i)}
+    <span class={['t', span.small && 'small']} style={span.style}><Runs runs={span.runs} /></span>
+  {/each}
+{/if}

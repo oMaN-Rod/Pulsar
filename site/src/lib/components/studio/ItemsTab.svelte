@@ -85,6 +85,8 @@
     </label>
   {/each}
   <p class="note">On the taskbar only, up to {MAX_LABEL_CHARS} characters. Empty keeps Pulsar's.</p>
+  <CheckField name="Label above value" bind:checked={item.labelAbove} />
+  <p class="note">For the Text overlay: the label sits above the value, in a column of its own.</p>
 </section>
 <section>
   {#if app.selected === 'disk'}
@@ -121,6 +123,15 @@
     bind:value={item.color}
     fallback={dark.items[app.selected]}
   />
+  {#if app.selected === 'network'}
+    <OwnColorField
+      name="Upload color"
+      themeName="The theme's color"
+      hint="Upload, as the item color is download"
+      bind:value={item.upColor}
+      fallback={dark.up}
+    />
+  {/if}
   <CheckField name="Trend arrow against the recent average" bind:checked={item.trend} />
   <SizedField
     name="Tile width"

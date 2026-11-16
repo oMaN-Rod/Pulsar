@@ -27,6 +27,8 @@
   import TextOverlay from './TextOverlay.svelte';
   import TileArt from './TileArt.svelte';
   import WidgetContent from './WidgetContent.svelte';
+  import { WIDGET_CHOSEN_HEIGHTS, WIDGET_CHOSEN_WIDTHS } from '../profile.ts';
+  import { arrange, boxSize, heightRange, minWidth, PUSH_MS, skin } from '../widget.ts';
 
   let { children }: { children?: Snippet } = $props();
 
@@ -352,6 +354,83 @@
     if (to >= 0 && keys.indexOf(key) !== to) moveKey(app.profile, 'widget', key, to);
   }
 
+  const widgetItems = $derived(widgetKeys(app.profile));
+  const arrangement = $derived(arrange(app.profile.widget, widgetItems.length));
+  const widgetBox = $derived(boxSize(app.profile.widget, arrangement));
+  const widgetSkin = $derived(
+    skin(app.profile.widget, app.profile.widget.background ?? themed.panel, app.light),
+  );
+  const dockEdge = $derived(app.profile.widget.dock.edge);
+
+  let revealed = $state(false);
+  let pushTimer: ReturnType<typeof setTimeout> | undefined;
+  let hideTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function edgeEnter() {
+    clearTimeout(hideTimer);
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => (revealed = true), PUSH_MS[app.profile.widget.dock.push]);
+  }
+  const edgeLeave = () => clearTimeout(pushTimer);
+  function widgetEnter() {
+    clearTimeout(hideTimer);
+  }
+  function widgetLeave() {
+    if (!dockEdge || widgetDrag || sizing) return;
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => (revealed = false), app.profile.widget.dock.hideDelayMs);
+  }
+
+  $effect(() => {
+    if (!dockEdge) revealed = false;
+  });
+
+  let sizing = $state<{
+    id: number;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    sx: -1 | 0 | 1;
+    sy: -1 | 0 | 1;
+  } | null>(null);
+
+  function gripDown(e: PointerEvent, sx: -1 | 0 | 1, sy: -1 | 0 | 1) {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    const [w, h] = app.profile.widget.size;
+    sizing = { id: e.pointerId, x: e.clientX, y: e.clientY, w, h, sx, sy };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  }
+
+  function gripMove(e: PointerEvent) {
+    if (!sizing || e.pointerId !== sizing.id) return;
+    const wd = app.profile.widget;
+    const heights = heightRange(wd.layout) ?? WIDGET_CHOSEN_HEIGHTS;
+    const w = sizing.w + sizing.sx * (e.clientX - sizing.x);
+    const h = sizing.h + sizing.sy * (e.clientY - sizing.y);
+    wd.size = [
+      Math.round(Math.max(minWidth(wd.layout), Math.min(WIDGET_CHOSEN_WIDTHS[1], w))),
+      Math.round(Math.max(heights[0], Math.min(heights[1], h))),
+    ];
+  }
+
+  const gripUp = () => (sizing = null);
+
+  /** The grips on the sides a docked or anchored widget can grow from. */
+  const grips = $derived.by((): [string, -1 | 0 | 1, -1 | 0 | 1][] => {
+    const fixedH = (() => {
+      const r = heightRange(app.profile.widget.layout);
+      return !!r && r[0] === r[1];
+    })();
+    const x: -1 | 1 = dockEdge === 'left' ? 1 : -1;
+    const y: -1 | 1 = dockEdge === 'bottom' ? -1 : 1;
+    const list: [string, -1 | 0 | 1, -1 | 0 | 1][] = [[x < 0 ? 'w' : 'e', x, 0]];
+    if (!fixedH)
+      list.push([y > 0 ? 's' : 'n', 0, y], [`${y > 0 ? 's' : 'n'}${x < 0 ? 'w' : 'e'}`, x, y]);
+    return list;
+  });
+
   function closeApp(id: string) {
     app.taskbar.closed = [...app.taskbar.closed, id];
   }
@@ -490,8 +569,23 @@
     const sizes = rung.keys.flatMap((k) =>
       renderTiles(k, { v, sim, p: rung.p, item: rung.p.items[k], light, fixedWidth }),
     );
+    const ends = upright
+      ? 0
+      : sizes.reduce(
+          (s, d, i) =>
+            s +
+            (rung.p.shape === 'chips'
+              ? 2 * corner(d.h)
+              : rung.p.shape === 'pill' && (i === 0 || i === sizes.length - 1)
+                ? corner(d.h) * (sizes.length === 1 ? 2 : 1)
+                : 0),
+          0,
+        );
     return (
-      sizes.reduce((s, d) => s + (upright ? d.h : d.w), 0) + GAP * Math.max(0, sizes.length - 1) + 4
+      sizes.reduce((s, d) => s + (upright ? d.h : d.w), 0) +
+      GAP * Math.max(0, sizes.length - 1) +
+      4 +
+      ends
     );
   }
 
@@ -610,6 +704,31 @@
     return lay.trayKey ? sim.text(lay.trayKey) : '';
   });
 
+  /** Pulsar's corner for a capsule `thickness` pixels across. */
+  const corner = (thickness: number) => {
+    const full = Math.floor(thickness / 2);
+    return app.profile.shapeRadius === null ? full : Math.min(app.profile.shapeRadius, full);
+  };
+  const shape = $derived(
+    lay.p.mode === 'text' && app.profile.shape === 'chips' ? 'pill' : app.profile.shape,
+  );
+  /** Room at each end of a tile for the round ends of its pill or chip. */
+  function endRoom(i: number, h: number): [number, number] {
+    if (shape === 'rectangle' || vertical) return [0, 0];
+    const r = corner(h);
+    if (shape === 'chips') return [r, r];
+    return [i === 0 ? r : 0, i === tiles.length - 1 ? r : 0];
+  }
+  const floatGlass = $derived(
+    lay.where === 'float' && app.profile.shape !== 'rectangle' && app.profile.floatBlur,
+  );
+  const overlayRadius = $derived.by(() => {
+    if (shape === 'rectangle') return null;
+    if (vertical) return `${corner(SIDE - 2)}px`;
+    const h = lay.p.mode === 'text' ? 40 : Math.max(0, ...tiles.map((t) => t.tile.h)) + 4;
+    return `${corner(h)}px`;
+  });
+
   const dragStyle = $derived(
     drag?.active
       ? vertical
@@ -695,6 +814,10 @@
 <svelte:document
   onpointerdown={(e) => {
     if (menu && ctxEl && !ctxEl.contains(e.target as Node)) closeMenu();
+    if (revealed && widgetEl && !widgetEl.contains(e.target as Node)) revealed = false;
+  }}
+  onkeydown={(e) => {
+    if (e.key === 'Escape' && revealed) revealed = false;
   }}
 />
 
@@ -724,15 +847,23 @@
 
 {#snippet overlay()}
   <div
-    class={['overlay', lay.p.mode === 'text' && 'text', drag?.active && 'dragging']}
+    class={[
+      'overlay',
+      lay.p.mode === 'text' && 'text',
+      drag?.active && 'dragging',
+      `shape-${shape}`,
+    ]}
     role="group"
     aria-label="Pulsar overlay"
     bind:this={overlayEl}
     style:font-family={fontCss(lay.p.font)}
     style:font-size="{fontPx(lay.p.font)}px"
+    style:--corner={overlayRadius}
     style:background={colors.panelOpacity
       ? rgba(colors.panel, colors.panelOpacity / 100)
-      : 'transparent'}
+      : shape !== 'rectangle' && lay.p.mode === 'text'
+        ? rgba(colors.tile, Math.max(colors.tileOpacity, 8) / 100)
+        : 'transparent'}
     onpointermove={overlayMove}
     onpointerleave={() => hover(null)}
     onfocusin={(e) => hover(keyAt(e))}
@@ -752,7 +883,8 @@
         onkeydown={overlayKey}
       />
     {:else}
-      {#each tiles as t (t.id)}
+      {#each tiles as t, i (t.id)}
+        {@const ends = endRoom(i, t.tile.h)}
         <button
           type="button"
           class={[
@@ -764,14 +896,14 @@
           data-key={t.key}
           aria-label={META[t.key].name}
           aria-roledescription="Pulsar item; Alt and the arrow keys move it"
-          style:width="{t.tile.w}px"
+          style:width="{t.tile.w + ends[0] + ends[1]}px"
           style:height="{t.tile.h}px"
           style:background={t.tile.bg ?? rgba(colors.tile, colors.tileOpacity / 100)}
           style:transform={drag?.key === t.key ? dragStyle : null}
           onclick={overlayClick}
           onkeydown={overlayKey}
         >
-          <TileArt tile={t.tile} />
+          <TileArt tile={t.tile} room={ends} />
         </button>
       {/each}
     {/if}
@@ -889,37 +1021,79 @@
     onchange={wallpaperPicked}
   />
   <div class="desk-content">{@render children?.()}</div>
+  {#if app.profile.widget.enabled && dockEdge}
+    <div
+      class="dock-zone"
+      data-dock={dockEdge}
+      aria-hidden="true"
+      onpointerenter={edgeEnter}
+      onpointerleave={edgeLeave}
+    ></div>
+    {#if app.profile.widget.dock.lip && !revealed}
+      <div class="dock-lip" data-dock={dockEdge} aria-hidden="true"></div>
+    {/if}
+  {/if}
   <div
-    class={['widget', widgetDrag?.active && 'dragging']}
+    class={[
+      'widget',
+      widgetDrag?.active && 'dragging',
+      widgetSkin.blur && 'blur',
+      widgetBox.height !== null && 'sized',
+      dockEdge && `docked dock-${dockEdge}`,
+      dockEdge && !revealed && 'stowed',
+    ]}
     aria-label="Pulsar desktop widget"
     hidden={!app.profile.widget.enabled}
     bind:this={widgetEl}
-    style:width="{app.profile.widget.width}px"
-    style:background={rgba(
-      app.profile.widget.background ?? themed.panel,
-      app.profile.widget.opacity / 100,
-    )}
+    style:width={widgetBox.width === null ? null : `${widgetBox.width}px`}
+    style:height={widgetBox.height === null ? null : `${widgetBox.height}px`}
     style:color={themed.text}
     style:font-family={fontCss(app.profile.font)}
     onpointerdown={widgetDown}
     onpointermove={widgetMove}
     onpointerup={endWidgetDrag}
     onpointercancel={endWidgetDrag}
+    onpointerenter={widgetEnter}
+    onpointerleave={widgetLeave}
     role="group"
   >
     <div class="widget-body" bind:this={widgetBody}>
       {#if app.profile.widget.enabled}
         <WidgetContent
-          items={widgetKeys(app.profile)}
+          items={widgetItems}
           widget={app.profile.widget}
           settings={app.profile.items}
           v={themed}
+          {arrangement}
+          skin={widgetSkin}
           held={widgetDrag?.key ?? null}
         />
       {/if}
     </div>
+    {#if app.profile.widget.sizing === 'chosen'}
+      {#each grips as [side, sx, sy] (side)}
+        <span
+          class="grip"
+          data-side={side}
+          aria-hidden="true"
+          onpointerdown={(e) => gripDown(e, sx, sy)}
+          onpointermove={gripMove}
+          onpointerup={gripUp}
+          onpointercancel={gripUp}
+        ></span>
+      {/each}
+    {/if}
   </div>
-  <div class="float-box" hidden={lay.where !== 'float'} style:background={rgba(colors.panel, 0.92)}>
+  <div
+    class={['float-box', shape !== 'rectangle' && `capsule ${shape}`, floatGlass && 'glass']}
+    hidden={lay.where !== 'float'}
+    style:--corner={overlayRadius}
+    style:background={shape === 'rectangle'
+      ? rgba(colors.panel, 0.92)
+      : floatGlass && shape === 'pill'
+        ? rgba(themed.panel, 0.45)
+        : 'transparent'}
+  >
     {#if lay.where === 'float'}
       {@render overlay()}
     {/if}
