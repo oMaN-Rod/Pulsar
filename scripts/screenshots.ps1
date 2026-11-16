@@ -49,7 +49,7 @@ if (-not $SkipBuild) {
     if ($LASTEXITCODE) { throw 'cargo build failed' }
 }
 
-Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Drawing, System.Windows.Forms
 Add-Type -TypeDefinition @'
 using System;
 using System.Collections.Generic;
@@ -126,6 +126,8 @@ function Write-Config {
         # Band names to #RRGGBB, for color by load.
         [hashtable]$LoadColors = @{},
         [string[]]$TextOnly = @(),
+        [string[]]$LabelAbove = @(),
+        [string]$Shape = 'rectangle',
         [string]$Detail = 'standard',
         [string]$Background = 'translucent',
         # Floating above the taskbar with a panel behind it.
@@ -135,6 +137,12 @@ function Write-Config {
         [string]$WidgetDetail = 'simple',
         [hashtable]$WidgetStyles = @{},
         [string]$WidgetBackground,
+        [string]$WidgetMaterial = 'solid',
+        [switch]$WidgetSeparate,
+        [int]$WidgetGlassTint = 0,
+        [switch]$WidgetBorder,
+        [string]$WidgetLayout = 'auto',
+        [string[]]$WidgetItems = @(),
         # Executable names to count as games, with the strip on.
         [string[]]$Games = @()
     )
@@ -154,6 +162,7 @@ vertical_labels = $("$VerticalLabels".ToLower())
 labels = "$Labels"
 icons = $("$Icons".ToLower())
 hide_in_fullscreen = false
+shape = "$Shape"
 $(if ($Floating) { "position = `"floating`"`npanel_opacity = 75" })
 
 [display.load_colors]
@@ -175,6 +184,12 @@ style = "$Widget"
 detail = "$WidgetDetail"
 opacity = 100
 hide_in_fullscreen = false
+material = "$WidgetMaterial"
+separate = $("$WidgetSeparate".ToLower())
+glass_tint = $WidgetGlassTint
+border = $("$WidgetBorder".ToLower())
+layout = "$WidgetLayout"
+items = [$(($WidgetItems | ForEach-Object { "`"$_`"" }) -join ', ')]
 $(if ($WidgetBackground) { "background = `"$WidgetBackground`"" })
 
 "@
@@ -197,6 +212,7 @@ enabled = $("$($kind -in $Show)".ToLower())
 graph = $("$($kind -notin $TextOnly)".ToLower())
 style = "$style"
 trend = $("$($kind -in $Trend)".ToLower())
+label_above = $("$($kind -in $LabelAbove)".ToLower())
 color_mode = "$Color"
 $(if ($WidgetStyles.ContainsKey($kind)) { "widget_style = `"$($WidgetStyles[$kind])`"" })
 
@@ -222,6 +238,31 @@ function Save-Around([IntPtr]$h, [string]$Name, [int]$Pad = 12) {
     $r = Get-Rect $h
     Save-Screen ($r.Left - $Pad) ($r.Top - $Pad) ($r.Right + $Pad) ($r.Bottom + $Pad) $Name
     Write-Host "  $Name"
+}
+
+# A gradient window under $Rect, for a blurring material to show against.
+function Show-Backdrop($Rect, [int]$Pad = 80) {
+    $form = New-Object System.Windows.Forms.Form
+    $form.FormBorderStyle = 'None'
+    $form.ShowInTaskbar = $false
+    $form.StartPosition = 'Manual'
+    $form.Bounds = New-Object System.Drawing.Rectangle ($Rect.Left - $Pad), ($Rect.Top - $Pad), ($Rect.Right - $Rect.Left + 2 * $Pad), ($Rect.Bottom - $Rect.Top + 2 * $Pad)
+    $bmp = New-Object System.Drawing.Bitmap $form.Width, $form.Height
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $area = New-Object System.Drawing.Rectangle 0, 0, $bmp.Width, $bmp.Height
+    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush $area, ([System.Drawing.Color]::Black), ([System.Drawing.Color]::Black), 35.0
+    $blend = New-Object System.Drawing.Drawing2D.ColorBlend 3
+    $blend.Colors = [System.Drawing.ColorTranslator]::FromHtml('#22CDE9'), [System.Drawing.ColorTranslator]::FromHtml('#3F35BD'), [System.Drawing.ColorTranslator]::FromHtml('#121934')
+    $blend.Positions = 0.0, 0.5, 1.0
+    $brush.InterpolationColors = $blend
+    $g.FillRectangle($brush, $area)
+    $brush.Dispose(); $g.Dispose()
+    $form.BackgroundImage = $bmp
+    $form.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+    Start-Sleep -Milliseconds 1500
+    [System.Windows.Forms.Application]::DoEvents()
+    $form
 }
 
 function Send-ConfigChanged {
@@ -522,6 +563,9 @@ try {
             'overlay-text'         = @{ Mode = 'text' }
             'overlay-text-short'   = @{ Mode = 'text'; Labels = 'short' }
             'overlay-text-icons'   = @{ Mode = 'text'; Labels = 'none'; Icons = $true }
+            'overlay-text-label-above' = @{ Mode = 'text'; LabelAbove = $Showcase }
+            'overlay-shape-pill'   = @{ Shape = 'pill' }
+            'overlay-shape-chips'  = @{ Shape = 'chips' }
             'overlay-style-line'   = @{ Style = 'line' }
             'overlay-style-bars'   = @{ Style = 'bars' }
             'overlay-style-meter'  = @{ Style = 'meter' }
@@ -565,6 +609,10 @@ try {
         Send-ConfigChanged
         Park-Mouse
         Save-Around (Find-Window 'PulsarOverlay') 'overlay-floating' 16
+        Write-Config -Floating -Shape pill
+        Send-ConfigChanged
+        Park-Mouse
+        Save-Around (Find-Window 'PulsarOverlay') 'overlay-floating-pill' 16
     }
 
     if ('motion' -in $Parts) {
@@ -690,13 +738,23 @@ try {
             'widget-core-wall'  = @{ Widget = 'sparklines'; WidgetStyles = @{ cpu = 'core_wall' } }
             'widget-detailed'   = @{ Widget = 'sparklines'; WidgetDetail = 'detailed' }
             'widget-background' = @{ Widget = 'sparklines'; WidgetBackground = '#1E2A44' }
+            'widget-cards'      = @{ Widget = 'cards'; WidgetSeparate = $true }
+            'widget-glass'      = @{ Widget = 'sparklines'; WidgetMaterial = 'glass'; WidgetSeparate = $true }
+            'widget-acrylic'    = @{ Widget = 'sparklines'; WidgetMaterial = 'acrylic' }
+            'widget-layout-dashboard' = @{ Widget = 'sparklines'; WidgetLayout = 'dashboard' }
+            'widget-layout-strip'  = @{ Widget = 'sparklines'; WidgetLayout = 'strip' }
+            'widget-layout-rings'  = @{ Widget = 'sparklines'; WidgetLayout = 'rings' }
+            'widget-layout-focus'  = @{ Widget = 'sparklines'; WidgetLayout = 'focus'; WidgetItems = 'cpu' }
         }
         foreach ($name in $shots.Keys) {
             $options = $shots[$name]
             Write-Config @options
             Send-ConfigChanged
             Park-Mouse
-            Save-Around (Find-Window 'PulsarWidget') $name
+            $widget = Find-Window 'PulsarWidget'
+            $backdrop = if ($options.WidgetMaterial -in 'glass', 'acrylic') { Show-Backdrop (Get-Rect $widget) }
+            Save-Around $widget $name
+            if ($backdrop) { $backdrop.Close(); $backdrop.Dispose() }
         }
         Write-Config
         Send-ConfigChanged
@@ -755,31 +813,38 @@ try {
         $started += Start-Process (Join-Path $bin 'pulsar-settings.exe') -PassThru
         $settings = Find-Window $null 'Pulsar Settings'
         Start-Sleep -Seconds 2
-        # Navigation rows, by their centre in the sidebar; group headings sit between them.
-        $pages = 'items', 'layout', 'theme', 'popups', 'widget', 'sensors', 'drives', 'profiles', 'general', 'about'
-        $rows = 98, 142, 186, 230, 274, 352, 396, 474, 518, 562
-        # The CPU item's options, with the graph style picker.
-        Send-Click $settings 115 $rows[0]
-        Send-Click $settings 436 159
-        [void](Save-Window $settings 'settings-items-cpu')
-        Send-Wheel $settings 500 300 -4
-        [void](Save-Window $settings 'settings-items-cpu-2')
-        Write-Host '  settings-items-cpu'
-        Send-Wheel $settings 500 300 4
-        Send-Click $settings 436 159
-        for ($i = 0; $i -lt $pages.Count; $i++) {
-            Send-Click $settings 115 $rows[$i]
-            $previous = Save-Window $settings "settings-$($pages[$i])"
-            Write-Host "  settings-$($pages[$i])"
-            for ($n = 2; $n -lt 12; $n++) {
-                Send-Wheel $settings 500 300 -4
-                $hash = Save-Window $settings "settings-$($pages[$i])-$n"
-                if ($hash -eq $previous) {
-                    Remove-Item (Join-Path $out "settings-$($pages[$i])-$n.png")
-                    break
+        # Navigation rows and in-page tabs, by their centre in logical client pixels.
+        $pages = [ordered]@{
+            items = 97; layout = 137; theme = 177; popups = 217; widget = 257; sensors = 331
+            devices = 371; profiles = 445; shortcuts = 485; general = 525; about = 565
+        }
+        $tabY = 97
+        $tabs = @{
+            items   = [ordered]@{ '' = 287; 'load-colors' = 370 }
+            layout  = [ordered]@{ '' = 294; 'text' = 359; 'position' = 424 }
+            widget  = [ordered]@{ '' = 302; 'look' = 378; 'items' = 438 }
+            devices = [ordered]@{ '' = 283; 'graphics' = 351; 'network' = 434; 'ping' = 503 }
+        }
+        foreach ($page in $pages.Keys) {
+            # Items scrolls the chosen item's options, beside the list.
+            $wheelX = if ($page -eq 'items') { 740 } else { 500 }
+            $views = if ($tabs.ContainsKey($page)) { $tabs[$page] } else { @{ '' = $null } }
+            foreach ($tab in $views.Keys) {
+                Send-Click $settings 82 $pages[$page]
+                if ($null -ne $views[$tab]) { Send-Click $settings $views[$tab] $tabY }
+                $name = if ($tab) { "settings-$page-$tab" } else { "settings-$page" }
+                $previous = Save-Window $settings $name
+                Write-Host "  $name"
+                for ($n = 2; $n -lt 12; $n++) {
+                    Send-Wheel $settings $wheelX 300 -4
+                    $hash = Save-Window $settings "$name-$n"
+                    if ($hash -eq $previous) {
+                        Remove-Item (Join-Path $out "$name-$n.png")
+                        break
+                    }
+                    Write-Host "  $name-$n"
+                    $previous = $hash
                 }
-                Write-Host "  settings-$($pages[$i])-$n"
-                $previous = $hash
             }
         }
     }

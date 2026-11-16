@@ -32,12 +32,13 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 
 ## Highlights
 
-- **Graphs or text**, with one of twenty graph styles, a color and a popup detail chosen per item.
+- **Graphs or text**, with one of twenty graph styles, a color and a popup detail chosen per item, in a plain strip, one pill or a chip per item.
 - **Hover popups** at three levels of detail, with a translucent background that blurs what is behind them.
 - **A system details window**: processor, memory modules, graphics, drives, network, motherboard and every live sensor.
 - **GPU monitoring for any vendor**, read the way Task Manager does, with no drivers or vendor SDKs.
 - **CPU temperature and power, if you opt in**, through an optional [sensor service](#sensor-service).
-- **A desktop widget** with sparklines, tiles, meters or dials, and **themes** you can save and share, or design on [Pulsar Themes](https://oman-rod.github.io/Pulsar/).
+- **A desktop widget** with sparklines, tiles, meters, dials or device cards, nine layouts, glass or acrylic backgrounds, and an option to dock it to a screen edge, where it waits until you push the pointer against it.
+- **Themes** you can save and share, or design on [Pulsar Themes](https://oman-rod.github.io/Pulsar/).
 - **Frame rates and game sessions**: the frame rate of the app in front, a strip on the game's monitor while you play, and a summary when the game closes.
 - **Light**: about 20 MB of memory and well under 1% CPU, and it [pauses while nobody can see it](#staying-out-of-the-way). No admin rights, no drivers and no background services unless you add the sensor service.
 - **No telemetry.** See [Privacy](#privacy).
@@ -81,6 +82,16 @@ Pulsar sits beside the tray or at the left edge of the taskbar, nudged by an off
 | **Text** | ![Text mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text.png) |
 | **Text, one-letter labels** | ![Text mode with one-letter labels](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-short.png) |
 | **Text, icons alone** | ![Text mode with icons alone](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-icons.png) |
+| **Text, label above the value**, chosen per item | ![Text mode with labels above the values](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-text-label-above.png) |
+
+### Shapes
+
+The items sit in a plain strip, in one pill around them all, or in a chip each. Set the corner radius, or leave the ends fully round, in *Settings → Layout → Overlay*.
+
+| | |
+|---|---|
+| **Pill** | ![Items in one pill](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-shape-pill.png) |
+| **Chips** | ![A chip per item](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-shape-chips.png) |
 
 ### A style and color per item
 
@@ -127,9 +138,11 @@ GPU power is in watts, for NVIDIA cards, read through the management library the
 
 ### Floating
 
-Detach Pulsar from the taskbar, drag it anywhere and lock it in place, here with a panel background.
+Detach Pulsar from the taskbar, drag it anywhere and lock it in place. A floating pill or chips blur what is behind them.
 
-![Floating mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-floating.png)
+| Panel | Pill |
+|:---:|:---:|
+| ![Floating mode](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-floating.png) | ![Floating pill](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/overlay-floating-pill.png) |
 
 ### On a full taskbar
 
@@ -137,13 +150,47 @@ Pulsar stays where you put it until it would cover a taskbar button. Then its it
 
 ### Desktop widget
 
-A panel on the desktop with a section per item, like a popup that stays open. It sits behind your windows and comes forward when you show the desktop, or stays on top if you prefer. Choose sparklines, tiles, meters or dials and how much detail it shows, for all items or per item, and drag it anywhere. Set its background color and opacity, and give it an order of its own by dragging the handles in *Settings → Widget*, or by holding <kbd>Shift</kbd> and dragging an item on the widget (no <kbd>Shift</kbd> needed once it is locked). The CPU can also show a core wall: a tall bar per logical processor with its peak, with performance and efficient cores apart. Turn it on in *Settings → Widget* or from the menu.
+A panel on the desktop with a section per item, like a popup that stays open. It sits behind your windows and comes forward when you show the desktop, stays on top, or docks to a screen edge. Drag it anywhere, and turn it on or off with the switch at the top of *Settings → Widget* or from the menu.
+
+- **Style:** sparklines, tiles, meters, dials or device cards (the device, a large value beside its graph, then details), for all items or per item, at Simple, Standard or Detailed. The CPU can also show a core wall: a tall bar per logical processor with its peak, with performance and efficient cores apart.
+- **Layout:** let Pulsar pick one, or choose Dashboard, Lanes, Tiles, Meters, Dials, Strip, Rings or Focus from the pictures in *Settings → Widget → Look*. The widget either fits its content or takes the size you drag its edges to.
+- **Focus:** one item at a time, with a large value and graph. It can step to the next item on a timer, with a fade or slide, or when you press a shortcut.
+- **Material:** Solid; Glass or Acrylic, which blur what is behind the widget; or Clear, which never blurs, for use over games. Glass can take a tint from the background color. Items can share one panel or each have a card of their own, with an optional border.
+- **Network:** download and upload as meter bars, with their rates under the direction names or on one line, and upload in a color of its own.
+- **Order:** the widget can show its own items in its own order: drag the handles in *Settings → Widget → Items*, or hold <kbd>Shift</kbd> and drag an item on the widget (no <kbd>Shift</kbd> needed once it is locked).
 
 | Sparklines | Tiles | Meters |
 |:---:|:---:|:---:|
 | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-sparklines.png" width="220" alt="Widget with sparklines"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-tiles.png" width="220" alt="Widget with tiles"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-meters.png" width="220" alt="Widget with meters"> |
-| **Dials** | **Core wall** | **Detailed** |
-| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-dials.png" width="220" alt="Widget with dials"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-core-wall.png" width="220" alt="Widget with the CPU core wall"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-detailed.png" width="220" alt="Widget at Detailed"> |
+| **Dials** | **Device cards** | **Core wall** |
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-dials.png" width="220" alt="Widget with dials"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-cards.png" width="220" alt="Widget with device cards"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-core-wall.png" width="220" alt="Widget with the CPU core wall"> |
+| **Glass, separate cards** | **Acrylic** | **Detailed** |
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-glass.png" width="220" alt="Widget with glass cards"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-acrylic.png" width="220" alt="Widget with an acrylic background"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-detailed.png" width="220" alt="Widget at Detailed"> |
+
+<details>
+<summary><b>More layouts</b></summary>
+
+| Focus |
+|:---:|
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-layout-focus.png" width="220" alt="Focus layout"> |
+
+**Dashboard**
+
+<img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-layout-dashboard.png" alt="Dashboard layout">
+
+**Strip**
+
+<img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-layout-strip.png" alt="Strip layout">
+
+**Rings**
+
+<img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-layout-rings.png" alt="Rings layout">
+
+</details>
+
+#### Docked to a screen edge
+
+Choose *Docked to a screen edge* in *Settings → Widget → Placement*, then pick the edge and monitor. The widget stays out of sight until you push the pointer past that edge, and hides again shortly after the pointer leaves, when you click elsewhere, or when you press <kbd>Esc</kbd>. Where the edge meets another monitor the pointer crosses over instead, so resting at the edge for a moment opens it. You can set how hard to push, how long it waits before hiding, a thin line where it waits, and whether it opens over fullscreen apps by shortcut, by shortcut and edge, or not at all. The widget's shortcut also shows it.
 
 ### In games
 
@@ -162,12 +209,12 @@ Pulsar can warn you with a notification when the CPU or GPU stays above a temper
 
 ### Shortcuts
 
-Set keyboard shortcuts in *Settings → General* to show or hide Pulsar, turn the desktop widget on or off, open the system details window, start or stop recording, and switch to the next profile. They work anywhere in Windows and are not set until you choose them.
+Set keyboard shortcuts in *Settings → Shortcuts* to show or hide Pulsar, open the system details window, start or stop recording, switch to the next profile, turn the desktop widget on or off, and step to the next or previous item in the widget's Focus layout. They work anywhere in Windows and are not set until you choose them; each has a button to clear it.
 
 <details>
-<summary><b>Shortcuts and alerts in Settings</b></summary>
+<summary><b>Shortcuts in Settings</b></summary>
 
-![Settings, shortcuts and alerts](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-general-3.png)
+![Settings, Shortcuts](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-shortcuts.png)
 
 </details>
 
@@ -177,7 +224,7 @@ Choose *Record to CSV* from the menu to write every sample to a new file in `Doc
 
 ### Profiles
 
-Save the current setup as a named profile in *Settings → Profiles*, such as one for gaming and one for the desk, and switch between them there or from *Profiles* in the menu. A profile keeps the items, layout, theme, popups, widget, units, drives and network. Language, startup, the update interval, games, alerts and shortcuts are the same in every profile. The menu ticks the profile that matches the current settings. A keyboard shortcut, set in *Settings → General*, switches to the next profile.
+Save the current setup as a named profile in *Settings → Profiles*, such as one for gaming and one for the desk, and switch between them there or from *Profiles* in the menu. A profile keeps the items, layout, theme, popups, widget, units, drives and network. Language, startup, the update interval, games, alerts and shortcuts are the same in every profile. The menu ticks the profile that matches the current settings. Each profile shows as a card with its theme, item count and whether it has the widget. A keyboard shortcut, set in *Settings → Shortcuts*, switches to the next profile.
 
 | Settings | Menu |
 |:---:|:---:|
@@ -198,14 +245,15 @@ For more, open [Pulsar Themes](https://oman-rod.github.io/Pulsar/), or *More the
 
 ### Staying out of the way
 
-While the display is off, the PC is locked or the session is disconnected, Pulsar stops sampling and pinging, and resumes within a couple of seconds of your return. It keeps sampling if an alert is on, a recording is running or a game session is open, so those have no gaps. It asks Windows to run it in efficiency mode, and *Update interval on battery* in *Settings → General* can slow its readings while unplugged.
+While the display is off, the PC is locked or the session is disconnected, Pulsar stops sampling and pinging, and resumes within a couple of seconds of your return. It keeps sampling if an alert is on, a recording is running or a game session is open, so those have no gaps. It asks Windows to run it in efficiency mode, and *Update interval on battery* in *Settings → Sensors* can slow its readings while unplugged.
 
 ### Make it yours
 
 - label, value and item colors, with separate label and value colors for a light taskbar
 - tile and panel backgrounds, which help on Windhawk, TranslucentTB and similar
 - any installed font, bold optional
-- temperatures in °C or °F, memory and GPU memory as a percentage or the amount in use, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, and upload shown above download if you prefer
+- in text mode, any item's label above its value instead of before it
+- temperatures in °C or °F, memory and GPU memory as a percentage or the amount in use, network rates in bytes or bits per second, a minimum speed below which the taskbar and widget show 0, upload shown above download if you prefer, and a separate color for upload
 - a dot before the network arrows in the color of the connection: internet, the local network only, or none, as Windows judges it for the tray's network icon
 - network as download, upload or both, on one graph tile or a tile for each, with a separate choice for the popup
 - each drive as its own item, showing its activity or used space; each GPU with its own load, temperature and memory; and all physical network adapters, one, or several side by side
@@ -345,24 +393,20 @@ Switch between graphs and text, show or hide items, and set popup detail, units,
 
 ### Settings
 
-Every option, applied as you change it.
+Every option, applied as you change it. Each page has a color of its own, the longer pages are split into tabs, and the ⓘ beside a setting explains it. Search finds any setting and opens its page and tab.
 
 <details>
 <summary><b>Settings pages</b></summary>
 
-**Items:** which items show, their order (drag a handle or use the arrows) and color, and each item's graph style, coloring and popup detail
+**Items:** the items in order on the left, with a switch for each; the chosen item's color, labels, graph style, trend arrow, tile size and popup on the right. Drag a handle, or press <kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>, to reorder. The *Load colors* tab sets the colors for color by load.
 
 ![Settings, Items](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-items.png)
 
-Open an item's options for its graph style, trend arrow, tile size and popup.
-
-![Settings, an item's graph styles](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-items-cpu-2.png)
-
-**Layout:** graphs or text, labels, icons, the font, and where the overlay sits
+**Layout:** graphs or text, the shape, labels and icons on *Overlay*; the font and spacing on *Text*; where the overlay sits, and what happens when the taskbar is full, on *Position*
 
 ![Settings, Layout](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-layout.png)
 
-**Theme:** themes, custom colors, and tile and panel backgrounds
+**Theme:** themes, label and value colors paired for dark and light taskbars, and tile and panel colors with their opacity
 
 ![Settings, Theme](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-theme.png)
 
@@ -370,25 +414,31 @@ Open an item's options for its graph style, trend arrow, tile size and popup.
 
 ![Settings, Popups](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-popups.png)
 
-**Widget:** placement, style, detail, width, background color and opacity, and which items it shows, in what order
+**Widget:** where it sits, on *Placement*; its size, layout, style, material and detail, on *Look*; which items it shows, in what order, on *Items*
 
-![Settings, Widget](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-widget.png)
+![Settings, Widget placement](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-widget.png)
 
-**Sensors:** the sensor service, frame rate, games and the temperature unit
+![Settings, Widget look](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-widget-look.png)
+
+**Sensors:** whether the sensor service and PawnIO are working, frame rate, games, units, and how often Pulsar samples, on mains and on battery
 
 ![Settings, Sensors](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-sensors.png)
 
-**Devices:** drives, GPUs, network adapters, rates and minimum speeds, and the ping host
+**Devices:** drives, GPUs, network adapters with their rates and minimum speeds, and the ping host, a tab each
 
-![Settings, Devices](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-drives.png)
+![Settings, Devices](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-devices.png)
 
-**Profiles:** save, apply and delete profiles
+**Profiles:** save, apply, update and delete profiles
 
 ![Settings, Profiles](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-profiles.png)
 
-**General:** language, start with Windows, update checks, the tray icon, shortcuts, alerts, how often Pulsar samples, on mains and on battery, and resetting everything
+**Shortcuts:** keyboard shortcuts for Pulsar and the widget
+
+**General:** language, start with Windows, update checks, the tray icon, alerts, and resetting everything
 
 ![Settings, General](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-general.png)
+
+**About:** the version and whether an update is out, links, the settings and logs folders, and diagnostics
 
 </details>
 
@@ -422,7 +472,7 @@ The *Frame rate* item needs the service, but not PawnIO.
    - **Installer:** tick the boxes on its *CPU temperature* page. Run the installer again to add or remove them later.
    - **winget:** `winget install` runs the installer silently, which never asks for administrator rights and so skips that page. Run `winget install -i oMaN-Rod.Pulsar` to see it, or follow the next step using `%LOCALAPPDATA%\Programs\Pulsar\pulsar-sensors.exe`.
    - **Portable zip or Cargo:** install PawnIO (`winget install namazso.PawnIO`), then run `pulsar-sensors.exe --install` from an administrator terminal.
-2. Turn on *CPU temperature*, *CPU power*, *Chipset temperature* or *Frame rate* in *Settings → Items*.
+2. Turn on *CPU temperature*, *CPU power*, *Chipset temperature* or *Frame rate* in *Settings → Items*. *Settings → Sensors* shows whether the service and PawnIO are working.
 
 > [!NOTE]
 > The service runs from its own copy of `pulsar-sensors.exe`. The installer's wizard refreshes that copy, but a silent upgrade (`winget upgrade`) and `cargo install` do not, so run `pulsar-sensors.exe --install` again after those if Pulsar says the service needs updating.
@@ -507,7 +557,7 @@ cargo test --workspace
 | Script | What it does |
 |---|---|
 | `scripts\package.ps1` | builds the installer, the portable zip and the winget manifests into `dist\`; needs [Inno Setup](https://jrsoftware.org/isinfo.php) 7, which ships the Simplified Chinese messages |
-| `scripts\screenshots.ps1` | captures the overlay in every layout and style, popups, menus, the widget, the game strip, Settings and the details window to `target\screenshots\`; `-Publish` refreshes the images in `docs\images` |
+| `scripts\screenshots.ps1` | captures the overlay in every layout, shape and style, popups, menus, the widget in its styles, materials and layouts, the game strip, every Settings page and tab, and the details window to `target\screenshots\`; `-Publish` adds the images `docs\images` lacks, and `-Replace` names those to overwrite |
 
 The theme site lives in `site/`; see [site/README.md](site/README.md) to run it locally.
 
