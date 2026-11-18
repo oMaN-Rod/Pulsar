@@ -6,8 +6,8 @@ details window to target\screenshots\.
 .DESCRIPTION
 Runs the release build on the live desktop with a throwaway settings folder, so your own
 settings are never read or changed. It moves the real mouse over the taskbar and opens
-Character Map for the game strip: leave the PC alone until it finishes, in about fifteen minutes. Exit
-Pulsar before running it. The frame rate item and temperature dots need the sensor service, and
+Character Map for the game strip: leave the PC alone until it finishes, in about fifteen minutes for
+everything, less with -Parts or -Only. Exit Pulsar before running it. The frame rate item and temperature dots need the sensor service, and
 the battery cell needs a battery.
 .PARAMETER SkipBuild
 Use the existing target\release binaries.
@@ -19,13 +19,23 @@ capture, so existing images stay until named in -Replace.
 .PARAMETER Replace
 With -Publish, the captures to copy over existing images because their UI changed. Wildcards work.
 .PARAMETER Parts
-Which captures to take: overlay, popups, menus, widget, game, settings, details, and motion: an
-animated GIF of the overlay going through its styles, which needs ffmpeg and is taken only when named.
+Which groups of captures to take: overlay, popups, menus, widget, game, settings, details, and
+motion: an animated GIF of the overlay going through its styles, which needs ffmpeg and is taken only
+when named. With -Only and no -Parts, the groups those captures belong to.
+.PARAMETER Only
+The captures to take, by name or wildcard, such as popup-cpu-liquid, widget-layout-* or
+settings-popups; -List prints the names. A Settings page brings its scrolled views, such as
+settings-popups-2. Menus and the details window are taken whole, then trimmed to what was asked.
+Captures from earlier runs that are not asked for stay in target\screenshots, so -Publish still sees them.
+.PARAMETER List
+Print the name of every capture, by group, and stop; with -Only or -Parts, just those it would take.
 .PARAMETER Ffmpeg
 The ffmpeg executable for the motion capture.
 #>
 param(
     [string[]]$Parts = @('overlay', 'popups', 'menus', 'widget', 'game', 'settings', 'details'),
+    [string[]]$Only = @(),
+    [switch]$List,
     [switch]$SkipBuild,
     [switch]$Light,
     [switch]$Publish,
@@ -39,6 +49,162 @@ Set-Location $root
 
 $bin = Join-Path $root 'target\release'
 $out = Join-Path $root 'target\screenshots'
+
+
+
+$Kinds = 'cpu', 'cpu_temp', 'cpu_power', 'cpu_clock', 'ram', 'chipset_temp', 'gpu', 'gpu_temp',
+    'gpu_memory', 'disk', 'disk_temp', 'network', 'ping', 'battery', 'fps'
+$Showcase = 'cpu', 'cpu_temp', 'ram', 'gpu', 'disk', 'network'
+# Network has no load scale, so it cannot tint or show a status bubble.
+$Loaded = 'cpu', 'cpu_temp', 'ram', 'gpu', 'gpu_memory', 'gpu_temp'
+$All = $Kinds | Where-Object { $_ -ne 'battery' }
+
+$OverlayShots = [ordered]@{
+    'overlay-graph-icons'  = @{ Icons = $true }
+    'overlay-graph-short'  = @{ Labels = 'short' }
+    'overlay-graph-inline' = @{ Inline = $true; Icons = $true }
+    'overlay-vertical-labels' = @{ VerticalLabels = $true }
+    'overlay-text'         = @{ Mode = 'text' }
+    'overlay-text-short'   = @{ Mode = 'text'; Labels = 'short' }
+    'overlay-text-icons'   = @{ Mode = 'text'; Labels = 'none'; Icons = $true }
+    'overlay-text-label-above' = @{ Mode = 'text'; LabelAbove = $Showcase }
+    'overlay-shape-pill'   = @{ Shape = 'pill' }
+    'overlay-shape-chips'  = @{ Shape = 'chips' }
+    'overlay-style-line'   = @{ Style = 'line' }
+    'overlay-style-bars'   = @{ Style = 'bars' }
+    'overlay-style-meter'  = @{ Style = 'meter' }
+    'overlay-style-segments' = @{ Style = 'segments' }
+    'overlay-style-spark'  = @{ Style = 'spark' }
+    'overlay-style-ring'   = @{ Style = 'ring' }
+    'overlay-style-dot-matrix' = @{ Style = 'dot_matrix' }
+    'overlay-style-heat-strip' = @{ Style = 'heat_strip' }
+    'overlay-style-bullet' = @{ Style = 'bullet' }
+    'overlay-style-range-rail' = @{ Style = 'range_rail' }
+    'overlay-style-tint'   = @{ Show = $Loaded; Style = 'tint' }
+    'overlay-style-bubble' = @{ Show = $Loaded; Style = 'bubble' }
+    'overlay-style-combined' = @{ Show = 'cpu', 'gpu'; Style = 'combined' }
+    'overlay-style-cores'  = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'cores' } }
+    'overlay-style-heat'   = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'heat' } }
+    'overlay-style-core-types' = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'core_types' } }
+    'overlay-style-mirror' = @{ Show = 'network', 'ram'; Styles = @{ network = 'mirror_bars' } }
+    'overlay-style-uptime' = @{ Show = 'ping', 'ram'; Styles = @{ ping = 'uptime' } }
+    'overlay-style-mixed'  = @{ Styles = @{ cpu_temp = 'line'; ram = 'meter'; gpu = 'bars' }; TextOnly = 'disk' }
+    'overlay-trend'        = @{ Trend = $Showcase }
+    'overlay-color-accent' = @{ Color = 'accent' }
+    'overlay-color-load'   = @{ Color = 'load' }
+    'overlay-color-custom' = @{ Color = 'load'; LoadColors = @{ low = '#4CC2FF'; moderate = '#B18CFF'; high = '#FF8CC6'; critical = '#FF4D6A' } }
+    'overlay-text-load'    = @{ Mode = 'text'; Color = 'load' }
+    'overlay-all'          = @{ Show = $All }
+}
+if (Get-CimInstance Win32_Battery) {
+    $OverlayShots['overlay-style-battery'] = @{ Show = 'battery', 'ram'; Styles = @{ battery = 'battery_cell' } }
+}
+
+$WidgetShots = [ordered]@{
+    'widget-sparklines' = @{ Widget = 'sparklines' }
+    'widget-tiles'      = @{ Widget = 'tiles' }
+    'widget-meters'     = @{ Widget = 'meters' }
+    'widget-dials'      = @{ Widget = 'dials' }
+    'widget-core-wall'  = @{ Widget = 'sparklines'; WidgetStyles = @{ cpu = 'core_wall' } }
+    'widget-detailed'   = @{ Widget = 'sparklines'; WidgetDetail = 'detailed' }
+    'widget-background' = @{ Widget = 'sparklines'; WidgetBackground = '#1E2A44' }
+    'widget-cards'      = @{ Widget = 'cards'; WidgetSeparate = $true }
+    'widget-glass'      = @{ Widget = 'sparklines'; WidgetMaterial = 'glass'; WidgetSeparate = $true }
+    'widget-liquid'     = @{ Widget = 'sparklines'; WidgetMaterial = 'liquid'; WidgetSeparate = $true }
+    'widget-acrylic'    = @{ Widget = 'sparklines'; WidgetMaterial = 'acrylic' }
+    'widget-layout-dashboard' = @{ Widget = 'sparklines'; WidgetLayout = 'dashboard' }
+    'widget-layout-strip'  = @{ Widget = 'sparklines'; WidgetLayout = 'strip' }
+    'widget-layout-rings'  = @{ Widget = 'sparklines'; WidgetLayout = 'rings' }
+    'widget-layout-focus'  = @{ Widget = 'sparklines'; WidgetLayout = 'focus'; WidgetItems = 'cpu' }
+}
+
+# Navigation rows and in-page tabs, by their centre in logical client pixels.
+$SettingsPages = [ordered]@{
+    items = 97; layout = 137; theme = 177; popups = 217; widget = 257; sensors = 331
+    devices = 371; profiles = 445; shortcuts = 485; general = 525; about = 565
+}
+$SettingsTabY = 97
+$SettingsTabs = @{
+    items   = [ordered]@{ '' = 287; 'load-colors' = 370 }
+    layout  = [ordered]@{ '' = 294; 'text' = 359; 'position' = 424 }
+    widget  = [ordered]@{ '' = 302; 'look' = 378; 'items' = 438 }
+    devices = [ordered]@{ '' = 283; 'graphics' = 351; 'network' = 434; 'ping' = 503 }
+}
+
+$Details = 'simple', 'standard', 'detailed'
+$Materials = 'solid', 'glass', 'liquid', 'clear'
+$Groups = [ordered]@{
+    overlay = 'overlay-'; popups = 'popup-'; menus = 'menu'; widget = 'widget-'; game = 'game-'
+    settings = 'settings-'; details = 'details-'; motion = 'overlay-motion'
+}
+
+function Get-PopupName([int]$Index, [string]$Suffix) { "popup-$($All[$Index] -replace '_', '-')$Suffix" }
+
+function Get-SettingsViews {
+    foreach ($page in $SettingsPages.Keys) {
+        $views = if ($SettingsTabs.ContainsKey($page)) { $SettingsTabs[$page].Keys } else { @('') }
+        foreach ($tab in $views) { if ($tab) { "settings-$page-$tab" } else { "settings-$page" } }
+    }
+}
+
+# Whether -Only asks for a capture, by its name or by one of its scrolled views.
+function Test-Wanted([string]$Name) {
+    -not $Only -or [bool]($Only | Where-Object { $Name -like $_ -or $_ -like "$Name-[0-9]*" })
+}
+
+# Whether a saved file is one -Only asked for, or a scrolled view of one.
+function Test-WantedFile([string]$Name) {
+    [bool]($Only | Where-Object { $Name -like $_ -or $Name -like "$_-[0-9]*" })
+}
+
+# Every capture by group. Menus and the details window name theirs as they go.
+$Catalog = [ordered]@{
+    overlay  = @('overlay-graph') + @($OverlayShots.Keys) +
+        'overlay-floating', 'overlay-floating-pill', 'overlay-light', 'overlay-text-light'
+    popups   = @(foreach ($d in $Details) { 0..($All.Count - 1) | ForEach-Object { Get-PopupName $_ "-$d" } }) +
+        @(foreach ($m in $Materials) { 0, 1 | ForEach-Object { Get-PopupName $_ "-$m" } }) +
+        (Get-PopupName 0 '-light'), (Get-PopupName 0 '-light-solid')
+    menus    = @()
+    widget   = @($WidgetShots.Keys)
+    game     = @('game-strip')
+    settings = @(Get-SettingsViews)
+    details  = @()
+    motion   = @('overlay-motion')
+}
+$LightOnly = 'overlay-light', 'overlay-text-light', (Get-PopupName 0 '-light'), (Get-PopupName 0 '-light-solid')
+$Notes = @{
+    menus    = 'menu-*, named after the menu items'
+    settings = 'and -2, -3 ... for views that scroll'
+    details  = 'details-0 ... one per page'
+}
+
+if ($Only -and -not $PSBoundParameters.ContainsKey('Parts')) {
+    $Parts = @(foreach ($group in $Catalog.Keys) {
+        $prefix = $Groups[$group]
+        $named = $Catalog[$group] | Where-Object { Test-Wanted $_ }
+        $unnamed = $Catalog[$group].Count -eq 0 -and ($Only | Where-Object {
+            $literal = ($_ -split '[*?\[]')[0]
+            $_ -eq '*' -or ($literal -and ($literal.StartsWith($prefix) -or $prefix.StartsWith($literal)))
+        })
+        if ($named -or $unnamed) { $group }
+    })
+    if (-not $Parts) { throw "No capture is named like $($Only -join ', '); -List prints the names" }
+    Write-Host "Groups: $($Parts -join ', ')"
+}
+
+if ($List) {
+    $everything = -not $Only -and -not $PSBoundParameters.ContainsKey('Parts')
+    foreach ($group in $Catalog.Keys) {
+        if ($group -notin $Parts -and -not ($everything -and $group -eq 'motion')) { continue }
+        $names = @($Catalog[$group] | Where-Object { Test-Wanted $_ } | ForEach-Object {
+            if ($_ -in $LightOnly) { "$_ (-Light)" } elseif ($group -eq 'motion') { "$_.gif" } else { $_ }
+        })
+        if ($Notes.ContainsKey($group)) { $names += $Notes[$group] }
+        Write-Host $group -ForegroundColor Cyan
+        $names | ForEach-Object { Write-Host "  $_" }
+    }
+    return
+}
 
 $running = Get-Process pulsar, pulsar-settings, pulsar-details -ErrorAction SilentlyContinue
 if ($running) {
@@ -102,13 +268,6 @@ public static class Native {
 }
 '@
 [void][Native]::SetProcessDpiAwarenessContext([IntPtr]-4)
-
-$Kinds = 'cpu', 'cpu_temp', 'cpu_power', 'cpu_clock', 'ram', 'chipset_temp', 'gpu', 'gpu_temp',
-    'gpu_memory', 'disk', 'disk_temp', 'network', 'ping', 'battery', 'fps'
-$Showcase = 'cpu', 'cpu_temp', 'ram', 'gpu', 'disk', 'network'
-# Network has no load scale, so it cannot tint or show a status bubble.
-$Loaded = 'cpu', 'cpu_temp', 'ram', 'gpu', 'gpu_memory', 'gpu_temp'
-$All = $Kinds | Where-Object { $_ -ne 'battery' }
 
 # A config with the given items shown, in order; everything else at its default.
 function Write-Config {
@@ -385,7 +544,8 @@ function Update-Items {
 # finding the items again.
 function Save-Popups([int[]]$Indexes, [string]$Suffix) {
     foreach ($i in $Indexes) {
-        $name = "popup-$($All[$i] -replace '_', '-')$Suffix"
+        $name = Get-PopupName $i $Suffix
+        if (-not (Test-Wanted $name)) { continue }
         for ($attempt = 0; $attempt -lt 3; $attempt++) {
             $item = $items[$i]
             Park-Mouse
@@ -537,10 +697,21 @@ try {
     $env:APPDATA = Join-Path $work 'Roaming'
     $env:LOCALAPPDATA = Join-Path $work 'Local'
     New-Item -ItemType Directory -Force $out | Out-Null
-    $prefixes = @{ overlay = 'overlay-'; popups = 'popup-'; menus = 'menu'; widget = 'widget-'; game = 'game-'; settings = 'settings-'; details = 'details-'; motion = 'overlay-motion' }
+    $runStarted = Get-Date
     Get-ChildItem $out -Filter *.png |
-        Where-Object { $name = $_.Name; $Parts | Where-Object { $name.StartsWith($prefixes[$_]) } } |
+        Where-Object {
+            $name = $_.BaseName
+            $grouped = $Parts | Where-Object { $name.StartsWith($Groups[$_]) }
+            $grouped -and (-not $Only -or (Test-WantedFile $name))
+        } |
         Remove-Item
+    # Menus and the details window save every view they pass, so earlier
+    # captures they overwrite are put back once the run is trimmed.
+    $kept = Join-Path $work 'kept'
+    if ($Only) {
+        New-Item -ItemType Directory -Force $kept | Out-Null
+        Get-ChildItem $out -Filter *.png | Copy-Item -Destination $kept
+    }
 
     Write-Config
     Write-Profiles
@@ -554,65 +725,27 @@ try {
 
     if ('overlay' -in $Parts) {
         Write-Host 'Overlay'
-        Save-Overlay 'overlay-graph'
-        $layouts = [ordered]@{
-            'overlay-graph-icons'  = @{ Icons = $true }
-            'overlay-graph-short'  = @{ Labels = 'short' }
-            'overlay-graph-inline' = @{ Inline = $true; Icons = $true }
-            'overlay-vertical-labels' = @{ VerticalLabels = $true }
-            'overlay-text'         = @{ Mode = 'text' }
-            'overlay-text-short'   = @{ Mode = 'text'; Labels = 'short' }
-            'overlay-text-icons'   = @{ Mode = 'text'; Labels = 'none'; Icons = $true }
-            'overlay-text-label-above' = @{ Mode = 'text'; LabelAbove = $Showcase }
-            'overlay-shape-pill'   = @{ Shape = 'pill' }
-            'overlay-shape-chips'  = @{ Shape = 'chips' }
-            'overlay-style-line'   = @{ Style = 'line' }
-            'overlay-style-bars'   = @{ Style = 'bars' }
-            'overlay-style-meter'  = @{ Style = 'meter' }
-            'overlay-style-segments' = @{ Style = 'segments' }
-            'overlay-style-spark'  = @{ Style = 'spark' }
-            'overlay-style-ring'   = @{ Style = 'ring' }
-            'overlay-style-dot-matrix' = @{ Style = 'dot_matrix' }
-            'overlay-style-heat-strip' = @{ Style = 'heat_strip' }
-            'overlay-style-bullet' = @{ Style = 'bullet' }
-            'overlay-style-range-rail' = @{ Style = 'range_rail' }
-            'overlay-style-tint'   = @{ Show = $Loaded; Style = 'tint' }
-            'overlay-style-bubble' = @{ Show = $Loaded; Style = 'bubble' }
-            'overlay-style-combined' = @{ Show = 'cpu', 'gpu'; Style = 'combined' }
-            'overlay-style-cores'  = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'cores' } }
-            'overlay-style-heat'   = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'heat' } }
-            'overlay-style-core-types' = @{ Show = 'cpu', 'ram'; Styles = @{ cpu = 'core_types' } }
-            'overlay-style-mirror' = @{ Show = 'network', 'ram'; Styles = @{ network = 'mirror_bars' } }
-            'overlay-style-uptime' = @{ Show = 'ping', 'ram'; Styles = @{ ping = 'uptime' } }
-            'overlay-style-mixed'  = @{ Styles = @{ cpu_temp = 'line'; ram = 'meter'; gpu = 'bars' }; TextOnly = 'disk' }
-            'overlay-trend'        = @{ Trend = $Showcase }
-            'overlay-color-accent' = @{ Color = 'accent' }
-            'overlay-color-load'   = @{ Color = 'load' }
-            'overlay-color-custom' = @{ Color = 'load'; LoadColors = @{ low = '#4CC2FF'; moderate = '#B18CFF'; high = '#FF8CC6'; critical = '#FF4D6A' } }
-            'overlay-text-load'    = @{ Mode = 'text'; Color = 'load' }
-            'overlay-all'          = @{ Show = $All }
-        }
-        if (Get-CimInstance Win32_Battery) {
-            $layouts['overlay-style-battery'] = @{ Show = 'battery', 'ram'; Styles = @{ battery = 'battery_cell' } }
-        } else {
+        if (-not $OverlayShots.Contains('overlay-style-battery')) {
             Write-Warning 'no battery, so no battery cell capture'
         }
-        foreach ($name in $layouts.Keys) {
-            $options = $layouts[$name]
+        if (Test-Wanted 'overlay-graph') { Save-Overlay 'overlay-graph' }
+        foreach ($name in $OverlayShots.Keys) {
+            if (-not (Test-Wanted $name)) { continue }
+            $options = $OverlayShots[$name]
             Write-Config @options
             Send-ConfigChanged
             # The strip has only the pings since the item was turned on.
             if ($name -eq 'overlay-style-uptime') { Start-Sleep -Seconds 30 }
             Save-Overlay $name
         }
-        Write-Config -Floating
-        Send-ConfigChanged
-        Park-Mouse
-        Save-Around (Find-Window 'PulsarOverlay') 'overlay-floating' 16
-        Write-Config -Floating -Shape pill
-        Send-ConfigChanged
-        Park-Mouse
-        Save-Around (Find-Window 'PulsarOverlay') 'overlay-floating-pill' 16
+        foreach ($shape in 'rectangle', 'pill') {
+            $name = if ($shape -eq 'pill') { 'overlay-floating-pill' } else { 'overlay-floating' }
+            if (-not (Test-Wanted $name)) { continue }
+            Write-Config -Floating -Shape $shape
+            Send-ConfigChanged
+            Park-Mouse
+            Save-Around (Find-Window 'PulsarOverlay') $name 16
+        }
     }
 
     if ('motion' -in $Parts) {
@@ -713,12 +846,15 @@ try {
 
     if ('popups' -in $Parts) {
         Write-Host 'Popups'
-        foreach ($detail in 'simple', 'standard', 'detailed') {
+        $every = 0..($All.Count - 1)
+        foreach ($detail in $Details) {
+            if (-not @($every | Where-Object { Test-Wanted (Get-PopupName $_ "-$detail") }).Count) { continue }
             Write-Config -Show $All -Detail $detail
             Send-ConfigChanged
-            Save-Popups (0..($All.Count - 1)) "-$detail"
+            Save-Popups $every "-$detail"
         }
-        foreach ($material in 'solid', 'glass', 'liquid', 'clear') {
+        foreach ($material in $Materials) {
+            if (-not @(0, 1 | Where-Object { Test-Wanted (Get-PopupName $_ "-$material") }).Count) { continue }
             Write-Config -Show $All -Background $material
             Send-ConfigChanged
             Save-Popups 0, 1 "-$material"
@@ -732,25 +868,9 @@ try {
 
     if ('widget' -in $Parts) {
         Write-Host 'Widget'
-        $shots = [ordered]@{
-            'widget-sparklines' = @{ Widget = 'sparklines' }
-            'widget-tiles'      = @{ Widget = 'tiles' }
-            'widget-meters'     = @{ Widget = 'meters' }
-            'widget-dials'      = @{ Widget = 'dials' }
-            'widget-core-wall'  = @{ Widget = 'sparklines'; WidgetStyles = @{ cpu = 'core_wall' } }
-            'widget-detailed'   = @{ Widget = 'sparklines'; WidgetDetail = 'detailed' }
-            'widget-background' = @{ Widget = 'sparklines'; WidgetBackground = '#1E2A44' }
-            'widget-cards'      = @{ Widget = 'cards'; WidgetSeparate = $true }
-            'widget-glass'      = @{ Widget = 'sparklines'; WidgetMaterial = 'glass'; WidgetSeparate = $true }
-            'widget-liquid'     = @{ Widget = 'sparklines'; WidgetMaterial = 'liquid'; WidgetSeparate = $true }
-            'widget-acrylic'    = @{ Widget = 'sparklines'; WidgetMaterial = 'acrylic' }
-            'widget-layout-dashboard' = @{ Widget = 'sparklines'; WidgetLayout = 'dashboard' }
-            'widget-layout-strip'  = @{ Widget = 'sparklines'; WidgetLayout = 'strip' }
-            'widget-layout-rings'  = @{ Widget = 'sparklines'; WidgetLayout = 'rings' }
-            'widget-layout-focus'  = @{ Widget = 'sparklines'; WidgetLayout = 'focus'; WidgetItems = 'cpu' }
-        }
-        foreach ($name in $shots.Keys) {
-            $options = $shots[$name]
+        foreach ($name in $WidgetShots.Keys) {
+            if (-not (Test-Wanted $name)) { continue }
+            $options = $WidgetShots[$name]
             Write-Config @options
             Send-ConfigChanged
             Park-Mouse
@@ -763,7 +883,7 @@ try {
         Send-ConfigChanged
     }
 
-    if ('game' -in $Parts) {
+    if ('game' -in $Parts -and (Test-Wanted 'game-strip')) {
         Write-Host 'Game strip'
         Write-Config -Games 'charmap.exe'
         Send-ConfigChanged
@@ -795,18 +915,26 @@ try {
     if ($Light) {
         Write-Host 'Light taskbar'
         Set-LightTaskbar 1
-        Write-Config
-        Send-ConfigChanged
-        Save-Overlay 'overlay-light'
-        Write-Config -Mode text
-        Send-ConfigChanged
-        Save-Overlay 'overlay-text-light'
-        Write-Config -Show $All
-        Send-ConfigChanged
-        Save-Popups 0 '-light'
-        Write-Config -Show $All -Background solid
-        Send-ConfigChanged
-        Save-Popups 0 '-light-solid'
+        if (Test-Wanted 'overlay-light') {
+            Write-Config
+            Send-ConfigChanged
+            Save-Overlay 'overlay-light'
+        }
+        if (Test-Wanted 'overlay-text-light') {
+            Write-Config -Mode text
+            Send-ConfigChanged
+            Save-Overlay 'overlay-text-light'
+        }
+        if (Test-Wanted (Get-PopupName 0 '-light')) {
+            Write-Config -Show $All
+            Send-ConfigChanged
+            Save-Popups 0 '-light'
+        }
+        if (Test-Wanted (Get-PopupName 0 '-light-solid')) {
+            Write-Config -Show $All -Background solid
+            Send-ConfigChanged
+            Save-Popups 0 '-light-solid'
+        }
         Set-LightTaskbar $theme
     }
 
@@ -816,26 +944,15 @@ try {
         $started += Start-Process (Join-Path $bin 'pulsar-settings.exe') -PassThru
         $settings = Find-Window $null 'Pulsar Settings'
         Start-Sleep -Seconds 2
-        # Navigation rows and in-page tabs, by their centre in logical client pixels.
-        $pages = [ordered]@{
-            items = 97; layout = 137; theme = 177; popups = 217; widget = 257; sensors = 331
-            devices = 371; profiles = 445; shortcuts = 485; general = 525; about = 565
-        }
-        $tabY = 97
-        $tabs = @{
-            items   = [ordered]@{ '' = 287; 'load-colors' = 370 }
-            layout  = [ordered]@{ '' = 294; 'text' = 359; 'position' = 424 }
-            widget  = [ordered]@{ '' = 302; 'look' = 378; 'items' = 438 }
-            devices = [ordered]@{ '' = 283; 'graphics' = 351; 'network' = 434; 'ping' = 503 }
-        }
-        foreach ($page in $pages.Keys) {
+        foreach ($page in $SettingsPages.Keys) {
             # Items scrolls the chosen item's options, beside the list.
             $wheelX = if ($page -eq 'items') { 740 } else { 500 }
-            $views = if ($tabs.ContainsKey($page)) { $tabs[$page] } else { @{ '' = $null } }
+            $views = if ($SettingsTabs.ContainsKey($page)) { $SettingsTabs[$page] } else { @{ '' = $null } }
             foreach ($tab in $views.Keys) {
-                Send-Click $settings 82 $pages[$page]
-                if ($null -ne $views[$tab]) { Send-Click $settings $views[$tab] $tabY }
                 $name = if ($tab) { "settings-$page-$tab" } else { "settings-$page" }
+                if (-not (Test-Wanted $name)) { continue }
+                Send-Click $settings 82 $SettingsPages[$page]
+                if ($null -ne $views[$tab]) { Send-Click $settings $views[$tab] $SettingsTabY }
                 $previous = Save-Window $settings $name
                 Write-Host "  $name"
                 for ($n = 2; $n -lt 12; $n++) {
@@ -874,6 +991,14 @@ try {
         }
     }
 } finally {
+    if ($Only -and $kept -and (Test-Path $kept)) {
+        Get-ChildItem $out -Filter *.png |
+            Where-Object { $_.LastWriteTime -ge $runStarted -and -not (Test-WantedFile $_.BaseName) } |
+            Remove-Item
+        Get-ChildItem $kept -Filter *.png |
+            Where-Object { -not (Test-Path (Join-Path $out $_.Name)) } |
+            Copy-Item -Destination $out
+    }
     $started | Where-Object { -not $_.HasExited } | Stop-Process -Force
     Get-Process pulsar-details -ErrorAction SilentlyContinue |
         Where-Object Path -eq (Join-Path $bin 'pulsar-details.exe') | Stop-Process -Force
