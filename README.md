@@ -32,12 +32,12 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 
 ## Highlights
 
-- **Graphs or text**, with one of twenty graph styles, a color and a popup detail chosen per item, in a plain strip, one pill or a chip per item.
+- **Graphs or text**, with one of twenty graph styles, a color and a popup detail chosen per item, in a plain strip, one pill or a chip per item. Readings keep the width of their widest value, so the text beside them never shifts as they change.
 - **Hover popups** at three levels of detail, on the same backgrounds as the desktop widget: Solid, Glass, Liquid glass, Acrylic or Clear.
 - **A system details window**: processor, memory modules, graphics, drives, network, motherboard and every live sensor.
 - **GPU monitoring for any vendor**, read the way Task Manager does, with no drivers or vendor SDKs.
 - **CPU temperature and power, if you opt in**, through an optional [sensor service](#sensor-service).
-- **A desktop widget** with sparklines, tiles, meters, dials or device cards, nine layouts, glass or acrylic backgrounds, and an option to dock it to a screen edge, where it waits until you push the pointer against it.
+- **A desktop widget** with sparklines, tiles, meters, dials or device cards, nine layouts, solid, glass, liquid glass, acrylic or clear backgrounds, and an option to dock it to a screen edge, where it waits until you push the pointer against it.
 - **Themes** you can save and share, or design on [Pulsar Themes](https://oman-rod.github.io/Pulsar/).
 - **Frame rates and game sessions**: the frame rate of the app in front, a strip on the game's monitor while you play, and a summary when the game closes.
 - **Light**: about 20 MB of memory and well under 1% CPU, and it [pauses while nobody can see it](#staying-out-of-the-way). No admin rights, no drivers and no background services unless you add the sensor service.
@@ -153,7 +153,7 @@ Pulsar stays where you put it until it would cover a taskbar button. Then its it
 A panel on the desktop with a section per item, like a popup that stays open. It sits behind your windows and comes forward when you show the desktop, stays on top, or docks to a screen edge. Drag it anywhere, and turn it on or off with the switch at the top of *Settings → Widget* or from the menu.
 
 - **Style:** sparklines, tiles, meters, dials or device cards (the device, a large value beside its graph, then details), for all items or per item, at Simple, Standard or Detailed. The CPU can also show a core wall: a tall bar per logical processor with its peak, with performance and efficient cores apart.
-- **Layout:** let Pulsar pick one, or choose Dashboard, Lanes, Tiles, Meters, Dials, Strip, Rings or Focus from the pictures in *Settings → Widget → Look*. The widget either fits its content or takes the size you drag its edges to.
+- **Layout:** let Pulsar pick one, or choose Dashboard, Lanes, Tiles, Meters, Dials, Strip, Rings or Focus from the pictures in *Settings → Widget → Look*. The widget either fits its content or takes the size you drag its edges to. Dashboard cards are all the same height, so its rows line up; sized by dragging, they share the height between them.
 - **Focus:** one item at a time, with a large value and graph. It can step to the next item on a timer, with a fade or slide, or when you press a shortcut.
 - **Material:** Solid; Glass, Liquid glass or Acrylic, which blur what is behind the widget; or Clear, which never blurs, for use over games. Glass is frosted; Liquid glass blurs less and catches the light along its rim. Both can take a tint from the background color. Items can share one panel or each have a card of their own, with an optional border.
 - **Network:** download and upload as meter bars, with their rates under the direction names or on one line, and upload in a color of its own.
@@ -164,8 +164,10 @@ A panel on the desktop with a section per item, like a popup that stays open. It
 | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-sparklines.png" width="220" alt="Widget with sparklines"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-tiles.png" width="220" alt="Widget with tiles"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-meters.png" width="220" alt="Widget with meters"> |
 | **Dials** | **Device cards** | **Core wall** |
 | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-dials.png" width="220" alt="Widget with dials"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-cards.png" width="220" alt="Widget with device cards"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-core-wall.png" width="220" alt="Widget with the CPU core wall"> |
-| **Glass, separate cards** | **Acrylic** | **Detailed** |
-| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-glass.png" width="220" alt="Widget with glass cards"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-acrylic.png" width="220" alt="Widget with an acrylic background"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-detailed.png" width="220" alt="Widget at Detailed"> |
+| **Glass, separate cards** | **Liquid glass, separate cards** | **Acrylic** |
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-glass.png" width="220" alt="Widget with glass cards"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-liquid.png" width="220" alt="Widget with liquid glass cards"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-acrylic.png" width="220" alt="Widget with an acrylic background"> |
+| **Detailed** | **Own background color** | |
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-detailed.png" width="220" alt="Widget at Detailed"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/widget-background.png" width="220" alt="Widget with its own background color"> | |
 
 <details>
 <summary><b>More layouts</b></summary>
@@ -190,7 +192,7 @@ A panel on the desktop with a section per item, like a popup that stays open. It
 
 #### Docked to a screen edge
 
-Choose *Docked to a screen edge* in *Settings → Widget → Placement*, then pick the edge and monitor. The widget stays out of sight until you push the pointer past that edge, and hides again shortly after the pointer leaves, when you click elsewhere, or when you press <kbd>Esc</kbd>. Where the edge meets another monitor the pointer crosses over instead, so resting at the edge for a moment opens it. You can set how hard to push, how long it waits before hiding, a thin line where it waits, and whether it opens over fullscreen apps by shortcut, by shortcut and edge, or not at all. The widget's shortcut also shows it.
+Choose *Docked to a screen edge* in *Settings → Widget → Placement*, then pick the edge and monitor. The widget stays out of sight until you push the pointer past that edge, and hides again shortly after the pointer leaves, including when you push it open and move away without reaching it, when you click elsewhere, or when you press <kbd>Esc</kbd>. Where the edge meets another monitor the pointer crosses over instead, so resting at the edge for a moment opens it. You can set how hard to push, how long it waits before hiding, a thin line where it waits, and whether it opens over fullscreen apps by shortcut, by shortcut and edge, or not at all. The widget's shortcut also shows it.
 
 ### In games
 
@@ -410,7 +412,7 @@ Every option, applied as you change it. Each page has a color of its own, the lo
 
 ![Settings, Theme](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-theme.png)
 
-**Popups:** details on hover, detail, background, graph and top processes
+**Popups:** details on hover, detail, material and glass tint, graph, top processes and size
 
 ![Settings, Popups](https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/settings-popups.png)
 

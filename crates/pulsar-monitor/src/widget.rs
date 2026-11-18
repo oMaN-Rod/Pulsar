@@ -195,8 +195,14 @@ impl Widget {
             }
             (None, _) => {
                 let balance = match (arranged, look.layout) {
-                    (Some((_, _, Arrangement::Dashboard { columns })), _) => Some(columns),
-                    (None, WidgetLayout::Dashboard) => Some(sections.len().div_ceil(2).clamp(1, 3)),
+                    (Some((_, _, Arrangement::Dashboard { columns })), _) => Some(Balance {
+                        columns,
+                        fill: true,
+                    }),
+                    (None, WidgetLayout::Dashboard) => Some(Balance {
+                        columns: sections.len().div_ceil(2).clamp(1, 3),
+                        fill: false,
+                    }),
                     _ => None,
                 };
                 Plan::new(&mut sections, &d, max_h, separate, balance, text)
@@ -965,6 +971,14 @@ struct Placed {
     divider: bool,
 }
 
+/// Sections spread evenly over `columns`, all the same height: shared out
+/// of the height with `fill`, else the tallest section's.
+#[derive(Clone, Copy)]
+struct Balance {
+    columns: usize,
+    fill: bool,
+}
+
 struct Plan {
     width: f32,
     height: f32,
@@ -973,13 +987,12 @@ struct Plan {
 }
 
 impl Plan {
-    /// `balance` spreads the sections evenly over that many columns.
     fn new(
         sections: &mut [Section],
         d: &Dims,
         max_h: f32,
         separate: bool,
-        balance: Option<usize>,
+        balance: Option<Balance>,
         text: &dyn TextMeasure,
     ) -> Self {
         let inner = d.column_w - 2.0 * d.pad;
@@ -989,7 +1002,7 @@ impl Plan {
         let styles: Vec<WidgetStyle> = sections.iter().map(|s| s.style).collect();
         let wide: Vec<bool> = sections.iter().map(|s| wide_tile(s.content.kind)).collect();
         let units = units(&styles, &wide);
-        let heights: Vec<f32> = units
+        let mut heights: Vec<f32> = units
             .iter()
             .map(|u| sections[u[0]].cell_height(d))
             .collect();
@@ -1000,7 +1013,21 @@ impl Plan {
             (d.between, d.gap, 0.0)
         };
         let room = max_h - 2.0 * d.pad;
-        let limit = balance.map_or(room, |count| balanced(&heights, between, count).min(room));
+        if let Some(b) = balance {
+            let tallest = heights.iter().copied().fold(0.0, f32::max);
+            // Only stacked values shrink to fit, so no other card goes below
+            // its own height.
+            let floor = units
+                .iter()
+                .zip(&heights)
+                .filter(|(u, _)| !sections[u[0]].content.stacked)
+                .map(|(_, &h)| h)
+                .fold(0.0, f32::max);
+            let rows = units.len().div_ceil(b.columns.max(1)).max(1) as f32;
+            let shared = (room - (rows - 1.0) * between) / rows;
+            heights.fill(if b.fill { shared.max(floor) } else { tallest });
+        }
+        let limit = balance.map_or(room, |b| balanced(&heights, between, b.columns).min(room));
         let columns = columns(&heights, between, limit);
         let mut placed = Vec::new();
         let mut tallest: f32 = 0.0;
@@ -1416,8 +1443,12 @@ impl Ctx<'_> {
 
     fn card(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
         let d = self.d;
-        let (baseline, x) = self.card_top(r, s, at, at.w * 0.55, f32::MAX, d.big_px)?;
+        // A card stretched to its row's height keeps its value at the bottom
+        // and lets the graph take the extra room.
+        let drop = (at.h - s.cell_height(d)).max(0.0);
         let y = at.y + d.line_h + d.gap / 2.0;
+        let room_h = at.y + at.h - s.details_height(d) - y;
+        let (baseline, x) = self.card_top(r, s, at, (at.w * 0.55, room_h), d.big_px, drop)?;
         let block = baseline - y;
         let graph = Rect {
             x: x + 1.5 * d.gap,
@@ -1439,7 +1470,7 @@ impl Ctx<'_> {
         let bottom = if range.is_some() { range_y } else { details };
         let room_h = bottom - d.gap - (at.y + d.line_h + d.gap / 2.0);
         let big_px = d.big_px * FOCUS_VALUE_SCALE;
-        let (baseline, _) = self.card_top(r, s, at, at.w, room_h, big_px)?;
+        let (baseline, _) = self.card_top(r, s, at, (at.w, room_h), big_px, 0.0)?;
         let graph = Rect {
             x: at.x,
             y: baseline + d.gap,
@@ -1499,9 +1530,9 @@ impl Ctx<'_> {
         r: &Renderer,
         s: &Section,
         at: Rect,
-        room: f32,
-        room_h: f32,
+        (room, room_h): (f32, f32),
         big_px: f32,
+        drop: f32,
     ) -> Result<(f32, f32)> {
         let (d, p, t) = (self.d, self.palette, self.text);
         let c = s.content;
@@ -1524,7 +1555,7 @@ impl Ctx<'_> {
             r.text_at(t, &small, &model, x, y, p.popup_label)?;
         }
 
-        let y = at.y + d.line_h + d.gap / 2.0;
+        let y = at.y + d.line_h + d.gap / 2.0 + drop;
         if c.stacked {
             let room = Rect {
                 x: at.x,
@@ -2868,7 +2899,9 @@ mod tests {
         let contents: Vec<PopupContent> = kinds
             .iter()
             .map(|&kind| {
-                let options = crate::popup::content::Options::new(&config, kind, &snapshot.gpus);
+                let mut options =
+                    crate::popup::content::Options::new(&config, kind, &snapshot.gpus);
+                options.network_stacked = true;
                 crate::popup::content::build_with(kind, &snapshot, &history, &options)
             })
             .collect();
@@ -2915,10 +2948,44 @@ mod tests {
                 );
             }
         }
-        let spread = Plan::new(&mut sections, &d, 1000.0, true, Some(3), &text);
+        let three = |fill| Some(Balance { columns: 3, fill });
+        let spread = Plan::new(&mut sections, &d, 1000.0, true, three(false), &text);
         let mut lefts: Vec<i32> = spread.placed.iter().map(|p| p.rect.x as i32).collect();
         lefts.dedup();
         assert_eq!(lefts.len(), 3, "balanced over three columns");
+        let first = spread.placed[0].rect.h;
+        assert!(
+            spread.placed.iter().all(|p| p.rect.h == first),
+            "every dashboard card is as tall as the stacked network card"
+        );
+        let floor = sections
+            .iter()
+            .filter(|s| !s.content.stacked)
+            .map(|s| s.cell_height(&d))
+            .fold(0.0, f32::max);
+        let squeezed = Plan::new(
+            &mut sections,
+            &d,
+            floor + 2.0 * d.pad,
+            true,
+            three(true),
+            &text,
+        );
+        assert!(!squeezed.placed.is_empty());
+        assert!(
+            squeezed.placed.iter().all(|p| p.rect.h >= floor),
+            "no card is squeezed below its own height"
+        );
+        let short = first + 2.0 * d.pad;
+        let sized = Plan::new(&mut sections, &d, short * 1.9, true, three(true), &text);
+        assert_eq!(
+            sized.placed.len(),
+            kinds.len(),
+            "every card shares the height"
+        );
+        let h = sized.placed[0].rect.h;
+        assert!(sized.placed.iter().all(|p| p.rect.h == h));
+        assert!(h >= floor && h <= first, "{floor} <= {h} <= {first}");
         let mut cards = Plan::new(&mut sections, &d, f32::MAX, true, None, &text);
         let tall = cards.height;
         cards.fit(300.0, tall / 2.0, true);

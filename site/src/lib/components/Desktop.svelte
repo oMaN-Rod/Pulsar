@@ -378,7 +378,10 @@
     clearTimeout(pushTimer);
     pushTimer = setTimeout(() => (revealed = true), PUSH_MS[app.profile.widget.dock.push]);
   }
-  const edgeLeave = () => clearTimeout(pushTimer);
+  function edgeLeave() {
+    clearTimeout(pushTimer);
+    if (revealed) widgetLeave();
+  }
   function widgetEnter() {
     clearTimeout(hideTimer);
   }

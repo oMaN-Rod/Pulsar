@@ -1347,12 +1347,22 @@ body.panel-closed .dock-lip[data-dock='right'] {
 .w-dash {
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-  grid-template-rows: repeat(var(--rows), auto);
+  grid-template-rows: repeat(var(--rows), 1fr);
   grid-auto-flow: column;
   gap: 0 18px;
 }
 .w-dash.separate {
   gap: 8px;
+}
+.w-dash-cell {
+  display: flex;
+  flex-direction: column;
+}
+.w-dash-cell > .w-card {
+  flex: 1;
+}
+.w-dash-cell .w-card-body {
+  margin-top: auto;
 }
 .w-dash.w-panel .w-dash-cell:not(.top) {
   border-top: 1px solid rgba(127, 127, 127, 0.18);
