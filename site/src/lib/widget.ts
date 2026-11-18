@@ -1,5 +1,5 @@
 import { rgba } from './color.ts';
-import type { Profile, WidgetLayout, WidgetStyle } from './profile.ts';
+import type { Profile, WidgetLayout, WidgetMaterial, WidgetStyle } from './profile.ts';
 
 type Widget = Profile['widget'];
 
@@ -84,23 +84,41 @@ export interface Skin {
   border: string;
   radius: number;
   blur: boolean;
+  liquid: boolean;
 }
 
-export function skin(w: Widget, base: string, light: boolean): Skin {
+/** `opacity` and `glassTint` are 0–100. */
+export function skin(
+  look: { material: WidgetMaterial; opacity: number; glassTint: number },
+  base: string,
+  light: boolean,
+): Skin {
   const edge = (dark: number, bright: number) =>
     light ? `rgba(0, 0, 0, ${bright})` : `rgba(255, 255, 255, ${dark})`;
-  const opacity = w.opacity / 100;
+  const opacity = look.opacity / 100;
+  const tint = look.glassTint / 100;
   const floor = 1 / 255;
-  switch (w.material) {
+  const plain = { blur: false, liquid: false };
+  switch (look.material) {
     case 'glass':
       return {
-        fill: rgba(base, Math.max(floor, (0.85 * w.glassTint) / 100)),
+        ...plain,
+        fill: rgba(base, Math.max(floor, 0.85 * tint)),
         border: edge(0.22, 0.1),
         radius: 16,
         blur: true,
       };
+    case 'liquid':
+      return {
+        fill: rgba(base, Math.max(floor, 0.7 * tint)),
+        border: edge(0.3, 0.12),
+        radius: 20,
+        blur: true,
+        liquid: true,
+      };
     case 'acrylic':
       return {
+        ...plain,
         fill: rgba(base, Math.max(floor, 0.8 * opacity)),
         border: edge(0.09, 0.06),
         radius: 8,
@@ -108,17 +126,17 @@ export function skin(w: Widget, base: string, light: boolean): Skin {
       };
     case 'clear':
       return {
+        ...plain,
         fill: rgba(base, Math.max(floor, 0.28 * opacity)),
         border: edge(0.1, 0.08),
         radius: 12,
-        blur: false,
       };
     default:
       return {
+        ...plain,
         fill: rgba(base, Math.max(floor, opacity)),
         border: edge(0.12, 0.1),
         radius: 8,
-        blur: false,
       };
   }
 }

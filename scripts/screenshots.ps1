@@ -129,7 +129,7 @@ function Write-Config {
         [string[]]$LabelAbove = @(),
         [string]$Shape = 'rectangle',
         [string]$Detail = 'standard',
-        [string]$Background = 'translucent',
+        [string]$Background = 'acrylic',
         # Floating above the taskbar with a panel behind it.
         [switch]$Floating,
         # A widget style turns the widget on, drawn above other windows.
@@ -718,9 +718,11 @@ try {
             Send-ConfigChanged
             Save-Popups (0..($All.Count - 1)) "-$detail"
         }
-        Write-Config -Show $All -Background solid
-        Send-ConfigChanged
-        Save-Popups 0, 1 '-solid'
+        foreach ($material in 'solid', 'glass', 'liquid', 'clear') {
+            Write-Config -Show $All -Background $material
+            Send-ConfigChanged
+            Save-Popups 0, 1 "-$material"
+        }
     }
 
     if ('menus' -in $Parts) {
@@ -740,6 +742,7 @@ try {
             'widget-background' = @{ Widget = 'sparklines'; WidgetBackground = '#1E2A44' }
             'widget-cards'      = @{ Widget = 'cards'; WidgetSeparate = $true }
             'widget-glass'      = @{ Widget = 'sparklines'; WidgetMaterial = 'glass'; WidgetSeparate = $true }
+            'widget-liquid'     = @{ Widget = 'sparklines'; WidgetMaterial = 'liquid'; WidgetSeparate = $true }
             'widget-acrylic'    = @{ Widget = 'sparklines'; WidgetMaterial = 'acrylic' }
             'widget-layout-dashboard' = @{ Widget = 'sparklines'; WidgetLayout = 'dashboard' }
             'widget-layout-strip'  = @{ Widget = 'sparklines'; WidgetLayout = 'strip' }
@@ -752,7 +755,7 @@ try {
             Send-ConfigChanged
             Park-Mouse
             $widget = Find-Window 'PulsarWidget'
-            $backdrop = if ($options.WidgetMaterial -in 'glass', 'acrylic') { Show-Backdrop (Get-Rect $widget) }
+            $backdrop = if ($options.WidgetMaterial -in 'glass', 'liquid', 'acrylic') { Show-Backdrop (Get-Rect $widget) }
             Save-Around $widget $name
             if ($backdrop) { $backdrop.Close(); $backdrop.Dispose() }
         }

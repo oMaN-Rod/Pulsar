@@ -1,10 +1,10 @@
 //! What a hover popup shows for an item, independent of how it is drawn.
 
 use pulsar_core::config::{Config, NetworkShow, PopupDetail};
-use pulsar_core::format::format_value;
+use pulsar_core::format::{format_value, widest_value};
 use pulsar_core::gpu_slots::GpuSlots;
 use pulsar_core::history::HistoryStore;
-use pulsar_core::layout::{CellPart, network_parts};
+use pulsar_core::layout::{CellPart, network_parts, value_metric};
 use pulsar_core::metric::{GpuEngineKind, ItemKind, MetricKey, Snapshot, SourceId, Unit};
 use pulsar_core::sources::{ProcessSort, top_by};
 use pulsar_core::tr;
@@ -37,6 +37,8 @@ pub struct PopupContent {
     pub kind: ItemKind,
     pub title: &'static str,
     pub value: String,
+    /// `value` at its widest, the room it keeps as it changes.
+    pub widest: String,
     /// Graph series, drawn in order; the first is filled.
     pub series: Vec<CellPart>,
     pub graph: bool,
@@ -53,6 +55,7 @@ pub struct Reading {
     pub part: CellPart,
     pub name: String,
     pub value: String,
+    pub widest: String,
 }
 
 impl Reading {
@@ -716,6 +719,7 @@ pub fn build_with(
     let (ping_host, drives, count) = (options.ping_host, &options.drives[..], options.processes);
     let error = snapshot.item_error(kind).cloned();
     let mut readings = Vec::new();
+    let mut widest = None;
     let (title, value, series, mut blocks) = match kind {
         ItemKind::Cpu => (
             tr!("CPU"),
@@ -837,6 +841,8 @@ pub fn build_with(
                     .collect()
             };
             let rate = |part| floored_cell_value(kind, part, snapshot, options.network_floor);
+            let widest_rate = widest_value(Unit::NetworkRate);
+            widest = Some(rates(widest_rate.into(), widest_rate.into()));
             readings = series
                 .iter()
                 .map(|&part| Reading {
@@ -848,6 +854,7 @@ pub fn build_with(
                     }
                     .into(),
                     value: rate(part),
+                    widest: widest_rate.into(),
                 })
                 .collect();
             (
@@ -1113,6 +1120,8 @@ pub fn build_with(
         kind,
         title,
         value,
+        widest: widest
+            .unwrap_or_else(|| widest_value(value_metric(kind, CellPart::Main).unit()).into()),
         series,
         graph: options.graph,
         error,

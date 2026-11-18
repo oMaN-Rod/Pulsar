@@ -33,7 +33,7 @@ Pulsar puts live graphs or compact text for your system's vital signs right on t
 ## Highlights
 
 - **Graphs or text**, with one of twenty graph styles, a color and a popup detail chosen per item, in a plain strip, one pill or a chip per item.
-- **Hover popups** at three levels of detail, with a translucent background that blurs what is behind them.
+- **Hover popups** at three levels of detail, on the same backgrounds as the desktop widget: Solid, Glass, Liquid glass, Acrylic or Clear.
 - **A system details window**: processor, memory modules, graphics, drives, network, motherboard and every live sensor.
 - **GPU monitoring for any vendor**, read the way Task Manager does, with no drivers or vendor SDKs.
 - **CPU temperature and power, if you opt in**, through an optional [sensor service](#sensor-service).
@@ -155,7 +155,7 @@ A panel on the desktop with a section per item, like a popup that stays open. It
 - **Style:** sparklines, tiles, meters, dials or device cards (the device, a large value beside its graph, then details), for all items or per item, at Simple, Standard or Detailed. The CPU can also show a core wall: a tall bar per logical processor with its peak, with performance and efficient cores apart.
 - **Layout:** let Pulsar pick one, or choose Dashboard, Lanes, Tiles, Meters, Dials, Strip, Rings or Focus from the pictures in *Settings → Widget → Look*. The widget either fits its content or takes the size you drag its edges to.
 - **Focus:** one item at a time, with a large value and graph. It can step to the next item on a timer, with a fade or slide, or when you press a shortcut.
-- **Material:** Solid; Glass or Acrylic, which blur what is behind the widget; or Clear, which never blurs, for use over games. Glass can take a tint from the background color. Items can share one panel or each have a card of their own, with an optional border.
+- **Material:** Solid; Glass, Liquid glass or Acrylic, which blur what is behind the widget; or Clear, which never blurs, for use over games. Glass is frosted; Liquid glass blurs less and catches the light along its rim. Both can take a tint from the background color. Items can share one panel or each have a card of their own, with an optional border.
 - **Network:** download and upload as meter bars, with their rates under the direction names or on one line, and upload in a color of its own.
 - **Order:** the widget can show its own items in its own order: drag the handles in *Settings → Widget → Items*, or hold <kbd>Shift</kbd> and drag an item on the widget (no <kbd>Shift</kbd> needed once it is locked).
 
@@ -267,11 +267,11 @@ Rest the mouse on an item to see its graph and details. Choose how much each pop
 | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-cpu-simple.png" width="250" alt="Simple CPU popup"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-cpu-standard.png" width="250" alt="Standard CPU popup"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-cpu-detailed.png" width="250" alt="Detailed CPU popup"> |
 | The value and its graph | The main readings and top processes | Everything Pulsar reads, plus the low, average and high of the graph |
 
-Popups are translucent by default, blurring what is behind them, or solid if you prefer:
+Popups take the same materials as the desktop widget, in *Settings → Popups*. Acrylic, the default, blurs what is behind them; Glass and Liquid glass can take a tint:
 
-| Translucent | Solid |
-|:---:|:---:|
-| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-cpu-standard.png" width="250" alt="Translucent popup"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-cpu-solid.png" width="250" alt="Solid popup"> |
+| Acrylic | Liquid glass | Solid |
+|:---:|:---:|:---:|
+| <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-cpu-standard.png" width="250" alt="Acrylic popup"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-cpu-liquid.png" width="250" alt="Liquid glass popup"> | <img src="https://raw.githubusercontent.com/oMaN-Rod/Pulsar/main/docs/images/popup-cpu-solid.png" width="250" alt="Solid popup"> |
 
 <details>
 <summary><b>What each popup shows</b></summary>

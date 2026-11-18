@@ -239,9 +239,10 @@
     onchange={(v) => (w.material = v)}
   />
   <p class="note">
-    Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games.
+    Glass, Liquid glass and Acrylic blur what is behind the widget. Liquid glass keeps more of it in
+    focus. Clear never blurs, for use over games.
   </p>
-  {#if w.material === 'glass'}
+  {#if w.material === 'glass' || w.material === 'liquid'}
     <RangeField
       name="Glass tint"
       min={0}
@@ -290,7 +291,7 @@
     max={100}
     value={w.opacity}
     output="{w.opacity}%"
-    disabled={w.material === 'glass'}
+    disabled={w.material === 'glass' || w.material === 'liquid'}
     oninput={(v) => (w.opacity = v)}
   />
 </section>

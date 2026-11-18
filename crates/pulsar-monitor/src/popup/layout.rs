@@ -281,6 +281,7 @@ mod tests {
             kind: ItemKind::Cpu,
             title: "CPU",
             value: "1%".into(),
+            widest: "100%".into(),
             series: vec![CellPart::Main],
             graph: true,
             error: None,

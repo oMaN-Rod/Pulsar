@@ -877,12 +877,32 @@ msgid "Same detail as the widget ({})"
 msgstr "ウィジェットと同じ詳細度（{}）"
 
 #: src/menu.rs ui/settings.slint
+msgid "Solid"
+msgstr "単色"
+
+#: src/menu.rs ui/settings.slint
+msgid "Glass"
+msgstr "ガラス"
+
+#: src/menu.rs
+msgid "Liquid glass"
+msgstr "リキッドガラス"
+
+#: src/menu.rs ui/settings.slint
+msgid "Acrylic"
+msgstr "アクリル"
+
+#: src/menu.rs ui/settings.slint
+msgid "Clear"
+msgstr "透明"
+
+#: src/menu.rs ui/settings.slint
 msgid "Graph"
 msgstr "グラフ"
 
 #: src/menu.rs ui/settings.slint
-msgid "Translucent background"
-msgstr "半透明の背景"
+msgid "Background"
+msgstr "背景"
 
 #: src/menu.rs ui/settings.slint
 msgid "None"
@@ -2205,10 +2225,6 @@ msgid "Draw graphs in your Windows accent color."
 msgstr "Windows のアクセント色でグラフを描画します。"
 
 #: ui/settings.slint
-msgid "Background"
-msgstr "背景"
-
-#: ui/settings.slint
 msgid "Tiles"
 msgstr "タイル"
 
@@ -2241,8 +2257,28 @@ msgid "Simple shows the value and its graph; Detailed adds everything Pulsar rea
 msgstr "簡易は値とグラフを表示し、詳細は取得できるすべての情報を表示します。項目ページで個別に指定できます。"
 
 #: ui/settings.slint
-msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
-msgstr "ポップアップの背後をぼかします。Windows が許可しない場合は不透明で表示します。"
+msgid "Material"
+msgstr "素材"
+
+#: ui/settings.slint
+msgid "Glass, Liquid glass and Acrylic blur what is behind the popup; if Windows does not allow it, popups stay solid. Clear never blurs."
+msgstr "ガラス、リキッドガラス、アクリルはポップアップの背後をぼかします。Windows で使えない場合は単色になります。透明はぼかしません。"
+
+#: ui/settings.slint
+msgid "Liquid"
+msgstr "リキッド"
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr "ガラスの色合い"
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr "透明なガラス。"
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
+msgstr "色合いの {}%。"
 
 #: ui/settings.slint
 msgid "The recent history at the top of each popup."
@@ -2501,28 +2537,8 @@ msgid "Device cards"
 msgstr "デバイス カード"
 
 #: ui/settings.slint
-msgid "Material"
-msgstr "素材"
-
-#: ui/settings.slint
-msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
-msgstr "ガラスとアクリルはウィジェットの背後をぼかします。透明はぼかさないので、ゲームの上で使えます。"
-
-#: ui/settings.slint
-msgid "Solid"
-msgstr "単色"
-
-#: ui/settings.slint
-msgid "Glass"
-msgstr "ガラス"
-
-#: ui/settings.slint
-msgid "Acrylic"
-msgstr "アクリル"
-
-#: ui/settings.slint
-msgid "Clear"
-msgstr "透明"
+msgid "Glass, Liquid glass and Acrylic blur what is behind the widget. Liquid glass keeps more of it in focus. Clear never blurs, for use over games."
+msgstr "ガラス、リキッドガラス、アクリルはウィジェットの背後をぼかします。リキッドガラスは背後をよりはっきり残します。透明はぼかさないので、ゲーム上での使用に向いています。"
 
 #: ui/settings.slint
 msgid "Separate cards"
@@ -2579,18 +2595,6 @@ msgstr "空欄はテーマのパネル色を使います。"
 #: ui/settings.slint
 msgid "Background opacity"
 msgstr "背景の不透明度"
-
-#: ui/settings.slint
-msgid "Glass tint"
-msgstr "ガラスの色合い"
-
-#: ui/settings.slint
-msgid "Clear glass."
-msgstr "透明なガラス。"
-
-#: ui/settings.slint
-msgid "{}% of the tint color."
-msgstr "色合いの {}%。"
 
 #: ui/settings.slint
 msgid "Choose items"

@@ -1,32 +1,25 @@
 pub mod content;
 pub mod layout;
 
-use std::cell::Cell;
-use std::ffi::c_void;
-
+use pulsar_core::config::Material;
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{Rect, TextMeasure};
 use pulsar_core::metric::ItemKind;
 use pulsar_core::tr;
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
-use windows::Win32::Graphics::Dwm::{
-    DWM_WINDOW_CORNER_PREFERENCE, DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE,
-    DWMWCP_ROUND, DwmExtendFrameIntoClientArea, DwmSetWindowAttribute,
-};
-use windows::Win32::Graphics::Gdi::{
-    BeginPaint, BitBlt, EndPaint, GetDC, HDC, PAINTSTRUCT, ReleaseDC, SRCCOPY,
-};
-use windows::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
-use windows::Win32::UI::Controls::MARGINS;
+use windows::Win32::Graphics::DirectWrite::IDWriteTextFormat;
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DestroyWindow, HTTRANSPARENT, HWND_TOPMOST, MA_NOACTIVATE,
     RegisterClassW, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE,
-    SetWindowPos, ShowWindow, WINDOW_EX_STYLE, WM_MOUSEACTIVATE, WM_NCHITTEST, WM_PAINT, WNDCLASSW,
-    WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
+    SetWindowPos, ShowWindow, WM_MOUSEACTIVATE, WM_NCHITTEST, WNDCLASSW, WS_EX_LAYERED,
+    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_EX_TRANSPARENT, WS_POPUP,
 };
-use windows::core::{BOOL, Result, s, w};
+use windows::core::{Result, w};
 
+use crate::glass::Backdrop;
 use crate::render::{Renderer, Surface};
+use crate::skin::Skin;
+use crate::steady::Steady;
 use crate::taskbar::placement::Rect32;
 use crate::text::Text;
 use crate::theme::{Color, Palette};
@@ -36,137 +29,12 @@ use pulsar_core::display::{area_points, graph_max, metric_for};
 
 const CLASS: windows::core::PCWSTR = w!("PulsarPopup");
 
-thread_local! {
-    /// The translucent popup's window and the bitmap it shows, for repaints
-    /// Windows asks for between our own.
-    static SHOWN: Cell<Option<(HWND, HDC, i32, i32)>> = const { Cell::new(None) };
-}
-
 unsafe extern "system" fn popup_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
         // Mouse input passes through to whatever is underneath.
         WM_NCHITTEST => LRESULT(HTTRANSPARENT as isize),
         WM_MOUSEACTIVATE => LRESULT(MA_NOACTIVATE as isize),
-        WM_PAINT => {
-            let mut ps = PAINTSTRUCT::default();
-            let dc = unsafe { BeginPaint(hwnd, &mut ps) };
-            if let Some((shown, source, w, h)) = SHOWN.get()
-                && shown == hwnd
-            {
-                unsafe {
-                    let _ = BitBlt(dc, 0, 0, w, h, Some(source), 0, 0, SRCCOPY);
-                }
-            }
-            unsafe {
-                let _ = EndPaint(hwnd, &ps);
-            }
-            LRESULT(0)
-        }
         _ => unsafe { DefWindowProcW(hwnd, msg, wp, lp) },
-    }
-}
-
-#[repr(C)]
-struct AccentPolicy {
-    state: u32,
-    flags: u32,
-    color: u32,
-    animation: u32,
-}
-
-#[repr(C)]
-struct CompositionData {
-    attribute: u32,
-    data: *mut c_void,
-    size: usize,
-}
-
-type SetCompositionAttribute = unsafe extern "system" fn(HWND, *mut CompositionData) -> BOOL;
-
-const WCA_ACCENT_POLICY: u32 = 19;
-const ACCENT_ENABLE_ACRYLICBLURBEHIND: u32 = 4;
-/// How much the popup's background color covers the blur.
-const TINT_ALPHA: f32 = 0.6;
-
-/// Blurs what is behind the window under `tint`. The system backdrop
-/// materials turn to a flat fill on windows that are not active, which a
-/// popup never is, so this uses the older, undocumented accent policy.
-fn set_acrylic(hwnd: HWND, tint: Color) -> bool {
-    let Ok(user32) = (unsafe { GetModuleHandleW(w!("user32.dll")) }) else {
-        return false;
-    };
-    let Some(proc) = (unsafe { GetProcAddress(user32, s!("SetWindowCompositionAttribute")) })
-    else {
-        return false;
-    };
-    let set: SetCompositionAttribute = unsafe { std::mem::transmute(proc) };
-    let byte = |c: f32| (c.clamp(0.0, 1.0) * 255.0).round() as u32;
-    let mut accent = AccentPolicy {
-        state: ACCENT_ENABLE_ACRYLICBLURBEHIND,
-        flags: 0,
-        color: byte(TINT_ALPHA) << 24 | byte(tint.b) << 16 | byte(tint.g) << 8 | byte(tint.r),
-        animation: 0,
-    };
-    let mut data = CompositionData {
-        attribute: WCA_ACCENT_POLICY,
-        data: (&mut accent as *mut AccentPolicy).cast(),
-        size: size_of::<AccentPolicy>(),
-    };
-    unsafe { set(hwnd, &mut data) }.as_bool()
-}
-
-/// Blurs what is behind the whole window, with rounded corners; false
-/// where Windows does not offer it.
-fn apply_backdrop(hwnd: HWND) -> bool {
-    let corners = DWMWCP_ROUND;
-    let whole = MARGINS {
-        cxLeftWidth: -1,
-        cxRightWidth: -1,
-        cyTopHeight: -1,
-        cyBottomHeight: -1,
-    };
-    unsafe {
-        DwmExtendFrameIntoClientArea(hwnd, &whole).is_ok()
-            && DwmSetWindowAttribute(
-                hwnd,
-                DWMWA_WINDOW_CORNER_PREFERENCE,
-                (&corners as *const DWM_WINDOW_CORNER_PREFERENCE).cast(),
-                size_of::<DWM_WINDOW_CORNER_PREFERENCE>() as u32,
-            )
-            .is_ok()
-            && set_acrylic(hwnd, Color::rgb(0x20, 0x20, 0x20))
-    }
-}
-
-/// The border is drawn dark or light to match the taskbar.
-fn set_dark(hwnd: HWND, dark: bool) {
-    let dark = BOOL::from(dark);
-    unsafe {
-        let _ = DwmSetWindowAttribute(
-            hwnd,
-            DWMWA_USE_IMMERSIVE_DARK_MODE,
-            (&dark as *const BOOL).cast(),
-            size_of::<BOOL>() as u32,
-        );
-    }
-}
-
-fn create_window(instance: HINSTANCE, extra: WINDOW_EX_STYLE) -> Result<HWND> {
-    unsafe {
-        CreateWindowExW(
-            WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE | WS_EX_TOPMOST | extra,
-            CLASS,
-            w!("Pulsar popup"),
-            WS_POPUP,
-            0,
-            0,
-            0,
-            0,
-            None,
-            None,
-            Some(instance),
-            None,
-        )
     }
 }
 
@@ -180,54 +48,56 @@ pub struct Anchor {
     pub dpi: u32,
 }
 
-/// A click-through, non-activating window reused for every hover. Its
-/// bitmap and its own renderer are dropped while hidden, so the popup's
+/// A click-through, non-activating layered window reused for every hover.
+/// Its bitmap and its own renderer are dropped while hidden, so the popup's
 /// larger surfaces and glyph caches do not stay in memory once it closes.
-///
-/// A solid popup is a layered window drawn with per-pixel alpha. A
-/// translucent one is an ordinary window whose client area is all frame,
-/// so Windows shows its blur wherever the bitmap is clear.
+/// The blurring materials put a blur window beneath it.
 pub struct Popup {
     hwnd: HWND,
-    translucent: bool,
+    instance: HINSTANCE,
     surface: Option<Surface>,
     renderer: Option<Renderer>,
+    backdrop: Option<Backdrop>,
+    no_backdrop: bool,
     pub open: Option<(ItemKind, Anchor)>,
 }
 
 impl Popup {
-    pub fn create(instance: HINSTANCE, translucent: bool) -> Result<Self> {
-        unsafe {
+    pub fn create(instance: HINSTANCE) -> Result<Self> {
+        let hwnd = unsafe {
             RegisterClassW(&WNDCLASSW {
                 lpfnWndProc: Some(popup_proc),
                 hInstance: instance,
                 lpszClassName: CLASS,
                 ..Default::default()
             });
-        }
-        let mut hwnd = None;
-        if translucent {
-            let candidate = create_window(instance, WINDOW_EX_STYLE(0))?;
-            if apply_backdrop(candidate) {
-                hwnd = Some(candidate);
-            } else {
-                log::info!("no acrylic blur on this Windows; popups stay solid");
-                unsafe {
-                    let _ = DestroyWindow(candidate);
-                }
-            }
-        }
-        let translucent = hwnd.is_some();
-        let hwnd = match hwnd {
-            Some(hwnd) => hwnd,
-            None => create_window(instance, WS_EX_LAYERED | WS_EX_TRANSPARENT)?,
+            CreateWindowExW(
+                WS_EX_TOOLWINDOW
+                    | WS_EX_NOACTIVATE
+                    | WS_EX_TOPMOST
+                    | WS_EX_LAYERED
+                    | WS_EX_TRANSPARENT,
+                CLASS,
+                w!("Pulsar popup"),
+                WS_POPUP,
+                0,
+                0,
+                0,
+                0,
+                None,
+                None,
+                Some(instance),
+                None,
+            )?
         };
         crate::overlay::disable_transitions(hwnd);
         Ok(Self {
             hwnd,
-            translucent,
+            instance,
             surface: None,
             renderer: None,
+            backdrop: None,
+            no_backdrop: false,
             open: None,
         })
     }
@@ -239,6 +109,7 @@ impl Popup {
         style: &Style,
         text: &Text,
     ) -> Result<()> {
+        let blur = style.material.blurs() && style.transparency && self.ensure_backdrop();
         if self.renderer.is_none() {
             self.renderer = Some(Renderer::new()?);
         }
@@ -266,47 +137,63 @@ impl Popup {
             self.surface = Some(Surface::new(w, h)?);
         }
         let surface = self.surface.as_ref().unwrap();
-        let backdrop = self.translucent;
+        let p = style.palette;
+        let skin = Skin::new(style.material, p.popup, 1.0, style.glass_tint, p, blur);
+        let radius = skin.radius * m.scale;
+        let full = Rect {
+            x: 0.0,
+            y: 0.0,
+            w: w as f32,
+            h: h as f32,
+        };
         renderer.paint(surface, Color::rgb(0, 0, 0).with_alpha(0.0), |r| {
-            draw(r, text, content, style, &m, w as f32, h as f32, backdrop)
+            skin.panel(r, full, radius, m.scale, true)?;
+            draw(r, text, content, style, &m, full.w)
         })?;
         let (x, y) = position(anchor.item, anchor.taskbar, anchor.monitor, w, h, m.scale);
-        if self.translucent {
-            set_dark(self.hwnd, !style.palette.light());
-            set_acrylic(self.hwnd, style.palette.popup);
+        renderer.present(self.hwnd, surface, x, y)?;
+        if self.open.is_none() {
             unsafe {
-                SetWindowPos(self.hwnd, Some(HWND_TOPMOST), x, y, w, h, SWP_NOACTIVATE)?;
+                let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
+                let _ = SetWindowPos(
+                    self.hwnd,
+                    Some(HWND_TOPMOST),
+                    0,
+                    0,
+                    0,
+                    0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                );
             }
-            SHOWN.set(Some((self.hwnd, surface.dc(), w, h)));
-            if self.open.is_none() {
-                unsafe {
-                    let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
+        }
+        match &mut self.backdrop {
+            Some(backdrop) if blur => {
+                if let Err(e) = backdrop.set_shapes(&[(full, radius)], skin.blur) {
+                    log::warn!("could not shape the popup's blur: {e}");
+                    self.backdrop = None;
+                    self.no_backdrop = true;
+                } else {
+                    backdrop.place(self.hwnd, x, y, w, h);
                 }
             }
-            unsafe {
-                let dc = GetDC(Some(self.hwnd));
-                let _ = BitBlt(dc, 0, 0, w, h, Some(surface.dc()), 0, 0, SRCCOPY);
-                ReleaseDC(Some(self.hwnd), dc);
-            }
-        } else {
-            renderer.present(self.hwnd, surface, x, y)?;
-            if self.open.is_none() {
-                unsafe {
-                    let _ = ShowWindow(self.hwnd, SW_SHOWNOACTIVATE);
-                    let _ = SetWindowPos(
-                        self.hwnd,
-                        Some(HWND_TOPMOST),
-                        0,
-                        0,
-                        0,
-                        0,
-                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
-                    );
-                }
-            }
+            Some(backdrop) => backdrop.hide(),
+            None => {}
         }
         self.open = Some((content.kind, anchor));
         Ok(())
+    }
+
+    fn ensure_backdrop(&mut self) -> bool {
+        if self.backdrop.is_none() && !self.no_backdrop {
+            match Backdrop::create(self.instance) {
+                Ok(backdrop) => self.backdrop = Some(backdrop),
+                Err(e) => {
+                    log::info!("no blur behind popups; they stay solid: {e}");
+                    self.no_backdrop = true;
+                }
+            }
+        }
+        self.backdrop.is_some()
     }
 
     pub fn hide(&mut self) {
@@ -315,8 +202,8 @@ impl Popup {
                 let _ = ShowWindow(self.hwnd, SW_HIDE);
             }
         }
-        if SHOWN.get().is_some_and(|(h, ..)| h == self.hwnd) {
-            SHOWN.set(None);
+        if let Some(backdrop) = &mut self.backdrop {
+            backdrop.hide();
         }
         self.surface = None;
         self.renderer = None;
@@ -341,10 +228,13 @@ pub struct Style<'a> {
     pub width: u16,
     /// Logical pixels.
     pub graph_height: u16,
+    pub material: Material,
+    /// 0–1.
+    pub glass_tint: f32,
+    /// Windows' "Transparency effects" setting.
+    pub transparency: bool,
 }
 
-/// `backdrop`: Windows draws the background, border and corners.
-#[allow(clippy::too_many_arguments)]
 fn draw(
     r: &Renderer,
     text: &Text,
@@ -352,26 +242,8 @@ fn draw(
     style: &Style,
     m: &Metrics,
     w: f32,
-    h: f32,
-    backdrop: bool,
 ) -> Result<()> {
     let p = style.palette;
-    if !backdrop {
-        let full = Rect {
-            x: 0.0,
-            y: 0.0,
-            w,
-            h,
-        };
-        r.fill_rounded(full, 8.0 * m.scale, p.popup_border)?;
-        let inner = Rect {
-            x: 1.0,
-            y: 1.0,
-            w: w - 2.0,
-            h: h - 2.0,
-        };
-        r.fill_rounded(inner, 7.0 * m.scale, p.popup)?;
-    }
 
     let body = text.format(m.font_px)?;
     let title = text.format(m.title_px)?;
@@ -379,8 +251,9 @@ fn draw(
     let accent = p.graph(content.kind, content.series[0]);
     let mut y = m.pad;
 
-    let value = ellipsize(&content.value, (right - m.pad) * 0.5, m.title_px, text);
-    let value_w = text.width(&value, m.title_px);
+    let room = (right - m.pad) * 0.5;
+    let value = Steady::new(text, &content.value, Some(&content.widest), m.title_px);
+    let value_w = value.width.min(room);
     let heading = ellipsize(
         content.title,
         right - value_w - m.pad - 8.0 * m.scale,
@@ -388,7 +261,13 @@ fn draw(
         text,
     );
     r.text_at(text, &title, &heading, m.pad, y, p.popup_text)?;
-    r.text_at(text, &title, &value, right - value_w, y, accent)?;
+    if value.width <= room {
+        value.draw(r, text, &title, right - value_w, y, accent)?;
+    } else {
+        let value = ellipsize(&content.value, room, m.title_px, text);
+        let x = right - text.width(&value, m.title_px);
+        r.text_at(text, &title, &value, x, y, accent)?;
+    }
     y += m.title_h + m.block_gap;
 
     if content.graph {
@@ -436,9 +315,8 @@ fn draw(
                     y += m.line_h;
                 }
                 for (label, value) in rows {
-                    let value = ellipsize(value, (right - m.pad) * 0.7, m.font_px, text);
-                    let value_w = text.width(&value, m.font_px);
-                    r.text_at(text, &body, &value, right - value_w, y, p.popup_text)?;
+                    let value_w =
+                        steady_value(r, text, &body, m.font_px, value, (right, y), p.popup_text)?;
                     let room = right - value_w - gap - m.pad;
                     let label = ellipsize(label, room, m.font_px, text);
                     r.text_at(text, &body, &label, m.pad, y, p.popup_text)?;
@@ -517,8 +395,8 @@ fn draw(
                         h: dot,
                     };
                     r.fill_rounded(swatch, dot / 4.0, color)?;
-                    let value_w = text.width(shown, m.font_px);
-                    r.text_at(text, &body, shown, right - value_w, y, p.popup_text)?;
+                    let value_w =
+                        steady_value(r, text, &body, m.font_px, shown, (right, y), p.popup_text)?;
                     let label_x = m.pad + dot + 6.0 * m.scale;
                     let room = right - value_w - gap - label_x;
                     let label = ellipsize(label, room, m.font_px, text);
@@ -530,6 +408,30 @@ fn draw(
         y += m.block_gap;
     }
     Ok(())
+}
+
+/// Draws `value` ending at `right`, in the room of its widest form so the
+/// label beside it keeps its room, within most of the width from the left
+/// edge; returns that room.
+fn steady_value(
+    r: &Renderer,
+    text: &Text,
+    format: &IDWriteTextFormat,
+    px: f32,
+    value: &str,
+    (right, y): (f32, f32),
+    color: Color,
+) -> Result<f32> {
+    let room = right * 0.7;
+    let steady = Steady::new(text, value, None, px);
+    if steady.width <= room {
+        steady.draw(r, text, format, right - steady.width, y, color)?;
+        return Ok(steady.width);
+    }
+    let value = ellipsize(value, room, px, text);
+    let w = text.width(&value, px);
+    r.text_at(text, format, &value, right - w, y, color)?;
+    Ok(w)
 }
 
 /// The accent fading out part by part; the last part, what is left over,
@@ -553,12 +455,19 @@ mod tests {
         let instance = unsafe { windows::Win32::System::LibraryLoader::GetModuleHandleW(None) }
             .unwrap()
             .into();
-        for translucent in [false, true] {
-            check_resources_are_released(Popup::create(instance, translucent).unwrap());
+        let mut popup = Popup::create(instance).unwrap();
+        for material in [
+            Material::Solid,
+            Material::Glass,
+            Material::Liquid,
+            Material::Acrylic,
+            Material::Clear,
+        ] {
+            check_resources_are_released(&mut popup, material);
         }
     }
 
-    fn check_resources_are_released(mut popup: Popup) {
+    fn check_resources_are_released(popup: &mut Popup, material: Material) {
         let mut snapshot = Snapshot::default();
         snapshot.set(MetricKey::CpuTotal, 12.0);
         for i in 0..8u16 {
@@ -576,6 +485,9 @@ mod tests {
             font_px: 12.0,
             width: config.popup.width,
             graph_height: config.popup.graph_height,
+            material,
+            glass_tint: 0.3,
+            transparency: true,
         };
         // Far off-screen so the test never flashes a window on the desktop.
         let anchor = Anchor {
@@ -603,12 +515,15 @@ mod tests {
         popup.show(anchor, &content, &style, &text).unwrap();
         assert_eq!(popup.open.map(|(k, _)| k), Some(ItemKind::Cpu));
         assert!(popup.surface.is_some() && popup.renderer.is_some());
-        if popup.translucent {
-            assert!(SHOWN.get().is_some(), "kept for repaints while shown");
+        if material.blurs() {
+            assert!(
+                popup.backdrop.as_ref().is_none_or(Backdrop::shown),
+                "{material:?} blurs behind the popup"
+            );
         }
         popup.hide();
         assert!(popup.open.is_none());
-        assert!(SHOWN.get().is_none(), "no repaints from a freed bitmap");
+        assert!(!popup.backdrop.as_ref().is_some_and(Backdrop::shown));
         assert!(popup.surface.is_none(), "bitmap freed while hidden");
         assert!(
             popup.renderer.is_none(),

@@ -5,10 +5,10 @@ use pulsar_core::colors::Rgb;
 use pulsar_core::colors::default_rgb;
 use pulsar_core::config::{
     Config, DisplayMode, DriveValue, FOCUS_INTERVALS_S, FOCUS_TRANSITIONS_MS, FocusTransition,
-    ItemConfig, LabelStyle, LoadColors, LoadThresholds, MemoryUnit, NetworkShow, NoRoom,
-    OverFullscreen, PopupBackground, Position, PushStrength, ROW_RADII, RateUnit, RemoveFrom,
-    SHAPE_RADII, ScreenEdge, StripShape, TemperatureUnit, WIDGET_FOCUS_SIZE, WidgetLayer,
-    WidgetLayout, WidgetMaterial, WidgetSizing, WidgetStyle, sanitize_label,
+    ItemConfig, LabelStyle, LoadColors, LoadThresholds, Material, MemoryUnit, NetworkShow, NoRoom,
+    OverFullscreen, Position, PushStrength, ROW_RADII, RateUnit, RemoveFrom, SHAPE_RADII,
+    ScreenEdge, StripShape, TemperatureUnit, WIDGET_FOCUS_SIZE, WidgetLayer, WidgetLayout,
+    WidgetSizing, WidgetStyle, sanitize_label,
 };
 use pulsar_core::layout::CellPart;
 use pulsar_core::metric::ItemKind;
@@ -50,11 +50,12 @@ const FOCUS_TRANSITIONS: [FocusTransition; 4] = [
     FocusTransition::Slide,
     FocusTransition::SlideUp,
 ];
-const WIDGET_MATERIALS: [WidgetMaterial; 4] = [
-    WidgetMaterial::Solid,
-    WidgetMaterial::Glass,
-    WidgetMaterial::Acrylic,
-    WidgetMaterial::Clear,
+const MATERIALS: [Material; 5] = [
+    Material::Solid,
+    Material::Glass,
+    Material::Liquid,
+    Material::Acrylic,
+    Material::Clear,
 ];
 
 #[derive(Clone, Debug, PartialEq)]
@@ -221,7 +222,9 @@ pub struct Form {
     /// An index into `names::DETAILS`.
     pub popup_detail: i32,
     pub popup_graph: bool,
-    pub popup_translucent: bool,
+    /// An index into `MATERIALS`.
+    pub popup_material: i32,
+    pub popup_glass_tint: i32,
     pub popup_processes: i32,
     pub popup_width: i32,
     pub popup_graph_height: i32,
@@ -250,7 +253,7 @@ pub struct Form {
     pub widget_focus_interval: i32,
     pub widget_focus_transition: i32,
     pub widget_focus_transition_ms: i32,
-    /// An index into `WIDGET_MATERIALS`.
+    /// An index into `MATERIALS`.
     pub widget_material: i32,
     pub widget_layout: i32,
     pub widget_row_radius_custom: bool,
@@ -532,7 +535,8 @@ pub fn to_form(c: &Config) -> Form {
         game_summary: c.game.summary,
         popup_detail: index_of(&DETAILS, &c.popup.detail),
         popup_graph: c.popup.graph,
-        popup_translucent: c.popup.background == PopupBackground::Translucent,
+        popup_material: index_of(&MATERIALS, &c.popup.background),
+        popup_glass_tint: i32::from(c.popup.glass_tint),
         popup_processes: i32::from(c.popup.processes),
         popup_width: i32::from(c.popup.width),
         popup_graph_height: i32::from(c.popup.graph_height),
@@ -564,7 +568,7 @@ pub fn to_form(c: &Config) -> Form {
         widget_focus_interval: i32::from(c.widget.focus_interval_s),
         widget_focus_transition: index_of(&FOCUS_TRANSITIONS, &c.widget.focus_transition),
         widget_focus_transition_ms: i32::from(c.widget.focus_transition_ms),
-        widget_material: index_of(&WIDGET_MATERIALS, &c.widget.material),
+        widget_material: index_of(&MATERIALS, &c.widget.material),
         widget_layout: index_of(&WIDGET_LAYOUTS, &c.widget.layout),
         widget_row_radius_custom: c.widget.row_radius.is_some(),
         widget_row_radius: i32::from(c.widget.row_radius.unwrap_or(DEFAULT_SHAPE_RADIUS)),
@@ -849,11 +853,8 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
     };
     c.popup.detail = at(&DETAILS, f.popup_detail).unwrap_or_default();
     c.popup.graph = f.popup_graph;
-    c.popup.background = if f.popup_translucent {
-        PopupBackground::Translucent
-    } else {
-        PopupBackground::Solid
-    };
+    c.popup.background = at(&MATERIALS, f.popup_material).unwrap_or_default();
+    c.popup.glass_tint = clamp_u8(f.popup_glass_tint);
     c.popup.processes = f.popup_processes.clamp(0, 255) as u8;
     c.popup.width = clamp_u16(f.popup_width);
     c.popup.graph_height = clamp_u16(f.popup_graph_height);
@@ -889,7 +890,7 @@ pub fn to_config(f: &Form, base: &Config) -> Config {
         i32::from(*FOCUS_TRANSITIONS_MS.start()),
         i32::from(*FOCUS_TRANSITIONS_MS.end()),
     ) as u16;
-    w.material = at(&WIDGET_MATERIALS, f.widget_material).unwrap_or_default();
+    w.material = at(&MATERIALS, f.widget_material).unwrap_or_default();
     let layout = at(&WIDGET_LAYOUTS, f.widget_layout).unwrap_or_default();
     if layout == WidgetLayout::Focus && w.layout != WidgetLayout::Focus {
         w.size = WIDGET_FOCUS_SIZE;
@@ -1141,7 +1142,9 @@ mod tests {
         f.dock_over_fullscreen = 0;
         f.dock_hide_ms = 9000;
         f.dock_lip = true;
-        f.widget_material = 1;
+        f.widget_material = 2;
+        f.popup_material = 1;
+        f.popup_glass_tint = 140;
         f.widget_separate = true;
         f.widget_sized = true;
         let out = to_config(&f, &c);
@@ -1153,7 +1156,9 @@ mod tests {
         assert_eq!(dock.over_fullscreen, OverFullscreen::Never);
         assert_eq!(dock.hide_delay_ms, 5000, "clamped");
         assert!(dock.lip);
-        assert_eq!(out.widget.material, WidgetMaterial::Glass);
+        assert_eq!(out.widget.material, Material::Liquid);
+        assert_eq!(out.popup.background, Material::Glass);
+        assert_eq!(out.popup.glass_tint, 100, "clamped");
         assert!(out.widget.separate);
         let back = to_form(&out);
         assert_eq!(back.widget_dock_edge, Some(3));
@@ -1586,7 +1591,8 @@ mod tests {
         c.display.value_color_light = Some("#101010".into());
         c.popup.detail = pulsar_core::config::PopupDetail::Simple;
         c.popup.graph = false;
-        c.popup.background = PopupBackground::Solid;
+        c.popup.background = Material::Clear;
+        c.popup.glass_tint = 45;
         c.popup.processes = 10;
         c.popup.width = 640;
         c.popup.graph_height = 200;

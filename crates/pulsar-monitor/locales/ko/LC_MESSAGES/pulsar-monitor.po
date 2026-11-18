@@ -877,12 +877,32 @@ msgid "Same detail as the widget ({})"
 msgstr "위젯과 같은 세부 정보({})"
 
 #: src/menu.rs ui/settings.slint
+msgid "Solid"
+msgstr "단색"
+
+#: src/menu.rs ui/settings.slint
+msgid "Glass"
+msgstr "유리"
+
+#: src/menu.rs
+msgid "Liquid glass"
+msgstr "리퀴드 글라스"
+
+#: src/menu.rs ui/settings.slint
+msgid "Acrylic"
+msgstr "아크릴"
+
+#: src/menu.rs ui/settings.slint
+msgid "Clear"
+msgstr "투명"
+
+#: src/menu.rs ui/settings.slint
 msgid "Graph"
 msgstr "그래프"
 
 #: src/menu.rs ui/settings.slint
-msgid "Translucent background"
-msgstr "반투명 배경"
+msgid "Background"
+msgstr "배경"
 
 #: src/menu.rs ui/settings.slint
 msgid "None"
@@ -2205,10 +2225,6 @@ msgid "Draw graphs in your Windows accent color."
 msgstr "그래프를 Windows 강조 색으로 표시합니다."
 
 #: ui/settings.slint
-msgid "Background"
-msgstr "배경"
-
-#: ui/settings.slint
 msgid "Tiles"
 msgstr "타일"
 
@@ -2241,8 +2257,28 @@ msgid "Simple shows the value and its graph; Detailed adds everything Pulsar rea
 msgstr "간단히는 값과 그래프를, 자세히는 Pulsar가 읽는 모든 정보를 표시합니다. 항목 페이지에서 항목별로 따로 정할 수 있습니다."
 
 #: ui/settings.slint
-msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
-msgstr "팝업 뒤를 흐리게 표시합니다. Windows에서 허용하지 않으면 팝업은 불투명하게 표시됩니다."
+msgid "Material"
+msgstr "재질"
+
+#: ui/settings.slint
+msgid "Glass, Liquid glass and Acrylic blur what is behind the popup; if Windows does not allow it, popups stay solid. Clear never blurs."
+msgstr "유리, 리퀴드 글라스, 아크릴은 팝업 뒤를 흐리게 합니다. Windows에서 허용하지 않으면 단색으로 표시됩니다. 투명은 흐리게 하지 않습니다."
+
+#: ui/settings.slint
+msgid "Liquid"
+msgstr "리퀴드"
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr "유리 틴트"
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr "투명한 유리."
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
+msgstr "틴트 색의 {}%."
 
 #: ui/settings.slint
 msgid "The recent history at the top of each popup."
@@ -2501,28 +2537,8 @@ msgid "Device cards"
 msgstr "장치 카드"
 
 #: ui/settings.slint
-msgid "Material"
-msgstr "재질"
-
-#: ui/settings.slint
-msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
-msgstr "유리와 아크릴은 위젯 뒤를 흐리게 합니다. 투명은 흐리게 하지 않아 게임 위에서 쓰기 좋습니다."
-
-#: ui/settings.slint
-msgid "Solid"
-msgstr "단색"
-
-#: ui/settings.slint
-msgid "Glass"
-msgstr "유리"
-
-#: ui/settings.slint
-msgid "Acrylic"
-msgstr "아크릴"
-
-#: ui/settings.slint
-msgid "Clear"
-msgstr "투명"
+msgid "Glass, Liquid glass and Acrylic blur what is behind the widget. Liquid glass keeps more of it in focus. Clear never blurs, for use over games."
+msgstr "유리, 리퀴드 글라스, 아크릴은 위젯 뒤를 흐리게 합니다. 리퀴드 글라스는 뒤쪽을 더 선명하게 남깁니다. 투명은 흐리게 하지 않아 게임 위에서 쓰기 좋습니다."
 
 #: ui/settings.slint
 msgid "Separate cards"
@@ -2579,18 +2595,6 @@ msgstr "비워 두면 테마의 패널 색을 사용합니다."
 #: ui/settings.slint
 msgid "Background opacity"
 msgstr "배경 불투명도"
-
-#: ui/settings.slint
-msgid "Glass tint"
-msgstr "유리 틴트"
-
-#: ui/settings.slint
-msgid "Clear glass."
-msgstr "투명한 유리."
-
-#: ui/settings.slint
-msgid "{}% of the tint color."
-msgstr "틴트 색의 {}%."
 
 #: ui/settings.slint
 msgid "Choose items"

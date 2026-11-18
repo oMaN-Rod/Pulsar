@@ -360,6 +360,13 @@
   const widgetSkin = $derived(
     skin(app.profile.widget, app.profile.widget.background ?? themed.panel, app.light),
   );
+  const popSkin = $derived(
+    skin(
+      { ...app.profile.popup, material: app.profile.popup.background, opacity: 100 },
+      themed.panel,
+      app.light,
+    ),
+  );
   const dockEdge = $derived(app.profile.widget.dock.edge);
 
   let revealed = $state(false);
@@ -1038,6 +1045,7 @@
       'widget',
       widgetDrag?.active && 'dragging',
       widgetSkin.blur && 'blur',
+      widgetSkin.liquid && 'liquid',
       widgetBox.height !== null && 'sized',
       dockEdge && `docked dock-${dockEdge}`,
       dockEdge && !revealed && 'stowed',
@@ -1099,11 +1107,12 @@
     {/if}
   </div>
   <div
-    class={['pop', app.profile.popup.background === 'solid' && 'solid']}
+    class={['pop', !popSkin.blur && 'solid', popSkin.liquid && 'liquid']}
     role="tooltip"
     hidden={!popShown || !hovered}
     bind:this={popEl}
-    style:background={rgba(themed.panel, app.profile.popup.background === 'solid' ? 1 : 0.88)}
+    style:background={popSkin.fill}
+    style:border-radius="{popSkin.radius}px"
     style:color={themed.text}
     style:width="{(hovered && app.profile.items[hovered].popupWidth) || app.profile.popup.width}px"
     style:font-family={fontCss(app.profile.font)}

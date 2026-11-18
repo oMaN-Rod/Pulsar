@@ -875,11 +875,31 @@ msgid "Same detail as the widget ({})"
 msgstr ""
 
 #: src/menu.rs ui/settings.slint
+msgid "Solid"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Glass"
+msgstr ""
+
+#: src/menu.rs
+msgid "Liquid glass"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Acrylic"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
+msgid "Clear"
+msgstr ""
+
+#: src/menu.rs ui/settings.slint
 msgid "Graph"
 msgstr ""
 
 #: src/menu.rs ui/settings.slint
-msgid "Translucent background"
+msgid "Background"
 msgstr ""
 
 #: src/menu.rs ui/settings.slint
@@ -2203,10 +2223,6 @@ msgid "Draw graphs in your Windows accent color."
 msgstr ""
 
 #: ui/settings.slint
-msgid "Background"
-msgstr ""
-
-#: ui/settings.slint
 msgid "Tiles"
 msgstr ""
 
@@ -2239,7 +2255,27 @@ msgid "Simple shows the value and its graph; Detailed adds everything Pulsar rea
 msgstr ""
 
 #: ui/settings.slint
-msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
+msgid "Material"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass, Liquid glass and Acrylic blur what is behind the popup; if Windows does not allow it, popups stay solid. Clear never blurs."
+msgstr ""
+
+#: ui/settings.slint
+msgid "Liquid"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr ""
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr ""
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
 msgstr ""
 
 #: ui/settings.slint
@@ -2499,27 +2535,7 @@ msgid "Device cards"
 msgstr ""
 
 #: ui/settings.slint
-msgid "Material"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
-msgstr ""
-
-#: ui/settings.slint
-msgid "Solid"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Glass"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Acrylic"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Clear"
+msgid "Glass, Liquid glass and Acrylic blur what is behind the widget. Liquid glass keeps more of it in focus. Clear never blurs, for use over games."
 msgstr ""
 
 #: ui/settings.slint
@@ -2576,18 +2592,6 @@ msgstr ""
 
 #: ui/settings.slint
 msgid "Background opacity"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Glass tint"
-msgstr ""
-
-#: ui/settings.slint
-msgid "Clear glass."
-msgstr ""
-
-#: ui/settings.slint
-msgid "{}% of the tint color."
 msgstr ""
 
 #: ui/settings.slint

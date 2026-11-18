@@ -37,6 +37,7 @@ pub struct Backdrop {
     _target: DesktopWindowTarget,
     root: ContainerVisual,
     shapes: Vec<Shape>,
+    strength: f32,
     shown: bool,
 }
 
@@ -111,12 +112,15 @@ impl Backdrop {
             _target: target,
             root,
             shapes: Vec::new(),
+            strength: 1.0,
             shown: false,
         })
     }
 
-    pub fn set_shapes(&mut self, shapes: &[Shape]) -> Result<()> {
-        if self.shapes == shapes {
+    /// `strength`, 0–1, is how much of the blur covers what is behind;
+    /// the rest shows through sharp.
+    pub fn set_shapes(&mut self, shapes: &[Shape], strength: f32) -> Result<()> {
+        if self.shapes == shapes && self.strength == strength {
             return Ok(());
         }
         let children = self.root.Children()?;
@@ -139,11 +143,13 @@ impl Backdrop {
                 Z: 0.0,
             })?;
             panel.SetSize(size)?;
+            panel.SetOpacity(strength)?;
             panel.SetClip(&self.compositor.CreateGeometricClipWithGeometry(&geometry)?)?;
             panel.SetBrush(&self.compositor.CreateHostBackdropBrush()?)?;
             children.InsertAtTop(&panel)?;
         }
         self.shapes = shapes.to_vec();
+        self.strength = strength;
         Ok(())
     }
 

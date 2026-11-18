@@ -429,7 +429,6 @@ impl App {
         if elevated {
             log::info!("running elevated; staying separate from the taskbar");
         }
-        let translucent = translucent_popups(&config);
         let on_disk = Some(config.clone());
         // Chosen GPUs' cells are laid out before the first snapshot arrives.
         let gpus = if config.gpu.adapters.is_empty() {
@@ -462,7 +461,7 @@ impl App {
             hooks: None,
             fullscreen: Debounce::new(Vec::new()),
             retry_step: 0,
-            popup: Popup::create(instance, translucent)?,
+            popup: Popup::create(instance)?,
             popup_owner: None,
             hover: HoverArming::default(),
             drag: None,
@@ -2397,6 +2396,9 @@ impl App {
             font_px: self.config.display.font_size_pt * anchor.dpi as f32 / 72.0,
             width: self.config.popup_width(kind),
             graph_height: self.config.popup_graph_height(kind),
+            material: self.config.popup.background,
+            glass_tint: f32::from(self.config.popup.glass_tint.min(100)) / 100.0,
+            transparency: pulsar_core::system_theme::transparency_enabled(),
         };
         if self
             .popup
@@ -2645,13 +2647,6 @@ impl App {
         if new.units != self.config.units {
             pulsar_core::format::set_units(new.units);
         }
-        if new.popup.background != self.config.popup.background {
-            self.close_popup();
-            match Popup::create(self.instance, translucent_popups(&new)) {
-                Ok(popup) => self.popup = popup,
-                Err(e) => log::warn!("could not recreate the popup: {e}"),
-            }
-        }
         if new.general.language != self.config.general.language {
             crate::language::apply(&new);
             self.close_popup();
@@ -2747,10 +2742,6 @@ fn saved_profiles(config: &Config) -> Vec<(String, String, bool)> {
             (e.id, e.name, active)
         })
         .collect()
-}
-
-fn translucent_popups(config: &Config) -> bool {
-    config.popup.background == pulsar_core::config::PopupBackground::Translucent
 }
 
 /// `item` is the overlay item that was right-clicked, if any.

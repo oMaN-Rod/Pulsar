@@ -362,7 +362,8 @@ fn push(ui: &SettingsWindow, f: &Form, choices: &mut Choices) {
     ui.set_game_summary(f.game_summary);
     ui.set_popup_detail(f.popup_detail);
     ui.set_popup_graph(f.popup_graph);
-    ui.set_popup_translucent(f.popup_translucent);
+    ui.set_popup_material(f.popup_material);
+    ui.set_popup_glass_tint(f.popup_glass_tint as f32);
     ui.set_popup_processes(f.popup_processes);
     ui.set_popup_width(f.popup_width);
     ui.set_popup_graph_height(f.popup_graph_height);
@@ -745,7 +746,8 @@ fn pull(ui: &SettingsWindow, kinds: &[ItemKind], choices: &Choices) -> Form {
         game_summary: ui.get_game_summary(),
         popup_detail: ui.get_popup_detail(),
         popup_graph: ui.get_popup_graph(),
-        popup_translucent: ui.get_popup_translucent(),
+        popup_material: ui.get_popup_material(),
+        popup_glass_tint: ui.get_popup_glass_tint().round() as i32,
         popup_processes: ui.get_popup_processes(),
         popup_width: ui.get_popup_width(),
         popup_graph_height: ui.get_popup_graph_height(),

@@ -877,12 +877,32 @@ msgid "Same detail as the widget ({})"
 msgstr "Mismo detalle que el widget ({})"
 
 #: src/menu.rs ui/settings.slint
+msgid "Solid"
+msgstr "Sólido"
+
+#: src/menu.rs ui/settings.slint
+msgid "Glass"
+msgstr "Vidrio"
+
+#: src/menu.rs
+msgid "Liquid glass"
+msgstr "Vidrio líquido"
+
+#: src/menu.rs ui/settings.slint
+msgid "Acrylic"
+msgstr "Acrílico"
+
+#: src/menu.rs ui/settings.slint
+msgid "Clear"
+msgstr "Transparente"
+
+#: src/menu.rs ui/settings.slint
 msgid "Graph"
 msgstr "Gráfica"
 
 #: src/menu.rs ui/settings.slint
-msgid "Translucent background"
-msgstr "Fondo translúcido"
+msgid "Background"
+msgstr "Fondo"
 
 #: src/menu.rs ui/settings.slint
 msgid "None"
@@ -2205,10 +2225,6 @@ msgid "Draw graphs in your Windows accent color."
 msgstr "Dibuja las gráficas con el color de énfasis de Windows."
 
 #: ui/settings.slint
-msgid "Background"
-msgstr "Fondo"
-
-#: ui/settings.slint
 msgid "Tiles"
 msgstr "Mosaicos"
 
@@ -2241,8 +2257,28 @@ msgid "Simple shows the value and its graph; Detailed adds everything Pulsar rea
 msgstr "Simple muestra el valor y su gráfica; Detallado añade todo lo que lee Pulsar. Cada elemento puede elegir el suyo en la página Elementos."
 
 #: ui/settings.slint
-msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
-msgstr "Desenfoca lo que hay detrás de la ventana emergente. Si Windows no lo permite, las ventanas emergentes siguen siendo opacas."
+msgid "Material"
+msgstr "Material"
+
+#: ui/settings.slint
+msgid "Glass, Liquid glass and Acrylic blur what is behind the popup; if Windows does not allow it, popups stay solid. Clear never blurs."
+msgstr "Vidrio, Vidrio líquido y Acrílico desenfocan lo que hay detrás de la ventana emergente; si Windows no lo permite, se quedan sólidas. Transparente nunca desenfoca."
+
+#: ui/settings.slint
+msgid "Liquid"
+msgstr "Líquido"
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr "Tinte del cristal"
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr "Cristal transparente."
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
+msgstr "{}% del color del tinte."
 
 #: ui/settings.slint
 msgid "The recent history at the top of each popup."
@@ -2501,28 +2537,8 @@ msgid "Device cards"
 msgstr "Tarjetas de dispositivo"
 
 #: ui/settings.slint
-msgid "Material"
-msgstr "Material"
-
-#: ui/settings.slint
-msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
-msgstr "Vidrio y Acrílico desenfocan lo que hay detrás del widget. Transparente nunca desenfoca, para usar sobre juegos."
-
-#: ui/settings.slint
-msgid "Solid"
-msgstr "Sólido"
-
-#: ui/settings.slint
-msgid "Glass"
-msgstr "Vidrio"
-
-#: ui/settings.slint
-msgid "Acrylic"
-msgstr "Acrílico"
-
-#: ui/settings.slint
-msgid "Clear"
-msgstr "Transparente"
+msgid "Glass, Liquid glass and Acrylic blur what is behind the widget. Liquid glass keeps more of it in focus. Clear never blurs, for use over games."
+msgstr "Vidrio, Vidrio líquido y Acrílico desenfocan lo que hay detrás del widget. Vidrio líquido deja más de ello nítido. Transparente nunca desenfoca, para usar sobre juegos."
 
 #: ui/settings.slint
 msgid "Separate cards"
@@ -2579,18 +2595,6 @@ msgstr "Vacío usa el color de panel del tema."
 #: ui/settings.slint
 msgid "Background opacity"
 msgstr "Opacidad del fondo"
-
-#: ui/settings.slint
-msgid "Glass tint"
-msgstr "Tinte del cristal"
-
-#: ui/settings.slint
-msgid "Clear glass."
-msgstr "Cristal transparente."
-
-#: ui/settings.slint
-msgid "{}% of the tint color."
-msgstr "{}% del color del tinte."
 
 #: ui/settings.slint
 msgid "Choose items"

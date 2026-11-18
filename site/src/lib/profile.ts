@@ -88,11 +88,28 @@ export const WIDGET_LAYOUTS: Choice<WidgetLayout>[] = [
   { id: 'focus', name: 'Focus' },
 ];
 
-export type WidgetMaterial = 'solid' | 'glass' | 'acrylic' | 'clear';
+/** Popups saved before materials were "translucent", now Acrylic. */
+function cleanPopup(
+  pop: Omit<Profile['popup'], 'background' | 'glassTint'> & {
+    background: unknown;
+    glassTint: unknown;
+  },
+  base: Profile['popup'],
+): Profile['popup'] {
+  const background = pop.background === 'translucent' ? 'acrylic' : pop.background;
+  return {
+    ...pop,
+    background: pick(background, ids(WIDGET_MATERIALS), base.background),
+    glassTint: whole(pop.glassTint, 0, 100, base.glassTint),
+  };
+}
+
+export type WidgetMaterial = 'solid' | 'glass' | 'liquid' | 'acrylic' | 'clear';
 
 export const WIDGET_MATERIALS: Choice<WidgetMaterial>[] = [
   { id: 'solid', name: 'Solid' },
   { id: 'glass', name: 'Glass' },
+  { id: 'liquid', name: 'Liquid glass' },
   { id: 'acrylic', name: 'Acrylic' },
   { id: 'clear', name: 'Clear' },
 ];
@@ -266,7 +283,9 @@ export interface Profile {
     width: number;
     graphHeight: number;
     processes: number;
-    background: 'translucent' | 'solid';
+    background: WidgetMaterial;
+    /** 0–100: how strongly the popup color tints Glass and Liquid glass. */
+    glassTint: number;
     graph: boolean;
   };
   widget: {
@@ -278,7 +297,7 @@ export interface Profile {
     opacity: number;
     background: string | null;
     material: WidgetMaterial;
-    /** 0–100: how strongly the background color tints Glass. */
+    /** 0–100: how strongly the background color tints Glass and Liquid glass. */
     glassTint: number;
     separate: boolean;
     border: boolean;
@@ -438,7 +457,14 @@ export function defaultProfile(): Profile {
       colors: { low: null, moderate: null, high: null, critical: null },
     },
     popupDetail: 'standard',
-    popup: { width: 300, graphHeight: 72, processes: 5, background: 'translucent', graph: true },
+    popup: {
+      width: 300,
+      graphHeight: 72,
+      processes: 5,
+      background: 'acrylic',
+      glassTint: 30,
+      graph: true,
+    },
     widget: {
       enabled: true,
       layer: 'desktop',
@@ -583,7 +609,7 @@ export function mergeProfile(input: unknown): Profile {
       ) as Profile['load']['colors'],
     },
     disk: { value: pick(saved.disk?.value, DISK_VALUES, base.disk.value) },
-    popup: { ...base.popup, ...saved.popup },
+    popup: cleanPopup({ ...base.popup, ...saved.popup }, base.popup),
     widget: cleanWidget((saved.widget ?? {}) as SavedWidget),
     fit: { ...base.fit, ...saved.fit },
     order: complete(saved.order),
@@ -692,6 +718,7 @@ function siteToml(p: Profile, themeId: string, colorLabels: boolean): string {
   lines.push('', '[popup]');
   kv('detail', p.popupDetail);
   kv('background', p.popup.background);
+  kv('glass_tint', p.popup.glassTint);
   kv('graph', p.popup.graph);
   kv('processes', p.popup.processes);
   kv('width', p.popup.width);
@@ -836,7 +863,10 @@ export function profileFromToml(doc: TomlTable, fallbackName: string): ProfileFi
   p.disk.value = pick(table(doc.disk).value, DISK_VALUES, p.disk.value);
   const pop = table(doc.popup);
   p.popupDetail = pick(pop.detail, ids(DETAILS), p.popupDetail);
-  p.popup.background = pick(pop.background, ['translucent', 'solid'], p.popup.background);
+  p.popup = cleanPopup(
+    { ...p.popup, background: pop.background, glassTint: pop.glass_tint },
+    p.popup,
+  );
   if (typeof pop.graph === 'boolean') p.popup.graph = pop.graph;
   p.popup.processes = whole(pop.processes, 0, 15, p.popup.processes);
   p.popup.width = whole(pop.width, 220, 800, p.popup.width);

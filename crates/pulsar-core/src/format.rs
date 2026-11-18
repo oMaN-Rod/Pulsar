@@ -173,6 +173,164 @@ pub fn right_aligned(unit: Unit) -> bool {
     matches!(unit, Unit::NetworkRate | Unit::BytesPerSec)
 }
 
+/// A piece of formatted text: a reading such as `4.2 GB` or `—`, or the
+/// plain text between readings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Span<'a> {
+    pub text: &'a str,
+    pub reading: bool,
+    /// The longest the reading can grow to, when its unit is known.
+    pub widest: Option<&'static str>,
+    /// Keep the reading's unit still by aligning it to the right of its room.
+    pub right: bool,
+}
+
+/// Suffixes `format_in` writes after a number, with the widest reading of
+/// each; longer suffixes first so `Wh` wins over `W`.
+const SUFFIXES: &[(&str, &str, bool)] = &[
+    ("KB/s", "99.9 MB/s", true),
+    ("MB/s", "99.9 MB/s", true),
+    ("GB/s", "99.9 MB/s", true),
+    ("TB/s", "99.9 MB/s", true),
+    ("B/s", "99.9 MB/s", true),
+    ("Kbps", "999 Mbps", true),
+    ("Mbps", "999 Mbps", true),
+    ("Gbps", "999 Mbps", true),
+    ("Tbps", "999 Mbps", true),
+    ("RPM", "99999 RPM", false),
+    ("GHz", "9.99 GHz", false),
+    ("fps", "9999 fps", false),
+    ("min", "23 h 59 min", false),
+    ("°C", "199°C", false),
+    ("°F", "390°F", false),
+    ("KB", "99.9 GB", false),
+    ("MB", "99.9 GB", false),
+    ("GB", "99.9 GB", false),
+    ("TB", "99.9 GB", false),
+    ("ms", "999 ms", false),
+    ("Wh", "999.9 Wh", false),
+    ("B", "99.9 GB", false),
+    ("W", "999 W", false),
+    ("V", "9.999 V", false),
+    ("%", "100%", false),
+    ("h", "23 h 59 min", false),
+    ("d", "23 h 59 min", false),
+];
+
+/// Splits `text` into readings and the plain text around them, so each
+/// reading can keep the room of its widest form as its value changes.
+pub fn spans(text: &str) -> Vec<Span<'_>> {
+    let mut out = Vec::new();
+    let mut plain = 0;
+    let mut i = 0;
+    while i < text.len() {
+        let rest = &text[i..];
+        let found = if rest.starts_with(PLACEHOLDER) {
+            Some((PLACEHOLDER.len(), None, false))
+        } else if starts_number(text, i) {
+            reading_len(rest).map(|(len, widest, right)| (len, Some(widest), right))
+        } else {
+            None
+        };
+        match found {
+            Some((len, widest, right)) => {
+                if plain < i {
+                    out.push(Span {
+                        text: &text[plain..i],
+                        reading: false,
+                        widest: None,
+                        right: false,
+                    });
+                }
+                out.push(Span {
+                    text: &text[i..i + len],
+                    reading: true,
+                    widest,
+                    right,
+                });
+                i += len;
+                plain = i;
+            }
+            None => i += rest.chars().next().map_or(1, char::len_utf8),
+        }
+    }
+    if plain < text.len() {
+        out.push(Span {
+            text: &text[plain..],
+            reading: false,
+            widest: None,
+            right: false,
+        });
+    }
+    out
+}
+
+/// `text` with every reading at its widest, to measure room that holds
+/// still while the readings change.
+pub fn widest_like(text: &str) -> String {
+    spans(text)
+        .iter()
+        .map(|s| s.widest.unwrap_or(s.text))
+        .collect()
+}
+
+/// A number starts at `i`: a digit, or a minus sign before one, not inside
+/// a word such as `RTX 4090` would be.
+fn starts_number(text: &str, i: usize) -> bool {
+    let rest = &text[i..];
+    let digit_at = |s: &str| s.chars().next().is_some_and(|c| c.is_ascii_digit());
+    let begins = digit_at(rest)
+        || (rest.starts_with('-') && digit_at(&rest[1..]))
+        || (rest.starts_with('\u{2212}') && digit_at(&rest['\u{2212}'.len_utf8()..]));
+    let after_word = text[..i]
+        .chars()
+        .next_back()
+        .is_some_and(|c| c.is_alphanumeric() || c == '.' || c == ',');
+    begins && !after_word
+}
+
+/// The length of the number and unit at the start of `s`, with the widest
+/// reading of that unit; `None` for a number without a known unit.
+fn reading_len(s: &str) -> Option<(usize, &'static str, bool)> {
+    let sign = s.chars().next().filter(|c| !c.is_ascii_digit());
+    let start = sign.map_or(0, char::len_utf8);
+    let digits = s[start..]
+        .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == ','))
+        .unwrap_or(s.len() - start);
+    let mut end = start + digits;
+    while s[..end].ends_with(['.', ',']) {
+        end -= 1;
+    }
+    let (len, widest, right) = unit_after(&s[end..])?;
+    let mut len = end + len;
+    if widest == "23 h 59 min" {
+        while let Some(more) = duration_part(&s[len..]) {
+            len += more;
+        }
+    }
+    Some((len, widest, right))
+}
+
+fn unit_after(s: &str) -> Option<(usize, &'static str, bool)> {
+    let gap = usize::from(s.starts_with(' '));
+    SUFFIXES.iter().find_map(|&(suffix, widest, right)| {
+        let after = s[gap..].strip_prefix(suffix)?;
+        let bounded = !after.chars().next().is_some_and(char::is_alphanumeric);
+        bounded.then_some((gap + suffix.len(), widest, right))
+    })
+}
+
+/// ` 05 min` or ` 4 h` continuing a duration.
+fn duration_part(s: &str) -> Option<usize> {
+    let rest = s.strip_prefix(' ')?;
+    let digits = rest.find(|c: char| !c.is_ascii_digit())?;
+    if digits == 0 {
+        return None;
+    }
+    let (len, widest, _) = unit_after(&rest[digits..])?;
+    (widest == "23 h 59 min").then_some(1 + digits + len)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,6 +446,71 @@ mod tests {
         assert_eq!(format_value(28.0 * 3600.0, Unit::Seconds), "1 d 4 h");
         assert_eq!(format_value(51.3, Unit::WattHours), "51.3 Wh");
         assert_eq!(format_value(12345.0, Unit::Count), "12345");
+    }
+
+    #[test]
+    fn readings_widen_to_their_unit_and_leave_plain_text() {
+        assert_eq!(widest_like("0 fps"), "9999 fps");
+        assert_eq!(widest_like("4.2 GB of 16 GB"), "99.9 GB of 99.9 GB");
+        assert_eq!(
+            widest_like("↓ 2.0 KB/s  ↑ 0.5 KB/s"),
+            "↓ 99.9 MB/s  ↑ 99.9 MB/s"
+        );
+        assert_eq!(widest_like("45% · 7.2 GB"), "100% · 99.9 GB");
+        assert_eq!(widest_like("2 h 05 min"), "23 h 59 min");
+        assert_eq!(widest_like("1 d 4 h"), "23 h 59 min");
+        assert_eq!(widest_like("51.3 Wh"), "999.9 Wh");
+        assert_eq!(widest_like("-5°F"), "390°F");
+        assert_eq!(widest_like("RTX 4090"), "RTX 4090");
+        assert_eq!(widest_like("1 · Intel"), "1 · Intel");
+        assert_eq!(widest_like("12345"), "12345");
+        let s = spans("↓ —  ↑ 1.0 Mbps");
+        assert_eq!(
+            s.iter().map(|s| (s.text, s.reading)).collect::<Vec<_>>(),
+            [
+                ("↓ ", false),
+                ("—", true),
+                ("  ↑ ", false),
+                ("1.0 Mbps", true)
+            ]
+        );
+        assert!(s[3].right && !s[1].right);
+    }
+
+    #[test]
+    fn every_formatted_reading_is_one_span_no_wider_than_its_widest() {
+        let units = [
+            Unit::Percent,
+            Unit::Bytes,
+            Unit::BytesPerSec,
+            Unit::NetworkRate,
+            Unit::Millis,
+            Unit::MHz,
+            Unit::Celsius,
+            Unit::Rpm,
+            Unit::Watts,
+            Unit::Volts,
+            Unit::WattHours,
+            Unit::Seconds,
+            Unit::FramesPerSec,
+        ];
+        let mut v: f64 = 0.0;
+        while v < 1e9 {
+            for unit in units {
+                if unit == Unit::MHz && v >= 9_995.0 {
+                    continue;
+                }
+                let text = format_value(v, unit);
+                let s = spans(&text);
+                assert_eq!(s.len(), 1, "{text:?}");
+                let widest = s[0].widest.expect(&text);
+                assert!(
+                    text.chars().count() <= widest.chars().count(),
+                    "{text:?} is wider than {widest:?}"
+                );
+            }
+            v = v * 1.3 + 0.7;
+        }
     }
 
     #[test]

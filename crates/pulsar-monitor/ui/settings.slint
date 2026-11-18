@@ -1761,7 +1761,8 @@ export component SettingsWindow inherits Window {
     in-out property <bool> game-summary;
     in-out property <int> popup-detail;
     in-out property <bool> popup-graph;
-    in-out property <bool> popup-translucent;
+    in-out property <int> popup-material;
+    in-out property <float> popup-glass-tint;
     in-out property <int> popup-processes;
     in-out property <int> popup-width;
     in-out property <int> popup-graph-height;
@@ -3080,11 +3081,25 @@ export component SettingsWindow inherits Window {
                     }
                     Divider { }
                     SettingRow {
-                        title: @tr("Translucent background");
-                        description: @tr("Blur what is behind the popup. If Windows does not allow it, popups stay solid.");
-                        Switch {
-                            checked <=> root.popup-translucent;
-                            toggled => { root.changed(); }
+                        title: @tr("Material");
+                        description: @tr("Glass, Liquid glass and Acrylic blur what is behind the popup; if Windows does not allow it, popups stay solid. Clear never blurs.");
+                        Segmented {
+                            model: [@tr("Solid"), @tr("Glass"), @tr("Liquid"), @tr("Acrylic"), @tr("Clear")];
+                            current-index <=> root.popup-material;
+                            selected => { root.changed(); }
+                        }
+                    }
+                    if root.popup-material == 1 || root.popup-material == 2: Divider { }
+                    OptionalRow {
+                        shown: root.popup-material == 1 || root.popup-material == 2;
+                        title: @tr("Glass tint");
+                        status: root.popup-glass-tint < 0.5 ? @tr("Clear glass.") : @tr("{}% of the tint color.", Math.round(root.popup-glass-tint));
+                        Slider {
+                            width: 200px;
+                            minimum: 0;
+                            maximum: 100;
+                            value <=> root.popup-glass-tint;
+                            changed => { root.changed(); }
                         }
                     }
                     Divider { }
@@ -3365,9 +3380,9 @@ export component SettingsWindow inherits Window {
                         Divider { }
                         SettingRow {
                             title: @tr("Material");
-                            description: @tr("Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games.");
+                            description: @tr("Glass, Liquid glass and Acrylic blur what is behind the widget. Liquid glass keeps more of it in focus. Clear never blurs, for use over games.");
                             Segmented {
-                                model: [@tr("Solid"), @tr("Glass"), @tr("Acrylic"), @tr("Clear")];
+                                model: [@tr("Solid"), @tr("Glass"), @tr("Liquid"), @tr("Acrylic"), @tr("Clear")];
                                 current-index <=> root.widget-material;
                                 selected => { root.changed(); }
                             }
@@ -3427,7 +3442,7 @@ export component SettingsWindow inherits Window {
                         Divider { }
                         SettingRow {
                             title: @tr("Background color");
-                            description: root.widget-material == 1 ? @tr("Tints the glass. Empty uses the theme's panel color.") : @tr("Empty uses the theme's panel color.");
+                            description: root.widget-material == 1 || root.widget-material == 2 ? @tr("Tints the glass. Empty uses the theme's panel color.") : @tr("Empty uses the theme's panel color.");
                             ColorField {
                                 text <=> root.widget-background;
                                 swatch: root.widget-background-swatch;
@@ -3437,7 +3452,7 @@ export component SettingsWindow inherits Window {
                         }
                         Divider { }
                         OptionalRow {
-                            shown: root.widget-material != 1;
+                            shown: root.widget-material != 1 && root.widget-material != 2;
                             title: @tr("Background opacity");
                             status: "\{Math.round(root.widget-opacity)}%";
                             Slider {
@@ -3449,7 +3464,7 @@ export component SettingsWindow inherits Window {
                             }
                         }
                         OptionalRow {
-                            shown: root.widget-material == 1;
+                            shown: root.widget-material == 1 || root.widget-material == 2;
                             title: @tr("Glass tint");
                             status: root.widget-glass-tint < 0.5 ? @tr("Clear glass.") : @tr("{}% of the tint color.", Math.round(root.widget-glass-tint));
                             Slider {

@@ -15,17 +15,19 @@ use pulsar_core::metric::{ItemKind, MetricKey, Snapshot};
 use windows::Win32::Foundation::{D2DERR_RECREATE_TARGET, HWND, POINT, RECT, SIZE};
 use windows::Win32::Graphics::Direct2D::Common::{
     D2D_RECT_F, D2D_SIZE_F, D2D1_ALPHA_MODE_PREMULTIPLIED, D2D1_COLOR_F, D2D1_FIGURE_BEGIN_FILLED,
-    D2D1_FIGURE_BEGIN_HOLLOW, D2D1_FIGURE_END_CLOSED, D2D1_FIGURE_END_OPEN, D2D1_PIXEL_FORMAT,
+    D2D1_FIGURE_BEGIN_HOLLOW, D2D1_FIGURE_END_CLOSED, D2D1_FIGURE_END_OPEN, D2D1_GRADIENT_STOP,
+    D2D1_PIXEL_FORMAT,
 };
 use windows::Win32::Graphics::Direct2D::{
     D2D1_ANTIALIAS_MODE_PER_PRIMITIVE, D2D1_ARC_SEGMENT, D2D1_ARC_SIZE_LARGE, D2D1_ARC_SIZE_SMALL,
     D2D1_CAP_STYLE_FLAT, D2D1_CAP_STYLE_ROUND, D2D1_DASH_STYLE_SOLID, D2D1_DRAW_TEXT_OPTIONS_NONE,
-    D2D1_ELLIPSE, D2D1_FACTORY_TYPE_SINGLE_THREADED, D2D1_FEATURE_LEVEL_DEFAULT,
-    D2D1_LAYER_OPTIONS_NONE, D2D1_LAYER_PARAMETERS, D2D1_LINE_JOIN_ROUND,
-    D2D1_RENDER_TARGET_PROPERTIES, D2D1_RENDER_TARGET_TYPE_SOFTWARE, D2D1_RENDER_TARGET_USAGE_NONE,
-    D2D1_ROUNDED_RECT, D2D1_STROKE_STYLE_PROPERTIES, D2D1_SWEEP_DIRECTION_CLOCKWISE,
+    D2D1_ELLIPSE, D2D1_EXTEND_MODE_CLAMP, D2D1_FACTORY_TYPE_SINGLE_THREADED,
+    D2D1_FEATURE_LEVEL_DEFAULT, D2D1_GAMMA_2_2, D2D1_LAYER_OPTIONS_NONE, D2D1_LAYER_PARAMETERS,
+    D2D1_LINE_JOIN_ROUND, D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES, D2D1_RENDER_TARGET_PROPERTIES,
+    D2D1_RENDER_TARGET_TYPE_SOFTWARE, D2D1_RENDER_TARGET_USAGE_NONE, D2D1_ROUNDED_RECT,
+    D2D1_STROKE_STYLE_PROPERTIES, D2D1_SWEEP_DIRECTION_CLOCKWISE,
     D2D1_TEXT_ANTIALIAS_MODE_GRAYSCALE, D2D1CreateFactory, ID2D1DCRenderTarget, ID2D1Factory,
-    ID2D1PathGeometry, ID2D1SolidColorBrush, ID2D1StrokeStyle,
+    ID2D1LinearGradientBrush, ID2D1PathGeometry, ID2D1SolidColorBrush, ID2D1StrokeStyle,
 };
 use windows::Win32::Graphics::DirectWrite::IDWriteTextFormat;
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -115,13 +117,6 @@ impl Surface {
                 height,
             })
         }
-    }
-}
-
-impl Surface {
-    /// The memory DC the bitmap is selected into, for copying it elsewhere.
-    pub fn dc(&self) -> HDC {
-        self.dc
     }
 }
 
@@ -1551,22 +1546,76 @@ impl Renderer {
         width: f32,
         color: Color,
     ) -> Result<()> {
-        let half = width / 2.0;
-        let rounded = D2D1_ROUNDED_RECT {
-            rect: rect_f(Rect {
-                x: r.x + half,
-                y: r.y + half,
-                w: r.w - width,
-                h: r.h - width,
-            }),
-            radiusX: (radius - half).max(0.0),
-            radiusY: (radius - half).max(0.0),
-        };
         unsafe {
-            self.target
-                .DrawRoundedRectangle(&rounded, self.brush(color), width, None);
+            self.target.DrawRoundedRectangle(
+                &inset_rounded(r, radius, width),
+                self.brush(color),
+                width,
+                None,
+            );
         }
         Ok(())
+    }
+
+    /// Fills `r` with a top-to-bottom gradient; each stop is a fraction of
+    /// the height and its color.
+    pub(crate) fn fill_rounded_vertical(
+        &self,
+        r: Rect,
+        radius: f32,
+        stops: &[(f32, Color)],
+    ) -> Result<()> {
+        let brush = self.vertical_brush(r, stops)?;
+        let rounded = D2D1_ROUNDED_RECT {
+            rect: rect_f(r),
+            radiusX: radius,
+            radiusY: radius,
+        };
+        unsafe { self.target.FillRoundedRectangle(&rounded, &brush) };
+        Ok(())
+    }
+
+    pub(crate) fn stroke_rounded_vertical(
+        &self,
+        r: Rect,
+        radius: f32,
+        width: f32,
+        stops: &[(f32, Color)],
+    ) -> Result<()> {
+        let brush = self.vertical_brush(r, stops)?;
+        unsafe {
+            self.target
+                .DrawRoundedRectangle(&inset_rounded(r, radius, width), &brush, width, None);
+        }
+        Ok(())
+    }
+
+    fn vertical_brush(&self, r: Rect, stops: &[(f32, Color)]) -> Result<ID2D1LinearGradientBrush> {
+        let stops: Vec<D2D1_GRADIENT_STOP> = stops
+            .iter()
+            .map(|&(position, color)| D2D1_GRADIENT_STOP {
+                position,
+                color: d2d(color),
+            })
+            .collect();
+        unsafe {
+            let collection = self.target.CreateGradientStopCollection(
+                &stops,
+                D2D1_GAMMA_2_2,
+                D2D1_EXTEND_MODE_CLAMP,
+            )?;
+            self.target.CreateLinearGradientBrush(
+                &D2D1_LINEAR_GRADIENT_BRUSH_PROPERTIES {
+                    startPoint: Vector2 { X: r.x, Y: r.y },
+                    endPoint: Vector2 {
+                        X: r.x,
+                        Y: r.y + r.h,
+                    },
+                },
+                None,
+                &collection,
+            )
+        }
     }
 
     pub(crate) fn text_at(
@@ -1722,6 +1771,21 @@ fn pill_back(layout: &Layout, pill: Rect, r: Rect, first: bool, last: bool) -> R
         }
     }
     back
+}
+
+/// `r` shrunk so a `width` line drawn on it stays inside `r`.
+fn inset_rounded(r: Rect, radius: f32, width: f32) -> D2D1_ROUNDED_RECT {
+    let half = width / 2.0;
+    D2D1_ROUNDED_RECT {
+        rect: rect_f(Rect {
+            x: r.x + half,
+            y: r.y + half,
+            w: r.w - width,
+            h: r.h - width,
+        }),
+        radiusX: (radius - half).max(0.0),
+        radiusY: (radius - half).max(0.0),
+    }
 }
 
 fn create_brush(target: &ID2D1DCRenderTarget) -> Result<ID2D1SolidColorBrush> {

@@ -620,7 +620,7 @@ impl Overlay {
         let Some(backdrop) = &mut self.backdrop else {
             return;
         };
-        if let Err(e) = backdrop.set_shapes(shapes) {
+        if let Err(e) = backdrop.set_shapes(shapes, 1.0) {
             log::warn!("could not shape the floating strip's blur: {e}");
             self.backdrop = None;
             self.no_backdrop = true;

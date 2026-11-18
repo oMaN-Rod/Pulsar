@@ -878,12 +878,32 @@ msgid "Same detail as the widget ({})"
 msgstr "与小组件相同的详细程度（{}）"
 
 #: src/menu.rs ui/settings.slint
+msgid "Solid"
+msgstr "实心"
+
+#: src/menu.rs ui/settings.slint
+msgid "Glass"
+msgstr "玻璃"
+
+#: src/menu.rs
+msgid "Liquid glass"
+msgstr "液态玻璃"
+
+#: src/menu.rs ui/settings.slint
+msgid "Acrylic"
+msgstr "亚克力"
+
+#: src/menu.rs ui/settings.slint
+msgid "Clear"
+msgstr "透明"
+
+#: src/menu.rs ui/settings.slint
 msgid "Graph"
 msgstr "图表"
 
 #: src/menu.rs ui/settings.slint
-msgid "Translucent background"
-msgstr "半透明背景"
+msgid "Background"
+msgstr "背景"
 
 #: src/menu.rs ui/settings.slint
 msgid "None"
@@ -2206,10 +2226,6 @@ msgid "Draw graphs in your Windows accent color."
 msgstr "用 Windows 强调色绘制图表。"
 
 #: ui/settings.slint
-msgid "Background"
-msgstr "背景"
-
-#: ui/settings.slint
 msgid "Tiles"
 msgstr "磁贴"
 
@@ -2242,8 +2258,28 @@ msgid "Simple shows the value and its graph; Detailed adds everything Pulsar rea
 msgstr "简洁只显示数值和图表；详细会加入 Pulsar 读取的全部信息。每个监控项可在“监控项”页面单独设置。"
 
 #: ui/settings.slint
-msgid "Blur what is behind the popup. If Windows does not allow it, popups stay solid."
-msgstr "模糊弹出窗口后面的内容。如果 Windows 不允许，弹出窗口保持不透明。"
+msgid "Material"
+msgstr "材质"
+
+#: ui/settings.slint
+msgid "Glass, Liquid glass and Acrylic blur what is behind the popup; if Windows does not allow it, popups stay solid. Clear never blurs."
+msgstr "玻璃、液态玻璃和亚克力会模糊弹出窗口后面的内容；如果 Windows 不支持，弹出窗口保持实心。透明从不模糊。"
+
+#: ui/settings.slint
+msgid "Liquid"
+msgstr "液态"
+
+#: ui/settings.slint
+msgid "Glass tint"
+msgstr "玻璃着色"
+
+#: ui/settings.slint
+msgid "Clear glass."
+msgstr "透明玻璃。"
+
+#: ui/settings.slint
+msgid "{}% of the tint color."
+msgstr "着色颜色的 {}%。"
 
 #: ui/settings.slint
 msgid "The recent history at the top of each popup."
@@ -2502,28 +2538,8 @@ msgid "Device cards"
 msgstr "设备卡片"
 
 #: ui/settings.slint
-msgid "Material"
-msgstr "材质"
-
-#: ui/settings.slint
-msgid "Glass and Acrylic blur what is behind the widget. Clear never blurs, for use over games."
-msgstr "玻璃和亚克力会模糊小组件后方的内容。透明从不模糊，适合在游戏上方使用。"
-
-#: ui/settings.slint
-msgid "Solid"
-msgstr "实心"
-
-#: ui/settings.slint
-msgid "Glass"
-msgstr "玻璃"
-
-#: ui/settings.slint
-msgid "Acrylic"
-msgstr "亚克力"
-
-#: ui/settings.slint
-msgid "Clear"
-msgstr "透明"
+msgid "Glass, Liquid glass and Acrylic blur what is behind the widget. Liquid glass keeps more of it in focus. Clear never blurs, for use over games."
+msgstr "玻璃、液态玻璃和亚克力会模糊小组件后面的内容。液态玻璃让更多内容保持清晰。透明从不模糊，适合在游戏上使用。"
 
 #: ui/settings.slint
 msgid "Separate cards"
@@ -2580,18 +2596,6 @@ msgstr "留空则使用主题的面板颜色。"
 #: ui/settings.slint
 msgid "Background opacity"
 msgstr "背景不透明度"
-
-#: ui/settings.slint
-msgid "Glass tint"
-msgstr "玻璃着色"
-
-#: ui/settings.slint
-msgid "Clear glass."
-msgstr "透明玻璃。"
-
-#: ui/settings.slint
-msgid "{}% of the tint color."
-msgstr "着色颜色的 {}%。"
 
 #: ui/settings.slint
 msgid "Choose items"

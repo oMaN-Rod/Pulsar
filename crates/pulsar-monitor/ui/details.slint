@@ -274,11 +274,14 @@ component GraphCard inherits Card {
                 font-size: 11px;
             }
         }
+        // Equal halves, so a changing first reading cannot push the second.
         if root.graph.legend != "": HorizontalLayout {
             vertical-stretch: 0;
             spacing: 16px;
-            alignment: start;
             HorizontalLayout {
+                min-width: 0px;
+                preferred-width: 0px;
+                horizontal-stretch: 1;
                 spacing: 6px;
                 Rectangle {
                     width: 8px;
@@ -287,9 +290,16 @@ component GraphCard inherits Card {
                     border-radius: 4px;
                     background: root.graph.color;
                 }
-                Secondary { text: root.graph.legend; }
+                Secondary {
+                    text: root.graph.legend;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
             }
             if root.graph.second-legend != "": HorizontalLayout {
+                min-width: 0px;
+                preferred-width: 0px;
+                horizontal-stretch: 1;
                 spacing: 6px;
                 Rectangle {
                     width: 8px;
@@ -297,7 +307,11 @@ component GraphCard inherits Card {
                     border-radius: 4px;
                     background: root.graph.second-color;
                 }
-                Secondary { text: root.graph.second-legend; }
+                Secondary {
+                    text: root.graph.second-legend;
+                    horizontal-stretch: 1;
+                    overflow: elide;
+                }
             }
         }
     }
@@ -656,12 +670,37 @@ component CoreRings inherits Rectangle {
                 vertical-alignment: center;
             }
         }
-        Secondary {
+        if !root.info.has-temp: Secondary {
             y: root.size + 4px;
             width: parent.width;
-            text: root.info.has-temp ? "\{cell.label} · \{cell.temp-text}°" : cell.label;
+            text: cell.label;
             font-size: 10.5px;
             horizontal-alignment: center;
+        }
+        // Pinned around the dot, so the temperature cannot move the label.
+        if root.info.has-temp: Secondary {
+            x: 0;
+            y: root.size + 4px;
+            width: parent.width / 2 - 5px;
+            text: cell.label;
+            font-size: 10.5px;
+            horizontal-alignment: right;
+        }
+        if root.info.has-temp: Secondary {
+            x: parent.width / 2 - 5px;
+            y: root.size + 4px;
+            width: 10px;
+            text: "·";
+            font-size: 10.5px;
+            horizontal-alignment: center;
+        }
+        if root.info.has-temp: Secondary {
+            x: parent.width / 2 + 5px;
+            y: root.size + 4px;
+            width: parent.width / 2 - 5px;
+            text: "\{cell.temp-text}°";
+            font-size: 10.5px;
+            horizontal-alignment: left;
         }
     }
 }
@@ -879,15 +918,15 @@ component UsageCard inherits Card {
                 spacing-vertical: 4px;
                 Row {
                     Swatch { color: root.usage.color; text: @tr("Physical"); }
-                    Text { text: root.usage.physical-text; font-size: 12px; horizontal-alignment: right; }
+                    Text { text: root.usage.physical-text; font-size: 12px; horizontal-alignment: right; horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; overflow: elide; }
                 }
                 Row {
                     Swatch { color: root.usage.commit-color; text: @tr("Committed"); }
-                    Text { text: root.usage.commit-text; font-size: 12px; horizontal-alignment: right; }
+                    Text { text: root.usage.commit-text; font-size: 12px; horizontal-alignment: right; horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; overflow: elide; }
                 }
                 Row {
                     Swatch { color: Palette.foreground.transparentize(0.75); text: @tr("Available"); }
-                    Text { text: root.usage.available; font-size: 12px; horizontal-alignment: right; }
+                    Text { text: root.usage.available; font-size: 12px; horizontal-alignment: right; horizontal-stretch: 1; min-width: 0px; preferred-width: 0px; overflow: elide; }
                 }
             }
         }
@@ -931,14 +970,25 @@ component UsageCard inherits Card {
                         font-size: 24px;
                         font-weight: 600;
                         color: root.usage.color;
+                        min-width: 0px;
+                        preferred-width: 0px;
+                        overflow: elide;
                     }
-                    Secondary { text: @tr("in use of {}", root.usage.total); }
+                    Secondary {
+                        text: @tr("in use of {}", root.usage.total);
+                        min-width: 0px;
+                        preferred-width: 0px;
+                        overflow: elide;
+                    }
                 }
                 VerticalLayout {
                     Text {
                         text: root.usage.available;
                         font-size: 13px;
                         font-weight: 600;
+                        min-width: 0px;
+                        preferred-width: 0px;
+                        overflow: elide;
                     }
                     Secondary { text: @tr("available"); }
                 }
@@ -947,6 +997,9 @@ component UsageCard inherits Card {
                         text: root.usage.commit-text;
                         font-size: 13px;
                         font-weight: 600;
+                        min-width: 0px;
+                        preferred-width: 0px;
+                        overflow: elide;
                     }
                     Secondary { text: @tr("committed (white line)"); }
                 }

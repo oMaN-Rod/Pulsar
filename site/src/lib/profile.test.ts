@@ -47,7 +47,14 @@ function custom(): Profile {
   p.load.colors.high = '#ABCDEF';
   p.disk.value = 'used';
   p.popupDetail = 'detailed';
-  p.popup = { width: 360, graphHeight: 90, processes: 3, background: 'solid', graph: false };
+  p.popup = {
+    width: 360,
+    graphHeight: 90,
+    processes: 3,
+    background: 'liquid',
+    glassTint: 45,
+    graph: false,
+  };
   p.shape = 'chips';
   p.shapeRadius = 6;
   p.floatBlur = false;
@@ -275,6 +282,19 @@ describe('profile files', () => {
   it('writes network settings only when they differ from Pulsar', () => {
     const text = profileToToml(defaultProfile(), 'windows', false);
     expect(parseToml(text).network).toEqual({ show: 'both' });
+  });
+
+  it('restores translucent popups saved in the browser as Acrylic', () => {
+    const saved = {
+      ...defaultProfile(),
+      popup: { ...defaultProfile().popup, background: 'translucent' },
+    };
+    expect(mergeProfile(saved).popup.background).toBe('acrylic');
+  });
+
+  it('reads translucent popups from older files as Acrylic', () => {
+    const doc = parseToml('[popup]\nbackground = "translucent"\n');
+    expect(profileFromToml(doc, 'x').profile.popup.background).toBe('acrylic');
   });
 
   it('leaves the theme out for Windows default', () => {

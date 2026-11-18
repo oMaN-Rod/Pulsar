@@ -3,13 +3,11 @@
 
 use std::borrow::Cow;
 
-use pulsar_core::config::{
-    FocusTransition, WidgetLayer, WidgetLayout, WidgetMaterial, WidgetStyle,
-};
+use pulsar_core::config::{FocusTransition, Material, WidgetLayer, WidgetLayout, WidgetStyle};
 use pulsar_core::display::{
     CoreLoad, NetworkFloor, area_points, core_loads, graph_max, meter_fraction, metric_for,
 };
-use pulsar_core::format::format_value;
+use pulsar_core::format::{format_value, spans, widest_like, widest_value};
 use pulsar_core::hardware::cpu::{cached_brand, cached_topology};
 use pulsar_core::history::{History, HistoryStore};
 use pulsar_core::layout::{CellPart, Rect, TextMeasure};
@@ -32,6 +30,8 @@ use crate::popup::content::{Block, PopupContent};
 use crate::popup::layout::ellipsize;
 use crate::render::Reorder;
 use crate::render::{CoreMarks, Renderer, Surface};
+use crate::skin::Skin;
+use crate::steady::{Steady, steady_width};
 use crate::taskbar::placement::Rect32;
 use crate::text::Text;
 use crate::theme::{Color, Palette};
@@ -63,6 +63,7 @@ pub struct Widget {
     backdrop: Option<Backdrop>,
     no_backdrop: bool,
     shapes: Vec<Shape>,
+    blur: f32,
     pub shown_at: Option<(i32, i32)>,
     layer: Option<WidgetLayer>,
     click_through: bool,
@@ -98,6 +99,7 @@ impl Widget {
             backdrop: None,
             no_backdrop: false,
             shapes: Vec::new(),
+            blur: 1.0,
             shown_at: None,
             layer: None,
             click_through: false,
@@ -204,12 +206,20 @@ impl Widget {
             plan.fit(w, h, separate);
         }
         let blur = look.material.blurs() && look.transparency && self.ensure_backdrop();
-        let skin = Skin::new(look, palette, blur);
+        let skin = Skin::new(
+            look.material,
+            look.background.unwrap_or(palette.popup),
+            look.opacity,
+            look.glass_tint,
+            palette,
+            blur,
+        );
         let radius = match row {
             Some((_, h, _)) => row_radius(look.row_radius, h),
             None => skin.radius * d.scale,
         };
         self.shapes = plan.panels.iter().map(|&r| (r, radius)).collect();
+        self.blur = skin.blur;
         self.hits = plan
             .placed
             .iter()
@@ -381,7 +391,7 @@ impl Widget {
             .surface
             .as_ref()
             .map_or((0, 0), |s| (s.width, s.height));
-        if let Err(e) = backdrop.set_shapes(&self.shapes) {
+        if let Err(e) = backdrop.set_shapes(&self.shapes, self.blur) {
             log::warn!("could not shape the widget's blur: {e}");
             self.backdrop = None;
             self.no_backdrop = true;
@@ -521,7 +531,7 @@ pub struct Look {
     pub reorder: Option<Reorder>,
     pub scale: f32,
     pub network_floor: NetworkFloor,
-    pub material: WidgetMaterial,
+    pub material: Material,
     pub separate: bool,
     /// Windows' "Transparency effects" setting.
     pub transparency: bool,
@@ -561,66 +571,7 @@ pub fn transition_frames(
     }
 }
 
-struct Skin {
-    fill: Color,
-    border: Color,
-    /// In DIPs.
-    radius: f32,
-}
-
-impl Skin {
-    fn new(look: &Look, p: &Palette, blur: bool) -> Self {
-        let base = look.background.unwrap_or(p.popup);
-        let light = p.light();
-        let edge = |dark: f32, bright: f32| {
-            if light {
-                Color::rgb(0, 0, 0).with_alpha(bright)
-            } else {
-                Color::rgb(0xFF, 0xFF, 0xFF).with_alpha(dark)
-            }
-        };
-        let solid = |radius| Self {
-            // Never fully clear, so the whole panel takes the mouse.
-            fill: base.with_alpha(look.opacity.max(1.0 / 255.0)),
-            border: p
-                .popup_border
-                .with_alpha(p.popup_border.a * look.opacity.max(0.3)),
-            radius,
-        };
-        match look.material {
-            WidgetMaterial::Solid => solid(8.0),
-            WidgetMaterial::Glass if blur => Self {
-                fill: base.with_alpha((GLASS_MAX_TINT * look.glass_tint).max(1.0 / 255.0)),
-                border: edge(0.22, 0.10),
-                radius: 16.0,
-            },
-            WidgetMaterial::Acrylic if blur => Self {
-                fill: base.with_alpha((0.8 * look.opacity).max(1.0 / 255.0)),
-                border: edge(0.09, 0.06),
-                radius: 8.0,
-            },
-            WidgetMaterial::Glass => solid(16.0),
-            WidgetMaterial::Acrylic => solid(8.0),
-            WidgetMaterial::Clear => Self {
-                fill: base.with_alpha((0.28 * look.opacity).max(1.0 / 255.0)),
-                border: edge(0.10, 0.08),
-                radius: 12.0,
-            },
-        }
-    }
-
-    fn panel(&self, r: &Renderer, at: Rect, radius: f32, scale: f32, border: bool) -> Result<()> {
-        r.fill_rounded(at, radius, self.fill)?;
-        if !border {
-            return Ok(());
-        }
-        r.stroke_rounded(at, radius, scale.max(1.0), self.border)
-    }
-}
-
 const DIALS_PER_ROW: usize = 3;
-/// A full tint still lets some of the blur through.
-const GLASS_MAX_TINT: f32 = 0.85;
 const PANEL_GAP_DIP: f32 = 8.0;
 pub const RESIZE_BAND_DIP: f32 = 8.0;
 
@@ -676,7 +627,7 @@ fn natural_size(
             let cells: f32 = contents
                 .iter()
                 .map(|(c, style)| {
-                    strip_width(&Section::new(c, *style, snapshot, history), &d, text, h)
+                    strip_width(&Section::new(c, *style, snapshot, history), &d, text)
                 })
                 .sum();
             let end = row_radius(look.row_radius, h).max(d.pad);
@@ -901,7 +852,10 @@ impl<'a> Section<'a> {
     fn lay_out_pairs(&mut self, d: &Dims, inner: f32, text: &dyn TextMeasure) {
         let half = (inner - d.gap) / 2.0;
         let fits = |&(label, value): &(&str, &str)| {
-            text.width(label, d.small_px) + text.width(value, d.small_px) + 4.0 * d.scale <= half
+            text.width(label, d.small_px)
+                + steady_width(text, value, None, d.small_px)
+                + 4.0 * d.scale
+                <= half
         };
         let wide: Vec<bool> = self.pairs.iter().map(|p| !fits(p)).collect();
         self.rows = pair_rows(&wide);
@@ -920,16 +874,12 @@ impl<'a> Section<'a> {
         }
     }
 
+    /// The room the value keeps at its widest.
     fn value_w(&self, text: &dyn TextMeasure, px: f32) -> f32 {
-        if self.content.stacked {
-            self.content
-                .readings
-                .iter()
-                .map(|r| text.width(&r.text(), px))
-                .fold(0.0, f32::max)
-        } else {
-            text.width(&self.content.value, px)
-        }
+        value_rows(self.content)
+            .iter()
+            .map(|(value, widest, _)| steady_width(text, value, Some(widest), px))
+            .fold(0.0, f32::max)
     }
 
     /// Height in the line styles.
@@ -1187,7 +1137,7 @@ impl Plan {
             let cell = if rings {
                 h * 0.85
             } else {
-                strip_width(s, d, text, h)
+                strip_width(s, d, text)
             };
             if used + cell > room {
                 break;
@@ -1293,18 +1243,29 @@ impl Plan {
     }
 }
 
-fn strip_stacked(s: &Section, d: &Dims, h: f32) -> bool {
-    s.content.stacked && h >= s.value_lines() as f32 * d.small_h
+fn strip_width(s: &Section, d: &Dims, text: &Text) -> f32 {
+    let dot = 6.0 * d.scale;
+    let title_w = text.width(s.content.title, d.small_px);
+    dot + d.gap / 1.5 + title_w + d.gap / 1.5 + strip_value_w(s, d, text) + d.gap
 }
 
-fn strip_width(s: &Section, d: &Dims, text: &Text, h: f32) -> f32 {
-    let dot = 6.0 * d.scale;
-    let value_w = if strip_stacked(s, d, h) {
-        s.value_w(text, d.small_px)
-    } else {
-        text.width(&s.content.value, d.font_px)
-    };
-    dot + d.gap / 1.5 + text.width(s.content.title, d.small_px) + d.gap / 1.5 + value_w + d.gap
+/// Readings sit side by side on the strip's one line, each in the room of
+/// its widest value.
+fn strip_value_w(s: &Section, d: &Dims, text: &dyn TextMeasure) -> f32 {
+    let c = s.content;
+    if c.readings.is_empty() {
+        return steady_width(text, &c.value, Some(&c.widest), d.font_px);
+    }
+    let gaps = (c.readings.len() - 1) as f32 * d.gap;
+    c.readings
+        .iter()
+        .map(|rd| {
+            text.width(&rd.name, d.font_px)
+                + d.gap / 2.0
+                + steady_width(text, &rd.value, Some(&rd.widest), d.font_px)
+        })
+        .sum::<f32>()
+        + gaps
 }
 
 /// The first number in `value`, such as the download rate of a network
@@ -1322,6 +1283,46 @@ fn first_number(value: &str) -> &str {
         .find(|c: char| !(c.is_ascii_digit() || c == '.' || c == ','))
         .unwrap_or(rest.len());
     &value[start..digits + end]
+}
+
+/// The value's lines with their widest forms: the readings one above the
+/// other when stacked, in their own colors.
+fn value_rows(c: &PopupContent) -> Vec<(String, String, Option<CellPart>)> {
+    if c.stacked {
+        c.readings
+            .iter()
+            .map(|rd| {
+                (
+                    rd.text(),
+                    format!("{} {}", rd.name, rd.widest),
+                    Some(rd.part),
+                )
+            })
+            .collect()
+    } else {
+        vec![(c.value.clone(), c.widest.clone(), None)]
+    }
+}
+
+/// `value` within `room`, keeping its widest room when that fits.
+fn draw_value(
+    r: &Renderer,
+    t: &Text,
+    px: f32,
+    (value, widest): (&str, &str),
+    (x, y): (f32, f32),
+    room: f32,
+    color: Color,
+) -> Result<f32> {
+    let format = t.format(px)?;
+    let steady = Steady::new(t, value, Some(widest), px);
+    if steady.width <= room {
+        steady.draw(r, t, &format, x, y, color)?;
+        return Ok(steady.width);
+    }
+    let value = ellipsize(value, room, px, t);
+    r.text_at(t, &format, &value, x, y, color)?;
+    Ok(t.width(&value, px))
 }
 
 /// Network shows two rates, which need a tile the whole width.
@@ -1445,19 +1446,19 @@ impl Ctx<'_> {
             w: at.w,
             h: bottom - d.gap / 2.0 - (baseline + d.gap),
         };
-        if let Some((min, max)) = &range {
+        if let Some((min, max, widest)) = &range {
             let (t, small) = (self.text, self.text.format(d.small_px)?);
             let mut x = at.x;
             for (label, value) in [(tr!("Min"), min), (tr!("Max"), max)] {
                 let label_w = t.width(label, d.small_px);
-                let value_w = t.width(value, d.small_px);
-                if x + label_w + d.gap / 2.0 + value_w > at.right() {
+                let value = Steady::new(t, value, Some(widest), d.small_px);
+                if x + label_w + d.gap / 2.0 + value.width > at.right() {
                     break;
                 }
                 r.text_at(t, &small, label, x, range_y, p.popup_label)?;
                 x += label_w + d.gap / 2.0;
-                r.text_at(t, &small, value, x, range_y, p.popup_text)?;
-                x += value_w + 2.0 * d.gap;
+                value.draw(r, t, &small, x, range_y, p.popup_text)?;
+                x += value.width + 2.0 * d.gap;
             }
         }
         if s.content.graph && graph.h >= 16.0 * d.scale {
@@ -1479,13 +1480,15 @@ impl Ctx<'_> {
         self.details(r, s, at, details)
     }
 
-    fn range(&self, s: &Section) -> Option<(String, String)> {
+    /// The lowest and highest reading, and the widest either can be.
+    fn range(&self, s: &Section) -> Option<(String, String, &'static str)> {
         let (histories, _) = self.series(s);
         let (_, history) = histories.first()?;
         let unit = metric_for(s.content.kind, s.content.series[0]).unit();
         Some((
             format_value(history.min()?, unit),
             format_value(history.max()?, unit),
+            widest_value(unit),
         ))
     }
 
@@ -1532,7 +1535,11 @@ impl Ctx<'_> {
             return self.stacked_values(r, s, room, big_px * STACK_SCALE);
         }
         let (number, unit) = split_unit(&c.value);
-        let unit_w = t.width(unit, d.font_px);
+        let (widest, widest_unit) = split_unit(&c.widest);
+        let unit_w = t
+            .width(unit, d.font_px)
+            .max(t.width(widest_unit, d.font_px));
+        let right = spans(&c.widest).first().is_some_and(|s| s.right);
         let big_h = t.line_height(big_px);
         let smallest = d.font_px * 1.25;
         let room = room - 2.0 * d.scale;
@@ -1540,23 +1547,41 @@ impl Ctx<'_> {
             .into_iter()
             .map(|f| (big_px * f).max(smallest))
             .chain([smallest])
-            .find(|&px| t.width(number, px) + unit_w <= room)
+            .find(|&px| steady_width(t, number, Some(widest), px) + unit_w <= room)
             .unwrap_or(smallest);
-        let number = ellipsize(number, room - unit_w, big_px, t);
         let base = p.graph(c.kind, c.series[0]);
         let loaded = p.graph_at(c.kind, c.series[0], s.latest);
         let color = if loaded == base { p.popup_text } else { loaded };
         let baseline = y + big_h;
         let number_y = baseline - t.line_height(big_px);
-        r.text_at(t, &t.format(big_px)?, &number, at.x, number_y, color)?;
-        let mut x = at.x + t.width(&number, big_px);
+        let font = t.format(big_px)?;
+        let steady = Steady::new(t, number, Some(widest), big_px);
+        let slot = steady.width.min(room - unit_w);
+        let number_w = if steady.width <= slot {
+            let number_w = t.width(number, big_px);
+            let x = if right { at.x + slot - number_w } else { at.x };
+            if right {
+                r.text_at(t, &font, number, x, number_y, color)?;
+            } else {
+                steady.draw(r, t, &font, x, number_y, color)?;
+            }
+            number_w
+        } else {
+            let number = ellipsize(number, slot, big_px, t);
+            r.text_at(t, &font, &number, at.x, number_y, color)?;
+            t.width(&number, big_px)
+        };
         if !unit.is_empty() {
-            x += d.scale * 2.0;
+            let x = if right { at.x + slot } else { at.x + number_w } + d.scale * 2.0;
             let unit_y = baseline - d.line_h - big_h * 0.06;
             r.text_at(t, &body, unit, x, unit_y, p.popup_label)?;
-            x += unit_w;
         }
-        Ok((baseline, x))
+        let unit_room = if unit_w > 0.0 {
+            d.scale * 2.0 + unit_w
+        } else {
+            0.0
+        };
+        Ok((baseline, at.x + slot + unit_room))
     }
 
     /// Returns the last baseline and the right end.
@@ -1586,7 +1611,9 @@ impl Ctx<'_> {
                 .iter()
                 .map(|rd| {
                     let (number, unit) = split_unit(&rd.value);
-                    t.width(number, px) + t.width(unit, d.font_px) + 2.0 * d.scale
+                    let (wide, wide_unit) = split_unit(&rd.widest);
+                    let unit_w = t.width(unit, d.font_px).max(t.width(wide_unit, d.font_px));
+                    t.width(number, px).max(t.width(wide, px)) + unit_w + 2.0 * d.scale
                 })
                 .fold(0.0, f32::max)
         };
@@ -1608,28 +1635,24 @@ impl Ctx<'_> {
             let name = ellipsize(&rd.name, name_w, d.font_px, t);
             r.text_at(t, &body, &name, x, small_y, p.graph(c.kind, rd.part))?;
             let (number, unit) = split_unit(&rd.value);
-            let unit_w = t.width(unit, d.font_px) + 2.0 * d.scale;
+            let (wide, wide_unit) = split_unit(&rd.widest);
+            let unit_w =
+                t.width(unit, d.font_px).max(t.width(wide_unit, d.font_px)) + 2.0 * d.scale;
             let unit = if unit_w < rate_w / 2.0 { unit } else { "" };
             let number_w = if unit.is_empty() {
                 rate_w
             } else {
                 rate_w - unit_w
             };
-            let number = ellipsize(number, number_w, px, t);
-            let mut end = rate_x;
-            r.text_at(
-                t,
-                &font,
-                &number,
-                end,
-                baseline - t.line_height(px),
-                p.popup_text,
-            )?;
-            end += t.width(&number, px);
+            let slot = t.width(number, px).max(t.width(wide, px)).min(number_w);
+            let number = ellipsize(number, slot, px, t);
+            let number_x = rate_x + slot - t.width(&number, px);
+            let y = baseline - t.line_height(px);
+            r.text_at(t, &font, &number, number_x, y, p.popup_text)?;
+            let mut end = rate_x + slot;
             if !unit.is_empty() {
-                end += 2.0 * d.scale;
-                r.text_at(t, &body, unit, end, small_y, p.popup_label)?;
-                end += unit_w - 2.0 * d.scale;
+                r.text_at(t, &body, unit, end + 2.0 * d.scale, small_y, p.popup_label)?;
+                end += unit_w;
             }
             right = right.max(end);
         }
@@ -1640,16 +1663,15 @@ impl Ctx<'_> {
         self.palette.graph(s.content.kind, s.content.series[0])
     }
 
-    fn value_rows(&self, s: &Section, color: Color) -> Vec<(String, Color)> {
+    fn value_rows(&self, s: &Section, color: Color) -> Vec<(String, String, Color)> {
         let c = s.content;
-        if c.stacked {
-            c.readings
-                .iter()
-                .map(|rd| (rd.text(), self.palette.graph(c.kind, rd.part)))
-                .collect()
-        } else {
-            vec![(c.value.clone(), color)]
-        }
+        value_rows(c)
+            .into_iter()
+            .map(|(value, widest, part)| {
+                let color = part.map_or(color, |part| self.palette.graph(c.kind, part));
+                (value, widest, color)
+            })
+            .collect()
     }
 
     fn fractions(&self, s: &Section) -> Vec<(f32, Color)> {
@@ -1691,10 +1713,12 @@ impl Ctx<'_> {
         let values = self.value_rows(s, self.accent(s));
         let lines = values.len() as f32;
         let mut value_x = at.right();
-        for (i, (value, color)) in values.iter().enumerate() {
-            let value = ellipsize(value, at.w * 0.7, d.font_px, t);
-            let x = at.right() - t.width(&value, d.font_px);
-            r.text_at(t, &body, &value, x, at.y + i as f32 * d.line_h, *color)?;
+        for (i, (value, widest, color)) in values.iter().enumerate() {
+            let room = at.w * 0.7;
+            let w = steady_width(t, value, Some(widest), d.font_px).min(room);
+            let x = at.right() - w;
+            let y = at.y + i as f32 * d.line_h;
+            draw_value(r, t, d.font_px, (value, widest), (x, y), room, *color)?;
             value_x = value_x.min(x);
         }
         let graph_x = at.x + column_title_w + d.gap;
@@ -1837,9 +1861,12 @@ impl Ctx<'_> {
                 for (i, x, w) in cells {
                     let (label, value) = s.pairs[i];
                     let label_w = t.width(label, d.small_px).min(w * 0.4);
-                    let value = ellipsize(value, w - label_w - 4.0 * d.scale, d.small_px, t);
-                    let value_w = t.width(&value, d.small_px);
-                    r.text_at(t, &small, &value, x + w - value_w, y, p.popup_text)?;
+                    let room = w - label_w - 4.0 * d.scale;
+                    let widest = widest_like(value);
+                    let value_w = steady_width(t, value, Some(&widest), d.small_px).min(room);
+                    let at = (x + w - value_w, y);
+                    let shown = (value, widest.as_str());
+                    draw_value(r, t, d.small_px, shown, at, room, p.popup_text)?;
                     let room = w - value_w - 4.0 * d.scale;
                     let label = ellipsize(label, room, d.small_px, t);
                     r.text_at(t, &small, &label, x, y, p.popup_label)?;
@@ -1860,7 +1887,6 @@ impl Ctx<'_> {
         if !self.bare_tiles {
             r.fill_rounded(at, 6.0 * d.scale, p.popup_border)?;
         }
-        let body = t.format(d.font_px)?;
         let small = t.format(d.small_px)?;
         let inner_x = at.x + d.tile_pad;
         let inner_w = at.w - 2.0 * d.tile_pad;
@@ -1868,10 +1894,10 @@ impl Ctx<'_> {
         r.text_at(t, &small, &title, inner_x, at.y + d.tile_pad, p.popup_label)?;
         let value_y = at.y + d.tile_pad + d.small_h;
         let values = self.value_rows(s, self.accent(s));
-        for (i, (value, color)) in values.iter().enumerate() {
-            let value = ellipsize(value, inner_w, d.font_px, t);
+        for (i, (value, widest, color)) in values.iter().enumerate() {
             let y = value_y + i as f32 * d.line_h;
-            r.text_at(t, &body, &value, inner_x, y, *color)?;
+            let at = (inner_x, y);
+            draw_value(r, t, d.font_px, (value, widest), at, inner_w, *color)?;
         }
         let graph = Rect {
             x: inner_x,
@@ -1913,17 +1939,15 @@ impl Ctx<'_> {
             let top = at.y + d.dial_text_top(values.len());
             let title = ellipsize(c.title, room, d.small_px, t);
             r.text_at(t, &small, &title, x, top, p.popup_label)?;
-            let body = t.format(d.font_px)?;
-            for (i, (value, color)) in values.iter().enumerate() {
-                let value = ellipsize(value, room, d.font_px, t);
+            for (i, (value, widest, color)) in values.iter().enumerate() {
                 let y = top + d.small_h + i as f32 * d.line_h;
-                r.text_at(t, &body, &value, x, y, *color)?;
+                draw_value(r, t, d.font_px, (value, widest), (x, y), room, *color)?;
             }
         } else {
             let inside = (d.dial - 2.0 * stroke - 4.0 * d.scale).max(1.0);
             let px = [d.font_px, d.small_px, d.small_px * 0.8]
                 .into_iter()
-                .find(|&px| t.width(&c.value, px) <= inside)
+                .find(|&px| steady_width(t, &c.value, Some(&c.widest), px) <= inside)
                 .unwrap_or(d.small_px * 0.8);
             let value = ellipsize(&c.value, inside, px, t);
             let x = center.0 - t.width(&value, px) / 2.0;
@@ -1942,7 +1966,7 @@ impl Ctx<'_> {
         let c = s.content;
         let middle = at.y + at.h / 2.0;
         let dot = 6.0 * d.scale;
-        let mut x = at.x + (at.w - strip_width(s, d, t, at.h) + d.gap) / 2.0;
+        let mut x = at.x + (at.w - strip_width(s, d, t) + d.gap) / 2.0;
         let mark = Rect {
             x,
             y: middle - dot / 2.0,
@@ -1962,20 +1986,26 @@ impl Ctx<'_> {
         )?;
         x += t.width(c.title, d.small_px) + d.gap / 1.5;
         let body = t.format(d.font_px)?;
-        let base = p.graph(c.kind, c.series[0]);
-        let loaded = p.graph_at(c.kind, c.series[0], s.latest);
-        let color = if loaded == base { p.popup_text } else { loaded };
-        if strip_stacked(s, d, at.h) {
-            let top = middle - s.value_lines() as f32 * d.small_h / 2.0;
-            for (i, rd) in c.readings.iter().enumerate() {
-                let value = ellipsize(&rd.text(), at.right() - x, d.small_px, t);
-                let y = top + i as f32 * d.small_h;
-                r.text_at(t, &small, &value, x, y, color)?;
+        let y = middle - d.line_h / 2.0;
+        if !c.readings.is_empty() {
+            for rd in &c.readings {
+                r.text_at(t, &body, &rd.name, x, y, p.graph(c.kind, rd.part))?;
+                x += t.width(&rd.name, d.font_px) + d.gap / 2.0;
+                let value = Steady::new(t, &rd.value, Some(&rd.widest), d.font_px);
+                value.draw(r, t, &body, x, y, p.popup_text)?;
+                x += value.width + d.gap;
             }
             return Ok(());
         }
+        let base = p.graph(c.kind, c.series[0]);
+        let loaded = p.graph_at(c.kind, c.series[0], s.latest);
+        let color = if loaded == base { p.popup_text } else { loaded };
+        let value = Steady::new(t, &c.value, Some(&c.widest), d.font_px);
+        if x + value.width <= at.right() {
+            return value.draw(r, t, &body, x, y, color);
+        }
         let value = ellipsize(&c.value, at.right() - x, d.font_px, t);
-        r.text_at(t, &body, &value, x, middle - d.line_h / 2.0, color)
+        r.text_at(t, &body, &value, x, y, color)
     }
 
     fn ring_cell(&self, r: &Renderer, s: &Section, at: Rect) -> Result<()> {
@@ -2003,13 +2033,15 @@ impl Ctx<'_> {
             p.popup_border,
         )?;
         let inside = size - 2.0 * stroke - 2.0 * d.scale;
-        let number = c
+        let (number, widest) = c
             .readings
             .first()
-            .map_or(first_number(&c.value), |rd| first_number(&rd.value));
+            .map_or((first_number(&c.value), first_number(&c.widest)), |rd| {
+                (first_number(&rd.value), first_number(&rd.widest))
+            });
         let px = [d.small_px, d.small_px * 0.8, d.small_px * 0.65]
             .into_iter()
-            .find(|&px| t.width(number, px) <= inside)
+            .find(|&px| t.width(number, px).max(t.width(widest, px)) <= inside)
             .unwrap_or(d.small_px * 0.65);
         let number = ellipsize(number, inside, px, t);
         let x = center.0 - t.width(&number, px) / 2.0;
@@ -2307,7 +2339,7 @@ mod tests {
             reorder: None,
             scale: 1.0,
             network_floor: NetworkFloor::default(),
-            material: WidgetMaterial::Glass,
+            material: Material::Glass,
             separate,
             transparency: true,
             alpha: 255,
@@ -2408,38 +2440,6 @@ mod tests {
             plan.placed[2].rect.y, plan.placed[3].rect.y,
             "tiles still share a row"
         );
-    }
-
-    #[test]
-    fn every_blurred_material_still_takes_the_mouse_when_fully_clear() {
-        let config = pulsar_core::config::Config::default();
-        let palette = Palette::new(false, &config, None, &crate::theme::Theme::windows());
-        for material in [WidgetMaterial::Glass, WidgetMaterial::Acrylic] {
-            let look = Look {
-                column_w: 300.0,
-                max_h: 600.0,
-                font_px: 12.0,
-                opacity: 0.0,
-                background: None,
-                reorder: None,
-                scale: 1.0,
-                network_floor: NetworkFloor::default(),
-                material,
-                separate: true,
-                transparency: true,
-                alpha: 255,
-                size: None,
-                layout: WidgetLayout::Auto,
-                row_radius: None,
-                glass_tint: 0.0,
-                focus: FocusView::default(),
-                border: false,
-            };
-            assert!(
-                Skin::new(&look, &palette, true).fill.a > 0.0,
-                "{material:?}"
-            );
-        }
     }
 
     #[test]
@@ -2606,7 +2606,7 @@ mod tests {
             reorder: None,
             scale: 1.0,
             network_floor: NetworkFloor::default(),
-            material: WidgetMaterial::Glass,
+            material: Material::Glass,
             separate: true,
             transparency: true,
             alpha: 255,
@@ -2683,7 +2683,7 @@ mod tests {
             reorder: None,
             scale: 1.0,
             network_floor: NetworkFloor::default(),
-            material: WidgetMaterial::Glass,
+            material: Material::Glass,
             separate: false,
             transparency: true,
             alpha: 255,
@@ -2758,7 +2758,7 @@ mod tests {
             reorder: None,
             scale: 1.0,
             network_floor: NetworkFloor::default(),
-            material: WidgetMaterial::Glass,
+            material: Material::Glass,
             separate: false,
             transparency: true,
             alpha: 255,
@@ -2804,6 +2804,55 @@ mod tests {
     }
 
     #[test]
+    fn changing_values_keep_every_layout_width_still() {
+        use pulsar_core::config::Config;
+        let text = Text::new(None, false).unwrap();
+        let config = Config::default();
+        let (mut snapshot, history) = sample();
+        let look = Look {
+            column_w: 300.0,
+            max_h: 1000.0,
+            font_px: 12.0,
+            opacity: 1.0,
+            background: None,
+            reorder: None,
+            scale: 1.0,
+            network_floor: NetworkFloor::default(),
+            material: Material::Glass,
+            separate: false,
+            transparency: true,
+            alpha: 255,
+            size: None,
+            layout: WidgetLayout::Strip,
+            row_radius: None,
+            glass_tint: 0.0,
+            focus: FocusView::default(),
+            border: true,
+        };
+        let d = Dims::new(&text, &look, look.column_w);
+        let kinds = [ItemKind::Fps, ItemKind::Network, ItemKind::Cpu];
+        let mut widths = |fps: f64, down: f64| {
+            snapshot.set(MetricKey::FrameRate, fps);
+            snapshot.set(MetricKey::NetDownBps, down);
+            snapshot.set(MetricKey::CpuTotal, fps.min(100.0));
+            kinds
+                .iter()
+                .map(|&kind| {
+                    let mut options =
+                        crate::popup::content::Options::new(&config, kind, &snapshot.gpus);
+                    options.network_stacked = true;
+                    let c = crate::popup::content::build_with(kind, &snapshot, &history, &options);
+                    let style = WidgetStyle::Sparklines;
+                    let s = Section::new(&c, style, &snapshot, &history);
+                    (strip_width(&s, &d, &text), s.value_w(&text, d.font_px))
+                })
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(widths(0.0, 0.0), widths(60.0, 120.0 * 1024.0 * 1024.0));
+        assert_eq!(widths(f64::NAN, f64::NAN), widths(144.0, 5_000.0));
+    }
+
+    #[test]
     fn a_row_keeps_what_fits_and_a_sized_widget_drops_what_does_not() {
         use pulsar_core::config::Config;
         let text = Text::new(None, false).unwrap();
@@ -2832,7 +2881,7 @@ mod tests {
             reorder: None,
             scale: 1.0,
             network_floor: NetworkFloor::default(),
-            material: WidgetMaterial::Glass,
+            material: Material::Glass,
             separate: true,
             transparency: true,
             alpha: 255,

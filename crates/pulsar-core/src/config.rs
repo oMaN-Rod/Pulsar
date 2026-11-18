@@ -84,16 +84,6 @@ pub enum PopupDetail {
     Detailed,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum PopupBackground {
-    Solid,
-    /// The blurred system material behind flyouts; solid where Windows
-    /// does not offer it.
-    #[default]
-    Translucent,
-}
-
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TemperatureUnit {
@@ -137,7 +127,9 @@ pub struct Units {
 #[serde(default)]
 pub struct PopupConfig {
     pub detail: PopupDetail,
-    pub background: PopupBackground,
+    pub background: Material,
+    /// 0–100: how strongly the popup color tints Glass and Liquid glass.
+    pub glass_tint: u8,
     pub graph: bool,
     /// Rows in top-process lists; 0 leaves the lists out.
     pub processes: u8,
@@ -285,19 +277,26 @@ pub const FOCUS_TRANSITIONS_MS: std::ops::RangeInclusive<u16> = 100..=1500;
 pub const WIDGET_CHOSEN_WIDTHS: std::ops::RangeInclusive<u16> = 100..=2400;
 pub const WIDGET_CHOSEN_HEIGHTS: std::ops::RangeInclusive<u16> = 32..=1600;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+/// The blurring materials are solid where Windows does not offer blur.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum WidgetMaterial {
+pub enum Material {
     #[default]
     Solid,
     Glass,
+    Liquid,
+    #[serde(alias = "translucent")]
     Acrylic,
     Clear,
 }
 
-impl WidgetMaterial {
+impl Material {
     pub fn blurs(self) -> bool {
-        matches!(self, Self::Glass | Self::Acrylic)
+        matches!(self, Self::Glass | Self::Liquid | Self::Acrylic)
+    }
+
+    pub fn tinted(self) -> bool {
+        matches!(self, Self::Glass | Self::Liquid)
     }
 }
 
@@ -308,14 +307,14 @@ pub struct WidgetConfig {
     pub enabled: bool,
     pub layer: WidgetLayer,
     pub style: WidgetStyle,
-    pub material: WidgetMaterial,
+    pub material: Material,
     pub separate: bool,
     pub dock: DockConfig,
     pub sizing: WidgetSizing,
     pub layout: WidgetLayout,
     /// DIPs at the corners of the Strip and Rings layouts; `None` rounds the ends fully.
     pub row_radius: Option<u8>,
-    /// 0–100: how strongly the background color tints the Glass material.
+    /// 0–100: how strongly the background color tints Glass and Liquid glass.
     pub glass_tint: u8,
     pub border: bool,
     pub network_inline: bool,
@@ -353,7 +352,7 @@ impl Default for WidgetConfig {
             enabled: false,
             layer: WidgetLayer::default(),
             style: WidgetStyle::default(),
-            material: WidgetMaterial::default(),
+            material: Material::default(),
             separate: false,
             dock: DockConfig::default(),
             sizing: WidgetSizing::default(),
@@ -977,7 +976,8 @@ impl Default for PopupConfig {
     fn default() -> Self {
         Self {
             detail: PopupDetail::Standard,
-            background: PopupBackground::Translucent,
+            background: Material::Acrylic,
+            glass_tint: 30,
             graph: true,
             processes: 5,
             width: 300,
@@ -1175,6 +1175,7 @@ impl Config {
         }
         self.ping.interval_ms = self.ping.interval_ms.clamp(1000, 60_000);
         self.popup.processes = self.popup.processes.min(MAX_POPUP_PROCESSES);
+        self.popup.glass_tint = self.popup.glass_tint.min(100);
         let width = |w: u16| w.clamp(*POPUP_WIDTHS.start(), *POPUP_WIDTHS.end());
         let graph = |h: u16| h.clamp(*POPUP_GRAPH_HEIGHTS.start(), *POPUP_GRAPH_HEIGHTS.end());
         self.popup.width = width(self.popup.width);
@@ -1801,12 +1802,14 @@ sample_interval_ms = 1
         c.display.shape_radius = Some(200);
         c.widget.row_radius = Some(200);
         c.widget.glass_tint = 250;
+        c.popup.glass_tint = 250;
         c.widget.focus_interval_s = 0;
         c.widget.focus_transition_ms = u16::MAX;
         let c = c.sanitize();
         assert_eq!(c.display.shape_radius, Some(*SHAPE_RADII.end()));
         assert_eq!(c.widget.row_radius, Some(*ROW_RADII.end()));
         assert_eq!(c.widget.glass_tint, 100);
+        assert_eq!(c.popup.glass_tint, 100);
         assert_eq!(c.widget.focus_interval_s, *FOCUS_INTERVALS_S.start());
         assert_eq!(c.widget.focus_transition_ms, *FOCUS_TRANSITIONS_MS.end());
     }
@@ -2349,7 +2352,7 @@ on = true
         c.disk.value = DriveValue::Used;
         c.network.adapters = vec!["Realtek 2.5GbE".into(), "Intel[R] Wi-Fi".into()];
         c.gpu.adapters = vec!["NVIDIA GeForce RTX 4090".into()];
-        c.widget.material = WidgetMaterial::Glass;
+        c.widget.material = Material::Glass;
         c.widget.separate = true;
         c.widget.style = WidgetStyle::Cards;
         c.widget.sizing = WidgetSizing::Chosen;
@@ -2500,6 +2503,20 @@ kind = \"cpu\"
     }
 
     #[test]
+    fn translucent_popups_from_older_versions_load_as_acrylic() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(
+            &path,
+            "[popup]
+background = \"translucent\"
+",
+        )
+        .unwrap();
+        assert_eq!(load(&path).config.popup.background, Material::Acrylic);
+    }
+
+    #[test]
     fn styles_units_and_popups_round_trip() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("config.toml");
@@ -2510,7 +2527,8 @@ kind = \"cpu\"
         c.display.label_color_light = Some("#202020".into());
         c.popup = PopupConfig {
             detail: PopupDetail::Detailed,
-            background: PopupBackground::Solid,
+            background: Material::Liquid,
+            glass_tint: 55,
             graph: false,
             processes: 8,
             width: 420,

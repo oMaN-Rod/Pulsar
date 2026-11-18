@@ -1,5 +1,5 @@
 use pulsar_core::config::{
-    ColorMode, Config, DisplayMode, GraphStyle, LabelStyle, MAX_POPUP_PROCESSES, PopupBackground,
+    ColorMode, Config, DisplayMode, GraphStyle, LabelStyle, MAX_POPUP_PROCESSES, Material,
     PopupDetail, Position, RateUnit, TemperatureUnit, WidgetStyle,
 };
 use pulsar_core::metric::ItemKind;
@@ -57,7 +57,7 @@ pub enum Toggle {
 pub enum Edit {
     PopupDetail(PopupDetail),
     PopupGraph,
-    PopupTranslucent,
+    PopupMaterial(Material),
     PopupProcesses(u8),
     Temperature(TemperatureUnit),
     Network(RateUnit),
@@ -125,12 +125,7 @@ pub fn apply_edit(c: &mut Config, e: Edit) {
     match e {
         Edit::PopupDetail(detail) => c.popup.detail = detail,
         Edit::PopupGraph => c.popup.graph = !c.popup.graph,
-        Edit::PopupTranslucent => {
-            c.popup.background = match c.popup.background {
-                PopupBackground::Solid => PopupBackground::Translucent,
-                PopupBackground::Translucent => PopupBackground::Solid,
-            }
-        }
+        Edit::PopupMaterial(material) => c.popup.background = material,
         Edit::PopupProcesses(n) => c.popup.processes = n.min(MAX_POPUP_PROCESSES),
         Edit::Temperature(unit) => c.units.temperature = unit,
         Edit::Network(unit) => c.units.network = unit,
@@ -211,7 +206,6 @@ const ID_VERTICAL_LABELS: usize = 19;
 /// Plus the index into `DETAILS`.
 const ID_POPUP_DETAIL: usize = 20;
 const ID_POPUP_GRAPH: usize = 25;
-const ID_POPUP_TRANSLUCENT: usize = 26;
 /// Plus the index into `PROCESS_COUNTS`.
 const ID_PROCESSES: usize = 30;
 const ID_CELSIUS: usize = 40;
@@ -219,6 +213,8 @@ const ID_FAHRENHEIT: usize = 41;
 const ID_BYTES: usize = 42;
 const ID_BITS: usize = 43;
 const ID_UPLOAD_ON_TOP: usize = 44;
+/// Plus the index into `MATERIALS`.
+const ID_POPUP_MATERIAL: usize = 45;
 /// Plus the index into `INTERVALS_MS`.
 const ID_INTERVAL: usize = 50;
 /// Plus the index into `AppState::profiles`.
@@ -311,7 +307,6 @@ pub fn command_for(id: usize) -> Option<Command> {
         ID_TASK_MANAGER => Some(Command::TaskManager),
         ID_EXIT => Some(Command::Exit),
         ID_POPUP_GRAPH => edit(Edit::PopupGraph),
-        ID_POPUP_TRANSLUCENT => edit(Edit::PopupTranslucent),
         ID_CELSIUS => edit(Edit::Temperature(TemperatureUnit::Celsius)),
         ID_FAHRENHEIT => edit(Edit::Temperature(TemperatureUnit::Fahrenheit)),
         ID_BYTES => edit(Edit::Network(RateUnit::Bytes)),
@@ -319,6 +314,9 @@ pub fn command_for(id: usize) -> Option<Command> {
         ID_UPLOAD_ON_TOP => edit(Edit::UploadOnTop),
         _ if in_range(ID_POPUP_DETAIL, DETAILS.len()) => {
             edit(Edit::PopupDetail(DETAILS[id - ID_POPUP_DETAIL]))
+        }
+        _ if in_range(ID_POPUP_MATERIAL, MATERIALS.len()) => {
+            edit(Edit::PopupMaterial(MATERIALS[id - ID_POPUP_MATERIAL]))
         }
         _ if in_range(ID_PROCESSES, PROCESS_COUNTS.len()) => {
             edit(Edit::PopupProcesses(PROCESS_COUNTS[id - ID_PROCESSES]))
@@ -493,6 +491,24 @@ fn widget_item_menu(config: &Config, kind: ItemKind) -> Option<Menu> {
     Some(menu)
 }
 
+const MATERIALS: [Material; 5] = [
+    Material::Solid,
+    Material::Glass,
+    Material::Liquid,
+    Material::Acrylic,
+    Material::Clear,
+];
+
+fn material_name(material: Material) -> &'static str {
+    match material {
+        Material::Solid => tr!("Solid"),
+        Material::Glass => tr!("Glass"),
+        Material::Liquid => tr!("Liquid glass"),
+        Material::Acrylic => tr!("Acrylic"),
+        Material::Clear => tr!("Clear"),
+    }
+}
+
 fn items_menu(config: &Config) -> Option<Menu> {
     let menu = Menu::new()?;
     for item in ItemKind::ALL {
@@ -510,13 +526,17 @@ fn popup_menu(config: &Config) -> Option<Menu> {
     }
     menu.separator();
     menu.item(ID_POPUP_GRAPH, tr!("Graph"), config.popup.graph, true);
-    let translucent = config.popup.background == PopupBackground::Translucent;
-    menu.item(
-        ID_POPUP_TRANSLUCENT,
-        tr!("Translucent background"),
-        translucent,
-        true,
-    );
+    let materials = Menu::new()?;
+    for (i, material) in MATERIALS.into_iter().enumerate() {
+        let checked = config.popup.background == material;
+        materials.item(
+            ID_POPUP_MATERIAL + i,
+            material_name(material),
+            checked,
+            true,
+        );
+    }
+    menu.submenu(materials, tr!("Background"));
     let processes = Menu::new()?;
     for (i, &n) in PROCESS_COUNTS.iter().enumerate() {
         let text = if n == 0 {
@@ -939,12 +959,14 @@ mod tests {
         apply_edit(&mut c, Edit::Temperature(TemperatureUnit::Fahrenheit));
         apply_edit(&mut c, Edit::UploadOnTop);
         apply_edit(&mut c, Edit::PopupProcesses(200));
-        apply_edit(&mut c, Edit::PopupTranslucent);
-        assert_eq!(c.popup.background, PopupBackground::Solid);
-        assert_eq!(
-            command_for(ID_POPUP_TRANSLUCENT),
-            Some(Command::Edit(Edit::PopupTranslucent))
-        );
+        apply_edit(&mut c, Edit::PopupMaterial(Material::Liquid));
+        assert_eq!(c.popup.background, Material::Liquid);
+        for (i, material) in MATERIALS.into_iter().enumerate() {
+            assert_eq!(
+                command_for(ID_POPUP_MATERIAL + i),
+                Some(Command::Edit(Edit::PopupMaterial(material)))
+            );
+        }
         assert_eq!(c.units.temperature, TemperatureUnit::Fahrenheit);
         assert!(c.display.upload_on_top);
         assert_eq!(c.popup.processes, MAX_POPUP_PROCESSES);

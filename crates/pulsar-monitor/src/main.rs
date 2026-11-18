@@ -19,6 +19,8 @@ mod power;
 mod render;
 mod reveal;
 mod sampler_thread;
+mod skin;
+mod steady;
 mod taskbar;
 mod text;
 mod theme;

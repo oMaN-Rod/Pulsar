@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DETAILS, type Detail } from '../../profile.ts';
+  import { DETAILS, WIDGET_MATERIALS, type Detail } from '../../profile.ts';
   import { app } from '../../state.svelte.ts';
   import CheckField from '../fields/CheckField.svelte';
   import RangeField from '../fields/RangeField.svelte';
@@ -16,14 +16,21 @@
   onchange={(v) => (app.profile.popupDetail = v)}
 />
 <SegField
-  name="Background"
+  name="Material"
   value={pop.background}
-  options={[
-    ['translucent', 'Translucent'],
-    ['solid', 'Solid'],
-  ]}
+  options={WIDGET_MATERIALS.map((m) => [m.id, m.name])}
   onchange={(v) => (pop.background = v)}
 />
+{#if pop.background === 'glass' || pop.background === 'liquid'}
+  <RangeField
+    name="Glass tint"
+    min={0}
+    max={100}
+    value={pop.glassTint}
+    output={pop.glassTint ? `${pop.glassTint}%` : 'Clear glass'}
+    oninput={(v) => (pop.glassTint = v)}
+  />
+{/if}
 <CheckField name="Show the graph" bind:checked={pop.graph} />
 <RangeField
   name="Width"
