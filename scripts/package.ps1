@@ -5,10 +5,16 @@ Builds Pulsar and writes the installer, portable zip and checksums to dist\.
 A release tag such as v0.2.0; the build fails unless it matches Cargo.toml.
 .PARAMETER SkipBuild
 Package the existing target\release binaries.
+.PARAMETER BinDir
+Package the binaries in this directory instead, such as signed ones; implies -SkipBuild.
+.PARAMETER NoChecksums
+Leave out SHA256SUMS.txt and the winget manifests, for an installer signed afterwards.
 #>
 param(
     [string]$ExpectVersion,
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+    [string]$BinDir,
+    [switch]$NoChecksums
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
@@ -20,7 +26,9 @@ if ($ExpectVersion -and $ExpectVersion.TrimStart('v') -ne $version) {
     throw "Tag $ExpectVersion does not match the Cargo.toml version $version"
 }
 
-if (-not $SkipBuild) {
+if ($BinDir) {
+    $BinDir = (Resolve-Path $BinDir).Path
+} elseif (-not $SkipBuild) {
     cargo build --release --locked
     if ($LASTEXITCODE) { throw 'cargo build failed' }
 }
@@ -39,7 +47,9 @@ $dist = Join-Path $root 'dist'
 if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
 $stage = Join-Path $dist 'stage'
 New-Item -ItemType Directory -Force $stage | Out-Null
-Copy-Item target\release\pulsar.exe, target\release\pulsar-settings.exe, target\release\pulsar-details.exe, target\release\pulsar-sensors.exe, README.md $stage
+if (-not $BinDir) { $BinDir = Join-Path $root 'target\release' }
+$exes = 'pulsar.exe', 'pulsar-settings.exe', 'pulsar-details.exe', 'pulsar-sensors.exe'
+Copy-Item (($exes | ForEach-Object { Join-Path $BinDir $_ }) + 'README.md') $stage
 Copy-Item LICENSE (Join-Path $stage 'LICENSE.txt')
 
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath (Join-Path $dist "pulsar-$version-portable.zip")
@@ -48,9 +58,5 @@ Compress-Archive -Path (Join-Path $stage '*') -DestinationPath (Join-Path $dist 
 if ($LASTEXITCODE) { throw 'Inno Setup failed' }
 
 Remove-Item $stage -Recurse -Force
-$sums = Get-ChildItem $dist -File | ForEach-Object {
-    '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
-}
-Set-Content -Path (Join-Path $dist 'SHA256SUMS.txt') -Value $sums -Encoding ascii
-& (Join-Path $PSScriptRoot 'winget.ps1') -Version $version
+if (-not $NoChecksums) { & (Join-Path $PSScriptRoot 'checksums.ps1') -Version $version }
 Get-ChildItem $dist | ForEach-Object { Write-Host $_.Name }

@@ -3,8 +3,10 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
@@ -13,12 +15,61 @@ jobs:
     env:
       TAG: ${{ github.ref_name }}
       REPO: ${{ github.repository }}
+      SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+      SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+      SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'test-signing' }}
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --workspace --locked
+      - name: Check the SignPath settings
+        shell: pwsh
+        env:
+          HAS_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+        run: |
+          if (-not $env:SIGNPATH_ORGANIZATION_ID -or -not $env:SIGNPATH_PROJECT_SLUG) {
+            throw 'Set the SIGNPATH_ORGANIZATION_ID and SIGNPATH_PROJECT_SLUG repository variables'
+          }
+          if ($env:HAS_TOKEN -ne 'true') { throw 'Set the SIGNPATH_API_TOKEN repository secret' }
+      - name: Read the version
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"' |
+            Select-Object -First 1).Matches[0].Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:TAG.TrimStart('v') -ne $version) {
+            throw "Tag $env:TAG does not match the Cargo.toml version $version"
+          }
+          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append -Encoding utf8
+      - run: cargo build --release --locked
+      - name: Stage the binaries
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force unsigned | Out-Null
+          $exes = 'pulsar.exe', 'pulsar-settings.exe', 'pulsar-details.exe', 'pulsar-sensors.exe'
+          Copy-Item ($exes | ForEach-Object { "target/release/$_" }) unsigned
+      - uses: actions/upload-artifact@v4
+        id: unsigned-binaries
+        with:
+          name: unsigned-binaries
+          path: unsigned/*.exe
+          if-no-files-found: error
+      - name: Sign the binaries
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ env.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ env.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: binaries
+          github-artifact-id: ${{ steps.unsigned-binaries.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed/binaries
+          parameters: |
+            version: ${{ toJSON(steps.version.outputs.version) }}
       - name: Install Inno Setup 7
         shell: pwsh
         env:
@@ -35,12 +86,54 @@ jobs:
           $dir | Out-File $env:GITHUB_PATH -Append -Encoding utf8
       - name: Package
         shell: pwsh
-        run: ./scripts/package.ps1 -ExpectVersion $env:TAG
+        run: ./scripts/package.ps1 -BinDir signed/binaries -NoChecksums
+      - uses: actions/upload-artifact@v4
+        id: unsigned-installer
+        with:
+          name: unsigned-installer
+          path: dist/pulsar-${{ steps.version.outputs.version }}-setup.exe
+          if-no-files-found: error
+      - name: Sign the installer
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ env.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ env.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed/installer
+          parameters: |
+            version: ${{ toJSON(steps.version.outputs.version) }}
+      - name: Check the signatures and write the checksums
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          Copy-Item "signed/installer/pulsar-$env:VERSION-setup.exe" dist -Force
+          $files = @(Get-ChildItem signed/binaries/*.exe) + (Get-Item "dist/pulsar-$env:VERSION-setup.exe")
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature $file.FullName
+            if (-not $signature.SignerCertificate) { throw "$($file.Name) is not signed" }
+            '{0}: {1} ({2})' -f $file.Name, $signature.SignerCertificate.Subject, $signature.Status
+          }
+          ./scripts/checksums.ps1 -Version $env:VERSION
       - uses: actions/upload-artifact@v4
         with:
           name: winget-manifests-${{ github.ref_name }}
           path: dist/winget
+      - uses: actions/upload-artifact@v4
+        if: github.ref_type != 'tag'
+        with:
+          name: dist-${{ github.sha }}
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/SHA256SUMS.txt
       - name: Draft the release
+        if: github.ref_type == 'tag'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
