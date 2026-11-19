@@ -55,7 +55,7 @@ Pulsar needs Windows 11.
 | **Portable** | Download the zip from [Releases](https://github.com/oMaN-Rod/Pulsar/releases), extract it anywhere and run `pulsar.exe`. |
 | **Cargo** | `cargo install --locked pulsar-monitor`, then run `pulsar`. |
 
-The installer and every program in it are code-signed; see the [code signing policy](#code-signing-policy). While a new release builds up reputation, SmartScreen may still warn about it. Choose **More info → Run anyway**, after checking that the publisher is SignPath Foundation.
+Code signing through the SignPath Foundation starts with the next release; see the [code signing policy](#code-signing-policy). Until then, and while a new signed release builds up reputation, SmartScreen may warn that the installer is from an unknown publisher. Choose **More info → Run anyway**.
 
 <details>
 <summary><b>More about installing with Cargo</b></summary>
