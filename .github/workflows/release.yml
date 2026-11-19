@@ -95,17 +95,18 @@ jobs:
           [xml]$config = Get-Content .signpath/artifact-configurations/installer.xml -Raw
           $file = $config.'artifact-configuration'.'zip-file'.'pe-file'
           $info = (Get-Item "dist/pulsar-$env:VERSION-setup.exe").VersionInfo
-          $fields = @{
-            'product-name'    = 'ProductName'
-            'company-name'    = 'CompanyName'
-            'product-version' = 'ProductVersion'
-            'file-version'    = 'FileVersion'
-          }
-          foreach ($attribute in $fields.Keys) {
-            $expected = $file.GetAttribute($attribute).Replace('${version}', $env:VERSION)
-            $actual = $info.($fields[$attribute])
+          foreach ($field in @(
+              @{ Attribute = 'product-name'; Property = 'ProductName' },
+              @{ Attribute = 'company-name'; Property = 'CompanyName' })) {
+            $expected = $file.GetAttribute($field.Attribute)
+            $actual = $info.($field.Property)
             if ($actual -cne $expected) {
-              throw "Installer $attribute is '$actual' ($($actual.Length) characters), but installer.xml expects '$expected' ($($expected.Length)); update installer.xml and upload it to SignPath"
+              throw "Installer $($field.Attribute) is '$actual' ($($actual.Length) characters), but installer.xml expects '$expected' ($($expected.Length)); update installer.xml and upload it to SignPath"
+            }
+          }
+          foreach ($property in 'ProductVersion', 'FileVersion') {
+            if ($info.$property.Trim() -cne $env:VERSION) {
+              throw "Installer $property is '$($info.$property)', expected $env:VERSION"
             }
           }
       - uses: actions/upload-artifact@v4
