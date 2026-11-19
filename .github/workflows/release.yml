@@ -139,4 +139,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create $env:TAG (Get-ChildItem dist -File).FullName `
-            --repo $env:REPO --draft --title "Pulsar $env:TAG" --generate-notes
+            --repo $env:REPO --draft --title "Pulsar $env:TAG" --generate-notes `
+            --notes "Signed by SignPath Foundation; see the [code signing policy](https://github.com/oMaN-Rod/Pulsar#code-signing-policy)."

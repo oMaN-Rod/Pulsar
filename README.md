@@ -21,7 +21,8 @@
   <a href="#system-details-window">Details window</a> ·
   <a href="#using-pulsar">Use</a> ·
   <a href="#sensor-service">Sensor service</a> ·
-  <a href="#troubleshooting">Troubleshooting</a>
+  <a href="#troubleshooting">Troubleshooting</a> ·
+  <a href="#code-signing-policy">Code signing policy</a>
 </p>
 
 ---
@@ -54,8 +55,7 @@ Pulsar needs Windows 11.
 | **Portable** | Download the zip from [Releases](https://github.com/oMaN-Rod/Pulsar/releases), extract it anywhere and run `pulsar.exe`. |
 | **Cargo** | `cargo install --locked pulsar-monitor`, then run `pulsar`. |
 
-> [!WARNING]
-> Releases are not code-signed yet, so SmartScreen may warn that the installer is from an unknown publisher. Choose **More info → Run anyway**. Signing through the SignPath Foundation is planned.
+The installer and every program in it are code-signed; see the [code signing policy](#code-signing-policy). While a new release builds up reputation, SmartScreen may still warn about it. Choose **More info → Run anyway**, after checking that the publisher is SignPath Foundation.
 
 <details>
 <summary><b>More about installing with Cargo</b></summary>
@@ -533,10 +533,27 @@ Pulsar is available in English, Spanish (Español), Simplified Chinese (简体�
 
 Pulsar makes only two kinds of network request:
 
-- **Ping:** pings the host you choose. Ping is off until you enable the Ping item.
+- **Ping:** pings the host you choose, `1.1.1.1` unless you change it. Ping is off until you enable the Ping item.
 - **Update check:** asks GitHub's releases API about new versions once a day. Turn it off in *Settings → General*. Nothing is ever downloaded or installed automatically.
 
+The installer goes online only if you tick PawnIO on its *CPU temperature* page, when it runs `winget install namazso.PawnIO`.
+
 There is no telemetry.
+
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org).
+
+Only the installer and the programs built from this repository are signed: `pulsar.exe`, `pulsar-settings.exe`, `pulsar-details.exe` and `pulsar-sensors.exe`. They are built and submitted for signing by the [Release workflow](https://github.com/oMaN-Rod/Pulsar/blob/main/.github/workflows/release.yml) on GitHub-hosted runners, from a release tag, and each release is approved by hand before it is signed. The PawnIO driver that the optional sensor service uses is not built here and is not signed by this project.
+
+| Role | Members |
+|---|---|
+| Committers and reviewers | [oMaN-Rod](https://github.com/oMaN-Rod) |
+| Approvers | [oMaN-Rod](https://github.com/oMaN-Rod) |
+
+Changes from anyone else arrive as pull requests and are reviewed before they are merged.
+
+Privacy policy: see [Privacy](#privacy), which lists every network request Pulsar and its installer can make, and how to turn each off.
 
 ## Troubleshooting
 
