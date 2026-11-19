@@ -63,6 +63,6 @@ The installer's `AppId` GUID (`8F3B6C1E-3D8A-4B8E-9C61-5A2E7D4F0B19`) must never
 
 ## Code signing
 
-The Release workflow sends two signing requests to SignPath and waits up to an hour for each: first the four programs, then the installer built from them. Approve each in SignPath under the project's signing requests. The artifact configurations only accept files whose details name the product Pulsar, the company oMaN-Rod and the release's version. The uninstaller that Inno Setup writes is not signed.
+The Release workflow sends two signing requests to SignPath and waits up to an hour for each: first the four programs, then the installer built from them. Approve each in SignPath under the project's signing requests. The artifact configurations only accept files whose details name the product Pulsar, the company oMaN-Rod and the release's version. The uninstaller that Inno Setup writes is not signed. Inno Setup pads the installer's version strings with spaces, so `installer.xml` spells out that padding for a five-character version such as `0.9.0`; a version of another length needs it adjusted and uploaded to SignPath again, and the workflow stops before signing until it is.
 
 To try signing without a release, run the workflow by hand on a branch, such as `gh workflow run release.yml --ref <branch>`. That run uploads the signed files as the artifact `dist-<commit>` instead of drafting a release.
