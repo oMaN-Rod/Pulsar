@@ -2,9 +2,12 @@
 <artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
   <parameters>
     <parameter name="version" required="true" />
+    <parameter name="paddedProductVersion" required="true" />
+    <parameter name="paddedFileVersion" required="true" />
   </parameters>
   <zip-file>
-    <pe-file path="pulsar-${version}-setup.exe" product-name="Pulsar" company-name="oMaN-Rod" product-version="${version}" file-version="${version}">
+    <!-- Inno Setup pads its version strings with spaces to fixed widths: 60, 50 and 20 characters. -->
+    <pe-file path="pulsar-${version}-setup.exe" product-name="Pulsar                                                      " company-name="oMaN-Rod                                                    " product-version="${paddedProductVersion}" file-version="${paddedFileVersion}">
       <authenticode-sign />
     </pe-file>
   </zip-file>
